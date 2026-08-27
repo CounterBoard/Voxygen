@@ -14,7 +14,7 @@ const TERRITORIES = [];
 
 // Fill this in once the voxygen-bot Worker is deployed, e.g.
 // "https://voxygen-bot.your-subdomain.workers.dev"
-const API_BASE = 'https://voxygen-bot.YOUR-SUBDOMAIN.workers.dev';
+const API_BASE = 'https://voxygen.aleksejletunov23.workers.dev';
 
 // The inspector's fixed identity. Once the app is opened inside Telegram,
 // Telegram.WebApp.initDataUnsafe.user is compared against this to recognise
