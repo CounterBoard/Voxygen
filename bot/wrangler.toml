@@ -1,0 +1,8 @@
+name = "voxygen-bot"
+main = "src/worker.js"
+compatibility_date = "2026-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "voxygen"
+database_id = "PASTE_YOUR_D1_DATABASE_ID_HERE"
