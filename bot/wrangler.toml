@@ -5,4 +5,4 @@ compatibility_date = "2026-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "voxygen"
-database_id = "PASTE_YOUR_D1_DATABASE_ID_HERE"
+database_id = "1d7fb0f9-60ef-4afd-b10b-46cd572d2a25"
