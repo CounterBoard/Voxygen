@@ -1,32 +1,85 @@
-// Verifies that a Mini App request really came from Telegram.
+// ============================================================
+// Telegram Mini App initData validation
+// ============================================================
+
 async function verifyInitData(initData, botToken) {
-  if (!initData || !botToken) return null;
+  if (!initData) {
+    return {
+      user: null,
+      reason: 'initData is empty',
+      debug: {
+        hasInitData: false,
+        initDataLength: 0,
+        hasHash: false,
+        hasUser: false,
+      },
+    };
+  }
+
+  if (!botToken) {
+    return {
+      user: null,
+      reason: 'BOT_TOKEN is not configured',
+      debug: {
+        hasInitData: true,
+        initDataLength: initData.length,
+        hasHash: false,
+        hasUser: false,
+      },
+    };
+  }
 
   const params = new URLSearchParams(initData);
-  const hash = params.get('hash');
 
-  if (!hash) return null;
+  const receivedHash = params.get('hash');
+  const userJson = params.get('user');
+
+  if (!receivedHash) {
+    return {
+      user: null,
+      reason: 'initData does not contain hash',
+      debug: {
+        hasInitData: true,
+        initDataLength: initData.length,
+        hasHash: false,
+        hasUser: !!userJson,
+      },
+    };
+  }
 
   params.delete('hash');
 
-  const pairs = [...params.entries()].sort(([a], [b]) =>
-    a.localeCompare(b)
-  );
+  // Telegram requires fields to be sorted alphabetically.
+  const pairs = Array.from(params.entries()).sort((a, b) => {
+    if (a[0] < b[0]) return -1;
+    if (a[0] > b[0]) return 1;
+    return 0;
+  });
 
   const dataCheckString = pairs
     .map(([key, value]) => `${key}=${value}`)
     .join('\n');
 
-  const enc = new TextEncoder();
+  const encoder = new TextEncoder();
 
-  // Telegram:
-  // secret_key = HMAC-SHA256(key=bot_token, message="WebAppData")
+  // Telegram validation algorithm:
+  //
+  // secret_key = HMAC-SHA256(
+  //   key = bot_token,
+  //   message = "WebAppData"
+  // )
+  //
+  // hash = HMAC-SHA256(
+  //   key = secret_key,
+  //   message = data_check_string
+  // )
+
   const botTokenKey = await crypto.subtle.importKey(
     'raw',
-    enc.encode(botToken),
+    encoder.encode(botToken),
     {
       name: 'HMAC',
-      hash: 'SHA-256'
+      hash: 'SHA-256',
     },
     false,
     ['sign']
@@ -35,16 +88,15 @@ async function verifyInitData(initData, botToken) {
   const secretKeyBytes = await crypto.subtle.sign(
     'HMAC',
     botTokenKey,
-    enc.encode('WebAppData')
+    encoder.encode('WebAppData')
   );
 
-  // hash = HMAC-SHA256(key=secret_key, message=data_check_string)
   const secretKey = await crypto.subtle.importKey(
     'raw',
     secretKeyBytes,
     {
       name: 'HMAC',
-      hash: 'SHA-256'
+      hash: 'SHA-256',
     },
     false,
     ['sign']
@@ -53,92 +105,269 @@ async function verifyInitData(initData, botToken) {
   const signature = await crypto.subtle.sign(
     'HMAC',
     secretKey,
-    enc.encode(dataCheckString)
+    encoder.encode(dataCheckString)
   );
 
-  const computedHash = [...new Uint8Array(signature)]
+  const calculatedHash = Array.from(new Uint8Array(signature))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
 
-  if (computedHash !== hash) return null;
+  const hashMatches =
+    calculatedHash.toLowerCase() === receivedHash.toLowerCase();
 
-  const userJson = params.get('user');
-
-  try {
-    return userJson ? JSON.parse(userJson) : null;
-  } catch {
-    return null;
+  if (!hashMatches) {
+    return {
+      user: null,
+      reason: 'Telegram hash mismatch',
+      debug: {
+        hasInitData: true,
+        initDataLength: initData.length,
+        hasHash: true,
+        receivedHashLength: receivedHash.length,
+        calculatedHashLength: calculatedHash.length,
+        hasUser: !!userJson,
+        dataCheckStringLength: dataCheckString.length,
+        parameterNames: pairs.map(([key]) => key),
+        botTokenConfigured: true,
+        hashMatches: false,
+      },
+    };
   }
+
+  let user = null;
+
+  if (userJson) {
+    try {
+      user = JSON.parse(userJson);
+    } catch {
+      return {
+        user: null,
+        reason: 'Telegram user field contains invalid JSON',
+        debug: {
+          hasInitData: true,
+          initDataLength: initData.length,
+          hasHash: true,
+          hasUser: true,
+          dataCheckStringLength: dataCheckString.length,
+          parameterNames: pairs.map(([key]) => key),
+          botTokenConfigured: true,
+          hashMatches: true,
+        },
+      };
+    }
+  }
+
+  if (!user) {
+    return {
+      user: null,
+      reason: 'Telegram initData is valid, but user is missing',
+      debug: {
+        hasInitData: true,
+        initDataLength: initData.length,
+        hasHash: true,
+        hasUser: false,
+        dataCheckStringLength: dataCheckString.length,
+        parameterNames: pairs.map(([key]) => key),
+        botTokenConfigured: true,
+        hashMatches: true,
+      },
+    };
+  }
+
+  return {
+    user,
+    reason: null,
+    debug: {
+      hasInitData: true,
+      initDataLength: initData.length,
+      hasHash: true,
+      hasUser: true,
+      dataCheckStringLength: dataCheckString.length,
+      parameterNames: pairs.map(([key]) => key),
+      botTokenConfigured: true,
+      hashMatches: true,
+      telegramUserId: user.id,
+      telegramUsername: user.username || null,
+    },
+  };
 }
 
-function escapeHtml(s) {
-  return String(s || '').replace(
+
+// ============================================================
+// HTML escaping
+// ============================================================
+
+function escapeHtml(value) {
+  return String(value || '').replace(
     /[&<>"']/g,
-    (c) => ({
+    (character) => ({
       '&': '&amp;',
       '<': '&lt;',
       '>': '&gt;',
       '"': '&quot;',
-      "'": '&#39;'
-    }[c])
+      "'": '&#39;',
+    })[character]
   );
 }
 
+
+// ============================================================
+// Telegram Bot API
+// ============================================================
+
 async function tg(env, method, payload) {
-  return fetch(
+  if (!env.BOT_TOKEN) {
+    throw new Error('BOT_TOKEN is not configured');
+  }
+
+  const response = await fetch(
     `https://api.telegram.org/bot${env.BOT_TOKEN}/${method}`,
     {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     }
   );
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(
+      `Telegram API HTTP ${response.status}: ${text}`
+    );
+  }
+
+  let result;
+
+  try {
+    result = JSON.parse(text);
+  } catch {
+    throw new Error(
+      `Telegram API returned invalid JSON: ${text}`
+    );
+  }
+
+  if (!result.ok) {
+    throw new Error(
+      `Telegram API error: ${result.description || text}`
+    );
+  }
+
+  return result;
 }
 
-function withCors(resp) {
-  resp.headers.set('Access-Control-Allow-Origin', '*');
-  resp.headers.set(
+
+// ============================================================
+// CORS
+// ============================================================
+
+function withCors(response) {
+  response.headers.set(
+    'Access-Control-Allow-Origin',
+    '*'
+  );
+
+  response.headers.set(
     'Access-Control-Allow-Headers',
     'Content-Type'
   );
-  resp.headers.set(
+
+  response.headers.set(
     'Access-Control-Allow-Methods',
     'GET,POST,OPTIONS'
   );
 
-  return resp;
+  return response;
 }
+
+
+// ============================================================
+// JSON error helper
+// ============================================================
+
+function jsonError(message, status = 500, extra = {}) {
+  return withCors(
+    Response.json(
+      {
+        ok: false,
+        error: message,
+        ...extra,
+      },
+      {
+        status,
+      }
+    )
+  );
+}
+
+
+// ============================================================
+// Worker
+// ============================================================
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // --------------------------------------------------------
     // CORS preflight
+    // --------------------------------------------------------
+
     if (request.method === 'OPTIONS') {
       return withCors(
         new Response(null, {
-          status: 204
+          status: 204,
         })
       );
     }
 
-    // Get approved territories
+
+    // --------------------------------------------------------
+    // GET /api/territories
+    //
+    // Returns approved territories.
+    // --------------------------------------------------------
+
     if (
       url.pathname === '/api/territories' &&
       request.method === 'GET'
     ) {
-      const { results } = await env.DB.prepare(
-        'SELECT * FROM territories WHERE status = ? ORDER BY created_at DESC'
-      )
-        .bind('approved')
-        .all();
+      try {
+        const { results } = await env.DB.prepare(
+          `SELECT *
+           FROM territories
+           WHERE status = ?
+           ORDER BY created_at DESC`
+        )
+          .bind('approved')
+          .all();
 
-      return withCors(Response.json(results));
+        return withCors(
+          Response.json(results)
+        );
+
+      } catch (error) {
+        console.error(
+          'GET /api/territories error:',
+          error
+        );
+
+        return jsonError(
+          error?.message || String(error),
+          500
+        );
+      }
     }
 
-    // Submit new territory
+
+    // --------------------------------------------------------
+    // POST /api/territories
+    //
+    // Creates a pending territory request.
+    // --------------------------------------------------------
+
     if (
       url.pathname === '/api/territories' &&
       request.method === 'POST'
@@ -146,40 +375,63 @@ export default {
       try {
         const body = await request.json();
 
-        const user = await verifyInitData(
+        // ----------------------------------------------
+        // Validate Telegram initData
+        // ----------------------------------------------
+
+        const validation = await verifyInitData(
           body.initData,
           env.BOT_TOKEN
         );
 
-        if (!user) {
-          return withCors(
-            Response.json(
-              {
-                ok: false,
-                error: 'Unauthorized: invalid Telegram initData'
-              },
-              {
-                status: 401
-              }
-            )
+        if (!validation.user) {
+          console.error(
+            'Telegram initData validation failed:',
+            validation.reason,
+            validation.debug
+          );
+
+          return jsonError(
+            `Unauthorized: ${validation.reason}`,
+            401,
+            {
+              debug: validation.debug,
+            }
           );
         }
 
-        if (!body.name || !body.owner) {
-          return withCors(
-            Response.json(
-              {
-                ok: false,
-                error: 'Missing name or owner'
-              },
-              {
-                status: 400
-              }
-            )
+        const user = validation.user;
+
+
+        // ----------------------------------------------
+        // Validate request fields
+        // ----------------------------------------------
+
+        if (!body.name) {
+          return jsonError(
+            'Missing territory name',
+            400
           );
         }
+
+        if (!body.owner) {
+          return jsonError(
+            'Missing territory owner',
+            400
+          );
+        }
+
+
+        // ----------------------------------------------
+        // Create territory ID
+        // ----------------------------------------------
 
         const id = crypto.randomUUID();
+
+
+        // ----------------------------------------------
+        // Insert into D1
+        // ----------------------------------------------
 
         await env.DB.prepare(
           `INSERT INTO territories (
@@ -206,32 +458,51 @@ export default {
           )
           .run();
 
+
+        // ----------------------------------------------
+        // Notify inspector in Telegram
+        // ----------------------------------------------
+
+        if (!env.INSPECTOR_CHAT_ID) {
+          throw new Error(
+            'INSPECTOR_CHAT_ID is not configured'
+          );
+        }
+
         await tg(env, 'sendMessage', {
           chat_id: env.INSPECTOR_CHAT_ID,
           parse_mode: 'HTML',
+
           text:
             `🏙 <b>Новая заявка на территорию</b>\n\n` +
             `Название: <b>${escapeHtml(body.name)}</b>\n` +
             `Владелец: ${escapeHtml(body.owner)}\n` +
             `Координаты: ${escapeHtml(body.coords || '—')}\n` +
             `От: @${escapeHtml(user.username || '—')} (id ${user.id})`,
+
           reply_markup: {
             inline_keyboard: [[
               {
                 text: '✅ Подтвердить',
-                callback_data: `territory_ok:${id}`
+                callback_data: `territory_ok:${id}`,
               },
               {
                 text: '❌ Отклонить',
-                callback_data: `territory_no:${id}`
-              }
-            ]]
-          }
+                callback_data: `territory_no:${id}`,
+              },
+            ]],
+          },
         });
+
+
+        // ----------------------------------------------
+        // Success
+        // ----------------------------------------------
 
         return withCors(
           Response.json({
-            ok: true
+            ok: true,
+            id,
           })
         );
 
@@ -241,31 +512,36 @@ export default {
           error
         );
 
-        return withCors(
-          Response.json(
-            {
-              ok: false,
-              error: error?.message || String(error)
-            },
-            {
-              status: 500
-            }
-          )
+        return jsonError(
+          error?.message || String(error),
+          500
         );
       }
     }
 
-    // Telegram webhook
+
+    // --------------------------------------------------------
+    // POST /api/webhook
+    //
+    // Telegram sends inspector button clicks here.
+    // --------------------------------------------------------
+
     if (
       url.pathname === '/api/webhook' &&
       request.method === 'POST'
     ) {
       try {
         const update = await request.json();
-        const cq = update.callback_query;
 
-        if (cq && cq.data) {
-          const [action, id] = cq.data.split(':');
+        const callbackQuery =
+          update.callback_query;
+
+        if (
+          callbackQuery &&
+          callbackQuery.data
+        ) {
+          const [action, id] =
+            callbackQuery.data.split(':');
 
           if (
             action === 'territory_ok' ||
@@ -276,35 +552,81 @@ export default {
                 ? 'approved'
                 : 'rejected';
 
+
+            // ------------------------------------------
+            // Update D1
+            // ------------------------------------------
+
             await env.DB.prepare(
-              'UPDATE territories SET status = ? WHERE id = ?'
+              `UPDATE territories
+               SET status = ?
+               WHERE id = ?`
             )
               .bind(status, id)
               .run();
 
-            await tg(env, 'answerCallbackQuery', {
-              callback_query_id: cq.id,
-              text:
-                status === 'approved'
-                  ? 'Подтверждено'
-                  : 'Отклонено'
-            });
 
-            await tg(env, 'editMessageReplyMarkup', {
-              chat_id: cq.message.chat.id,
-              message_id: cq.message.message_id,
-              reply_markup: {
-                inline_keyboard: []
+            // ------------------------------------------
+            // Answer button click
+            // ------------------------------------------
+
+            await tg(
+              env,
+              'answerCallbackQuery',
+              {
+                callback_query_id:
+                  callbackQuery.id,
+
+                text:
+                  status === 'approved'
+                    ? 'Подтверждено'
+                    : 'Отклонено',
               }
-            });
+            );
 
-            await tg(env, 'sendMessage', {
-              chat_id: cq.message.chat.id,
-              text:
-                status === 'approved'
-                  ? '✅ Территория подтверждена и появится в списке.'
-                  : '❌ Заявка отклонена.'
-            });
+
+            // ------------------------------------------
+            // Remove buttons
+            // ------------------------------------------
+
+            if (
+              callbackQuery.message
+            ) {
+              await tg(
+                env,
+                'editMessageReplyMarkup',
+                {
+                  chat_id:
+                    callbackQuery.message.chat.id,
+
+                  message_id:
+                    callbackQuery.message.message_id,
+
+                  reply_markup: {
+                    inline_keyboard: [],
+                  },
+                }
+              );
+
+
+              // ----------------------------------------
+              // Send result message
+              // ----------------------------------------
+
+              await tg(
+                env,
+                'sendMessage',
+                {
+                  chat_id:
+                    callbackQuery.message.chat.id,
+
+                  text:
+                    status === 'approved'
+                      ? '✅ Территория подтверждена и появится в списке.'
+                      : '❌ Заявка отклонена.',
+                }
+              );
+            }
           }
         }
 
@@ -318,24 +640,25 @@ export default {
           error
         );
 
-        return withCors(
-          Response.json(
-            {
-              ok: false,
-              error: error?.message || String(error)
-            },
-            {
-              status: 500
-            }
-          )
+        return jsonError(
+          error?.message || String(error),
+          500
         );
       }
     }
 
+
+    // --------------------------------------------------------
+    // Unknown route
+    // --------------------------------------------------------
+
     return withCors(
-      new Response('Not found', {
-        status: 404
-      })
+      new Response(
+        'Not found',
+        {
+          status: 404,
+        }
+      )
     );
-  }
+  },
 };
