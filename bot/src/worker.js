@@ -1,85 +1,30 @@
-// ============================================================
-// Telegram Mini App initData validation
-// ============================================================
-
 async function verifyInitData(initData, botToken) {
-  if (!initData) {
-    return {
-      user: null,
-      reason: 'initData is empty',
-      debug: {
-        hasInitData: false,
-        initDataLength: 0,
-        hasHash: false,
-        hasUser: false,
-      },
-    };
-  }
-
-  if (!botToken) {
-    return {
-      user: null,
-      reason: 'BOT_TOKEN is not configured',
-      debug: {
-        hasInitData: true,
-        initDataLength: initData.length,
-        hasHash: false,
-        hasUser: false,
-      },
-    };
-  }
+  if (!initData) return null;
+  if (!botToken) throw new Error('BOT_TOKEN is not configured');
 
   const params = new URLSearchParams(initData);
+  const hash = params.get('hash');
 
-  const receivedHash = params.get('hash');
-  const userJson = params.get('user');
-
-  if (!receivedHash) {
-    return {
-      user: null,
-      reason: 'initData does not contain hash',
-      debug: {
-        hasInitData: true,
-        initDataLength: initData.length,
-        hasHash: false,
-        hasUser: !!userJson,
-      },
-    };
-  }
+  if (!hash) return null;
 
   params.delete('hash');
 
-  // Telegram requires fields to be sorted alphabetically.
-  const pairs = Array.from(params.entries()).sort((a, b) => {
-    if (a[0] < b[0]) return -1;
-    if (a[0] > b[0]) return 1;
-    return 0;
-  });
+  const pairs = [...params.entries()].sort(([a], [b]) =>
+    a.localeCompare(b)
+  );
 
   const dataCheckString = pairs
     .map(([key, value]) => `${key}=${value}`)
     .join('\n');
 
-  const encoder = new TextEncoder();
+  const enc = new TextEncoder();
 
-  // Telegram validation algorithm:
-  //
-  // secret_key = HMAC-SHA256(
-  //   key = bot_token,
-  //   message = "WebAppData"
-  // )
-  //
-  // hash = HMAC-SHA256(
-  //   key = secret_key,
-  //   message = data_check_string
-  // )
-
-  const botTokenKey = await crypto.subtle.importKey(
+  const webAppDataKey = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(botToken),
+    enc.encode('WebAppData'),
     {
       name: 'HMAC',
-      hash: 'SHA-256',
+      hash: 'SHA-256'
     },
     false,
     ['sign']
@@ -87,8 +32,8 @@ async function verifyInitData(initData, botToken) {
 
   const secretKeyBytes = await crypto.subtle.sign(
     'HMAC',
-    botTokenKey,
-    encoder.encode('WebAppData')
+    webAppDataKey,
+    enc.encode(botToken)
   );
 
   const secretKey = await crypto.subtle.importKey(
@@ -96,7 +41,7 @@ async function verifyInitData(initData, botToken) {
     secretKeyBytes,
     {
       name: 'HMAC',
-      hash: 'SHA-256',
+      hash: 'SHA-256'
     },
     false,
     ['sign']
@@ -105,336 +50,285 @@ async function verifyInitData(initData, botToken) {
   const signature = await crypto.subtle.sign(
     'HMAC',
     secretKey,
-    encoder.encode(dataCheckString)
+    enc.encode(dataCheckString)
   );
 
-  const calculatedHash = Array.from(new Uint8Array(signature))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
+  const computedHash = [...new Uint8Array(signature)]
+    .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 
-  const hashMatches =
-    calculatedHash.toLowerCase() === receivedHash.toLowerCase();
-
-  if (!hashMatches) {
-    return {
-      user: null,
-      reason: 'Telegram hash mismatch',
-      debug: {
-        hasInitData: true,
-        initDataLength: initData.length,
-        hasHash: true,
-        receivedHashLength: receivedHash.length,
-        calculatedHashLength: calculatedHash.length,
-        hasUser: !!userJson,
-        dataCheckStringLength: dataCheckString.length,
-        parameterNames: pairs.map(([key]) => key),
-        botTokenConfigured: true,
-        hashMatches: false,
-      },
-    };
+  if (computedHash !== hash) {
+    return null;
   }
 
-  let user = null;
+  const userJson = params.get('user');
 
-  if (userJson) {
-    try {
-      user = JSON.parse(userJson);
-    } catch {
-      return {
-        user: null,
-        reason: 'Telegram user field contains invalid JSON',
-        debug: {
-          hasInitData: true,
-          initDataLength: initData.length,
-          hasHash: true,
-          hasUser: true,
-          dataCheckStringLength: dataCheckString.length,
-          parameterNames: pairs.map(([key]) => key),
-          botTokenConfigured: true,
-          hashMatches: true,
-        },
-      };
-    }
+  if (!userJson) {
+    return null;
   }
 
-  if (!user) {
-    return {
-      user: null,
-      reason: 'Telegram initData is valid, but user is missing',
-      debug: {
-        hasInitData: true,
-        initDataLength: initData.length,
-        hasHash: true,
-        hasUser: false,
-        dataCheckStringLength: dataCheckString.length,
-        parameterNames: pairs.map(([key]) => key),
-        botTokenConfigured: true,
-        hashMatches: true,
-      },
-    };
+  try {
+    return JSON.parse(userJson);
+  } catch {
+    return null;
   }
-
-  return {
-    user,
-    reason: null,
-    debug: {
-      hasInitData: true,
-      initDataLength: initData.length,
-      hasHash: true,
-      hasUser: true,
-      dataCheckStringLength: dataCheckString.length,
-      parameterNames: pairs.map(([key]) => key),
-      botTokenConfigured: true,
-      hashMatches: true,
-      telegramUserId: user.id,
-      telegramUsername: user.username || null,
-    },
-  };
 }
-
-
-// ============================================================
-// HTML escaping
-// ============================================================
 
 function escapeHtml(value) {
-  return String(value || '').replace(
+  return String(value ?? '').replace(
     /[&<>"']/g,
-    (character) => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;',
-    })[character]
+    (char) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      })[char]
   );
 }
-
-
-// ============================================================
-// Telegram Bot API
-// ============================================================
 
 async function tg(env, method, payload) {
   if (!env.BOT_TOKEN) {
     throw new Error('BOT_TOKEN is not configured');
   }
 
-  const response = await fetch(
+  return fetch(
     `https://api.telegram.org/bot${env.BOT_TOKEN}/${method}`,
     {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     }
   );
-
-  const text = await response.text();
-
-  if (!response.ok) {
-    throw new Error(
-      `Telegram API HTTP ${response.status}: ${text}`
-    );
-  }
-
-  let result;
-
-  try {
-    result = JSON.parse(text);
-  } catch {
-    throw new Error(
-      `Telegram API returned invalid JSON: ${text}`
-    );
-  }
-
-  if (!result.ok) {
-    throw new Error(
-      `Telegram API error: ${result.description || text}`
-    );
-  }
-
-  return result;
 }
 
+function cors(response) {
+  const headers = new Headers(response.headers);
 
-// ============================================================
-// CORS
-// ============================================================
-
-function withCors(response) {
-  response.headers.set(
-    'Access-Control-Allow-Origin',
-    '*'
-  );
-
-  response.headers.set(
+  headers.set('Access-Control-Allow-Origin', '*');
+  headers.set(
     'Access-Control-Allow-Headers',
     'Content-Type'
   );
-
-  response.headers.set(
+  headers.set(
     'Access-Control-Allow-Methods',
-    'GET,POST,OPTIONS'
+    'GET, POST, OPTIONS'
   );
 
-  return response;
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
 }
 
-
-// ============================================================
-// JSON error helper
-// ============================================================
-
-function jsonError(message, status = 500, extra = {}) {
-  return withCors(
-    Response.json(
-      {
-        ok: false,
-        error: message,
-        ...extra,
-      },
-      {
-        status,
-      }
-    )
+function json(data, status = 200) {
+  return cors(
+    Response.json(data, {
+      status
+    })
   );
 }
-
-
-// ============================================================
-// Worker
-// ============================================================
 
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
+    try {
+      const url = new URL(request.url);
 
-    // --------------------------------------------------------
-    // CORS preflight
-    // --------------------------------------------------------
+      // --------------------------------------------------
+      // OPTIONS
+      // --------------------------------------------------
 
-    if (request.method === 'OPTIONS') {
-      return withCors(
-        new Response(null, {
-          status: 204,
-        })
-      );
-    }
+      if (request.method === 'OPTIONS') {
+        return cors(
+          new Response(null, {
+            status: 204
+          })
+        );
+      }
 
+      // --------------------------------------------------
+      // ROOT
+      // --------------------------------------------------
 
-    // --------------------------------------------------------
-    // GET /api/territories
-    //
-    // Returns approved territories.
-    // --------------------------------------------------------
+      if (url.pathname === '/') {
+        return json({
+          ok: true,
+          service: 'voxygen backend',
+          worker: 'online',
+          endpoints: {
+            health: '/api/health',
+            territories: '/api/territories',
+            webhook: '/api/webhook'
+          }
+        });
+      }
 
-    if (
-      url.pathname === '/api/territories' &&
-      request.method === 'GET'
-    ) {
-      try {
+      // --------------------------------------------------
+      // DIAGNOSTICS
+      // --------------------------------------------------
+
+      if (
+        url.pathname === '/api/health' &&
+        request.method === 'GET'
+      ) {
+        let dbStatus = false;
+
+        try {
+          await env.DB.prepare(
+            'SELECT 1'
+          ).first();
+
+          dbStatus = true;
+        } catch (error) {
+          dbStatus = false;
+        }
+
+        return json({
+          ok: true,
+
+          worker: 'online',
+
+          bot_token_configured:
+            Boolean(env.BOT_TOKEN),
+
+          inspector_chat_id_configured:
+            Boolean(env.INSPECTOR_CHAT_ID),
+
+          database_configured:
+            Boolean(env.DB),
+
+          database_working:
+            dbStatus,
+
+          time:
+            new Date().toISOString()
+        });
+      }
+
+      // --------------------------------------------------
+      // GET TERRITORIES
+      // --------------------------------------------------
+
+      if (
+        url.pathname === '/api/territories' &&
+        request.method === 'GET'
+      ) {
+        if (!env.DB) {
+          return json(
+            {
+              ok: false,
+              error: 'D1 database is not configured'
+            },
+            500
+          );
+        }
+
         const { results } = await env.DB.prepare(
-          `SELECT *
-           FROM territories
-           WHERE status = ?
-           ORDER BY created_at DESC`
+          `
+          SELECT *
+          FROM territories
+          WHERE status = ?
+          ORDER BY created_at DESC
+          `
         )
           .bind('approved')
           .all();
 
-        return withCors(
-          Response.json(results)
-        );
-
-      } catch (error) {
-        console.error(
-          'GET /api/territories error:',
-          error
-        );
-
-        return jsonError(
-          error?.message || String(error),
-          500
-        );
+        return json({
+          ok: true,
+          results
+        });
       }
-    }
 
+      // --------------------------------------------------
+      // POST TERRITORY
+      // --------------------------------------------------
 
-    // --------------------------------------------------------
-    // POST /api/territories
-    //
-    // Creates a pending territory request.
-    // --------------------------------------------------------
-
-    if (
-      url.pathname === '/api/territories' &&
-      request.method === 'POST'
-    ) {
-      try {
-        const body = await request.json();
-
-        // ----------------------------------------------
-        // Validate Telegram initData
-        // ----------------------------------------------
-
-        const validation = await verifyInitData(
-          body.initData,
-          env.BOT_TOKEN
-        );
-
-        if (!validation.user) {
-          console.error(
-            'Telegram initData validation failed:',
-            validation.reason,
-            validation.debug
-          );
-
-          return jsonError(
-            `Unauthorized: ${validation.reason}`,
-            401,
+      if (
+        url.pathname === '/api/territories' &&
+        request.method === 'POST'
+      ) {
+        if (!env.BOT_TOKEN) {
+          return json(
             {
-              debug: validation.debug,
-            }
+              ok: false,
+              error: 'BOT_TOKEN is not configured'
+            },
+            500
           );
         }
 
-        const user = validation.user;
+        if (!env.DB) {
+          return json(
+            {
+              ok: false,
+              error: 'D1 database is not configured'
+            },
+            500
+          );
+        }
 
+        let body;
 
-        // ----------------------------------------------
-        // Validate request fields
-        // ----------------------------------------------
-
-        if (!body.name) {
-          return jsonError(
-            'Missing territory name',
+        try {
+          body = await request.json();
+        } catch {
+          return json(
+            {
+              ok: false,
+              error: 'Invalid JSON'
+            },
             400
           );
         }
 
-        if (!body.owner) {
-          return jsonError(
-            'Missing territory owner',
-            400
+        let user;
+
+        try {
+          user = await verifyInitData(
+            body.initData,
+            env.BOT_TOKEN
+          );
+        } catch (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
           );
         }
 
+        if (!user) {
+          return json(
+            {
+              ok: false,
+              error: 'Unauthorized: invalid Telegram initData'
+            },
+            401
+          );
+        }
 
-        // ----------------------------------------------
-        // Create territory ID
-        // ----------------------------------------------
+        if (!body.name || !body.owner) {
+          return json(
+            {
+              ok: false,
+              error: 'Missing fields'
+            },
+            400
+          );
+        }
 
         const id = crypto.randomUUID();
 
-
-        // ----------------------------------------------
-        // Insert into D1
-        // ----------------------------------------------
-
         await env.DB.prepare(
-          `INSERT INTO territories (
+          `
+          INSERT INTO territories
+          (
             id,
             name,
             owner_input,
@@ -444,7 +338,8 @@ export default {
             status,
             created_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `
         )
           .bind(
             id,
@@ -458,79 +353,79 @@ export default {
           )
           .run();
 
-
-        // ----------------------------------------------
-        // Notify inspector in Telegram
-        // ----------------------------------------------
-
         if (!env.INSPECTOR_CHAT_ID) {
-          throw new Error(
-            'INSPECTOR_CHAT_ID is not configured'
+          return json(
+            {
+              ok: true,
+              warning:
+                'Territory saved, but INSPECTOR_CHAT_ID is not configured',
+              id
+            }
           );
         }
 
-        await tg(env, 'sendMessage', {
-          chat_id: env.INSPECTOR_CHAT_ID,
-          parse_mode: 'HTML',
+        const telegramResponse = await tg(
+          env,
+          'sendMessage',
+          {
+            chat_id: env.INSPECTOR_CHAT_ID,
 
-          text:
-            `🏙 <b>Новая заявка на территорию</b>\n\n` +
-            `Название: <b>${escapeHtml(body.name)}</b>\n` +
-            `Владелец: ${escapeHtml(body.owner)}\n` +
-            `Координаты: ${escapeHtml(body.coords || '—')}\n` +
-            `От: @${escapeHtml(user.username || '—')} (id ${user.id})`,
+            parse_mode: 'HTML',
 
-          reply_markup: {
-            inline_keyboard: [[
-              {
-                text: '✅ Подтвердить',
-                callback_data: `territory_ok:${id}`,
-              },
-              {
-                text: '❌ Отклонить',
-                callback_data: `territory_no:${id}`,
-              },
-            ]],
-          },
+            text:
+              `🏙 <b>Новая заявка на территорию</b>\n\n` +
+              `Название: <b>${escapeHtml(body.name)}</b>\n` +
+              `Владелец: ${escapeHtml(body.owner)}\n` +
+              `Координаты: ${escapeHtml(body.coords || '—')}\n` +
+              `От: @${escapeHtml(user.username || '—')} (id ${user.id})`,
+
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: '✅ Подтвердить',
+                    callback_data: `territory_ok:${id}`
+                  },
+                  {
+                    text: '❌ Отклонить',
+                    callback_data: `territory_no:${id}`
+                  }
+                ]
+              ]
+            }
+          }
+        );
+
+        const telegramData =
+          await telegramResponse.json();
+
+        if (!telegramData.ok) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Telegram API error',
+              telegram:
+                telegramData
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          id
         });
-
-
-        // ----------------------------------------------
-        // Success
-        // ----------------------------------------------
-
-        return withCors(
-          Response.json({
-            ok: true,
-            id,
-          })
-        );
-
-      } catch (error) {
-        console.error(
-          'POST /api/territories error:',
-          error
-        );
-
-        return jsonError(
-          error?.message || String(error),
-          500
-        );
       }
-    }
 
+      // --------------------------------------------------
+      // TELEGRAM WEBHOOK
+      // --------------------------------------------------
 
-    // --------------------------------------------------------
-    // POST /api/webhook
-    //
-    // Telegram sends inspector button clicks here.
-    // --------------------------------------------------------
-
-    if (
-      url.pathname === '/api/webhook' &&
-      request.method === 'POST'
-    ) {
-      try {
+      if (
+        url.pathname === '/api/webhook' &&
+        request.method === 'POST'
+      ) {
         const update = await request.json();
 
         const callbackQuery =
@@ -552,23 +447,15 @@ export default {
                 ? 'approved'
                 : 'rejected';
 
-
-            // ------------------------------------------
-            // Update D1
-            // ------------------------------------------
-
             await env.DB.prepare(
-              `UPDATE territories
-               SET status = ?
-               WHERE id = ?`
+              `
+              UPDATE territories
+              SET status = ?
+              WHERE id = ?
+              `
             )
               .bind(status, id)
               .run();
-
-
-            // ------------------------------------------
-            // Answer button click
-            // ------------------------------------------
 
             await tg(
               env,
@@ -580,14 +467,9 @@ export default {
                 text:
                   status === 'approved'
                     ? 'Подтверждено'
-                    : 'Отклонено',
+                    : 'Отклонено'
               }
             );
-
-
-            // ------------------------------------------
-            // Remove buttons
-            // ------------------------------------------
 
             if (
               callbackQuery.message
@@ -597,68 +479,62 @@ export default {
                 'editMessageReplyMarkup',
                 {
                   chat_id:
-                    callbackQuery.message.chat.id,
+                    callbackQuery.message
+                      .chat.id,
 
                   message_id:
-                    callbackQuery.message.message_id,
+                    callbackQuery.message
+                      .message_id,
 
                   reply_markup: {
-                    inline_keyboard: [],
-                  },
+                    inline_keyboard: []
+                  }
                 }
               );
-
-
-              // ----------------------------------------
-              // Send result message
-              // ----------------------------------------
 
               await tg(
                 env,
                 'sendMessage',
                 {
                   chat_id:
-                    callbackQuery.message.chat.id,
+                    callbackQuery.message
+                      .chat.id,
 
                   text:
                     status === 'approved'
                       ? '✅ Территория подтверждена и появится в списке.'
-                      : '❌ Заявка отклонена.',
+                      : '❌ Заявка отклонена.'
                 }
               );
             }
           }
         }
 
-        return withCors(
-          new Response('ok')
-        );
-
-      } catch (error) {
-        console.error(
-          'Webhook error:',
-          error
-        );
-
-        return jsonError(
-          error?.message || String(error),
-          500
-        );
+        return json({
+          ok: true
+        });
       }
-    }
 
+      // --------------------------------------------------
+      // UNKNOWN ROUTE
+      // --------------------------------------------------
 
-    // --------------------------------------------------------
-    // Unknown route
-    // --------------------------------------------------------
-
-    return withCors(
-      new Response(
-        'Not found',
+      return json(
         {
-          status: 404,
-        }
-      )
-    );
-  },
+          ok: false,
+          error: 'Not found',
+          path: url.pathname
+        },
+        404
+      );
+    } catch (error) {
+      return json(
+        {
+          ok: false,
+          error: error.message || String(error)
+        },
+        500
+      );
+    }
+  }
 };
