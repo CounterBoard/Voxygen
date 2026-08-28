@@ -1,8 +1,1 @@
-name = "voxygen"
-main = "src/worker.js"
-compatibility_date = "2026-01-01"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "voxygen"
-database_id = "1d7fb0f9-60ef-4afd-b10b-46cd572d2a25"
+name = "voxygen" main = "./src/worker.js" compatibility_date = "2026-08-29" workers_dev = true [[d1_databases]] binding = "DB" database_name = "voxygen" database_id = "1d7fb0f9-60ef-4afd-b10b-46cd572d2a25" 
