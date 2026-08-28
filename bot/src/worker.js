@@ -1,99 +1,132 @@
+// ============================================================
+// VOXYGEN BACKEND WORKER
+// Cloudflare Worker + D1 + Telegram Mini App
+// ============================================================
+
+
+// ============================================================
+// TELEGRAM MINI APP INIT DATA VERIFICATION
+// ============================================================
+
 async function verifyInitData(initData, botToken) {
-  if (!initData) return null;
-  if (!botToken) throw new Error('BOT_TOKEN is not configured');
-
-  const params = new URLSearchParams(initData);
-  const hash = params.get('hash');
-
-  if (!hash) return null;
-
-  params.delete('hash');
-
-  const pairs = [...params.entries()].sort(([a], [b]) =>
-    a.localeCompare(b)
-  );
-
-  const dataCheckString = pairs
-    .map(([key, value]) => `${key}=${value}`)
-    .join('\n');
-
-  const enc = new TextEncoder();
-
-  const webAppDataKey = await crypto.subtle.importKey(
-    'raw',
-    enc.encode('WebAppData'),
-    {
-      name: 'HMAC',
-      hash: 'SHA-256'
-    },
-    false,
-    ['sign']
-  );
-
-  const secretKeyBytes = await crypto.subtle.sign(
-    'HMAC',
-    webAppDataKey,
-    enc.encode(botToken)
-  );
-
-  const secretKey = await crypto.subtle.importKey(
-    'raw',
-    secretKeyBytes,
-    {
-      name: 'HMAC',
-      hash: 'SHA-256'
-    },
-    false,
-    ['sign']
-  );
-
-  const signature = await crypto.subtle.sign(
-    'HMAC',
-    secretKey,
-    enc.encode(dataCheckString)
-  );
-
-  const computedHash = [...new Uint8Array(signature)]
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-
-  if (computedHash !== hash) {
+  if (!initData) {
     return null;
   }
 
-  const userJson = params.get('user');
-
-  if (!userJson) {
-    return null;
+  if (!botToken) {
+    throw new Error('BOT_TOKEN is not configured');
   }
 
   try {
+    const params = new URLSearchParams(initData);
+
+    const hash = params.get('hash');
+
+    if (!hash) {
+      return null;
+    }
+
+    params.delete('hash');
+
+    // Telegram requires alphabetically sorted key=value pairs.
+    const pairs = [...params.entries()].sort(([a], [b]) =>
+      a.localeCompare(b)
+    );
+
+    const dataCheckString = pairs
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n');
+
+    const encoder = new TextEncoder();
+
+    // Secret key:
+    // HMAC-SHA256(key = bot token, message = "WebAppData")
+    const botTokenKey = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(botToken),
+      {
+        name: 'HMAC',
+        hash: 'SHA-256'
+      },
+      false,
+      ['sign']
+    );
+
+    const secretKeyBytes = await crypto.subtle.sign(
+      'HMAC',
+      botTokenKey,
+      encoder.encode('WebAppData')
+    );
+
+    // Final HMAC key.
+    const secretKey = await crypto.subtle.importKey(
+      'raw',
+      secretKeyBytes,
+      {
+        name: 'HMAC',
+        hash: 'SHA-256'
+      },
+      false,
+      ['sign']
+    );
+
+    const signature = await crypto.subtle.sign(
+      'HMAC',
+      secretKey,
+      encoder.encode(dataCheckString)
+    );
+
+    const calculatedHash = [...new Uint8Array(signature)]
+      .map(byte => byte.toString(16).padStart(2, '0'))
+      .join('');
+
+    if (calculatedHash !== hash) {
+      return null;
+    }
+
+    const userJson = params.get('user');
+
+    if (!userJson) {
+      return null;
+    }
+
     return JSON.parse(userJson);
-  } catch {
+
+  } catch (error) {
+    console.error('verifyInitData error:', error);
     return null;
   }
 }
+
+
+// ============================================================
+// HTML ESCAPE
+// ============================================================
 
 function escapeHtml(value) {
   return String(value ?? '').replace(
     /[&<>"']/g,
-    (char) =>
-      ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-      })[char]
+    character => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[character]
   );
 }
+
+
+// ============================================================
+// TELEGRAM API
+// ============================================================
 
 async function tg(env, method, payload) {
   if (!env.BOT_TOKEN) {
     throw new Error('BOT_TOKEN is not configured');
   }
 
-  return fetch(
+  const response = await fetch(
     `https://api.telegram.org/bot${env.BOT_TOKEN}/${method}`,
     {
       method: 'POST',
@@ -103,9 +136,24 @@ async function tg(env, method, payload) {
       body: JSON.stringify(payload)
     }
   );
+
+  const data = await response.json();
+
+  if (!data.ok) {
+    throw new Error(
+      `Telegram API error: ${data.description || 'Unknown error'}`
+    );
+  }
+
+  return data;
 }
 
-function cors(response) {
+
+// ============================================================
+// CORS
+// ============================================================
+
+function withCors(response) {
   const headers = new Headers(response.headers);
 
   headers.set('Access-Control-Allow-Origin', '*');
@@ -115,7 +163,7 @@ function cors(response) {
   );
   headers.set(
     'Access-Control-Allow-Methods',
-    'GET, POST, OPTIONS'
+    'GET,POST,OPTIONS'
   );
 
   return new Response(response.body, {
@@ -125,222 +173,289 @@ function cors(response) {
   });
 }
 
+
+// ============================================================
+// JSON RESPONSE HELPER
+// ============================================================
+
 function json(data, status = 200) {
-  return cors(
+  return withCors(
     Response.json(data, {
       status
     })
   );
 }
 
+
+// ============================================================
+// MAIN WORKER
+// ============================================================
+
 export default {
+
   async fetch(request, env) {
-    try {
-      const url = new URL(request.url);
 
-      // --------------------------------------------------
-      // OPTIONS
-      // --------------------------------------------------
+    const url = new URL(request.url);
 
-      if (request.method === 'OPTIONS') {
-        return cors(
-          new Response(null, {
-            status: 204
-          })
-        );
-      }
 
-      // --------------------------------------------------
-      // ROOT
-      // --------------------------------------------------
+    // ========================================================
+    // HEALTH CHECK / DIAGNOSTICS
+    // ========================================================
 
-      if (url.pathname === '/') {
-        return json({
-          ok: true,
-          service: 'voxygen backend',
-          worker: 'online',
-          endpoints: {
-            health: '/api/health',
-            territories: '/api/territories',
-            webhook: '/api/webhook'
-          }
-        });
-      }
+    if (
+      url.pathname === '/api/health' &&
+      request.method === 'GET'
+    ) {
 
-      // --------------------------------------------------
-      // DIAGNOSTICS
-      // --------------------------------------------------
+      let databaseWorking = false;
+      let databaseError = null;
 
-      if (
-        url.pathname === '/api/health' &&
-        request.method === 'GET'
-      ) {
-        let dbStatus = false;
+      try {
 
-        try {
-          await env.DB.prepare(
-            'SELECT 1'
-          ).first();
+        if (env.DB) {
 
-          dbStatus = true;
-        } catch (error) {
-          dbStatus = false;
+          await env.DB
+            .prepare('SELECT 1 AS ok')
+            .first();
+
+          databaseWorking = true;
+
+        } else {
+
+          databaseError = 'DB binding is missing';
+
         }
 
-        return json({
-          ok: true,
+      } catch (error) {
 
-          worker: 'online',
+        databaseError = String(error.message || error);
 
-          bot_token_configured:
-            Boolean(env.BOT_TOKEN),
-
-          inspector_chat_id_configured:
-            Boolean(env.INSPECTOR_CHAT_ID),
-
-          database_configured:
-            Boolean(env.DB),
-
-          database_working:
-            dbStatus,
-
-          time:
-            new Date().toISOString()
-        });
       }
 
-      // --------------------------------------------------
-      // GET TERRITORIES
-      // --------------------------------------------------
 
-      if (
-        url.pathname === '/api/territories' &&
-        request.method === 'GET'
-      ) {
+      return json({
+        ok: true,
+
+        worker: 'voxygen',
+
+        bot_token_configured: !!env.BOT_TOKEN,
+
+        inspector_chat_id_configured:
+          !!env.INSPECTOR_CHAT_ID,
+
+        database_configured:
+          !!env.DB,
+
+        database_working:
+          databaseWorking,
+
+        database_error:
+          databaseError,
+
+        time:
+          new Date().toISOString()
+      });
+
+    }
+
+
+    // ========================================================
+    // CORS PREFLIGHT
+    // ========================================================
+
+    if (request.method === 'OPTIONS') {
+
+      return withCors(
+        new Response(null, {
+          status: 204
+        })
+      );
+
+    }
+
+
+    // ========================================================
+    // GET /api/territories
+    // Return approved territories
+    // ========================================================
+
+    if (
+      url.pathname === '/api/territories' &&
+      request.method === 'GET'
+    ) {
+
+      try {
+
         if (!env.DB) {
-          return json(
-            {
-              ok: false,
-              error: 'D1 database is not configured'
-            },
-            500
-          );
+          return json({
+            ok: false,
+            error: 'DB binding is not configured'
+          }, 500);
         }
 
-        const { results } = await env.DB.prepare(
-          `
-          SELECT *
-          FROM territories
-          WHERE status = ?
-          ORDER BY created_at DESC
-          `
-        )
+
+        const result = await env.DB
+          .prepare(
+            `
+            SELECT *
+            FROM territories
+            WHERE status = ?
+            ORDER BY created_at DESC
+            `
+          )
           .bind('approved')
           .all();
 
+
+        return json(
+          result.results || []
+        );
+
+
+      } catch (error) {
+
+        console.error(
+          'GET /api/territories error:',
+          error
+        );
+
         return json({
-          ok: true,
-          results
-        });
+          ok: false,
+          error: String(
+            error.message || error
+          )
+        }, 500);
+
       }
 
-      // --------------------------------------------------
-      // POST TERRITORY
-      // --------------------------------------------------
+    }
 
-      if (
-        url.pathname === '/api/territories' &&
-        request.method === 'POST'
-      ) {
+
+    // ========================================================
+    // POST /api/territories
+    // Create new territory request
+    // ========================================================
+
+    if (
+      url.pathname === '/api/territories' &&
+      request.method === 'POST'
+    ) {
+
+      try {
+
+        // ----------------------------------------------------
+        // Check environment
+        // ----------------------------------------------------
+
         if (!env.BOT_TOKEN) {
-          return json(
-            {
-              ok: false,
-              error: 'BOT_TOKEN is not configured'
-            },
-            500
-          );
+
+          return json({
+            ok: false,
+            error: 'BOT_TOKEN is not configured'
+          }, 401);
+
         }
+
+
+        if (!env.INSPECTOR_CHAT_ID) {
+
+          return json({
+            ok: false,
+            error: 'INSPECTOR_CHAT_ID is not configured'
+          }, 500);
+
+        }
+
 
         if (!env.DB) {
-          return json(
-            {
-              ok: false,
-              error: 'D1 database is not configured'
-            },
-            500
-          );
+
+          return json({
+            ok: false,
+            error: 'DB binding is not configured'
+          }, 500);
+
         }
 
-        let body;
 
-        try {
-          body = await request.json();
-        } catch {
-          return json(
-            {
-              ok: false,
-              error: 'Invalid JSON'
-            },
-            400
-          );
-        }
+        // ----------------------------------------------------
+        // Read request body
+        // ----------------------------------------------------
 
-        let user;
+        const body = await request.json();
 
-        try {
-          user = await verifyInitData(
-            body.initData,
-            env.BOT_TOKEN
-          );
-        } catch (error) {
-          return json(
-            {
-              ok: false,
-              error: error.message
-            },
-            500
-          );
-        }
+
+        // ----------------------------------------------------
+        // Validate initData
+        // ----------------------------------------------------
+
+        const user = await verifyInitData(
+          body.initData,
+          env.BOT_TOKEN
+        );
+
 
         if (!user) {
-          return json(
-            {
-              ok: false,
-              error: 'Unauthorized: invalid Telegram initData'
-            },
-            401
-          );
+
+          return json({
+            ok: false,
+            error: 'Unauthorized: invalid Telegram initData'
+          }, 401);
+
         }
 
-        if (!body.name || !body.owner) {
-          return json(
-            {
-              ok: false,
-              error: 'Missing fields'
-            },
-            400
-          );
+
+        // ----------------------------------------------------
+        // Validate territory fields
+        // ----------------------------------------------------
+
+        if (!body.name) {
+
+          return json({
+            ok: false,
+            error: 'Missing field: name'
+          }, 400);
+
         }
+
+
+        if (!body.owner) {
+
+          return json({
+            ok: false,
+            error: 'Missing field: owner'
+          }, 400);
+
+        }
+
+
+        // ----------------------------------------------------
+        // Create territory ID
+        // ----------------------------------------------------
 
         const id = crypto.randomUUID();
 
-        await env.DB.prepare(
-          `
-          INSERT INTO territories
-          (
-            id,
-            name,
-            owner_input,
-            coords,
-            requested_by_id,
-            requested_by_username,
-            status,
-            created_at
+
+        // ----------------------------------------------------
+        // Insert into D1
+        // ----------------------------------------------------
+
+        await env.DB
+          .prepare(
+            `
+            INSERT INTO territories
+            (
+              id,
+              name,
+              owner_input,
+              coords,
+              requested_by_id,
+              requested_by_username,
+              status,
+              created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `
-        )
           .bind(
             id,
             body.name,
@@ -353,42 +468,52 @@ export default {
           )
           .run();
 
-        if (!env.INSPECTOR_CHAT_ID) {
-          return json(
-            {
-              ok: true,
-              warning:
-                'Territory saved, but INSPECTOR_CHAT_ID is not configured',
-              id
-            }
-          );
-        }
 
-        const telegramResponse = await tg(
+        // ----------------------------------------------------
+        // Notify inspector in Telegram
+        // ----------------------------------------------------
+
+        await tg(
           env,
           'sendMessage',
           {
-            chat_id: env.INSPECTOR_CHAT_ID,
+            chat_id:
+              env.INSPECTOR_CHAT_ID,
 
             parse_mode: 'HTML',
 
             text:
               `🏙 <b>Новая заявка на территорию</b>\n\n` +
-              `Название: <b>${escapeHtml(body.name)}</b>\n` +
-              `Владелец: ${escapeHtml(body.owner)}\n` +
-              `Координаты: ${escapeHtml(body.coords || '—')}\n` +
-              `От: @${escapeHtml(user.username || '—')} (id ${user.id})`,
+
+              `Название: <b>${escapeHtml(
+                body.name
+              )}</b>\n` +
+
+              `Владелец: ${escapeHtml(
+                body.owner
+              )}\n` +
+
+              `Координаты: ${escapeHtml(
+                body.coords || '—'
+              )}\n` +
+
+              `От: @${escapeHtml(
+                user.username || '—'
+              )} (id ${user.id})`,
 
             reply_markup: {
               inline_keyboard: [
                 [
                   {
                     text: '✅ Подтвердить',
-                    callback_data: `territory_ok:${id}`
+                    callback_data:
+                      `territory_ok:${id}`
                   },
+
                   {
                     text: '❌ Отклонить',
-                    callback_data: `territory_no:${id}`
+                    callback_data:
+                      `territory_no:${id}`
                   }
                 ]
               ]
@@ -396,66 +521,232 @@ export default {
           }
         );
 
-        const telegramData =
-          await telegramResponse.json();
 
-        if (!telegramData.ok) {
-          return json(
-            {
-              ok: false,
-              error:
-                'Telegram API error',
-              telegram:
-                telegramData
-            },
-            500
-          );
-        }
+        // ----------------------------------------------------
+        // Success
+        // ----------------------------------------------------
 
         return json({
           ok: true,
           id
         });
+
+
+      } catch (error) {
+
+        console.error(
+          'POST /api/territories error:',
+          error
+        );
+
+
+        return json({
+          ok: false,
+          error: String(
+            error.message || error
+          )
+        }, 500);
+
       }
 
-      // --------------------------------------------------
-      // TELEGRAM WEBHOOK
-      // --------------------------------------------------
+    }
 
-      if (
-        url.pathname === '/api/webhook' &&
-        request.method === 'POST'
-      ) {
-        const update = await request.json();
+
+    // ========================================================
+    // POST /api/webhook
+    // Telegram callback buttons
+    // ========================================================
+
+    if (
+      url.pathname === '/api/webhook' &&
+      request.method === 'POST'
+    ) {
+
+      try {
+
+        const update =
+          await request.json();
 
         const callbackQuery =
           update.callback_query;
 
+
+        // No callback query.
         if (
-          callbackQuery &&
-          callbackQuery.data
+          !callbackQuery ||
+          !callbackQuery.data
         ) {
-          const [action, id] =
-            callbackQuery.data.split(':');
+
+          return new Response('ok');
+
+        }
+
+
+        const parts =
+          callbackQuery.data.split(':');
+
+        const action = parts[0];
+        const id = parts[1];
+
+
+        // ----------------------------------------------------
+        // Check callback action
+        // ----------------------------------------------------
+
+        if (
+          action !== 'territory_ok' &&
+          action !== 'territory_no'
+        ) {
+
+          return new Response('ok');
+
+        }
+
+
+        if (!id) {
+
+          await tg(
+            env,
+            'answerCallbackQuery',
+            {
+              callback_query_id:
+                callbackQuery.id,
+
+              text:
+                'Ошибка: отсутствует ID заявки'
+            }
+          );
+
+          return new Response('ok');
+
+        }
+
+
+        // ----------------------------------------------------
+        // Determine new status
+        // ----------------------------------------------------
+
+        const status =
+          action === 'territory_ok'
+            ? 'approved'
+            : 'rejected';
+
+
+        // ----------------------------------------------------
+        // Update database
+        // ----------------------------------------------------
+
+        if (!env.DB) {
+          throw new Error(
+            'DB binding is not configured'
+          );
+        }
+
+
+        await env.DB
+          .prepare(
+            `
+            UPDATE territories
+            SET status = ?
+            WHERE id = ?
+            `
+          )
+          .bind(
+            status,
+            id
+          )
+          .run();
+
+
+        // ----------------------------------------------------
+        // Answer Telegram callback
+        // ----------------------------------------------------
+
+        await tg(
+          env,
+          'answerCallbackQuery',
+          {
+            callback_query_id:
+              callbackQuery.id,
+
+            text:
+              status === 'approved'
+                ? 'Подтверждено'
+                : 'Отклонено'
+          }
+        );
+
+
+        // ----------------------------------------------------
+        // Remove buttons from original message
+        // ----------------------------------------------------
+
+        if (
+          callbackQuery.message
+        ) {
+
+          await tg(
+            env,
+            'editMessageReplyMarkup',
+            {
+              chat_id:
+                callbackQuery.message.chat.id,
+
+              message_id:
+                callbackQuery.message.message_id,
+
+              reply_markup: {
+                inline_keyboard: []
+              }
+            }
+          );
+
+
+          // --------------------------------------------------
+          // Send result message
+          // --------------------------------------------------
+
+          await tg(
+            env,
+            'sendMessage',
+            {
+              chat_id:
+                callbackQuery.message.chat.id,
+
+              text:
+                status === 'approved'
+                  ? '✅ Территория подтверждена и появится в списке.'
+                  : '❌ Заявка отклонена.'
+            }
+          );
+
+        }
+
+
+        return new Response('ok');
+
+
+      } catch (error) {
+
+        console.error(
+          'POST /api/webhook error:',
+          error
+        );
+
+
+        // Try to tell Telegram about callback error.
+        try {
+
+          const update =
+            await request.clone().json();
+
+          const callbackQuery =
+            update.callback_query;
 
           if (
-            action === 'territory_ok' ||
-            action === 'territory_no'
+            callbackQuery &&
+            callbackQuery.id
           ) {
-            const status =
-              action === 'territory_ok'
-                ? 'approved'
-                : 'rejected';
-
-            await env.DB.prepare(
-              `
-              UPDATE territories
-              SET status = ?
-              WHERE id = ?
-              `
-            )
-              .bind(status, id)
-              .run();
 
             await tg(
               env,
@@ -465,76 +756,39 @@ export default {
                   callbackQuery.id,
 
                 text:
-                  status === 'approved'
-                    ? 'Подтверждено'
-                    : 'Отклонено'
+                  'Ошибка обработки заявки'
               }
             );
 
-            if (
-              callbackQuery.message
-            ) {
-              await tg(
-                env,
-                'editMessageReplyMarkup',
-                {
-                  chat_id:
-                    callbackQuery.message
-                      .chat.id,
-
-                  message_id:
-                    callbackQuery.message
-                      .message_id,
-
-                  reply_markup: {
-                    inline_keyboard: []
-                  }
-                }
-              );
-
-              await tg(
-                env,
-                'sendMessage',
-                {
-                  chat_id:
-                    callbackQuery.message
-                      .chat.id,
-
-                  text:
-                    status === 'approved'
-                      ? '✅ Территория подтверждена и появится в списке.'
-                      : '❌ Заявка отклонена.'
-                }
-              );
-            }
           }
+
+        } catch (_) {
+          // Ignore secondary error.
         }
 
+
         return json({
-          ok: true
-        });
+          ok: false,
+          error: String(
+            error.message || error
+          )
+        }, 500);
+
       }
 
-      // --------------------------------------------------
-      // UNKNOWN ROUTE
-      // --------------------------------------------------
-
-      return json(
-        {
-          ok: false,
-          error: 'Not found',
-          path: url.pathname
-        },
-        404
-      );
-    } catch (error) {
-      return json(
-        {
-          ok: false,
-          error: error.message || String(error)
-        },
-        500
-      );
     }
+
+
+    // ========================================================
+    // UNKNOWN ROUTE
+    // ========================================================
+
+    return withCors(
+      new Response('Not found', {
+        status: 404
+      })
+    );
+
   }
+
 };
