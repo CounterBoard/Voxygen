@@ -257,12 +257,12 @@ function FontsAndTheme() {
 
         /* Surfaces: neutral, calm, with restrained depth rather than a blue wash. */
         div[style*="background: var(--surface)"]{
-          background:rgba(18,21,29,.92)!important;
+          background:#12151D!important;
           box-shadow:var(--shadow-md),inset 0 1px 0 rgba(255,255,255,.018);
           border-radius:var(--radius-lg)!important;
         }
         div[style*="background: var(--surface-2)"]{
-          background:rgba(23,27,36,.90)!important;
+          background:#171B24!important;
           box-shadow:var(--shadow-sm),inset 0 1px 0 rgba(255,255,255,.02);
           border-radius:var(--radius-md)!important;
         }
@@ -274,9 +274,9 @@ function FontsAndTheme() {
         }
 
         /* Primary controls */
-        button[style*="background: var(--indigo)"],
-        button[style*="background:var(--indigo)"],
-        button[style*="background: 'var(--indigo)'"]{
+        button[style*="background: var(--purple)"],
+        button[style*="background:var(--purple)"],
+        button[style*="background: 'var(--purple)'"]{
           background:var(--purple)!important;
           color:#FFFFFF!important;
           border:1px solid rgba(255,255,255,.055)!important;
@@ -307,7 +307,7 @@ function FontsAndTheme() {
           -webkit-tap-highlight-color:transparent;
         }
         .atlas-root [style*="background: var(--surface-3)"]{
-          background:rgba(29,34,48,.92)!important;
+          background:#1D2230!important;
         }
 
         /* Navigation and sticky controls */
@@ -488,11 +488,11 @@ function Lightbox({ shots = [], index = 0, mode, onClose, onApprove, onReject, o
       </div>
       <div onClick={e=>e.stopPropagation()} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:7,fontSize:11,color:'var(--text-muted)',marginTop:10}}>
         {shot.author&&<div>{shot.author}</div>}
-        {safeShots.length>1&&<div style={{display:'flex',alignItems:'center',gap:5}}>{safeShots.map((_,i)=><span key={i} style={{width:i===safeIndex?14:6,height:6,borderRadius:999,background:i===safeIndex?'var(--indigo)':'var(--surface-2)',border:'1px solid var(--border)'}} />)}</div>}
+        {safeShots.length>1&&<div style={{display:'flex',alignItems:'center',gap:5}}>{safeShots.map((_,i)=><span key={i} style={{width:i===safeIndex?14:6,height:6,borderRadius:999,background:i===safeIndex?'var(--purple)':'var(--surface-2)',border:'1px solid var(--border)'}} />)}</div>}
       </div>
       {mode==='moderate'&&<div style={{display:'flex',gap:10,marginTop:16,width:'100%',maxWidth:448}} onClick={e=>e.stopPropagation()}>
         <button onClick={onApprove} className="press" style={{flex:1,padding:'12px 0',borderRadius:12,border:'none',background:'var(--emerald)',color:'#06120D',fontWeight:700,fontSize:14}}>Одобрить</button>
-        <button onClick={onReject} className="press" style={{flex:1,padding:'12px 0',borderRadius:12,border:'none',background:'var(--indigo-soft)',color:'var(--indigo-2)',fontWeight:700,fontSize:14}}>Отклонить</button>
+        <button onClick={onReject} className="press" style={{flex:1,padding:'12px 0',borderRadius:12,border:'none',background:'var(--red-soft)',color:'var(--red)',fontWeight:700,fontSize:14}}>Отклонить</button>
       </div>}
     </div>
   );
@@ -546,8 +546,8 @@ function AvatarHead({ nickname, size = 46 }) {
   if (!nickname || error) {
     return (
       <div style={{
-        width: size, height: size, borderRadius: 12, background: 'var(--indigo-soft)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--indigo)', flexShrink: 0,
+        width: size, height: size, borderRadius: 12, background: 'var(--purple-soft)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--purple)', flexShrink: 0,
       }}>
         <User size={size * 0.45} />
       </div>
@@ -601,7 +601,7 @@ function AddTerritoryModal({ onClose, onSubmit }) {
             width: '100%', marginTop: 4, padding: '12px 0', borderRadius: 12, border: 'none',
             cursor: name.trim() && owner.trim() && coords.trim() ? 'pointer' : 'not-allowed',
             opacity: name.trim() && owner.trim() && coords.trim() ? 1 : 0.5,
-            background: 'var(--indigo)', color: '#fff', fontWeight: 700, fontSize: 14,
+            background: 'var(--purple)', color: '#fff', fontWeight: 700, fontSize: 14,
           }}
         >
           Отправить на подтверждение
@@ -849,7 +849,7 @@ function VoxMap({ image, territories, onSelect, gridCells = [], augmentMode = fa
 
         return <button key={city.id} onClick={() => { if (!augmentMode) onSelect(city.id); }} className="press" style={{
           position: 'absolute', left: sx, top: sy,
-          transform: 'translate(-50%,-100%)', border: 'none', background: 'transparent',
+          transform: 'translate(-50%,-50%)', border: 'none', background: 'transparent',
           cursor: augmentMode ? 'default' : 'pointer', padding: 0,
           width: MAP_MARKER_WIDTH, height: MAP_MARKER_HEIGHT,
           pointerEvents: augmentMode ? 'none' : 'auto',
@@ -938,21 +938,21 @@ function MainInspectorPanel({ initData, onMapSaved, onJorickMapSaved, territorie
   return <div style={{marginTop:12}}>
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}><Users size={16} color="var(--gold)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Инспекторы</div><span style={{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}}>{inspectors.length}</span></div><input value={inspectorInput} onChange={e=>setInspectorInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')add()}} placeholder="Username или Telegram ID" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',marginBottom:8}}/><button onClick={add} disabled={saving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',background:'var(--gold)',color:'#06120D',fontWeight:700}}>{saving?'Добавление…':'Добавить инспектора'}</button>{loading?<div style={{fontSize:12,color:'var(--text-muted)',marginTop:10}}>Загрузка…</div>:inspectors.map(i=><div key={i.telegram_id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderTop:'1px solid var(--border)'}}><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{i.telegram_username?`@${String(i.telegram_username).replace(/^@/,'')}`:'Username не указан'}</div><div style={{fontSize:11,color:'var(--text-muted)'}}>Telegram ID: {i.telegram_id}</div></div><button onClick={()=>remove(i.telegram_id)} className="press" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:9,padding:'8px'}}><Trash2 size={14}/></button></div>)}</div>
 
-    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}><Trash2 size={16} color="var(--indigo-2)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Города</div><span style={{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}}>{territories.length}</span></div>{territories.length===0?<div style={{fontSize:12,color:'var(--text-muted)'}}>Городов пока нет.</div>:territories.map(city=><div key={city.id} style={{display:'flex',alignItems:'center',gap:7,padding:'10px 0',borderTop:'1px solid var(--border)'}}><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:700}}>{city.name}</div><div style={{fontSize:11,color:'var(--text-muted)'}}>{city.owner} · {city.coords||'координаты не указаны'}</div></div><button onClick={()=>moveCity(city)} className="press" style={{border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',borderRadius:9,padding:'7px 9px',fontSize:11}}>Коорд.</button><button onClick={()=>changeFounder(city)} className="press" style={{border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--mint)',borderRadius:9,padding:'7px 9px',fontSize:11}}>Мэр</button><button onClick={()=>deleteCity(city.id)} className="press" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:9,padding:'7px 9px'}}><Trash2 size={14}/></button></div>)}</div>
-    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><MapIcon size={16} color="var(--gold)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Карта Vox</div></div><div style={{fontSize:12,color:'var(--text-muted)',marginBottom:10}}>Загрузите квадратное изображение карты Vox в формате 1:1.</div><input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>saveMap(e.target.files?.[0])}/><button onClick={()=>fileRef.current?.click()} disabled={mapSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px',background:'var(--indigo)',color:'#fff',fontWeight:700}}>{mapSaving?'Сохранение…':'Заменить карту Vox'}</button></div>
-    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><MapIcon size={16} color="var(--gold)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Карта JORICK404</div></div><div style={{fontSize:12,color:'var(--text-muted)',marginBottom:10}}>Измените карту JORICK404.</div><input ref={jorickFileRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>saveJorickMap(e.target.files?.[0])}/><button onClick={()=>jorickFileRef.current?.click()} disabled={mapSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px',background:'var(--indigo)',color:'#fff',fontWeight:700}}>{mapSaving?'Сохранение…':'Заменить карту JORICK404'}</button></div>
+    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}><Trash2 size={16} color="var(--red)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Города</div><span style={{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}}>{territories.length}</span></div>{territories.length===0?<div style={{fontSize:12,color:'var(--text-muted)'}}>Городов пока нет.</div>:territories.map(city=><div key={city.id} style={{display:'flex',alignItems:'center',gap:7,padding:'10px 0',borderTop:'1px solid var(--border)'}}><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:700}}>{city.name}</div><div style={{fontSize:11,color:'var(--text-muted)'}}>{city.owner} · {city.coords||'координаты не указаны'}</div></div><button onClick={()=>moveCity(city)} className="press" style={{border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',borderRadius:9,padding:'7px 9px',fontSize:11}}>Коорд.</button><button onClick={()=>changeFounder(city)} className="press" style={{border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--mint)',borderRadius:9,padding:'7px 9px',fontSize:11}}>Мэр</button><button onClick={()=>deleteCity(city.id)} className="press" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:9,padding:'7px 9px'}}><Trash2 size={14}/></button></div>)}</div>
+    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><MapIcon size={16} color="var(--gold)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Карта Vox</div></div><div style={{fontSize:12,color:'var(--text-muted)',marginBottom:10}}>Загрузите квадратное изображение карты Vox в формате 1:1.</div><input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>saveMap(e.target.files?.[0])}/><button onClick={()=>fileRef.current?.click()} disabled={mapSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px',background:'var(--purple)',color:'#fff',fontWeight:700}}>{mapSaving?'Сохранение…':'Заменить карту Vox'}</button></div>
+    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><MapIcon size={16} color="var(--gold)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Карта JORICK404</div></div><div style={{fontSize:12,color:'var(--text-muted)',marginBottom:10}}>Измените карту JORICK404.</div><input ref={jorickFileRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>saveJorickMap(e.target.files?.[0])}/><button onClick={()=>jorickFileRef.current?.click()} disabled={mapSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px',background:'var(--purple)',color:'#fff',fontWeight:700}}>{mapSaving?'Сохранение…':'Заменить карту JORICK404'}</button></div>
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}>
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}><Users size={16} color="var(--indigo)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Пользователи</div><span style={{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}}>{managedUsers.length}</span></div>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}><Users size={16} color="var(--purple)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Пользователи</div><span style={{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}}>{managedUsers.length}</span></div>
       <input value={newMcNickname} onChange={e=>setNewMcNickname(e.target.value)} placeholder="Никнейм в Minecraft" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',marginBottom:8}}/>
       <input value={newTelegramUsername} onChange={e=>setNewTelegramUsername(e.target.value)} placeholder="Username в Телеграм" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',marginBottom:8}}/>
-      <button onClick={addUser} disabled={userSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',background:'var(--indigo)',color:'#fff',fontWeight:700}}>{userSaving?'Сохранение…':'Добавить пользователя'}</button>
+      <button onClick={addUser} disabled={userSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',background:'var(--purple)',color:'#fff',fontWeight:700}}>{userSaving?'Сохранение…':'Добавить пользователя'}</button>
       {usersLoading?<div style={{fontSize:12,color:'var(--text-muted)',marginTop:12}}>Загрузка…</div>:managedUsers.length===0?<div style={{fontSize:12,color:'var(--text-muted)',marginTop:12}}>Подтверждённых пользователей пока нет.</div>:<div style={{marginTop:12}}>{managedUsers.map(u=>{
         const editing=editingUserId===u.id;
         return <div key={u.id} style={{padding:'12px 0',borderTop:'1px solid var(--border)'}}>
           {editing?<>
             <input value={editingUser.mcNickname} onChange={e=>setEditingUser(v=>({...v,mcNickname:e.target.value}))} placeholder="Никнейм в Minecraft" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:9,padding:'9px 10px',color:'var(--text)',marginBottom:7}}/>
             <input value={editingUser.telegramUsername} onChange={e=>setEditingUser(v=>({...v,telegramUsername:e.target.value}))} placeholder="Username в Телеграм" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:9,padding:'9px 10px',color:'var(--text)',marginBottom:7}}/>
-            <div style={{display:'flex',gap:7}}><button onClick={()=>saveUser(u.id)} disabled={userSaving} className="press" style={{flex:1,border:'none',borderRadius:9,padding:'9px',background:'var(--indigo)',color:'#fff',fontWeight:700}}>Сохранить</button><button onClick={()=>setEditingUserId(null)} className="press" style={{border:'1px solid var(--border)',borderRadius:9,padding:'9px 12px',background:'var(--surface-2)',color:'var(--text)'}}>Отмена</button></div>
+            <div style={{display:'flex',gap:7}}><button onClick={()=>saveUser(u.id)} disabled={userSaving} className="press" style={{flex:1,border:'none',borderRadius:9,padding:'9px',background:'var(--purple)',color:'#fff',fontWeight:700}}>Сохранить</button><button onClick={()=>setEditingUserId(null)} className="press" style={{border:'1px solid var(--border)',borderRadius:9,padding:'9px 12px',background:'var(--surface-2)',color:'var(--text)'}}>Отмена</button></div>
           </>:<>
             <div style={{display:'flex',alignItems:'flex-start',gap:8}}><div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:700}}>{u.mc_nickname||'Никнейм не указан'}</div><div style={{fontSize:13,color:'var(--text-muted)',marginTop:2}}>{u.telegram_username?`@${String(u.telegram_username).replace(/^@/,'')}`:'Username не указан'}</div><div style={{fontSize:11,color:'var(--text-muted)',marginTop:4}}>Telegram ID: {u.telegram_id}</div></div><button onClick={()=>startEdit(u)} className="press" style={{border:'none',background:'var(--surface-2)',color:'var(--text-muted)',borderRadius:9,padding:'8px'}} title="Редактировать"><Pencil size={14}/></button><button onClick={()=>deleteUser(u.id)} disabled={userSaving} className="press" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:9,padding:'8px'}} title="Удалить"><Trash2 size={14}/></button></div>
           </>}
@@ -960,9 +960,9 @@ function MainInspectorPanel({ initData, onMapSaved, onJorickMapSaved, territorie
       })}</div>}
     </div>
 
-    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}><MessageCircle size={16} color="var(--indigo)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>ЧиВо</div></div><textarea value={faqText} onChange={e=>setFaqText(e.target.value)} rows={9} style={{width:'100%',boxSizing:'border-box',resize:'vertical',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,lineHeight:1.5,marginBottom:8}}/><button onClick={saveFaq} disabled={faqSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',background:'var(--indigo)',color:'#fff',fontWeight:700}}>{faqSaving?'Сохранение…':'Сохранить ЧиВо'}</button></div>
+    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}><MessageCircle size={16} color="var(--purple)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>ЧиВо</div></div><textarea value={faqText} onChange={e=>setFaqText(e.target.value)} rows={9} style={{width:'100%',boxSizing:'border-box',resize:'vertical',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,lineHeight:1.5,marginBottom:8}}/><button onClick={saveFaq} disabled={faqSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',background:'var(--purple)',color:'#fff',fontWeight:700}}>{faqSaving?'Сохранение…':'Сохранить ЧиВо'}</button></div>
 
-    {(notice||error)&&<div style={{fontSize:12,color:notice?'var(--emerald)':'var(--indigo-2)',marginTop:8}}>{notice||error}</div>}
+    {(notice||error)&&<div style={{fontSize:12,color:notice?'var(--emerald)':'var(--red)',marginTop:8}}>{notice||error}</div>}
   </div>;
 }
 function InventoryGrid({items=[],equippedId=null,onEquip,showEquip=false,emptyText='Инвентарь пуст.'}){
@@ -981,10 +981,10 @@ function RecruitmentManagement({territory,initData,onSaved}) {
     <div style={{fontSize:12,color:'var(--text-muted)',marginBottom:8}}>Дополнительный текст объявления</div>
     <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Напишите объявление о наборе жителей…" rows={5} style={{width:'100%',boxSizing:'border-box',resize:'vertical',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,marginBottom:8}}/>
     <div style={{display:'flex',gap:8}}>
-      <button onClick={()=>save(true)} disabled={saving||!description.trim()} className="press" style={{flex:1,border:'none',borderRadius:10,padding:'10px 8px',background:'var(--indigo)',color:'#fff',fontWeight:700}}>{saving?'Сохранение…':'Опубликовать'}</button>
+      <button onClick={()=>save(true)} disabled={saving||!description.trim()} className="press" style={{flex:1,border:'none',borderRadius:10,padding:'10px 8px',background:'var(--purple)',color:'#fff',fontWeight:700}}>{saving?'Сохранение…':'Опубликовать'}</button>
       <button onClick={()=>save(false)} disabled={saving||!description.trim()} className="press" style={{flex:1,border:'1px solid var(--border)',borderRadius:10,padding:'10px 8px',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Скрыть</button>
     </div>
-    {(notice||error)&&<div style={{fontSize:11.5,color:error?'var(--indigo-2)':'var(--emerald)',marginTop:6}}>{error||notice}</div>}
+    {(notice||error)&&<div style={{fontSize:11.5,color:error?'var(--red)':'var(--emerald)',marginTop:6}}>{error||notice}</div>}
   </div>;
 }
 function CityManagementProfile({territory,initData,tgUser,onChanged}={}){
@@ -1010,17 +1010,17 @@ function CityManagementProfile({territory,initData,tgUser,onChanged}={}){
   return <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:14,marginBottom:12}}>
     <div className="atlas-display" style={{fontSize:16,fontWeight:700,marginBottom:12}}>{territory.name}</div>
     <button onClick={requestInspectorRating} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',background:'var(--gold)',color:'#06120D',fontWeight:700,marginBottom:12}}>Запросить оценку инспектора</button>
-    <div style={{fontSize:12,color:'var(--text-muted)',marginBottom:6}}>Название</div><div style={{display:'flex',gap:8,marginBottom:14}}><input value={name} onChange={e=>setName(e.target.value)} style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13}}/><button onClick={rename} className="press" style={iconBtn('var(--indigo)','#fff',true)}><Pencil size={15}/></button></div>
-    {managers.length>1&&<div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:14,padding:12,marginBottom:14}}><div style={{fontSize:13,fontWeight:700,marginBottom:8}}>Основатели/мэры</div>{managers.map(m=><div key={m.telegram_id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderTop:'1px solid var(--border)'}}><AvatarHead nickname={m.mc_nickname} size={32}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:12.5,fontWeight:700}}>{m.mc_nickname||'Без ника'}</div><div style={{fontSize:10.5,color:'var(--text-muted)'}}>{m.telegram_username?`@${String(m.telegram_username).replace(/^@/,'')}`:'Username не указан'}</div></div>{String(m.telegram_id)!==String(territory.owner_telegram_id||'')&&<button onClick={()=>demoteManager(m.telegram_id)} className="press" style={{border:'none',background:'var(--indigo-soft)',color:'var(--indigo-2)',borderRadius:8,padding:'6px 8px',fontSize:10.5}}>Понизить</button>}<button onClick={()=>setRecruitmentUsername(m.telegram_id)} className="press" style={{border:'none',background:String(newRecruitmentUsername).replace(/^@/,'').toLowerCase()===String(m.telegram_username||'').replace(/^@/,'').toLowerCase()?'var(--indigo)':'var(--surface)',color:String(newRecruitmentUsername).replace(/^@/,'').toLowerCase()===String(m.telegram_username||'').replace(/^@/,'').toLowerCase()?'#fff':'var(--text)',border:'1px solid var(--border)',borderRadius:8,padding:'6px 8px',fontSize:10.5}}>В объявление</button></div>)}</div>}
-    <div style={{fontSize:12,fontWeight:700,marginBottom:8}}>Жители</div><div style={{display:'flex',gap:8,marginBottom:10}}><input value={residentNick} onChange={e=>setResidentNick(e.target.value)} placeholder="Ник Minecraft" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'9px 12px',color:'var(--text)',fontSize:13}}/><button onClick={addResident} className="press" style={iconBtn('var(--indigo)','#fff',true)}><UserPlus size={15}/></button></div>
-    <div style={{display:'flex',flexDirection:'column',gap:7,marginBottom:14}}>{members.map(m=><div key={m.telegram_id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:'var(--surface-2)',borderRadius:10}}><User size={14} color="var(--text-muted)"/><span style={{flex:1,fontSize:12.5}}>{m.mc_nickname||'Без ника'}</span><button onClick={()=>promoteResident(m.telegram_id)} className="press" title="Повысить до основателя/мэра" style={{border:'none',background:'var(--gold-soft)',color:'var(--gold)',borderRadius:8,padding:6,fontSize:11,fontWeight:700}}><ChevronUp size={14}/></button><button onClick={()=>removeResident(m.telegram_id)} className="press" title="Удалить" style={{border:'none',background:'var(--indigo-soft)',color:'var(--indigo-2)',borderRadius:8,padding:6}}><X size={13}/></button></div>)}{invites.map(inv=><div key={inv.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:'var(--gold-soft)',borderRadius:10}}><Clock size={14} color="var(--gold)"/><span style={{flex:1,fontSize:12.5}}>{inv.target_nickname}</span><button onClick={()=>cancelInvite(inv.id)} className="press" style={{border:'none',background:'transparent',color:'var(--indigo-2)',padding:5}}><X size={14}/></button></div>)}{!members.length&&!invites.length&&<div style={{fontSize:12,color:'var(--text-muted)'}}>Жителей и приглашений пока нет.</div>}</div>
+    <div style={{fontSize:12,color:'var(--text-muted)',marginBottom:6}}>Название</div><div style={{display:'flex',gap:8,marginBottom:14}}><input value={name} onChange={e=>setName(e.target.value)} style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13}}/><button onClick={rename} className="press" style={iconBtn('var(--purple)','#fff',true)}><Pencil size={15}/></button></div>
+    {managers.length>1&&<div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:14,padding:12,marginBottom:14}}><div style={{fontSize:13,fontWeight:700,marginBottom:8}}>Основатели/мэры</div>{managers.map(m=><div key={m.telegram_id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderTop:'1px solid var(--border)'}}><AvatarHead nickname={m.mc_nickname} size={32}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:12.5,fontWeight:700}}>{m.mc_nickname||'Без ника'}</div><div style={{fontSize:10.5,color:'var(--text-muted)'}}>{m.telegram_username?`@${String(m.telegram_username).replace(/^@/,'')}`:'Username не указан'}</div></div>{String(m.telegram_id)!==String(territory.owner_telegram_id||'')&&<button onClick={()=>demoteManager(m.telegram_id)} className="press" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:8,padding:'6px 8px',fontSize:10.5}}>Понизить</button>}<button onClick={()=>setRecruitmentUsername(m.telegram_id)} className="press" style={{border:'none',background:String(newRecruitmentUsername).replace(/^@/,'').toLowerCase()===String(m.telegram_username||'').replace(/^@/,'').toLowerCase()?'var(--purple)':'var(--surface)',color:String(newRecruitmentUsername).replace(/^@/,'').toLowerCase()===String(m.telegram_username||'').replace(/^@/,'').toLowerCase()?'#fff':'var(--text)',border:'1px solid var(--border)',borderRadius:8,padding:'6px 8px',fontSize:10.5}}>В объявление</button></div>)}</div>}
+    <div style={{fontSize:12,fontWeight:700,marginBottom:8}}>Жители</div><div style={{display:'flex',gap:8,marginBottom:10}}><input value={residentNick} onChange={e=>setResidentNick(e.target.value)} placeholder="Ник Minecraft" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'9px 12px',color:'var(--text)',fontSize:13}}/><button onClick={addResident} className="press" style={iconBtn('var(--purple)','#fff',true)}><UserPlus size={15}/></button></div>
+    <div style={{display:'flex',flexDirection:'column',gap:7,marginBottom:14}}>{members.map(m=><div key={m.telegram_id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:'var(--surface-2)',borderRadius:10}}><User size={14} color="var(--text-muted)"/><span style={{flex:1,fontSize:12.5}}>{m.mc_nickname||'Без ника'}</span><button onClick={()=>promoteResident(m.telegram_id)} className="press" title="Повысить до основателя/мэра" style={{border:'none',background:'var(--gold-soft)',color:'var(--gold)',borderRadius:8,padding:6,fontSize:11,fontWeight:700}}><ChevronUp size={14}/></button><button onClick={()=>removeResident(m.telegram_id)} className="press" title="Удалить" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:8,padding:6}}><X size={13}/></button></div>)}{invites.map(inv=><div key={inv.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:'var(--gold-soft)',borderRadius:10}}><Clock size={14} color="var(--gold)"/><span style={{flex:1,fontSize:12.5}}>{inv.target_nickname}</span><button onClick={()=>cancelInvite(inv.id)} className="press" style={{border:'none',background:'transparent',color:'var(--red)',padding:5}}><X size={14}/></button></div>)}{!members.length&&!invites.length&&<div style={{fontSize:12,color:'var(--text-muted)'}}>Жителей и приглашений пока нет.</div>}</div>
     <RecruitmentManagement territory={{...territory,recruitment_username:newRecruitmentUsername}} initData={initData} onSaved={load}/>
     <div style={{fontSize:12,fontWeight:700,marginBottom:8}}>Оформление города</div>
     <div style={{fontSize:11.5,color:'var(--text-muted)',marginBottom:7}}>Метка</div>
     <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='метка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('метка'))} equippedId={inventory?.equippedMarkerItemId} showEquip onEquip={id=>equip(id,'marker')} emptyText="Доступных меток нет."/>
     <div style={{fontSize:11.5,color:'var(--text-muted)',margin:'12px 0 7px'}}>Обложка</div>
     <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='обложка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('обложка'))} equippedId={inventory?.equippedBackgroundItemId} showEquip onEquip={id=>equip(id,'cover')} emptyText="Доступных обложек нет."/>
-    {(notice||error)&&<div style={{fontSize:12,color:notice?'var(--emerald)':'var(--indigo-2)',marginTop:10}}>{notice||error}</div>}
+    {(notice||error)&&<div style={{fontSize:12,color:notice?'var(--emerald)':'var(--red)',marginTop:10}}>{notice||error}</div>}
   </div>;
 }
 
@@ -1028,7 +1028,7 @@ function ProfileInventory({initData,role,tgUser,territory}={}){
   const [data,setData]=useState(null),[error,setError]=useState('');
   async function load(){try{const url=territory?`${API_BASE}/api/customization?scope=profile&territoryId=${encodeURIComponent(territory.id)}`:`${API_BASE}/api/customization?scope=profile`;const r=await fetch(url,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'}),d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||`HTTP ${r.status}`);setData(d)}catch(e){setError(e?.message||'Не удалось загрузить визуал')}}
   useEffect(()=>{load()},[initData,territory?.id]);
-  if(!data)return error?<div style={{fontSize:12,color:'var(--indigo-2)',marginBottom:12}}>{error}</div>:<div style={{fontSize:12,color:'var(--text-muted)',marginBottom:12}}>Загрузка…</div>;
+  if(!data)return error?<div style={{fontSize:12,color:'var(--red)',marginBottom:12}}>{error}</div>:<div style={{fontSize:12,color:'var(--text-muted)',marginBottom:12}}>Загрузка…</div>;
   const title=territory?`Инвентарь визуала — ${territory.name}`:'Покупки';
   return <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:14,marginBottom:12}}><div className="atlas-display" style={{fontSize:16,fontWeight:700,marginBottom:5}}>{title}</div><InventoryGrid items={territory?(data.cityInventory||[]):(data.myItems||[])} emptyText={territory?'Инвентарь визуала пуст.':'Покупок пока нет.'}/></div>
 }
@@ -1063,7 +1063,7 @@ function ProfileScreen({ profile, claimNickname, role, tgUser, refreshProfile, t
   const userCitiesForTreasury=visibleCities;
   return <div style={{padding:'18px 16px 40px',minHeight:'60vh'}}>
     <div className="atlas-display" style={{fontSize:22,fontWeight:700,marginBottom:4}}>Профиль</div>
-    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}><AvatarHead nickname={profile.status==='verified'?profile.nickname:null} size={46}/><div><div style={{fontSize:15,fontWeight:600}}>{profile.nickname||'Ник не указан'}</div>{isInspector?<div style={{fontSize:11.5,color:'var(--gold)',display:'flex',alignItems:'center',gap:4,fontWeight:700}}><ShieldCheck size={12}/>{isMainInspector?'Главный инспектор':'Инспектор'}</div>:profile.status==='verified'?<div style={{fontSize:11.5,color:'var(--emerald)'}}>Ник подтверждён</div>:profile.status==='pending'?<div style={{fontSize:11.5,color:'var(--gold)'}}>Ожидает подтверждения инспектора</div>:<div style={{fontSize:11.5,color:'var(--text-muted)'}}>Ник в Minecraft</div>}</div></div><div style={{fontSize:11.5,color:'var(--text-muted)',marginBottom:10}}>Telegram: {tgUser?`@${tgUser.username||'—'} · id ${tgUser.id}`:'не определён'}</div>{!isInspector&&profile.status!=='verified'&&<><div style={{display:'flex',gap:8}}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ваш ник в Minecraft" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13}}/><button onClick={submit} className="press" style={iconBtn('var(--indigo)','#fff',true)}><Pencil size={15}/></button></div>{error&&<div style={{fontSize:12,color:'var(--indigo-2)',marginTop:8}}>{error}</div>}</>}</div>
+    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}><AvatarHead nickname={profile.status==='verified'?profile.nickname:null} size={46}/><div><div style={{fontSize:15,fontWeight:600}}>{profile.nickname||'Ник не указан'}</div>{isInspector?<div style={{fontSize:11.5,color:'var(--gold)',display:'flex',alignItems:'center',gap:4,fontWeight:700}}><ShieldCheck size={12}/>{isMainInspector?'Главный инспектор':'Инспектор'}</div>:profile.status==='verified'?<div style={{fontSize:11.5,color:'var(--emerald)'}}>Ник подтверждён</div>:profile.status==='pending'?<div style={{fontSize:11.5,color:'var(--gold)'}}>Ожидает подтверждения инспектора</div>:<div style={{fontSize:11.5,color:'var(--text-muted)'}}>Ник в Minecraft</div>}</div></div><div style={{fontSize:11.5,color:'var(--text-muted)',marginBottom:10}}>Telegram: {tgUser?`@${tgUser.username||'—'} · id ${tgUser.id}`:'не определён'}</div>{!isInspector&&profile.status!=='verified'&&<><div style={{display:'flex',gap:8}}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ваш ник в Minecraft" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13}}/><button onClick={submit} className="press" style={iconBtn('var(--purple)','#fff',true)}><Pencil size={15}/></button></div>{error&&<div style={{fontSize:12,color:'var(--red)',marginTop:8}}>{error}</div>}</>}</div>
     {!isInspector&&userCitiesForTreasury.map(city=><TreasuryCard key={`treasury-${city.id}`} city={city} initData={initData} tgUser={tgUser}/>)}
     {!isInspector&&managerCities.length===0&&<ProfileInventory initData={initData} role={role} tgUser={tgUser}/>} 
     {!isInspector&&managerCities.map(city=><CityManagementProfile key={`manage-${city.id}`} territory={city} initData={initData} tgUser={tgUser} onChanged={onTerritoriesChanged}/>)}
@@ -1126,7 +1126,7 @@ function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImag
                       ?voxWorldToPercent(t.vox_x,t.vox_z)
                       :null;
                     if (!pos || !t.marker_url) return null;
-                    return <button key={t.id} onClick={()=>onSelect(t.id)} className="press" style={{position:'absolute',left:`${pos.x}%`,top:`${pos.y}%`,transform:'translate(-50%,-100%)',border:'none',background:'transparent',padding:0,width:MAP_MARKER_WIDTH,height:MAP_MARKER_HEIGHT}}>
+                    return <button key={t.id} onClick={()=>onSelect(t.id)} className="press" style={{position:'absolute',left:`${pos.x}%`,top:`${pos.y}%`,transform:'translate(-50%,-50%)',border:'none',background:'transparent',padding:0,width:MAP_MARKER_WIDTH,height:MAP_MARKER_HEIGHT}}>
                       <img src={t.marker_url} alt={t.name} draggable={false} style={{width:MAP_MARKER_WIDTH,height:MAP_MARKER_HEIGHT,objectFit:'contain',display:'block'}}/>
                     </button>;
                   })}
@@ -1215,7 +1215,7 @@ function DonationModal({territory,initData,onClose,onSuccess}){
     <button onClick={donate} disabled={busy||!amount} className="press" style={{width:'100%',padding:'12px',border:'none',borderRadius:12,background:'var(--purple)',color:'#fff',fontWeight:800}}>{busy?'Отправка…':'Отправить донат'}</button>
   </SimpleModal>;
 }
-function TerritoryDetail({ base, onBack, profile, onGoToProfile, tgUser, role }) {
+function TerritoryDetail({ base, onBack, profile, onGoToProfile, tgUser, role, mapImage }) {
   const [t, setT] = useState(base);
   const [newComment, setNewComment] = useState('');
   const [lightbox, setLightbox] = useState(null);
@@ -1366,17 +1366,19 @@ function TerritoryDetail({ base, onBack, profile, onGoToProfile, tgUser, role })
   const canDeleteShot = isGovernment ? role === 'main_inspector' : isOwner;
   return (
     <div style={{ paddingBottom: 90, position: 'relative' }}>
-      <div style={{ position: 'relative', height: 150, background: t.cover_url ? `center / cover no-repeat url(${t.cover_url})` : `linear-gradient(160deg, ${t.accent}66, var(--surface) 85%)`, overflow:'hidden' }}>
-        {t.cover_url&&<div style={{position:'absolute',inset:0,background:'linear-gradient(180deg,rgba(10,11,16,.18),rgba(10,11,16,.58))'}}/>}
-        <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 34, height: 34, borderRadius: '50%', background: 'rgba(11,13,16,.55)', border: '1px solid var(--border)', color: 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronLeft size={18} /></button>
-        <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16 }}>
+      <div style={{ position: 'relative', height: 150, overflow:'hidden', background: t.cover_url ? 'var(--bg)' : `linear-gradient(160deg, ${t.accent}66, var(--surface) 85%)` }}>
+        {t.cover_url && mapImage && <img src={mapImage} alt="" aria-hidden="true" draggable={false} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',objectPosition:'center',display:'block'}}/>}
+        {t.cover_url && !mapImage && <div aria-hidden="true" style={{position:'absolute',inset:0,background:'var(--bg)'}}/>}
+        {t.cover_url && <img src={t.cover_url} alt="" aria-hidden="true" draggable={false} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>}
+        <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: '50%', background: 'rgba(11,13,16,.58)', border: '1px solid rgba(255,255,255,.10)', color: 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}><ChevronLeft size={20} /></button>
+        <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, zIndex: 3, textShadow:'0 2px 10px rgba(0,0,0,.28)' }}>
           <div className="atlas-display" style={{ fontSize: 24, fontWeight: 700 }}>{t.name}</div>
-          <div style={{fontSize:13,color:'rgba(237,238,242,.75)'}}>{t.vox_x ?? ''} {t.vox_z ?? ''}{isGovernment&&<span style={{color:'var(--mint)',fontWeight:700}}> · Государственная территория</span>}</div>
+          <div style={{fontSize:13,color:'rgba(237,238,242,.78)'}}>{t.vox_x ?? ''} {t.vox_z ?? ''}{isGovernment&&<span style={{color:'var(--mint)',fontWeight:700}}> · Государственная территория</span>}</div>
         </div>
       </div>
       <div style={{ padding: '14px 16px 0' }}>
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:18}}>
-          <div style={{display:'flex',gap:8,flex:1,minWidth:0}}><ScoreBadge type="curator" value={t.curator} size="lg" /><ScoreBadge type="community" value={t.community} size="lg" /></div>
+          <div style={{display:'flex',gap:10,flex:1,minWidth:0}}><ScoreBadge type="curator" value={t.curator} size="lg" /><ScoreBadge type="community" value={t.community} size="lg" /></div>
           {!isGovernment&&<button onClick={()=>setShowDonation(true)} className="press" style={{height:48,minWidth:72,padding:'0 12px',border:'1px solid var(--purple-strong)',borderRadius:14,background:'var(--purple-soft)',color:'var(--purple)',display:'flex',alignItems:'center',justifyContent:'center',gap:5,fontWeight:800}}><Gem size={17}/><span>Донат</span></button>}
         </div>
         <SectionTitle icon={<Camera size={15} />} title="Скрины" count={approved.length} />
@@ -1388,7 +1390,7 @@ function TerritoryDetail({ base, onBack, profile, onGoToProfile, tgUser, role })
         {canRate && <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 14, marginBottom: 18 }}><div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Ваша оценка</div>{rated && ratingNextAt > ratingNow ? <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, color:'var(--emerald)' }}><Check size={14} /> Спасибо за оценку, обновить её можно через {formatRatingCooldown(ratingNextAt, ratingNow)}.</div> : <>{CRITERIA.map(c => <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}><div style={{ flex: 1 }}><div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{c.label}</div><input type="range" min="1" max="5" value={myRating[c.key]} className="slider-gold" onChange={e => setMyRating(v => ({ ...v, [c.key]: Number(e.target.value) }))} style={{ width: '100%' }} /></div><div className="atlas-display" style={{ width: 20, textAlign: 'center', fontSize: 17, fontWeight: 700, color: 'var(--gold)' }}>{myRating[c.key]}</div></div>)}<button onClick={saveRating} className="press" style={{ width: '100%', padding: '11px 0', borderRadius: 12, border: 'none', background: 'var(--gold)', color: '#06120D', fontWeight: 700 }}>Сохранить оценку</button></>}</div>}
         <SectionTitle icon={<MessageCircle size={15} />} title="Отзывы" count={(t.reviews || []).length} />
         {!isOwner && hasNickname && <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}><input value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Оставить отзыв о городе…" style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px', color: 'var(--text)', fontSize: 13 }} /><button onClick={addComment} className="press" style={iconBtn('var(--surface)', '#fff', true)}><Send size={15} /></button></div>}
-        {!hasNickname && !isOwner && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14 }}>Укажите ник в <button onClick={onGoToProfile} className="press" style={{ background: 'none', border: 'none', color: 'var(--indigo)', padding: 0, fontSize: 12.5, fontWeight: 600 }}>профиле</button>, чтобы оставлять отзывы.</div>}
+        {!hasNickname && !isOwner && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14 }}>Укажите ник в <button onClick={onGoToProfile} className="press" style={{ background: 'none', border: 'none', color: 'var(--purple)', padding: 0, fontSize: 12.5, fontWeight: 600 }}>профиле</button>, чтобы оставлять отзывы.</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{(t.reviews || []).map(r => {
           const isMyComment = String(r.telegram_id || '') === String(tgUser?.id || '');
           return <div key={r.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 12 }}>
@@ -1401,17 +1403,17 @@ function TerritoryDetail({ base, onBack, profile, onGoToProfile, tgUser, role })
               </div>}
             </div>
             {editingCommentId===r.id
-              ? <div style={{display:'flex',gap:6,marginBottom:8}}><input value={editingCommentText} onChange={e=>setEditingCommentText(e.target.value)} style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'8px 10px',color:'var(--text)',fontSize:12.5}}/><button onClick={()=>editComment(r.id)} className="press" style={{border:'none',background:'var(--indigo)',color:'#fff',borderRadius:9,padding:'0 10px'}}>✓</button></div>
+              ? <div style={{display:'flex',gap:6,marginBottom:8}}><input value={editingCommentText} onChange={e=>setEditingCommentText(e.target.value)} style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'8px 10px',color:'var(--text)',fontSize:12.5}}/><button onClick={()=>editComment(r.id)} className="press" style={{border:'none',background:'var(--purple)',color:'#fff',borderRadius:9,padding:'0 10px'}}>✓</button></div>
               : <div style={{ fontSize: 13, lineHeight: 1.4, marginBottom: 8 }}>{r.text}</div>}
             {r.reply && <div style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--surface-2)', borderRadius: 10, padding: '8px 10px', marginBottom: 8, borderLeft: '2px solid var(--mint)' }}>
               <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><b style={{ color: 'var(--mint)' }}>{t.owner}: </b>{isOwner&&<div style={{marginLeft:'auto',display:'flex',gap:4}}><button onClick={()=>{setEditingReplyId(r.id);setEditingReplyText(r.reply||'')}} className="press" title="Изменить" style={{border:'none',background:'var(--purple-soft)',color:'var(--purple)',borderRadius:8,padding:6}}><Pencil size={15}/></button><button onClick={()=>removeReply(r.id)} className="press" title="Удалить" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:8,padding:6}}><Trash2 size={15}/></button></div>}</div>
-              {editingReplyId===r.id ? <div style={{display:'flex',gap:6}}><input value={editingReplyText} onChange={e=>setEditingReplyText(e.target.value)} style={{flex:1,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:9,padding:'7px 9px',color:'var(--text)',fontSize:12}}/><button onClick={()=>editReply(r.id)} className="press" style={{border:'none',background:'var(--indigo)',color:'#fff',borderRadius:8,padding:'0 9px'}}>✓</button></div> : <div>{r.reply}</div>}
+              {editingReplyId===r.id ? <div style={{display:'flex',gap:6}}><input value={editingReplyText} onChange={e=>setEditingReplyText(e.target.value)} style={{flex:1,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:9,padding:'7px 9px',color:'var(--text)',fontSize:12}}/><button onClick={()=>editReply(r.id)} className="press" style={{border:'none',background:'var(--purple)',color:'#fff',borderRadius:8,padding:'0 9px'}}>✓</button></div> : <div>{r.reply}</div>}
             </div>}
             {isOwner && !r.reply && <ReplyBox onSend={text => reply(r.id, text)} />}
           </div>;
         })}</div>
       </div>
-      {showResidents && <SimpleModal title="Жители" onClose={() => setShowResidents(false)}><div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{(t.managers||[]).map((m,i)=><div key={`manager-${m.telegram_id||i}`} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 12px', background: 'var(--indigo-soft)', borderRadius: 11 }}><ShieldCheck size={15} color="var(--gold)" /><div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 700 }}>{m.mc_nickname || m.telegram_username || 'Ник не указан'}</div><div style={{ fontSize: 10.5, color: 'var(--gold)' }}>Основатель/мэр</div></div></div>)}{(t.residents || []).length === 0 ? <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Кроме основателей/мэров жителей пока нет.</div> : (t.residents || []).map((r, i) => <div key={`${r}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 11 }}><User size={14} color="var(--text-muted)" /><span style={{ fontSize: 13 }}>{r}</span></div>)}</div></SimpleModal>}
+      {showResidents && <SimpleModal title="Жители" onClose={() => setShowResidents(false)}><div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{(t.managers||[]).map((m,i)=><div key={`manager-${m.telegram_id||i}`} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 12px', background: 'var(--purple-soft)', borderRadius: 11 }}><ShieldCheck size={15} color="var(--gold)" /><div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 700 }}>{m.mc_nickname || m.telegram_username || 'Ник не указан'}</div><div style={{ fontSize: 10.5, color: 'var(--gold)' }}>Основатель/мэр</div></div></div>)}{(t.residents || []).length === 0 ? <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Кроме основателей/мэров жителей пока нет.</div> : (t.residents || []).map((r, i) => <div key={`${r}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 11 }}><User size={14} color="var(--text-muted)" /><span style={{ fontSize: 13 }}>{r}</span></div>)}</div></SimpleModal>}
       {lightbox && <Lightbox shots={approved} index={lightboxIndex} mode="view" onClose={() => setLightbox(null)} onChange={(i)=>{setLightboxIndex(i);setLightbox({shot:approved[i]});}} />}
       {toast && <div style={{ position: 'fixed', bottom: 96, left: '50%', transform: 'translateX(-50%)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: '9px 16px', fontSize: 12.5, color: 'var(--text)', zIndex: 90, whiteSpace: 'nowrap' }}>{toast}</div>}
     </div>
@@ -1434,7 +1436,7 @@ function ReplyBox({ onSend }) {
       <button
         onClick={() => { if (val.trim()) { onSend(val.trim()); setVal(''); } }}
         className="press"
-        style={{ ...iconBtn('var(--indigo-soft)', 'var(--indigo)'), width: 32, height: 32 }}
+        style={{ ...iconBtn('var(--purple-soft)', 'var(--purple)'), width: 32, height: 32 }}
       >
         <Send size={13} />
       </button>
@@ -1446,7 +1448,7 @@ function ReplyBox({ onSend }) {
 
 function ResidentsModal({ residents, members = [], pendingInvites = [], ownerName, isOwner, onClose, newResident, setNewResident, onAdd, onRemove, onCancelInvite }) {
   const displayMembers=members.length?members:residents.map((name,i)=>({mc_nickname:name,fallback:i}));
-  return <div className="atlas-overlay" style={{position:'fixed',inset:0,background:'rgba(0,0,0,.82)',zIndex:60,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={onClose}><div onClick={e=>e.stopPropagation()} className="atlas-modal-shell" style={{width:'100%',maxWidth:448,background:'var(--surface)',borderRadius:22,border:'1px solid var(--border)',padding:18,maxHeight:'70vh',overflowY:'auto'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Жители</div><button onClick={onClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div><div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:isOwner?14:0}}>{displayMembers.length===0?<div style={{fontSize:12.5,color:'var(--text-muted)'}}>Список жителей пуст.</div>:displayMembers.map(m=><div key={m.telegram_id||m.fallback||m.mc_nickname} style={{display:'flex',alignItems:'center',gap:10,background:'var(--surface-2)',borderRadius:12,padding:'9px 12px'}}><User size={15} color="var(--text-muted)"/><span style={{fontSize:13.5,flex:1}}>{m.mc_nickname||'Неизвестно'}</span>{isOwner&&m.telegram_id&&<button onClick={()=>onRemove(m)} className="press" style={{border:'none',background:'transparent',color:'var(--indigo-2)'}}><Trash2 size={14}/></button>}</div>)}</div>{isOwner&&pendingInvites.length>0&&<div style={{marginBottom:14}}><div style={{fontSize:12,fontWeight:700,color:'var(--gold)',marginBottom:7}}>Ожидают ответа</div>{pendingInvites.map(inv=><div key={inv.id} style={{display:'flex',alignItems:'center',gap:8,background:'var(--gold-soft)',borderRadius:12,padding:'9px 10px',marginBottom:7}}><Clock size={14} color="var(--gold)"/><span style={{flex:1,fontSize:12.5}}>{inv.target_nickname}</span><button onClick={()=>onCancelInvite(inv.id)} className="press" style={{border:'none',background:'transparent',color:'var(--indigo-2)'}}><X size={15}/></button></div>)}</div>}{isOwner&&<div style={{display:'flex',gap:8}}><input value={newResident} onChange={e=>setNewResident(e.target.value)} placeholder="Ник игрока" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'9px 12px',color:'var(--text)',fontSize:13}}/><button onClick={onAdd} className="press" style={iconBtn('var(--indigo)','#fff',true)}><UserPlus size={15}/></button></div>}</div></div>;
+  return <div className="atlas-overlay" style={{position:'fixed',inset:0,background:'rgba(0,0,0,.82)',zIndex:60,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={onClose}><div onClick={e=>e.stopPropagation()} className="atlas-modal-shell" style={{width:'100%',maxWidth:448,background:'var(--surface)',borderRadius:22,border:'1px solid var(--border)',padding:18,maxHeight:'70vh',overflowY:'auto'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Жители</div><button onClick={onClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div><div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:isOwner?14:0}}>{displayMembers.length===0?<div style={{fontSize:12.5,color:'var(--text-muted)'}}>Список жителей пуст.</div>:displayMembers.map(m=><div key={m.telegram_id||m.fallback||m.mc_nickname} style={{display:'flex',alignItems:'center',gap:10,background:'var(--surface-2)',borderRadius:12,padding:'9px 12px'}}><User size={15} color="var(--text-muted)"/><span style={{fontSize:13.5,flex:1}}>{m.mc_nickname||'Неизвестно'}</span>{isOwner&&m.telegram_id&&<button onClick={()=>onRemove(m)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><Trash2 size={14}/></button>}</div>)}</div>{isOwner&&pendingInvites.length>0&&<div style={{marginBottom:14}}><div style={{fontSize:12,fontWeight:700,color:'var(--gold)',marginBottom:7}}>Ожидают ответа</div>{pendingInvites.map(inv=><div key={inv.id} style={{display:'flex',alignItems:'center',gap:8,background:'var(--gold-soft)',borderRadius:12,padding:'9px 10px',marginBottom:7}}><Clock size={14} color="var(--gold)"/><span style={{flex:1,fontSize:12.5}}>{inv.target_nickname}</span><button onClick={()=>onCancelInvite(inv.id)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><X size={15}/></button></div>)}</div>}{isOwner&&<div style={{display:'flex',gap:8}}><input value={newResident} onChange={e=>setNewResident(e.target.value)} placeholder="Ник игрока" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'9px 12px',color:'var(--text)',fontSize:13}}/><button onClick={onAdd} className="press" style={iconBtn('var(--purple)','#fff',true)}><UserPlus size={15}/></button></div>}</div></div>;
 }
 
 function RecruitmentScreen({ territories, onSelect }) {
@@ -1490,7 +1492,7 @@ function RecruitmentScreen({ territories, onSelect }) {
         </div>
       </div>
       <div style={{background:'var(--surface-2)',borderRadius:12,padding:'11px 12px',fontSize:13,lineHeight:1.55,whiteSpace:'pre-wrap',marginBottom:14}}>{selected.recruitment_description}</div>
-      <button onClick={()=>{setSelected(null);onSelect(selected.id)}} className="press" style={{width:'100%',padding:'11px 0',border:'none',borderRadius:11,background:'var(--indigo)',color:'#fff',fontWeight:700}}>Перейти на страницу города</button>
+      <button onClick={()=>{setSelected(null);onSelect(selected.id)}} className="press" style={{width:'100%',padding:'11px 0',border:'none',borderRadius:11,background:'var(--purple)',color:'#fff',fontWeight:700}}>Перейти на страницу города</button>
     </SimpleModal>}
   </div>;
 }
@@ -1533,7 +1535,7 @@ function MainTabs({ tab, onChange }) {
 }
 
 
-function SimpleModal({title,children,onClose}){return <div style={{position:'fixed',inset:0,zIndex:100,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center'}} onClick={onClose}><div onClick={e=>e.stopPropagation()} className="atlas-modal-shell" style={{width:'100%',maxWidth:448,maxHeight:'82vh',overflowY:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:22,padding:18}}><div style={{display:'flex',alignItems:'center',justifyContent:title?'space-between':'flex-end',marginBottom:title?14:10}}>{title&&<div className="atlas-display" style={{fontSize:18,fontWeight:700}}>{title}</div>}<button onClick={onClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>{children}</div></div>}
+function SimpleModal({title,children,onClose}){return <div className="atlas-overlay" style={{position:'fixed',inset:0,zIndex:100,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}} onClick={onClose}><div onClick={e=>e.stopPropagation()} className="atlas-modal-shell" style={{width:'min(448px,100%)',maxHeight:'76vh',overflowY:'auto',margin:'auto',background:'#12151D',border:'1px solid var(--border)',borderRadius:22,padding:18,opacity:1}}><div style={{display:'flex',alignItems:'center',justifyContent:title?'space-between':'flex-end',marginBottom:title?14:10}}>{title&&<div className="atlas-display" style={{fontSize:18,fontWeight:700}}>{title}</div>}<button onClick={onClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>{children}</div></div>}
 function FaqModal({onClose,text}){const value=String(text||DEFAULT_FAQ_TEXT);return <SimpleModal title="ЧиВо" onClose={onClose}><div style={{fontSize:13,lineHeight:1.55,color:'var(--text-muted)',whiteSpace:'pre-wrap'}}>{value}</div></SimpleModal>}
 const TRANSPARENT_COLOR = '#D0D0D0';
 const TRANSPARENT_RGB = [208,208,208];
@@ -1617,6 +1619,8 @@ function makeVisualForm(item={}){
   };
 }
 
+async function validateCoverDataUrl(dataUrl){if(!dataUrl)return;const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('Не удалось определить размеры изображения'));i.src=dataUrl});const ratio=img.width/img.height;if(!Number.isFinite(ratio)||Math.abs(ratio-(8/3))>0.001)throw new Error('Для визуала с тегом «Обложка» изображение должно иметь соотношение 8:3.')}
+
 function VisualEditModal({item,onClose,onSaved,initData}){
   const [form,setForm]=useState(makeVisualForm(item)),[saving,setSaving]=useState(false),[error,setError]=useState('');
   async function pick(file){if(!file)return;try{const imageData=await readImageData(file);setForm(f=>({...f,imageData}));setError('')}catch(e){setError(e?.message||'Ошибка изображения')}}
@@ -1625,6 +1629,8 @@ function VisualEditModal({item,onClose,onSaved,initData}){
       setSaving(true);setError('');
       const categories=form.categories.split(',').map(x=>x.trim()).filter(Boolean);
       if(!form.name.trim()||!categories.length)throw new Error('Укажите название и хотя бы один тег');
+      if(!form.imageData)throw new Error('Загрузите изображение визуала');
+      if(categories.some(x=>x.toLowerCase()==='обложка')) await validateCoverDataUrl(form.imageData);
       const r=await fetch(`${API_BASE}/api/customization/items/${encodeURIComponent(item.id)}`,{
         method:'PATCH',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},
         body:JSON.stringify({initData,name:form.name.trim(),categories,price:Number(form.price),imageData:form.imageData,color:form.color,
@@ -1650,16 +1656,16 @@ function VisualEditModal({item,onClose,onSaved,initData}){
         <input type="checkbox" checked={form.forAchievement} onChange={e=>setForm(f=>({...f,forAchievement:e.target.checked}))}/>
         За достижение
       </label>
-      {form.categories.split(',').map(x=>x.trim().toLowerCase()).includes('метка')&&<label style={{display:'flex',alignItems:'center',gap:9,fontSize:13,fontWeight:700,margin:'0 0 10px',cursor:'pointer',color:'var(--mint)'}}>
+      <label style={{display:'flex',alignItems:'center',gap:9,fontSize:13,fontWeight:700,margin:'0 0 10px',cursor:'pointer',color:form.governmentMarker?'var(--mint)':'var(--text)'}}>
         <input type="checkbox" checked={form.governmentMarker} onChange={e=>setForm(f=>({...f,governmentMarker:e.target.checked}))}/>
         Гос. терра
-      </label>}
+      </label>
       <AchievementFields form={form} setForm={setForm}/>
       <div style={{fontSize:11.5,color:'var(--text-muted)',marginBottom:6}}>Цвет визуала</div>
       <div style={{display:'flex',flexWrap:'wrap',gap:7,marginBottom:9}}>{VISUAL_COLORS.map(([v])=><ColorDot key={v} value={v} selected={form.color===v} onClick={()=>setForm(f=>({...f,color:v}))}/>)}</div>
       <input type="file" accept="image/*" onChange={e=>pick(e.target.files?.[0])} style={{width:'100%',marginBottom:8}}/>
       {form.imageData&&<div style={{display:'flex',justifyContent:'center',padding:10,background:'var(--surface-2)',borderRadius:12,marginBottom:8}}><img src={form.imageData} alt={form.name} style={{maxWidth:160,maxHeight:170,objectFit:'contain'}}/></div>}
-      {error&&<div style={{fontSize:12,color:'var(--indigo-2)',marginBottom:8}}>{error}</div>}
+      {error&&<div style={{fontSize:12,color:'var(--red)',marginBottom:8}}>{error}</div>}
       <button onClick={save} disabled={saving} className="press" style={{width:'100%',padding:11,border:'none',borderRadius:10,background:'var(--gold)',color:'#06120D',fontWeight:700}}>{saving?'Сохранение…':'Сохранить изменения'}</button>
     </div>
   </div>;
@@ -1701,12 +1707,13 @@ function CustomizationScreen({initData,tgUser,role,territories,profile}){
       setSaving(true);setError('');
       const categories=form.categories.split(',').map(x=>x.trim()).filter(Boolean);
       if(!form.name.trim()||!categories.length)throw new Error('Укажите название и хотя бы один тег');
+      if(categories.some(x=>x.toLowerCase()==='обложка')) await validateCoverDataUrl(form.imageData);
       const r=await fetch(`${API_BASE}/api/customization/items`,{
         method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},
         body:JSON.stringify({initData,name:form.name.trim(),categories,price:Number(form.price),imageData:form.imageData,color:form.color,
           achievementEnabled:form.forAchievement,achievementResidents:form.achievementResidents,achievementGems:form.achievementGems,
           achievementInspectorScore:form.achievementInspectorScore,achievementPlayerScore:form.achievementPlayerScore,
-          achievementScreenshots:form.achievementScreenshots,achievementComments:form.achievementComments,achievementVisuals:form.achievementVisuals})
+          achievementScreenshots:form.achievementScreenshots,achievementComments:form.achievementComments,achievementVisuals:form.achievementVisuals,governmentMarker:form.governmentMarker})
       });
       const d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||`HTTP ${r.status}`);
       setForm(makeVisualForm());await loadFull();
@@ -1741,7 +1748,7 @@ function CustomizationScreen({initData,tgUser,role,territories,profile}){
     }catch(e){setError(e?.message||'Не удалось изменить порядок тегов');loadFull()}
   }
 
-  const allItems=(data?.items||[]).filter(item=>!item.government_marker);
+  const allItems=(data?.items||[]).filter(item=>isMain||!item.government_marker);
   const tagNames=data?.categories||[];
   const filtered=allItems.filter(item=>{
     const cats=String(item.categories_text||item.category_name||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
@@ -1766,12 +1773,12 @@ function CustomizationScreen({initData,tgUser,role,territories,profile}){
           <input type="checkbox" checked={form.forAchievement} onChange={e=>setForm(f=>({...f,forAchievement:e.target.checked}))}/>
           За достижение
         </label>
-        {form.categories.split(',').map(x=>x.trim().toLowerCase()).includes('метка')&&<label style={{display:'inline-flex',alignItems:'center',gap:9,fontSize:13,fontWeight:700,cursor:'pointer',color:'var(--mint)'}}>
+        <label style={{display:'inline-flex',alignItems:'center',gap:9,fontSize:13,fontWeight:700,cursor:'pointer',color:form.governmentMarker?'var(--mint)':'var(--text)'}}>
           <input type="checkbox" checked={form.governmentMarker} onChange={e=>setForm(f=>({...f,governmentMarker:e.target.checked}))}/>
           Гос. терра
-        </label>}
+        </label>
       </div>
-      {form.governmentMarker&&<div style={{fontSize:11.5,color:'var(--text-muted)',margin:'-2px 0 10px'}}>Этот визуал будет скрыт от обычных пользователей и станет меткой всех государственных территорий.</div>}
+      {form.governmentMarker&&<div style={{fontSize:11.5,color:'var(--text-muted)',margin:'-2px 0 10px'}}>Этот визуал будет скрыт от обычных пользователей и автоматически применится к государственным территориям по своим тегам.</div>}
       <AchievementFields form={form} setForm={setForm}/>
       <div style={{fontSize:11.5,color:'var(--text-muted)',marginBottom:6}}>Цвет визуала</div>
       <div style={{display:'flex',flexWrap:'wrap',gap:7,marginBottom:9}}>{VISUAL_COLORS.map(([v])=><ColorDot key={v} value={v} selected={form.color===v} onClick={()=>setForm(f=>({...f,color:v}))}/>)}</div>
@@ -1783,9 +1790,9 @@ function CustomizationScreen({initData,tgUser,role,territories,profile}){
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:12,marginBottom:14}}>
       <div style={{fontSize:12,fontWeight:700,marginBottom:8}}>Теги</div>
       <div style={{display:'flex',gap:7,overflowX:'auto',paddingBottom:7,alignItems:'center'}}>
-        <button onClick={()=>setFilters(f=>({...f,tag:'all'}))} className="press" style={{border:'none',borderRadius:999,padding:'7px 10px',background:filters.tag==='all'?'var(--indigo)':'var(--surface-2)',color:filters.tag==='all'?'#fff':'var(--text-muted)',fontSize:11.5,fontWeight:700}}>Все</button>
+        <button onClick={()=>setFilters(f=>({...f,tag:'all'}))} className="press" style={{border:'none',borderRadius:999,padding:'7px 10px',background:filters.tag==='all'?'var(--purple)':'var(--surface-2)',color:filters.tag==='all'?'#fff':'var(--text-muted)',fontSize:11.5,fontWeight:700}}>Все</button>
         {tagNames.map((c,i)=><div key={c.id} style={{display:'flex',alignItems:'center',gap:2,flex:'0 0 auto'}}>
-          <button onClick={()=>setFilters(f=>({...f,tag:c.name}))} className="press" style={{border:'none',borderRadius:999,padding:'7px 10px',background:filters.tag.toLowerCase()===c.name.toLowerCase()?'var(--indigo)':'var(--surface-2)',color:filters.tag.toLowerCase()===c.name.toLowerCase()?'#fff':'var(--text-muted)',fontSize:11.5,fontWeight:700,whiteSpace:'nowrap'}}>{c.name}</button>
+          <button onClick={()=>setFilters(f=>({...f,tag:c.name}))} className="press" style={{border:'none',borderRadius:999,padding:'7px 10px',background:filters.tag.toLowerCase()===c.name.toLowerCase()?'var(--purple)':'var(--surface-2)',color:filters.tag.toLowerCase()===c.name.toLowerCase()?'#fff':'var(--text-muted)',fontSize:11.5,fontWeight:700,whiteSpace:'nowrap'}}>{c.name}</button>
           {isMain&&<span style={{display:'flex',gap:1}}>
             <button disabled={i===0} onClick={()=>reorderTags(c.id,-1)} className="press" style={{border:'none',background:'transparent',color:'var(--text-muted)',fontSize:10,padding:2}}><ChevronUp size={14}/></button>
             <button disabled={i===tagNames.length-1} onClick={()=>reorderTags(c.id,1)} className="press" style={{border:'none',background:'transparent',color:'var(--text-muted)',fontSize:10,padding:2}}>›</button>
@@ -1806,18 +1813,18 @@ function CustomizationScreen({initData,tgUser,role,territories,profile}){
           {isMain&&<div style={{position:'absolute',right:7,top:7,zIndex:3,display:'flex',gap:3}}>
             <button disabled={idx===0} onClick={()=>reorderItems(item.id,-1)} className="press" title="Выше" style={{width:25,height:25,border:'none',borderRadius:'50%',background:'var(--surface-2)',color:'var(--text-muted)',fontWeight:700}}><ChevronUp size={14}/></button>
             <button disabled={idx===allItems.length-1} onClick={()=>reorderItems(item.id,1)} className="press" title="Ниже" style={{width:25,height:25,border:'none',borderRadius:'50%',background:'var(--surface-2)',color:'var(--text-muted)',fontWeight:700}}><ChevronDown size={14}/></button>
-            <button onClick={()=>setEditingItem(item)} className="press" title="Редактировать" style={{width:28,height:28,border:'none',borderRadius:'50%',background:'var(--indigo-soft)',color:'var(--indigo)'}}><Pencil size={13}/></button>
-            <button onClick={()=>remove(item.id)} className="press" title="Удалить" style={{width:28,height:28,border:'none',borderRadius:'50%',background:'var(--indigo-soft)',color:'var(--indigo-2)'}}><Trash2 size={13}/></button>
+            <button type="button" onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setEditingItem(item)}} className="press" title="Редактировать" style={{width:36,height:36,border:'1px solid var(--purple-border)',borderRadius:10,background:'var(--purple-soft)',color:'var(--purple)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Pencil size={17}/></button>
+            <button type="button" onMouseDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();remove(item.id)}} className="press" title="Удалить" style={{width:36,height:36,border:'1px solid var(--red-border)',borderRadius:10,background:'var(--red-soft)',color:'var(--red)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}><Trash2 size={17}/></button>
           </div>}
           {item.image_data&&<div style={{height:140,display:'flex',alignItems:'center',justifyContent:'center',background:'var(--surface-2)',borderRadius:10}}><img src={item.image_data} alt={item.name} style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',imageRendering:'pixelated'}}/></div>}
           <div style={{fontSize:13,fontWeight:700,marginTop:7}}>{item.name}</div>
           <div style={{fontSize:12,color:'#38BDF8',marginTop:5,display:'flex',alignItems:'center',gap:10}}><span>{item.price}</span><GemHex/></div>
-          <button disabled={owned} onClick={()=>buy(item.id)} className="press" style={{width:'100%',marginTop:8,padding:9,border:'none',borderRadius:10,background:owned?'var(--surface-2)':'var(--indigo)',color:owned?'var(--text-muted)':'#fff',fontWeight:700}}>{owned?'Получено':'Купить'}</button>
+          <button disabled={owned} onClick={()=>buy(item.id)} className="press" style={{width:'100%',marginTop:8,padding:9,border:'none',borderRadius:10,background:owned?'var(--surface-2)':'var(--purple)',color:owned?'var(--text-muted)':'#fff',fontWeight:700}}>{owned?'Получено':'Купить'}</button>
         </div>;
       })}
     </div>
     {!filtered.length&&!error&&<div style={{fontSize:12,color:'var(--text-muted)',padding:'20px 4px'}}>Визуалов по выбранным фильтрам нет.</div>}
-    {error&&<div style={{fontSize:12,color:'var(--indigo-2)',marginTop:10}}>{error}</div>}
+    {error&&<div style={{fontSize:12,color:'var(--red)',marginTop:10}}>{error}</div>}
     {editingItem&&<VisualEditModal item={editingItem} initData={initData} onClose={()=>setEditingItem(null)} onSaved={load}/>}
   </div>;
 }
@@ -1924,7 +1931,7 @@ export default function CityRatingApp() {
           coords,
           x: Number.isFinite(Number(row.x)) ? Number(row.x) : 50 + ((index * 17) % 30) - 15,
           y: Number.isFinite(Number(row.y)) ? Number(row.y) : 50 + ((index * 23) % 30) - 15,
-          accent: row.accent || 'var(--indigo)',
+          accent: row.accent || 'var(--purple)',
           curator: Number(row.curator ?? 0),
           community: Number(row.community ?? 0),
           votes: Number(row.votes ?? 0),
@@ -2132,6 +2139,7 @@ export default function CityRatingApp() {
             onGoToProfile={() => navigate('profile')}
             tgUser={tgUser}
             role={role}
+            mapImage={voxMapImage}
           />
         ) : (
           <>
@@ -2140,13 +2148,13 @@ export default function CityRatingApp() {
                 <div className="atlas-display" style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.3 }}>Multi-Punk</div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{territories.length} {pluralizeInterest(territories.length)}</div>
               </div>
-              <div style={{display:'flex',alignItems:'center',gap:7,flexShrink:0,marginTop:2}}><button onClick={()=>setFaqOpen(true)} className="press" style={{padding:'9px 12px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:13}}>ЧиВо</button><button onClick={()=>setShowAddTerritory(true)} className="press" style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:999,border:'none',background:'var(--indigo)',color:'#fff',fontWeight:700,fontSize:13}}><Plus size={15}/> Добавить</button></div>
+              <div style={{display:'flex',alignItems:'center',gap:7,flexShrink:0,marginTop:2}}><button onClick={()=>setFaqOpen(true)} className="press" style={{padding:'9px 12px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:13}}>ЧиВо</button><button onClick={()=>setShowAddTerritory(true)} className="press" style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:999,border:'none',background:'var(--purple)',color:'#fff',fontWeight:700,fontSize:13}}><Plus size={15}/> Добавить</button></div>
             </div>
 
             <MainTabs tab={mainTab} onChange={changeMainTab} />
 
             {territoriesError && (
-              <div style={{ margin: '0 16px 10px', padding: '9px 12px', borderRadius: 10, background: 'var(--indigo-soft)', color: 'var(--indigo-2)', fontSize: 12 }}>
+              <div style={{ margin: '0 16px 10px', padding: '9px 12px', borderRadius: 10, background: 'var(--purple-soft)', color: 'var(--red)', fontSize: 12 }}>
                 Не удалось загрузить города: {territoriesError}
               </div>
             )}
