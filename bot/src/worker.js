@@ -1,4 +1,4 @@
-// Voxygen-Version: v27
+// Voxygen-Version: v28
 // ============================================================
 // VOXYGEN BACKEND
 // Cloudflare Worker + D1 + Telegram Mini App
@@ -3701,6 +3701,7 @@ async function initializeEventsTables(env) {
   const eventColumnNames = new Set((eventCols.results || []).map(row => row.name));
   if (!eventColumnNames.has('event_timezone')) { try { await env.DB.prepare(`ALTER TABLE events ADD COLUMN event_timezone TEXT NOT NULL DEFAULT 'UTC'`).run(); } catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; } }
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_events_active_date ON events(active,event_at)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_events_date_cleanup ON events(event_at)`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS event_reminders (
     id TEXT PRIMARY KEY,
     event_id TEXT NOT NULL,
@@ -3762,6 +3763,15 @@ async function saveCityAdditionalInfo(request, env) {
   return json({ ok: true, additional_info: value });
 }
 
+async function purgeExpiredEvents(env, at = Date.now()) {
+  await ensureEventsTables(env);
+  const cutoff = Number(at || Date.now()) - 24 * 60 * 60 * 1000;
+  // Remove user reminders first because legacy D1 tables do not declare ON DELETE CASCADE.
+  await env.DB.prepare(`DELETE FROM event_reminders WHERE event_id IN (SELECT id FROM events WHERE event_at<=?)`).bind(cutoff).run();
+  const result = await env.DB.prepare(`DELETE FROM events WHERE event_at<=?`).bind(cutoff).run();
+  return Number(result?.meta?.changes || 0);
+}
+
 async function getEvents(request, env) {
   await ensureEventsTables(env);
   const now = Date.now();
@@ -3772,15 +3782,19 @@ async function getEvents(request, env) {
     if (auth.error) return auth.error;
   }
   const viewer = await getCurrentUser(request, env);
-  const activeWhere = manage ? 'e.active=1' : 'e.active=1 AND e.event_at>=?';
+  await purgeExpiredEvents(env, now);
+  const cutoff = now - 24 * 60 * 60 * 1000;
+  // Return upcoming events and events that started within the last 24 hours.
+  // The frontend separates them into upcoming/past sections; older events are permanently purged above.
+  const activeWhere = 'e.active=1 AND e.event_at>?';
   const rows = viewer?.id
     ? await env.DB.prepare(`SELECT e.*,t.name AS territory_name,r.id AS reminder_id,r.lead_value AS reminder_value,r.lead_unit AS reminder_unit,r.remind_at AS reminder_at,r.status AS reminder_status
         FROM events e LEFT JOIN territories t ON t.id=e.territory_id
         LEFT JOIN event_reminders r ON r.event_id=e.id AND r.telegram_id=?
-        WHERE ${activeWhere} ORDER BY e.event_at ASC LIMIT 100`).bind(...(manage ? [Number(viewer.id)] : [Number(viewer.id), now])).all()
+        WHERE ${activeWhere} ORDER BY e.event_at ASC LIMIT 100`).bind(Number(viewer.id), cutoff).all()
     : await env.DB.prepare(`SELECT e.*,t.name AS territory_name,NULL AS reminder_id,NULL AS reminder_value,NULL AS reminder_unit,NULL AS reminder_at,NULL AS reminder_status
         FROM events e LEFT JOIN territories t ON t.id=e.territory_id
-        WHERE ${activeWhere} ORDER BY e.event_at ASC LIMIT 100`).bind(...(manage ? [] : [now])).all();
+        WHERE ${activeWhere} ORDER BY e.event_at ASC LIMIT 100`).bind(cutoff).all();
   return json({ ok: true, events: (rows.results || []).map(row => ({
     ...row,
     reminder: row.reminder_id ? { id: row.reminder_id, value: Number(row.reminder_value || 0), unit: row.reminder_unit || 'minutes', remind_at: Number(row.reminder_at || 0), status: row.reminder_status || 'pending' } : null,
@@ -3895,15 +3909,22 @@ async function updateEvent(request, env) {
 }
 
 async function deleteEvent(request, env) {
-  const auth = await requireMainInspector(request, env);
+  const auth = await requireUser(request, env);
   if (auth.error) return auth.error;
   let body; try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
   const id = String(body?.id || '').trim();
   if (!id) return json({ ok: false, error: 'Событие не найдено' }, 400);
   await ensureEventsTables(env);
-  const result = await env.DB.prepare(`UPDATE events SET active=0,updated_at=? WHERE id=? AND active=1`).bind(Date.now(),id).run();
+  const event = await env.DB.prepare(`SELECT id,created_by,active FROM events WHERE id=? LIMIT 1`).bind(id).first();
+  if (!event || Number(event.active||0)!==1) return json({ ok: false, error: 'Событие не найдено' }, 404);
+  const role = await getRoleByTelegramId(env, Number(auth.user.id), auth.user.username || '');
+  if (role !== 'main_inspector' && Number(event.created_by) !== Number(auth.user.id)) {
+    return json({ ok:false, error:'Удалить ивент может только его создатель или главный инспектор' },403);
+  }
+  const now=Date.now();
+  const result = await env.DB.prepare(`UPDATE events SET active=0,updated_at=? WHERE id=? AND active=1`).bind(now,id).run();
   if (!result.meta?.changes) return json({ ok: false, error: 'Событие не найдено' }, 404);
-  await env.DB.prepare(`UPDATE event_reminders SET status='cancelled',updated_at=? WHERE event_id=? AND status IN ('pending','sending')`).bind(Date.now(),id).run();
+  await env.DB.prepare(`UPDATE event_reminders SET status='cancelled',updated_at=? WHERE event_id=? AND status IN ('pending','sending')`).bind(now,id).run();
   return json({ ok: true, id, status: 'deleted' });
 }
 
@@ -3946,7 +3967,7 @@ async function deliverEventReminders(env, at = Date.now()) {
     const claim = await env.DB.prepare(`UPDATE event_reminders SET status='sending',updated_at=? WHERE id=? AND status='pending'`).bind(now,item.id).run();
     if (!claim.meta?.changes) continue;
     let date;
-    try { date = new Date(Number(item.event_at)).toLocaleString('ru-RU',{timeZone:String(item.event_timezone || 'UTC'),dateStyle:'medium',timeStyle:'short'}); } catch { date = new Date(Number(item.event_at)).toISOString(); }
+    try { date = new Date(Number(item.event_at)).toLocaleString('ru-RU',{timeZone:String(item.event_timezone || 'Europe/Moscow'),day:'numeric',month:'long',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}); } catch { date = new Date(Number(item.event_at)).toLocaleString('ru-RU',{timeZone:'Europe/Moscow',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}); }
     const cleanTitle=stripMinecraftFormatting(item.title).trim()||'Ивент';
     const placeSource=stripMinecraftFormatting(item.territory_name||'').trim()||stripMinecraftFormatting(item.place||'').trim();
     const cleanPlace=/^(не указано|место не указано)$/i.test(placeSource)?'':placeSource;
@@ -3975,11 +3996,11 @@ async function deliverEventReminders(env, at = Date.now()) {
 function parseBankCommand(raw) {
   const text = String(raw || '').trim();
   if (!text) return null;
-  const notification = text.match(/Игрок\s+(.+?)\s+совершил\s+перевод\s+в\s+размере\s+([\d\s]+)\s+самоцветов\s+на\s+ваш\s+сч[её]т\s*\(\s*\d+\s*\)\.?/i);
+  const notification = text.match(/Игрок\s+(.+?)\s+совершил\s+перевод\s+в\s+размере\s+([\d\s]+)\s+самоцветов\s+на\s+ваш\s+сч[её]т\s*\(\s*\d*\s*\)\.?/i);
   if (notification) {
     const target = notification[1].trim();
     const amount = Number(notification[2].replace(/\s/g,''));
-    if (target && Number.isSafeInteger(amount) && amount > 0) return { target, amount, direction: 'credit' };
+    if (target && Number.isSafeInteger(amount) && amount > 0) return { target: stripMinecraftFormatting(target), amount, direction: 'credit', bankNotification: true };
     return null;
   }
   const parts = text.split(/\s+/).filter(Boolean);
@@ -4065,7 +4086,16 @@ async function handleBankMessage(env, update, message) {
     await env.DB.prepare(`UPDATE bank_transactions SET target_telegram_id=?,status='success',balance_after=?,updated_at=? WHERE update_id=?`).bind(targetId,Number(balance?.balance || 0),Date.now(),updateId).run();
     const verb = command.direction === 'debit' ? 'списано' : 'зачислено';
     await reply(`🏦 Готово: ${verb} ${command.amount} самоцветов. Игрок: ${command.target}. Баланс: ${Number(balance?.balance || 0)} самоцветов.`);
-    try { await telegram(env,'sendMessage',{chat_id:targetId,text:`💎 ${command.direction==='debit'?'С вашего баланса списано':'На ваш баланс зачислено'} ${command.amount} самоцветов. Новый баланс: ${Number(balance?.balance||0)} самоцветов.`}); } catch {}
+    try {
+      if (command.bankNotification && command.direction === 'credit') {
+        const profileNameRow = await env.DB.prepare(`SELECT mc_nickname FROM users WHERE telegram_id=? LIMIT 1`).bind(targetId).first();
+        const playerName = stripMinecraftFormatting(profileNameRow?.mc_nickname || command.target || 'Игрок').trim() || 'Игрок';
+        const noticeText = `🏦 <b>Уведомление банка</b>\n\nИгрок <b>${escapeHtml(playerName)}</b> совершил перевод в размере <b>${Number(command.amount)}</b> самоцветов на ваш счёт (24).`;
+        await telegram(env,'sendMessage',{chat_id:targetId,text:noticeText,parse_mode:'HTML',disable_web_page_preview:true});
+      } else {
+        await telegram(env,'sendMessage',{chat_id:targetId,text:`💎 ${command.direction==='debit'?'С вашего баланса списано':'На ваш баланс зачислено'} ${command.amount} самоцветов. Новый баланс: ${Number(balance?.balance||0)} самоцветов.`});
+      }
+    } catch (error) { console.error(JSON.stringify({event:'bank_user_notification_failed',targetId,code:'BANK_USER_NOTIFICATION_FAILED'})); }
     return json({ ok: true, handled: 'bank_success' });
   } catch (error) {
     await env.DB.prepare(`UPDATE bank_transactions SET status='failed',updated_at=?,note='Internal processing error' WHERE update_id=?`).bind(Date.now(),updateId).run().catch(()=>{});
@@ -4305,13 +4335,23 @@ async function getD1Diagnostics(request, env) {
 
 export default {
   async scheduled(controller, env, ctx) {
+    const now=Number(controller?.scheduledTime || Date.now());
+    let scheduledError=null;
     try {
-      const result=await deliverEventReminders(env, Number(controller?.scheduledTime || Date.now()));
+      const result=await deliverEventReminders(env, now);
       console.log(JSON.stringify({event:'event_reminder_cron_completed',processed:Number(result?.processed||0),cron:String(controller?.cron||'unknown')}));
     } catch (error) {
+      scheduledError=error;
       console.error(JSON.stringify({ event: 'event_reminder_cron_failed', code: 'SCHEDULED_HANDLER_FAILED', message:String(error?.message||error).slice(0,180) }));
-      throw error;
     }
+    try {
+      const deleted=await purgeExpiredEvents(env,now);
+      if(deleted)console.log(JSON.stringify({event:'expired_events_purged',count:deleted}));
+    } catch (error) {
+      console.error(JSON.stringify({event:'expired_events_purge_failed',code:'EVENT_PURGE_FAILED',message:String(error?.message||error).slice(0,180)}));
+      scheduledError=scheduledError||error;
+    }
+    if(scheduledError)throw scheduledError;
   },
   async fetch(request, env, ctx) {
     const requestStartedAt = Date.now();
