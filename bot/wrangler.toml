@@ -11,3 +11,6 @@ database_id = "1d7fb0f9-60ef-4afd-b10b-46cd572d2a25"
 GITHUB_OWNER = "CounterBoard"
 GITHUB_REPO = "Voxygen-map-storage"
 GITHUB_RELEASE_TAG = "world-map"
+
+[triggers]
+crons = ["* * * * *"]
