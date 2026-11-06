@@ -6,3 +6,8 @@ compatibility_date = "2026-01-01"
 binding = "DB"
 database_name = "voxygen"
 database_id = "1d7fb0f9-60ef-4afd-b10b-46cd572d2a25"
+
+[vars]
+GITHUB_OWNER = "CounterBoard"
+GITHUB_REPO = "Voxygen-map-storage"
+GITHUB_RELEASE_TAG = "world-map"
