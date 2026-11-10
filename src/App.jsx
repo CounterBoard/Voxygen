@@ -17,6 +17,7 @@ const TERRITORIES = [];
 // Fill this in once the voxygen-bot Worker is deployed, e.g.
 // "https://voxygen-bot.your-subdomain.workers.dev"
 const API_BASE = 'https://voxygen.counterboard.workers.dev';
+const MAP_ASSETS_BASE = 'https://voxygen-map-assets.counterboard.workers.dev';
 
 const financialOperationMemory = new Map();
 function getFinancialOperationToken(kind, targetId, amount) {
@@ -1051,7 +1052,7 @@ function AddTerritoryModal({ onClose, onSubmit, isMainInspector = false }) {
 // ---------------------------------------------------------------------------
 // Interactive Vox map
 // ---------------------------------------------------------------------------
-function VoxMap({ image, territories, onSelect, resetSignal = 0, viewState = null, onViewStateChange, markersReady = false }) {
+function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, viewState = null, onViewStateChange, markersReady = false }) {
   const MAX_MAP_ZOOM = 24;
   const viewportRef = useRef(null);
   const mapLayerRef = useRef(null);
@@ -1061,6 +1062,114 @@ function VoxMap({ image, territories, onSelect, resetSignal = 0, viewState = nul
   const lastResetRef = useRef(resetSignal);
   const paintFrameRef = useRef(null);
   const viewSyncTimerRef = useRef(null);
+  const tileRefreshTimerRef = useRef(null);
+  const tileSignatureRef = useRef('');
+  const sourceRef = useRef(source);
+  sourceRef.current = source;
+  const [visibleTiles, setVisibleTiles] = useState([]);
+
+  function buildVisibleTiles() {
+    const src = sourceRef.current;
+    const viewport = viewportRef.current;
+    if (!src || !viewport || !['deepzoom', 'url-grid'].includes(src.type)) return [];
+    const width = Math.max(1, viewport.clientWidth);
+    const height = Math.max(1, viewport.clientHeight);
+    const t = transformRef.current;
+    const scale = Math.max(1, Number(t.scale) || 1);
+    const clamp01 = value => Math.max(0, Math.min(1, value));
+    const left = clamp01(0.5 + (-width / 2 - t.x) / (scale * width));
+    const right = clamp01(0.5 + (width / 2 - t.x) / (scale * width));
+    const top = clamp01(0.5 + (-height / 2 - t.y) / (scale * height));
+    const bottom = clamp01(0.5 + (height / 2 - t.y) / (scale * height));
+    const tiles = [];
+
+    if (src.type === 'deepzoom') {
+      const mapWidth = Math.max(1, Number(src.width) || 1);
+      const mapHeight = Math.max(1, Number(src.height) || 1);
+      const tileSize = Math.max(64, Number(src.tileSize) || 512);
+      const minLevel = Math.max(0, Number(src.minLevel) || 0);
+      const maxLevel = Math.max(minLevel, Number(src.maxLevel) || minLevel);
+      const dpr = Math.max(1, Math.min(3, Number(window.devicePixelRatio) || 1));
+      const targetPixels = Math.max(width, height) * dpr * scale;
+      const idealLevel = maxLevel + Math.log2(targetPixels / Math.max(mapWidth, mapHeight));
+      const level = Math.max(minLevel, Math.min(maxLevel, Math.ceil(idealLevel)));
+      const reduction = 2 ** (maxLevel - level);
+      const levelWidth = Math.max(1, Math.ceil(mapWidth / reduction));
+      const levelHeight = Math.max(1, Math.ceil(mapHeight / reduction));
+      const columns = Math.ceil(levelWidth / tileSize);
+      const rows = Math.ceil(levelHeight / tileSize);
+      const xStart = Math.max(0, Math.floor(left * levelWidth / tileSize) - 1);
+      const xEnd = Math.min(columns - 1, Math.floor(Math.max(0, right * levelWidth - 1) / tileSize) + 1);
+      const yStart = Math.max(0, Math.floor(top * levelHeight / tileSize) - 1);
+      const yEnd = Math.min(rows - 1, Math.floor(Math.max(0, bottom * levelHeight - 1) / tileSize) + 1);
+      const template = String(src.tileUrlTemplate || '');
+      const assetBase = String(src.assetBase || MAP_ASSETS_BASE);
+      for (let y = yStart; y <= yEnd; y += 1) {
+        for (let x = xStart; x <= xEnd; x += 1) {
+          const tilePath = template
+            .replaceAll('{level}', String(level))
+            .replaceAll('{x}', String(x))
+            .replaceAll('{y}', String(y));
+          if (!tilePath) continue;
+          let url = tilePath;
+          try { url = /^https?:\/\//i.test(tilePath) ? tilePath : new URL(tilePath, assetBase).href; } catch {}
+          const tileWidth = Math.min(tileSize, levelWidth - x * tileSize);
+          const tileHeight = Math.min(tileSize, levelHeight - y * tileSize);
+          tiles.push({
+            key: url,
+            src: url,
+            left: x * tileSize / levelWidth * 100,
+            top: y * tileSize / levelHeight * 100,
+            width: tileWidth / levelWidth * 100,
+            height: tileHeight / levelHeight * 100,
+          });
+        }
+      }
+      return tiles;
+    }
+
+    const columns = Math.max(1, Number(src.columns) || 12);
+    const rows = Math.max(1, Number(src.rows) || 12);
+    const urls = Array.isArray(src.urls) ? src.urls : [];
+    const xStart = Math.max(0, Math.floor(left * columns) - 1);
+    const xEnd = Math.min(columns - 1, Math.floor(Math.max(0, right - 0.000001) * columns) + 1);
+    const yStart = Math.max(0, Math.floor(top * rows) - 1);
+    const yEnd = Math.min(rows - 1, Math.floor(Math.max(0, bottom - 0.000001) * rows) + 1);
+    for (let y = yStart; y <= yEnd; y += 1) {
+      for (let x = xStart; x <= xEnd; x += 1) {
+        const url = urls[y * columns + x];
+        if (typeof url !== 'string' || !url.trim()) continue;
+        let resolvedUrl = url.trim();
+        try { resolvedUrl = /^https?:\/\//i.test(resolvedUrl) ? resolvedUrl : new URL(resolvedUrl, String(src.assetBase || MAP_ASSETS_BASE)).href; } catch {}
+        tiles.push({
+          key: resolvedUrl,
+          src: resolvedUrl,
+          left: x / columns * 100,
+          top: y / rows * 100,
+          width: 100 / columns,
+          height: 100 / rows,
+        });
+      }
+    }
+    return tiles;
+  }
+
+  function refreshTilesNow() {
+    const next = buildVisibleTiles();
+    const signature = next.map(tile => tile.key).join('|');
+    if (signature !== tileSignatureRef.current) {
+      tileSignatureRef.current = signature;
+      setVisibleTiles(next);
+    }
+  }
+
+  function scheduleTileRefresh() {
+    if (tileRefreshTimerRef.current !== null) return;
+    tileRefreshTimerRef.current = window.setTimeout(() => {
+      tileRefreshTimerRef.current = null;
+      refreshTilesNow();
+    }, 110);
+  }
 
   function bounds(scale = transformRef.current.scale) {
     const el = viewportRef.current;
@@ -1102,6 +1211,7 @@ function VoxMap({ image, territories, onSelect, resetSignal = 0, viewState = nul
   function apply(next) {
     transformRef.current = clamp(next);
     schedulePaint();
+    scheduleTileRefresh();
   }
 
   function syncViewStateNow() {
@@ -1131,6 +1241,7 @@ function VoxMap({ image, territories, onSelect, resetSignal = 0, viewState = nul
     return () => {
       if (viewSyncTimerRef.current !== null) window.clearTimeout(viewSyncTimerRef.current);
       if (paintFrameRef.current !== null) window.cancelAnimationFrame(paintFrameRef.current);
+      if (tileRefreshTimerRef.current !== null) window.clearTimeout(tileRefreshTimerRef.current);
     };
   }, []);
 
@@ -1142,13 +1253,19 @@ function VoxMap({ image, territories, onSelect, resetSignal = 0, viewState = nul
       gestureRef.current = null;
       paintTransform();
       syncViewStateNow();
+      scheduleTileRefresh();
     }
   }, [resetSignal]);
+
+  useEffect(() => {
+    scheduleTileRefresh();
+  }, [source]);
 
   useEffect(() => {
     const onResize = () => {
       transformRef.current = clamp(transformRef.current);
       paintTransform();
+      scheduleTileRefresh();
     };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
@@ -1276,10 +1393,34 @@ function VoxMap({ image, territories, onSelect, resetSignal = 0, viewState = nul
       backfaceVisibility: 'hidden',
       '--vox-marker-inverse-scale': String(1 / initialTransform.scale),
     }}>
-      <img src={image} alt="Карта мира" draggable={false} decoding="async" fetchPriority="high" style={{
+      {source && ['deepzoom', 'url-grid'].includes(source.type) ? <>
+        <img src={image} alt="Карта мира" draggable={false} decoding="async" fetchPriority="high" style={{
+          position: 'absolute', inset: 0, width: '100%', height: '100%',
+          objectFit: 'fill', pointerEvents: 'none',
+        }}/>
+        {visibleTiles.map(tile => <img
+          key={tile.key}
+          src={tile.src}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          decoding="async"
+          fetchPriority="high"
+          style={{
+            position: 'absolute',
+            left: `${tile.left}%`,
+            top: `${tile.top}%`,
+            width: `${tile.width}%`,
+            height: `${tile.height}%`,
+            objectFit: 'fill',
+            display: 'block',
+            pointerEvents: 'none',
+          }}
+        />)}
+      </> : <img src={image} alt="Карта мира" draggable={false} decoding="async" fetchPriority="high" style={{
         position: 'absolute', inset: 0, width: '100%', height: '100%',
         objectFit: 'fill', pointerEvents: 'none',
-      }}/>
+      }}/>}
       <div style={{ position: 'absolute', inset: 0, zIndex: 15, pointerEvents: 'none' }}>
         {markersReady && territories.map(city => {
           const hasCoords = finiteCoordinate(city.vox_x) !== null && finiteCoordinate(city.vox_z) !== null;
@@ -1305,7 +1446,7 @@ function VoxMap({ image, territories, onSelect, resetSignal = 0, viewState = nul
   </div>;
 }
 function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritoriesChanged, onFaqSaved }) {
-  const [inspectors,setInspectors]=useState([]),[inspectorInput,setInspectorInput]=useState(''),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[mapSaving,setMapSaving]=useState(false),[mapProgress,setMapProgress]=useState(0),[error,setError]=useState(''),[notice,setNotice]=useState('');
+  const [inspectors,setInspectors]=useState([]),[inspectorInput,setInspectorInput]=useState(''),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[mapSaving,setMapSaving]=useState(false),[mapProcessing,setMapProcessing]=useState(false),[mapProgress,setMapProgress]=useState(0),[error,setError]=useState(''),[notice,setNotice]=useState('');
   const [managedUsers,setManagedUsers]=useState([]),[usersLoading,setUsersLoading]=useState(true),[userSaving,setUserSaving]=useState(false),[newMcNickname,setNewMcNickname]=useState(''),[newTelegramId,setNewTelegramId]=useState(''),[editingUserId,setEditingUserId]=useState(null),[editingUser,setEditingUser]=useState({mcNickname:'',telegramId:''});
   const [faqText,setFaqText]=useState(''),[faqSaving,setFaqSaving]=useState(false),[faqLoading,setFaqLoading]=useState(true),[faqLoadError,setFaqLoadError]=useState('');
   const [managerModalCity,setManagerModalCity]=useState(null);
@@ -1353,7 +1494,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
   async function saveMap(file) {
     if (!file) return;
     try {
-      setError(''); setNotice(''); setMapSaving(true); setMapProgress(0);
+      setError(''); setNotice(''); setMapSaving(true); setMapProcessing(false); setMapProgress(0);
       const maxBytes = 90_000_000;
       if (!['image/png','image/jpeg','image/webp'].includes(String(file.type || '').toLowerCase())) {
         throw new Error('Поддерживаются только PNG, JPG и WebP.');
@@ -1361,7 +1502,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
       if (!Number.isFinite(file.size) || file.size <= 0 || file.size > maxBytes) {
         throw new Error('Размер файла должен быть не больше 90 МБ.');
       }
-      await new Promise((resolve, reject) => {
+      const uploadResult = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', `${API_BASE}/api/map`, true);
         xhr.timeout = 600000;
@@ -1382,14 +1523,65 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
         xhr.onabort = () => reject(new Error('Загрузка карты отменена.'));
         xhr.send(file);
       });
-      const mapUrl = `${API_BASE}/api/map?v=${Date.now()}`;
+
+      const expectedVersion = String(uploadResult?.mapVersion || '').trim();
+      if (!expectedVersion) throw new Error('Worker сохранил файл, но не вернул версию для обработки карты.');
+      setMapProcessing(true);
+      setNotice('Файл загружен. Генерируем и публикуем тайлы карты…');
+
+      const deadline = Date.now() + 25 * 60 * 1000;
+      let publishedManifest = null;
+      while (Date.now() < deadline) {
+        try {
+          const response = await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`, { cache: 'no-store' });
+          if (response.ok) {
+            const manifest = await response.json();
+            if (manifest?.mapVersion === expectedVersion
+              && manifest?.source
+              && ['deepzoom', 'url-grid'].includes(manifest.source.type)) {
+              publishedManifest = manifest;
+              break;
+            }
+          }
+        } catch {}
+        await new Promise(resolve => window.setTimeout(resolve, 5000));
+      }
+      if (!publishedManifest) {
+        throw new Error('Исходный файл загружен, но публикация тайлов не завершилась за 25 минут. Предыдущая опубликованная карта осталась доступна. Проверьте запуск GitHub Actions в Voxygen-map-assets.');
+      }
+
+      const previewPath = publishedManifest.source.previewUrl || publishedManifest.previewUrl;
+      if (!previewPath) throw new Error('Публикация завершилась, но в манифесте отсутствует previewUrl.');
+      const previewUrl = /^https?:\/\//i.test(previewPath) ? previewPath : new URL(previewPath, MAP_ASSETS_BASE).href;
+      const preview = new Image();
+      preview.decoding = 'async';
+      preview.fetchPriority = 'high';
+      preview.src = previewUrl;
+      if (typeof preview.decode === 'function') {
+        await preview.decode();
+      } else {
+        await new Promise((resolve, reject) => {
+          preview.onload = resolve;
+          preview.onerror = () => reject(new Error('Не удалось загрузить превью опубликованной карты.'));
+        });
+      }
+      if (!preview.naturalWidth || !preview.naturalHeight) {
+        throw new Error('Превью опубликованной карты не удалось декодировать.');
+      }
+
+      const publishedSource = {
+        ...publishedManifest.source,
+        assetBase: MAP_ASSETS_BASE,
+        mapVersion: publishedManifest.mapVersion,
+      };
       setMapProgress(100);
       setNotice('Карта мира обновлена');
-      onMapSaved?.(mapUrl);
+      onMapSaved?.({ image: previewUrl, source: publishedSource });
     } catch (e) {
       setError(safeCaughtError(e, 'Не удалось сохранить карту'));
     } finally {
       setMapSaving(false);
+      setMapProcessing(false);
       window.setTimeout(() => setMapProgress(0), 900);
       if (fileRef.current) fileRef.current.value = '';
     }
@@ -1409,8 +1601,8 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><MapIcon size={16} color="var(--purple)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Карта мира</div></div>
       <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.5,marginBottom:10}}>Загрузите изображение PNG, JPG или WebP любого разрешения. Исходное качество сохраняется; размер файла — до 90 МБ. Карта хранится в GitHub Releases.</div>
       <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{display:'none'}} onChange={e=>saveMap(e.target.files?.[0])}/>
-      <button onClick={()=>fileRef.current?.click()} disabled={mapSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'11px',background:'var(--purple)',color:'#fff',fontWeight:700}}>{mapSaving?'Загрузка карты…':'Загрузить карту мира'}</button>
-      {mapSaving&&<div role="status" aria-live="polite" style={{marginTop:10}}><div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--text-muted)',marginBottom:5}}><span>{mapProgress>=100?'Файл передан, завершаем сохранение…':'Загрузка файла'}</span><span>{mapProgress}%</span></div><div style={{height:6,background:'var(--surface-3)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',width:`${mapProgress}%`,background:'var(--purple)',borderRadius:99,transition:'width 120ms linear'}}/></div></div>}
+      <button onClick={()=>fileRef.current?.click()} disabled={mapSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'11px',background:'var(--purple)',color:'#fff',fontWeight:700}}>{mapSaving?(mapProcessing?'Обработка карты…':'Загрузка карты…'):'Загрузить карту мира'}</button>
+      {mapSaving&&<div role="status" aria-live="polite" style={{marginTop:10}}><div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--text-muted)',marginBottom:5}}><span>{mapProcessing?'Генерация тайлов и публикация…':(mapProgress>=100?'Файл передан, запускаем обработку…':'Загрузка файла')}</span><span>{mapProcessing?'В работе':`${mapProgress}%`}</span></div><div style={{height:6,background:'var(--surface-3)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',width:`${mapProgress}%`,background:'var(--purple)',borderRadius:99,transition:'width 120ms linear'}}/></div></div>}
     </div>
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}><Users size={16} color="var(--purple)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Пользователи</div><span style={{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}}>{managedUsers.length}</span></div>
@@ -1739,7 +1931,7 @@ function ProfileScreen({ profile, profileLoadState, profileLoadError, claimNickn
       </div>;
 }
 
-function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImage=null, mapLoading=false, mapError='', onRetryMap, voxView, onVoxViewChange, markersReady=false }) {
+function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImage=null, mapSource=null, mapLoading=false, mapError='', onRetryMap, voxView, onVoxViewChange, markersReady=false }) {
   const [sortBy,setSortBy]=useState('curator');
   const [resetSignal,setResetSignal]=useState(0);
 
@@ -1754,6 +1946,7 @@ function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImag
             {mapImage ? (
               <VoxMap
                 image={mapImage}
+                source={mapSource}
                 territories={territories}
                 onSelect={onSelect}
                 resetSignal={resetSignal}
@@ -3006,6 +3199,7 @@ export default function CityRatingApp() {
   const [showAddTerritory, setShowAddTerritory] = useState(false);
   const [homeToast, setHomeToast] = useState(null);
   const [worldMapImage, setWorldMapImage] = useState(null);
+  const [worldMapSource, setWorldMapSource] = useState(null);
   const [worldMapLoading, setWorldMapLoading] = useState(true);
   const [worldMapError, setWorldMapError] = useState('');
   const [voxView, setVoxView] = useState({ x: 0, y: 0, scale: 1 });
@@ -3125,7 +3319,44 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
     setWorldMapLoading(true);
     setWorldMapError('');
     try {
-      // HEAD verifies the GitHub-backed image without downloading its full body.
+      // Prefer the published manifest. The small preview appears immediately;
+      // VoxMap then requests only the high-detail tiles visible at the current zoom.
+      try {
+        const manifestResponse = await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`, { cache: 'no-store' });
+        if (manifestResponse.ok) {
+          const manifest = await manifestResponse.json();
+          const source = manifest?.source;
+          if (!manifest?.mapVersion || !source || !['deepzoom', 'url-grid'].includes(source.type)) {
+            throw new Error('Опубликованная карта имеет неподдерживаемый формат.');
+          }
+          const previewPath = source.previewUrl || manifest.previewUrl;
+          if (!previewPath) throw new Error('В манифесте карты отсутствует previewUrl.');
+          const previewUrl = /^https?:\/\//i.test(previewPath) ? previewPath : new URL(previewPath, MAP_ASSETS_BASE).href;
+          const preloadImage = new Image();
+          preloadImage.decoding = 'async';
+          preloadImage.fetchPriority = 'high';
+          preloadImage.src = previewUrl;
+          if (typeof preloadImage.decode === 'function') {
+            await preloadImage.decode();
+          } else {
+            await new Promise((resolve, reject) => {
+              preloadImage.onload = resolve;
+              preloadImage.onerror = () => reject(new Error('Не удалось загрузить превью карты.'));
+            });
+          }
+          if (!preloadImage.naturalWidth || !preloadImage.naturalHeight) {
+            throw new Error('Превью карты не удалось декодировать.');
+          }
+          setWorldMapImage(previewUrl);
+          setWorldMapSource({ ...source, assetBase: MAP_ASSETS_BASE, mapVersion: manifest.mapVersion });
+          mapImageLoadedRef.current = true;
+          return;
+        }
+      } catch (manifestError) {
+        console.warn('Deep Zoom manifest unavailable; using the legacy map endpoint:', String(manifestError?.message || manifestError));
+      }
+
+      // Compatibility fallback until the first Deep Zoom map has been published.
       const probe = await fetch(`${API_BASE}/api/map`, { method: 'HEAD', cache: 'no-store' });
       if (!probe.ok) {
         const errorData = await fetch(`${API_BASE}/api/map`, { cache: 'no-store' })
@@ -3137,12 +3368,8 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
       if (!['image/png', 'image/jpeg', 'image/webp'].includes(contentType.split(';')[0].trim())) {
         throw new Error('GitHub вернул неподдерживаемый формат карты. Загрузите PNG, JPG или WebP.');
       }
-      // The asset filename is unique for every upload. Reuse that stable version
-      // so the browser can keep the large map in its image cache between visits.
       const mapVersion = String(probe.headers.get('X-Map-Version') || '').trim();
       const mapUrl = `${API_BASE}/api/map${mapVersion ? `?v=${encodeURIComponent(mapVersion)}` : ''}`;
-      // Download and decode the large image before enabling map gestures. This
-      // moves image decode work into the loading phase instead of the first zoom.
       const preloadImage = new Image();
       preloadImage.decoding = 'async';
       preloadImage.fetchPriority = 'high';
@@ -3163,10 +3390,12 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
       if (!preloadImage.naturalWidth || !preloadImage.naturalHeight) {
         throw new Error('Изображение карты не удалось декодировать.');
       }
+      setWorldMapSource(null);
       setWorldMapImage(mapUrl);
       mapImageLoadedRef.current = true;
     } catch (error) {
       setWorldMapImage(null);
+      setWorldMapSource(null);
       setWorldMapError(safeCaughtError(error, 'Не удалось загрузить карту мира.'));
       console.error('Load world map error:', String(error?.message || error));
     } finally {
@@ -3394,7 +3623,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
       <div style={{ maxWidth: 448, margin: '0 auto', position: 'relative' }}>
         <div className="atlas-screen-transition" key={`${screen}-${selected?.id || 'none'}`}>
         {screen === 'profile' ? (
-          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={image=>{mapImageLoadedRef.current=true;setWorldMapImage(image);setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));setTimezoneReady(true);setTimezoneLoadError('');}} />
+          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));setTimezoneReady(true);setTimezoneLoadError('');}} />
         ) : screen === 'customization' ? (
           <CustomizationScreen initData={window.Telegram?.WebApp?.initData || ''} tgUser={tgUser} role={role} territories={territories} profile={profile} />
         ) : screen === 'events' ? (
@@ -3437,6 +3666,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
                     onSelect={setSelectedId}
                     mode={mainTab === 'rating' ? 'list' : 'map'}
                     mapImage={worldMapImage}
+                    mapSource={worldMapSource}
                     mapLoading={worldMapLoading}
                     mapError={worldMapError}
                     onRetryMap={retryWorldMap}
