@@ -1,4 +1,4 @@
-// Voxygen-Version: v46
+// Voxygen-Version: v47
 // ============================================================
 // VOXYGEN BACKEND
 // v43: GitHub Releases is the only map-file storage; D1 stores only its URL and content type
