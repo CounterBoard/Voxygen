@@ -892,8 +892,8 @@ async function saveMapSettings(request, env, requestId = null) {
     }
 
     stage = 'github_old_asset_cleanup';
-    // This repository is dedicated to the world map: keep the newly uploaded
-    // asset and remove old image assets (including the retired JORICK/Vox maps).
+    // This repository is dedicated to the world map: keep the new and recent
+    // source assets for queued builds, then remove expired old map assets.
     const sourceAssetRetentionMs = 48 * 60 * 60 * 1000;
     const sourceAssetCleanupBefore = Date.now() - sourceAssetRetentionMs;
     const oldImageAssets = (Array.isArray(release.assets) ? release.assets : []).filter(item => {
