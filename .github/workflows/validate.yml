@@ -1,0 +1,34 @@
+name: Validate Voxygen
+
+on:
+  push:
+    branches:
+      - feature/automatic-deepzoom-map
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build Voxygen app
+        run: npm run build
+
+      - name: Check backend Worker syntax
+        run: node --check bot/src/worker.js
