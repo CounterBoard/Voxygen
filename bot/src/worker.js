@@ -894,8 +894,14 @@ async function saveMapSettings(request, env, requestId = null) {
     stage = 'github_old_asset_cleanup';
     // This repository is dedicated to the world map: keep the newly uploaded
     // asset and remove old image assets (including the retired JORICK/Vox maps).
+    const sourceAssetRetentionMs = 48 * 60 * 60 * 1000;
+    const sourceAssetCleanupBefore = Date.now() - sourceAssetRetentionMs;
     const oldImageAssets = (Array.isArray(release.assets) ? release.assets : []).filter(item => {
       if (!item?.id || Number(item.id) === Number(asset.id)) return false;
+      const createdAt = Date.parse(String(item.created_at || ''));
+      // Keep recent uploads long enough for queued GitHub Actions jobs to download
+      // their immutable source asset before a subsequent upload triggers cleanup.
+      if (!Number.isFinite(createdAt) || createdAt >= sourceAssetCleanupBefore) return false;
       const name = String(item.name || '').toLowerCase();
       const mediaType = String(item.content_type || '').toLowerCase();
       return mediaType.startsWith('image/') || /\.(?:png|jpe?g|webp|gif|avif|bmp)$/i.test(name);
