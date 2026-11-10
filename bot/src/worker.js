@@ -861,7 +861,7 @@ async function saveMapSettings(request, env, requestId = null) {
       env.DB.prepare(`DELETE FROM app_settings WHERE key IN ('world_map_object_key','vox_map_image','jorick_map_image')`),
     ]);
 
-    const mapVersion = assetName.replace(/\\.[^.]+$/, '');
+    const mapVersion = assetName.replace(/\.[^.]+$/, '');
     stage = 'dispatch_map_pipeline';
     const pipelineHeaders = {
       Authorization: `Bearer ${pipelineToken}`,
