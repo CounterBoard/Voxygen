@@ -586,6 +586,7 @@ const legacyMapCleanupPromises = new WeakMap();
 const MAP_SETTINGS_CACHE_TTL_MS = 30_000;
 const WORLD_MAP_MAX_BYTES = 90_000_000;
 const SUPPORTED_MAP_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const MAP_PIPELINE_REPOSITORY = 'CounterBoard/Voxygen-map-assets';
 
 async function cleanupLegacyMapStorage(env) {
   let promise = legacyMapCleanupPromises.get(env);
@@ -763,6 +764,7 @@ async function saveMapSettings(request, env, requestId = null) {
     if (!request.body) return json({ ok: false, error: 'Файл карты не передан.' }, 400);
 
     const token = String(env.GITHUB_TOKEN || '').trim();
+    const pipelineToken = String(env.MAP_PIPELINE_GITHUB_TOKEN || '').trim();
     const owner = String(env.GITHUB_OWNER || '').trim();
     const repo = String(env.GITHUB_REPO || '').trim();
     const tag = String(env.GITHUB_RELEASE_TAG || 'world-map').trim();
@@ -771,6 +773,10 @@ async function saveMapSettings(request, env, requestId = null) {
         hasToken: !!token, hasOwner: !!owner, hasRepo: !!repo, releaseTag: tag,
       });
       return json({ ok: false, error: 'GitHub не настроен: проверьте Worker secrets GITHUB_TOKEN и переменные GITHUB_OWNER, GITHUB_REPO.' }, 503);
+    }
+    if (!pipelineToken) {
+      diagnostic('world_map_pipeline_configuration_missing', { repository: MAP_PIPELINE_REPOSITORY });
+      return json({ ok: false, error: 'Не настроена автоматическая обработка карты. Добавьте в основной Worker secret MAP_PIPELINE_GITHUB_TOKEN с правом Actions: write для CounterBoard/Voxygen-map-assets.' }, 503);
     }
 
     const extension = contentType === 'image/jpeg' ? 'jpg' : contentType.split('/')[1];
@@ -855,6 +861,36 @@ async function saveMapSettings(request, env, requestId = null) {
       env.DB.prepare(`DELETE FROM app_settings WHERE key IN ('world_map_object_key','vox_map_image','jorick_map_image')`),
     ]);
 
+    const mapVersion = assetName.replace(/\\.[^.]+$/, '');
+    stage = 'dispatch_map_pipeline';
+    const pipelineHeaders = {
+      Authorization: `Bearer ${pipelineToken}`,
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'Voxygen-Map-Pipeline/1.0',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Content-Type': 'application/json',
+    };
+    const dispatchResponse = await fetch(`https://api.github.com/repos/${MAP_PIPELINE_REPOSITORY}/actions/workflows/publish-map.yml/dispatches`, {
+      method: 'POST',
+      headers: pipelineHeaders,
+      body: JSON.stringify({
+        ref: 'main',
+        inputs: { image_url: asset.browser_download_url, map_version: mapVersion },
+      }),
+    });
+    if (dispatchResponse.status !== 204) {
+      const dispatchResult = await parseGithubResponse(dispatchResponse);
+      diagnostic('world_map_pipeline_dispatch_failed', {
+        ...dispatchResult.diagnostic,
+        repository: MAP_PIPELINE_REPOSITORY,
+        mapVersion,
+      });
+      const reason = dispatchResponse.status === 401 || dispatchResponse.status === 403
+        ? 'GitHub не разрешил запустить обработку. Проверьте secret MAP_PIPELINE_GITHUB_TOKEN и разрешение Actions: write для Voxygen-map-assets.'
+        : `Не удалось запустить обработку карты в GitHub Actions (HTTP ${dispatchResponse.status}).`;
+      return json({ ok: false, error: reason }, 502);
+    }
+
     stage = 'github_old_asset_cleanup';
     // This repository is dedicated to the world map: keep the newly uploaded
     // asset and remove old image assets (including the retired JORICK/Vox maps).
@@ -881,10 +917,12 @@ async function saveMapSettings(request, env, requestId = null) {
     diagnostic('world_map_save_completed', {
       size: declaredSize,
       githubAssetId: asset.id,
+      mapVersion,
+      pipeline: 'dispatched',
       removedOldImages: cleanupResults.filter(result => result.status === 'fulfilled').length,
       failedOldImageRemovals: cleanupResults.filter(result => result.status === 'rejected').length,
     });
-    return json({ ok: true, size: declaredSize, storage: 'github-releases', removedOldImages: cleanupResults.filter(result => result.status === 'fulfilled').length });
+    return json({ ok: true, size: declaredSize, storage: 'github-releases', mapVersion, processing: 'queued', removedOldImages: cleanupResults.filter(result => result.status === 'fulfilled').length });
   } catch (error) {
     diagnostic('world_map_save_unhandled_failure', {
       errorType: String(error?.name || 'Error').slice(0, 60),
