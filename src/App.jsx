@@ -1,4 +1,4 @@
-// Voxygen-Version: v47
+// Voxygen-Version: v48
 import React, { useEffect, useState, useRef } from 'react';
 import {
   Map as MapIcon, List as ListIcon, Users, MessageCircle, ThumbsUp, ThumbsDown,
