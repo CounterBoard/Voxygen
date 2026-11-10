@@ -1258,6 +1258,8 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   }, [resetSignal]);
 
   useEffect(() => {
+    tileSignatureRef.current = '';
+    setVisibleTiles([]);
     scheduleTileRefresh();
   }, [source]);
 
