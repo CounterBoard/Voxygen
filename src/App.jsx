@@ -1558,13 +1558,19 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
       const preview = new Image();
       preview.decoding = 'async';
       preview.fetchPriority = 'high';
-      preview.src = previewUrl;
       if (typeof preview.decode === 'function') {
+        preview.src = previewUrl;
         await preview.decode();
       } else {
         await new Promise((resolve, reject) => {
+          if (preview.complete) {
+            if (preview.naturalWidth > 0) resolve();
+            else reject(new Error('Не удалось загрузить превью опубликованной карты.'));
+            return;
+          }
           preview.onload = resolve;
           preview.onerror = () => reject(new Error('Не удалось загрузить превью опубликованной карты.'));
+          preview.src = previewUrl;
         });
       }
       if (!preview.naturalWidth || !preview.naturalHeight) {
@@ -3337,13 +3343,19 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
           const preloadImage = new Image();
           preloadImage.decoding = 'async';
           preloadImage.fetchPriority = 'high';
-          preloadImage.src = previewUrl;
           if (typeof preloadImage.decode === 'function') {
+            preloadImage.src = previewUrl;
             await preloadImage.decode();
           } else {
             await new Promise((resolve, reject) => {
+              if (preloadImage.complete) {
+                if (preloadImage.naturalWidth > 0) resolve();
+                else reject(new Error('Не удалось загрузить превью карты.'));
+                return;
+              }
               preloadImage.onload = resolve;
               preloadImage.onerror = () => reject(new Error('Не удалось загрузить превью карты.'));
+              preloadImage.src = previewUrl;
             });
           }
           if (!preloadImage.naturalWidth || !preloadImage.naturalHeight) {
