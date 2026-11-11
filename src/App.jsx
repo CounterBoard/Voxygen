@@ -1196,7 +1196,7 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
     const layer = mapLayerRef.current;
     if (!layer) return;
     const t = transformRef.current;
-    layer.style.transform = `translate3d(${t.x}px, ${t.y}px, 0) scale(${t.scale})`;
+    layer.style.transform = `translate(${t.x}px, ${t.y}px) scale(${t.scale})`;
     layer.style.setProperty('--vox-marker-inverse-scale', String(1 / t.scale));
   }
 
@@ -1389,10 +1389,8 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   >
     {image && <div ref={mapLayerRef} style={{
       position: 'absolute', inset: 0,
-      transform: `translate3d(${initialTransform.x}px, ${initialTransform.y}px, 0) scale(${initialTransform.scale})`,
+      transform: `translate(${initialTransform.x}px, ${initialTransform.y}px) scale(${initialTransform.scale})`,
       transformOrigin: 'center center',
-      willChange: 'transform',
-      backfaceVisibility: 'hidden',
       '--vox-marker-inverse-scale': String(1 / initialTransform.scale),
     }}>
       {source && ['deepzoom', 'url-grid'].includes(source.type) ? <>
