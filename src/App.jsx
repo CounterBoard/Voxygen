@@ -1227,7 +1227,7 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   }
 
   useEffect(() => {
-    if (!viewState || userGestureRef.current) return;
+    if (!viewState) return;
     transformRef.current = clamp(viewState);
     paintTransform();
   }, [viewState]);
