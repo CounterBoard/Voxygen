@@ -1480,6 +1480,68 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
   const [faqText,setFaqText]=useState(''),[faqSaving,setFaqSaving]=useState(false),[faqLoading,setFaqLoading]=useState(true),[faqLoadError,setFaqLoadError]=useState('');
   const [managerModalCity,setManagerModalCity]=useState(null);
   const fileRef=useRef(null);
+  const mapPublicationGenerationRef=useRef(0);
+  const MAP_PUBLICATION_STORAGE_KEY='voxygen:map-publication-pending';
+
+  async function readRasterDimensions(file){
+    return new Promise((resolve,reject)=>{
+      const url=URL.createObjectURL(file);
+      const image=new Image();
+      image.onload=()=>{const result={width:image.naturalWidth,height:image.naturalHeight};URL.revokeObjectURL(url);resolve(result);};
+      image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Не удалось прочитать размеры изображения карты.'));};
+      image.src=url;
+    });
+  }
+
+  async function waitForPublishedMap(expectedVersion){
+    const generation=++mapPublicationGenerationRef.current;
+    const deadline=Date.now()+25*60*1000;
+    while(Date.now()<deadline&&generation===mapPublicationGenerationRef.current){
+      try{
+        const response=await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`,{cache:'no-store'});
+        if(response.ok){
+          const manifest=await response.json();
+          const source=manifest?.source;
+          if(manifest?.mapVersion===expectedVersion&&source&&['deepzoom','url-grid'].includes(source.type)){
+            if(Number(source.width)!==WORLD_MAP_GEOMETRY.width||Number(source.height)!==WORLD_MAP_GEOMETRY.height)throw new Error('Опубликованная карта имеет неверный размер: требуется 6001 × 6001.');
+            if(source.coordinateSystem&&!coordinateGeometryMatchesManifest(source.coordinateSystem))throw new Error('Опубликованная карта имеет несовместимую калибровку координат.');
+            const previewPath=source.previewUrl||manifest.previewUrl;
+            if(!previewPath)throw new Error('В манифесте карты отсутствует previewUrl.');
+            const previewUrl=/^https?:\/\//i.test(previewPath)?previewPath:new URL(previewPath,MAP_ASSETS_BASE).href;
+            const preview=new Image();preview.decoding='async';preview.fetchPriority='high';preview.src=previewUrl;
+            if(typeof preview.decode==='function')await preview.decode();
+            else await new Promise((resolve,reject)=>{preview.onload=resolve;preview.onerror=()=>reject(new Error('Не удалось загрузить превью карты.'));});
+            if(!preview.naturalWidth||!preview.naturalHeight)throw new Error('Превью опубликованной карты не удалось декодировать.');
+            if(generation!==mapPublicationGenerationRef.current)return false;
+            const publishedSource={...source,assetBase:MAP_ASSETS_BASE,mapVersion:manifest.mapVersion};
+            try{localStorage.removeItem(MAP_PUBLICATION_STORAGE_KEY);}catch{}
+            setMapProgress(100);setNotice('Карта мира обновлена');setError('');
+            onMapSaved?.({image:previewUrl,source:publishedSource});
+            return true;
+          }
+        }
+      }catch(error){
+        if(/неверный размер|несовместимую калибровку|отсутствует previewUrl/.test(String(error?.message||'')))throw error;
+      }
+      await new Promise(resolve=>window.setTimeout(resolve,5000));
+    }
+    if(generation===mapPublicationGenerationRef.current)setError('Исходный файл загружен. Публикация тайлов ещё не завершена; проверка сохранена и продолжится при следующем открытии приложения.');
+    return false;
+  }
+
+  useEffect(()=>{
+    let pending=null;
+    try{pending=JSON.parse(localStorage.getItem(MAP_PUBLICATION_STORAGE_KEY)||'null');}catch{}
+    const version=String(pending?.mapVersion||'').trim();
+    if(!version)return undefined;
+    setMapSaving(true);setMapProcessing(true);setError('');
+    setNotice('Возобновляем проверку публикации карты…');
+    waitForPublishedMap(version).catch(error=>setError(safeCaughtError(error,'Не удалось завершить публикацию карты.'))).finally(()=>{
+      setMapSaving(false);setMapProcessing(false);window.setTimeout(()=>setMapProgress(0),900);
+    });
+    return ()=>{mapPublicationGenerationRef.current+=1;};
+  },[initData]);
+
   const [d1Diagnostics,setD1Diagnostics]=useState(null);
   const [d1DiagnosticsLoading,setD1DiagnosticsLoading]=useState(false);
   const [d1DiagnosticsError,setD1DiagnosticsError]=useState('');
@@ -1524,101 +1586,38 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
     if (!file) return;
     try {
       setError(''); setNotice(''); setMapSaving(true); setMapProcessing(false); setMapProgress(0);
-      const maxBytes = 90_000_000;
-      if (!['image/png','image/jpeg','image/webp'].includes(String(file.type || '').toLowerCase())) {
-        throw new Error('Поддерживаются только PNG, JPG и WebP.');
-      }
-      if (!Number.isFinite(file.size) || file.size <= 0 || file.size > maxBytes) {
-        throw new Error('Размер файла должен быть не больше 90 МБ.');
-      }
-      const uploadResult = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${API_BASE}/api/map`, true);
-        xhr.timeout = 600000;
-        xhr.setRequestHeader('Content-Type', file.type);
-        xhr.setRequestHeader('X-Telegram-Init-Data', initData);
-        xhr.setRequestHeader('X-Map-Size', String(file.size));
-        xhr.upload.onprogress = event => {
-          if (event.lengthComputable && event.total > 0) setMapProgress(Math.min(100, Math.round(event.loaded / event.total * 100)));
-        };
-        xhr.onload = () => {
-          let data = null;
-          try { data = JSON.parse(xhr.responseText || 'null'); } catch {}
-          if (xhr.status >= 200 && xhr.status < 300 && data?.ok) resolve(data);
-          else reject(new Error(data?.error || `Не удалось загрузить карту (HTTP ${xhr.status || 'ошибка'}).`));
-        };
-        xhr.onerror = () => reject(new Error('Соединение прервалось. Проверьте сеть и повторите загрузку.'));
-        xhr.ontimeout = () => reject(new Error('Загрузка заняла больше 10 минут и была остановлена. Проверьте соединение и повторите попытку.'));
-        xhr.onabort = () => reject(new Error('Загрузка карты отменена.'));
+      const maxBytes=90_000_000;
+      if(!['image/png','image/jpeg','image/webp'].includes(String(file.type||'').toLowerCase()))throw new Error('Поддерживаются только PNG, JPG и WebP.');
+      if(!Number.isFinite(file.size)||file.size<=0||file.size>maxBytes)throw new Error('Размер файла должен быть не больше 90 МБ.');
+      const dimensions=await readRasterDimensions(file);
+      if(dimensions.width!==WORLD_MAP_GEOMETRY.width||dimensions.height!==WORLD_MAP_GEOMETRY.height)throw new Error('Размер карты должен быть ровно 6001 × 6001 пикселей. Это необходимо для точного положения городов и координат.');
+      const uploadResult=await new Promise((resolve,reject)=>{
+        const xhr=new XMLHttpRequest();
+        xhr.open('POST',`${API_BASE}/api/map`,true);
+        xhr.timeout=600000;
+        xhr.setRequestHeader('Content-Type',file.type);
+        xhr.setRequestHeader('X-Telegram-Init-Data',initData);
+        xhr.setRequestHeader('X-Map-Size',String(file.size));
+        xhr.setRequestHeader('X-Map-Width',String(dimensions.width));
+        xhr.setRequestHeader('X-Map-Height',String(dimensions.height));
+        xhr.upload.onprogress=event=>{if(event.lengthComputable&&event.total>0)setMapProgress(Math.min(100,Math.round(event.loaded/event.total*100)));};
+        xhr.onload=()=>{let data=null;try{data=JSON.parse(xhr.responseText||'null');}catch{}if(xhr.status>=200&&xhr.status<300&&data?.ok)resolve(data);else reject(new Error(data?.error||`Не удалось загрузить карту (HTTP ${xhr.status||'ошибка'}).`));};
+        xhr.onerror=()=>reject(new Error('Соединение прервалось. Если файл не был полностью передан, загрузите его повторно.'));
+        xhr.ontimeout=()=>reject(new Error('Загрузка заняла больше 10 минут. Проверьте соединение и повторите попытку.'));
+        xhr.onabort=()=>reject(new Error('Загрузка карты отменена.'));
         xhr.send(file);
       });
-
-      const expectedVersion = String(uploadResult?.mapVersion || '').trim();
-      if (!expectedVersion) throw new Error('Worker сохранил файл, но не вернул версию для обработки карты.');
-      setMapProcessing(true);
-      setNotice('Файл загружен. Генерируем и публикуем тайлы карты…');
-
-      const deadline = Date.now() + 25 * 60 * 1000;
-      let publishedManifest = null;
-      while (Date.now() < deadline) {
-        try {
-          const response = await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`, { cache: 'no-store' });
-          if (response.ok) {
-            const manifest = await response.json();
-            if (manifest?.mapVersion === expectedVersion
-              && manifest?.source
-              && ['deepzoom', 'url-grid'].includes(manifest.source.type)) {
-              publishedManifest = manifest;
-              break;
-            }
-          }
-        } catch {}
-        await new Promise(resolve => window.setTimeout(resolve, 5000));
-      }
-      if (!publishedManifest) {
-        throw new Error('Исходный файл загружен, но публикация тайлов не завершилась за 25 минут. Предыдущая опубликованная карта осталась доступна. Проверьте запуск GitHub Actions в Voxygen-map-assets.');
-      }
-
-      const previewPath = publishedManifest.source.previewUrl || publishedManifest.previewUrl;
-      if (!previewPath) throw new Error('Публикация завершилась, но в манифесте отсутствует previewUrl.');
-      const previewUrl = /^https?:\/\//i.test(previewPath) ? previewPath : new URL(previewPath, MAP_ASSETS_BASE).href;
-      const preview = new Image();
-      preview.decoding = 'async';
-      preview.fetchPriority = 'high';
-      if (typeof preview.decode === 'function') {
-        preview.src = previewUrl;
-        await preview.decode();
-      } else {
-        await new Promise((resolve, reject) => {
-          if (preview.complete) {
-            if (preview.naturalWidth > 0) resolve();
-            else reject(new Error('Не удалось загрузить превью опубликованной карты.'));
-            return;
-          }
-          preview.onload = resolve;
-          preview.onerror = () => reject(new Error('Не удалось загрузить превью опубликованной карты.'));
-          preview.src = previewUrl;
-        });
-      }
-      if (!preview.naturalWidth || !preview.naturalHeight) {
-        throw new Error('Превью опубликованной карты не удалось декодировать.');
-      }
-
-      const publishedSource = {
-        ...publishedManifest.source,
-        assetBase: MAP_ASSETS_BASE,
-        mapVersion: publishedManifest.mapVersion,
-      };
-      setMapProgress(100);
-      setNotice('Карта мира обновлена');
-      onMapSaved?.({ image: previewUrl, source: publishedSource });
-    } catch (e) {
-      setError(safeCaughtError(e, 'Не удалось сохранить карту'));
+      const expectedVersion=String(uploadResult?.mapVersion||'').trim();
+      if(!expectedVersion)throw new Error('Worker сохранил файл, но не вернул версию для обработки карты.');
+      try{localStorage.setItem(MAP_PUBLICATION_STORAGE_KEY,JSON.stringify({mapVersion:expectedVersion,startedAt:Date.now()}));}catch{}
+      setMapProcessing(true);setNotice('Файл загружен. Продолжаем генерацию и публикацию тайлов…');
+      const published=await waitForPublishedMap(expectedVersion);
+      if(!published)throw new Error('Публикация ещё продолжается. Её проверка сохранена и автоматически возобновится при следующем открытии приложения.');
+    } catch(e) {
+      setError(safeCaughtError(e,'Не удалось сохранить карту'));
     } finally {
-      setMapSaving(false);
-      setMapProcessing(false);
-      window.setTimeout(() => setMapProgress(0), 900);
-      if (fileRef.current) fileRef.current.value = '';
+      setMapSaving(false);setMapProcessing(false);window.setTimeout(()=>setMapProgress(0),900);
+      if(fileRef.current)fileRef.current.value='';
     }
   }
   async function addUser(){const mc=newMcNickname.trim();const tid=Number(newTelegramId.trim());if(!mc||!Number.isSafeInteger(tid)||tid<=0){setError('Укажите Minecraft никнейм и корректный Telegram ID');return}try{setUserSaving(true);setError('');const r=await fetch(`${API_BASE}/api/admin/users`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,mcNickname:mc,telegramId:tid})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setNewMcNickname('');setNewTelegramId('');setNotice(d.user?.telegram_username?`Пользователь добавлен: @${String(d.user.telegram_username).replace(/^@/,'')}`:'Пользователь добавлен. Username появится после входа в Voxygen.');await loadUsers()}catch(e){setError(safeCaughtError(e, 'Не удалось добавить пользователя'))}finally{setUserSaving(false)}}
