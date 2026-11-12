@@ -3018,7 +3018,7 @@ function TelegramUsername({username,interactive=false,style={}}) {
   if(!raw)return null;
   const normalized=normalizedTelegramUsername(raw);
   const label='@'+raw;
-  const appearance={color:'var(--mint)',fontWeight:750,textDecoration:interactive&&normalized?'none':'none',...style};
+  const appearance={...style,color:'var(--mint)',fontWeight:style.fontWeight??750,textDecoration:'none'};
   if(!interactive||!normalized)return <span style={appearance}>{label}</span>;
   const href='https://t.me/'+normalized;
   return <a href={href} target="_blank" rel="noopener noreferrer" onClick={event=>{
