@@ -2777,7 +2777,8 @@ function EventWheelColumn({ label, value, options, onChange }) {
 }
 function EventDateTimeFields({ parts, onChange, includeYear = false, timezoneOffset = EVENT_TIME_ZONE }) {
   const safe=parts|| (includeYear ? defaultGlobalExpiryDateParts(timezoneOffset) : defaultEventDateParts(timezoneOffset));
-  const selectedYear=Number(safe.year)||Number(eventZonedParts(Date.now(),timezoneOffset)?.year)||new Date().getFullYear();
+  const currentYear=Number(eventZonedParts(Date.now(),timezoneOffset)?.year)||new Date().getFullYear();
+  const selectedYear=Number(safe.year)||currentYear;
   const selectedMonth=Number(safe.month)||1;
   const daysInSelectedMonth=new Date(Date.UTC(selectedYear,selectedMonth,0)).getUTCDate();
   function setPart(key,value) {
@@ -2789,7 +2790,7 @@ function EventDateTimeFields({ parts, onChange, includeYear = false, timezoneOff
     onChange(next);
   }
   const fields=[
-    ...(includeYear?[{key:'year',label:'Год',options:Array.from({length:11},(_,i)=>({value:selectedYear+i,label:String(selectedYear+i)}))}]:[]),
+    ...(includeYear?[{key:'year',label:'Год',options:Array.from({length:11},(_,i)=>({value:currentYear+i,label:String(currentYear+i)}))}]:[]),
     {key:'day',label:'День',options:Array.from({length:daysInSelectedMonth},(_,i)=>({value:i+1,label:String(i+1).padStart(2,'0')}))},
     {key:'month',label:'Месяц',options:VOXYGEN_EVENT_MONTHS.map((label,i)=>({value:i+1,label}))},
     {key:'hour',label:'Часы',options:Array.from({length:24},(_,i)=>({value:i,label:String(i).padStart(2,'0')}))},
