@@ -1,13 +1,9 @@
 export const WORLD_MAP_GEOMETRY = Object.freeze({
-  width: 6016,
-  height: 6016,
-  originX: 3008,
-  originZ: 3008,
   minX: -3008,
   maxX: 3007,
   minZ: -3008,
   maxZ: 3007,
-  coordinateSystem: "minecraft-block-pixel-centers",
+  coordinateSystem: "minecraft-world-block-centers",
 });
 
 export function isValidWorldCoordinate(x, z, geometry = WORLD_MAP_GEOMETRY) {
@@ -25,29 +21,27 @@ export function worldCoordinateToPercent(x, z, geometry = WORLD_MAP_GEOMETRY) {
   const nx = Number(x);
   const nz = Number(z);
   if (!isValidWorldCoordinate(nx, nz, geometry)) return null;
-  const width = Number(geometry.width);
-  const height = Number(geometry.height);
-  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) return null;
+  const worldWidth = Number(geometry.maxX) - Number(geometry.minX) + 1;
+  const worldHeight = Number(geometry.maxZ) - Number(geometry.minZ) + 1;
+  if (!Number.isFinite(worldWidth) || !Number.isFinite(worldHeight) || worldWidth <= 0 || worldHeight <= 0) return null;
   return {
-    x: ((nx + Number(geometry.originX) + 0.5) / width) * 100,
-    y: ((nz + Number(geometry.originZ) + 0.5) / height) * 100,
+    x: ((nx - Number(geometry.minX) + 0.5) / worldWidth) * 100,
+    y: ((nz - Number(geometry.minZ) + 0.5) / worldHeight) * 100,
   };
 }
 
 export function coordinateGeometryMatchesManifest(value) {
-  if (!value || typeof value !== "object") return false;
-  const keys = ["width", "height", "originX", "originY", "minX", "maxX", "minZ", "maxZ"];
-  const expected = {
-    width: WORLD_MAP_GEOMETRY.width,
-    height: WORLD_MAP_GEOMETRY.height,
-    originX: WORLD_MAP_GEOMETRY.originX,
-    originY: WORLD_MAP_GEOMETRY.originZ,
-    minX: WORLD_MAP_GEOMETRY.minX,
-    maxX: WORLD_MAP_GEOMETRY.maxX,
-    minZ: WORLD_MAP_GEOMETRY.minZ,
-    maxZ: WORLD_MAP_GEOMETRY.maxZ,
-  };
-  return value.type === WORLD_MAP_GEOMETRY.coordinateSystem
+  // Older map manifests did not describe coordinate geometry. They remain
+  // compatible because Voxygen owns one fixed world-coordinate system.
+  if (value == null) return true;
+  if (typeof value !== "object") return false;
+  const supportedTypes = new Set([
+    WORLD_MAP_GEOMETRY.coordinateSystem,
+    "minecraft-block-pixel-centers",
+  ]);
+  const keys = ["minX", "maxX", "minZ", "maxZ"];
+  const expected = WORLD_MAP_GEOMETRY;
+  return supportedTypes.has(value.type)
     && keys.every((key) => Number(value[key]) === expected[key]);
 }
 
