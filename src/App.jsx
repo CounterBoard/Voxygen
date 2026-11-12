@@ -1843,7 +1843,6 @@ function SettingsToggle({ checked, onChange, disabled = false, label, descriptio
   </div>;
 }
 
-function normalizeTheme(){return 'vox';}
 function normalizeTimezoneOffset(value){
   const raw=String(value??'').replace(/[\u0000-\u001F\u007F]/g,'').trim().toUpperCase();
   const offset=raw.startsWith('UTC')?raw.slice(3).trim():raw;
