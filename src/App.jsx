@@ -2791,14 +2791,16 @@ function reminderUnitLabel(value, unit) { return unit==='hours'?pluralRu(value,'
 function ProfileEventCreateForm({ initData, territories = [], isMainInspector = false, tgUser = null, embedded = false, timezoneOffset = 'UTC+3' }) {
   const userId=String(tgUser?.id||'');
   const eventInputTimezone=normalizeTimezoneOffset(timezoneOffset);
+  const draftStorageKey=`voxygen:event-create-draft:${userId||'anonymous'}`;
+  const [restoredDraft]=useState(()=>{try{const raw=localStorage.getItem(draftStorageKey);const value=raw?JSON.parse(raw):null;return value&&typeof value==='object'?value:null;}catch{return null;}});
   const userTerritories=(territories||[]).filter(city=>isMainInspector || String(city.owner_telegram_id||'')===userId || (Array.isArray(city.manager_telegram_ids)&&city.manager_telegram_ids.map(String).includes(userId)) || (Array.isArray(city.resident_telegram_ids)&&city.resident_telegram_ids.map(String).includes(userId)));
   const selectable=userTerritories.filter(city=>city&&!Number(city.is_government||0)&&city.status!=='pending');
-  const [placeId,setPlaceId]=useState('');
-  const [dateParts,setDateParts]=useState(()=>defaultEventDateParts(eventInputTimezone));
-  const [dateEdited,setDateEdited]=useState(false);
+  const [placeId,setPlaceId]=useState(()=>String(restoredDraft?.placeId||''));
+  const [dateParts,setDateParts]=useState(()=>restoredDraft?.dateParts||defaultEventDateParts(eventInputTimezone));
+  const [dateEdited,setDateEdited]=useState(()=>Boolean(restoredDraft?.dateEdited));
   const dateTimezoneRef=useRef(eventInputTimezone);
-  const [form,setForm]=useState({title:'',coords:'',description:'',imageData:null});
-  const [busy,setBusy]=useState(false),[imageBusy,setImageBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+  const [form,setForm]=useState(()=>restoredDraft?.form&&typeof restoredDraft.form==='object'?{title:'',coords:'',description:'',imageData:null,...restoredDraft.form}:{title:'',coords:'',description:'',imageData:null});
+  const [busy,setBusy]=useState(false),[imageBusy,setImageBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(restoredDraft?'Черновик ивента восстановлен после перезапуска.':'');
   const fileRef=useRef(null);
   useEffect(()=>{
     if(dateTimezoneRef.current!==eventInputTimezone){
@@ -2807,8 +2809,16 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
     }
   },[eventInputTimezone,dateEdited]);
   const selectedPlace=selectable.find(city=>String(city.id)===String(placeId))||null;
+  useEffect(()=>{
+    const hasContent=Boolean(String(form.title||'').trim()||String(form.coords||'').trim()||String(form.description||'').trim()||form.imageData||placeId||dateEdited);
+    if(!hasContent){try{localStorage.removeItem(draftStorageKey);}catch{}return;}
+    const draft={form,placeId,dateParts,dateEdited,savedAt:Date.now()};
+    try{localStorage.setItem(draftStorageKey,JSON.stringify(draft));}
+    catch{try{localStorage.setItem(draftStorageKey,JSON.stringify({...draft,form:{...form,imageData:null}}));}catch{}}
+  },[draftStorageKey,form,placeId,dateParts,dateEdited]);
   const inputStyle={width:'100%',boxSizing:'border-box',minHeight:44,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:11,padding:'10px 12px',color:'var(--text)',fontSize:13,marginTop:6};
-  function patch(key,value){setForm(v=>({...v,[key]:value}));}
+  function ensureRequestKey(){return form.requestKey||(window.crypto?.randomUUID?.()||`vox-event-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);}
+  function patch(key,value){setForm(v=>({...v,[key]:value,requestKey:v.requestKey||ensureRequestKey()}));}
   function choosePlace(id){const city=selectable.find(item=>String(item.id)===String(id));setPlaceId(city?String(city.id):'');patch('coords',formatEventCoords(city?.coords||''));setError('');}
   async function chooseImage(event){const input=event.currentTarget,file=input.files?.[0];if(!file){patch('imageData',null);return;}try{setImageBusy(true);setError('');setNotice('');patch('imageData',await readEventImage(file));}catch(e){input.value='';patch('imageData',null);setError(safeCaughtError(e,'Не удалось подготовить изображение.'));}finally{setImageBusy(false);}}
   async function publish(){
@@ -2817,9 +2827,13 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
     if(eventAt<=Date.now()){setError('Выберите дату и время в будущем.');return;}
     try{
       setBusy(true);setError('');setNotice('');
-      const response=await fetch(`${API_BASE}/api/events`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,title,territoryId:selectedPlace?String(selectedPlace.id):null,place:selectedPlace?String(selectedPlace.name||''):'Не указано',eventAt,eventTimezone:eventInputTimezone,coords:formatEventCoords(form.coords),description:String(form.description||'').trim(),imageData:form.imageData||null})});
+      const requestKey=ensureRequestKey();
+      const payload={initData,requestKey,title,territoryId:selectedPlace?String(selectedPlace.id):null,place:selectedPlace?String(selectedPlace.name||''):'Не указано',eventAt,eventTimezone:eventInputTimezone,coords:formatEventCoords(form.coords),description:String(form.description||'').trim(),imageData:form.imageData||null};
+      try{localStorage.setItem(draftStorageKey,JSON.stringify({form:{...form,requestKey},placeId,dateParts,dateEdited,savedAt:Date.now()}));}catch{}
+      const response=await fetch(`${API_BASE}/api/events`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify(payload)});
       const data=await response.json().catch(()=>null);if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось опубликовать ивент.'));
-      setForm({title:'',coords:'',description:'',imageData:null});setPlaceId('');setDateParts(defaultEventDateParts(eventInputTimezone));setDateEdited(false);if(fileRef.current)fileRef.current.value='';setNotice('Ивент создан');
+      try{localStorage.removeItem(draftStorageKey);}catch{}
+      setForm({title:'',coords:'',description:'',imageData:null,requestKey:null});setPlaceId('');setDateParts(defaultEventDateParts(eventInputTimezone));setDateEdited(false);if(fileRef.current)fileRef.current.value='';setNotice(data?.replayed?'Ивент уже был создан ранее. Повтор не создал копию.':'Ивент создан');
     }catch(e){setError(safeCaughtError(e,'Не удалось опубликовать ивент.'));}finally{setBusy(false);}
   }
   const selectBtn=(active)=>({display:'flex',alignItems:'center',gap:7,minHeight:42,maxWidth:'100%',border:active?'1px solid var(--purple)':'1px solid var(--border)',borderRadius:11,padding:'8px 11px',background:active?'var(--purple-soft)':'var(--surface-2)',color:active?'var(--purple)':'var(--text)',fontSize:12.5,fontWeight:750,textAlign:'left'});
@@ -2833,7 +2847,7 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
       {selectable.map(city=>{const active=String(placeId)===String(city.id);return <button type="button" key={city.id} aria-pressed={active} onClick={()=>choosePlace(city.id)} className="press" style={selectBtn(active)}>{active?<Check size={14}/>:<MapPin size={14} color="var(--text-muted)"/>}<MinecraftText text={city.name} style={{minWidth:0}}/></button>;})}
     </div>
     <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15}}>Дата и время начала</label>
-    <EventDateTimeFields parts={dateParts} onChange={parts=>{setDateParts(parts);setDateEdited(true);}}/>
+    <EventDateTimeFields parts={dateParts} onChange={parts=>{setDateParts(parts);setDateEdited(true);setForm(v=>({...v,requestKey:v.requestKey||ensureRequestKey()}));}}/>
     <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15}}>Координаты</label>
     <input value={formatEventCoords(form.coords)} onChange={e=>patch('coords',sanitizeEventCoords(e.target.value))} type="text" autoCapitalize="off" autoCorrect="off" placeholder="X / Z" style={inputStyle}/>
     <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15}}>Описание</label>
