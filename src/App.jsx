@@ -3610,7 +3610,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         }
         const previewPath = source.previewUrl || manifest.previewUrl;
         if (!previewPath) throw new Error('В манифесте карты отсутствует previewUrl.');
-        const previewUrl = /^https?:\\/\\//i.test(previewPath) ? previewPath : new URL(previewPath, MAP_ASSETS_BASE).href;
+        const previewUrl = /^https?:\/\//i.test(previewPath) ? previewPath : new URL(previewPath, MAP_ASSETS_BASE).href;
         const preloadImage = new Image();
         preloadImage.decoding = 'async';
         preloadImage.fetchPriority = 'high';
