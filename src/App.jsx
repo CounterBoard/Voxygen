@@ -3932,7 +3932,6 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
                     onRetryMap={retryWorldMap}
                     zoomSettingsError={timezoneLoadError}
                     onRetryZoomSettings={()=>setTimezoneRetryToken(value=>value+1)}
-                    onRetryMapSettings={()=>setTimezoneRetryToken(value=>value+1)}
                     voxView={voxView}
                     onVoxViewChange={setVoxView}
                     markersReady={markersReady}
