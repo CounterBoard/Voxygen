@@ -2545,6 +2545,7 @@ function EventsScreen({ initData, territories = [], onSelectTerritory, isMainIns
   const [clockNow,setClockNow]=useState(Date.now());
   const eventLoadVersionRef=useRef(0), eventLoadControllerRef=useRef(null);
   async function load() {
+    if(document.visibilityState==='hidden')return;
     const requestVersion=++eventLoadVersionRef.current;
     eventLoadControllerRef.current?.abort();
     const controller=new AbortController();
@@ -2572,7 +2573,10 @@ function EventsScreen({ initData, territories = [], onSelectTerritory, isMainIns
   useEffect(() => {
     load();
     const timer=setInterval(load,60000);
-    const onVisible=()=>{if(document.visibilityState==='visible')load();};
+    const onVisible=()=>{
+      if(document.visibilityState==='visible')load();
+      else{eventLoadVersionRef.current+=1;eventLoadControllerRef.current?.abort();eventLoadControllerRef.current=null;}
+    };
     document.addEventListener('visibilitychange',onVisible);
     return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',onVisible);eventLoadVersionRef.current+=1;eventLoadControllerRef.current?.abort();eventLoadControllerRef.current=null;};
   }, [initData]);
