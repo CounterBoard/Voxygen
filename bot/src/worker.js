@@ -887,7 +887,7 @@ async function saveMapSettings(request, env, requestId = null) {
     const declaredHeight = Number(request.headers.get('X-Map-Height') || 0);
     if ((declaredWidth && declaredWidth !== WORLD_MAP_GEOMETRY.width)
       || (declaredHeight && declaredHeight !== WORLD_MAP_GEOMETRY.height)) {
-      return json({ ok: false, error: 'Карта Voxygen должна иметь размер 6001 × 6001 пикселей.' }, 400);
+      return json({ ok: false, error: 'Карта Voxygen должна иметь размер 6016 × 6016 пикселей.' }, 400);
     }
     if (!request.body) return json({ ok: false, error: 'Файл карты не передан.' }, 400);
 
@@ -2733,7 +2733,7 @@ async function createTerritory(request, env) {
   const coords = String(body?.coords || "").trim();
   const parsed = parseTwoCoordinates(coords);
   if (!name || (!isMainInspector && !owner) || !parsed || !isValidWorldCoordinate(parsed.x, parsed.z)) {
-    const requirement = isMainInspector ? "Укажите название и две координаты от −3000 до 3000" : "Укажите название, владельца и две координаты от −3000 до 3000";
+    const requirement = isMainInspector ? "Укажите название и две координаты от −3008 до 3007" : "Укажите название, владельца и две координаты от −3008 до 3007";
     return json({ ok: false, error: requirement }, 400);
   }
   if (name.length > 120 || owner.length > 120) return json({ ok: false, error: "Название или имя владельца слишком длинное" }, 400);
