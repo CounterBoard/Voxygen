@@ -1458,6 +1458,16 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
   const mapPublicationGenerationRef=useRef(0);
   const MAP_PUBLICATION_STORAGE_KEY='voxygen:map-publication-pending';
 
+  async function readRasterDimensions(file){
+    return new Promise((resolve,reject)=>{
+      const url=URL.createObjectURL(file);
+      const image=new Image();
+      image.onload=()=>{const result={width:image.naturalWidth,height:image.naturalHeight};URL.revokeObjectURL(url);resolve(result);};
+      image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Не удалось прочитать размеры изображения карты.'));};
+      image.src=url;
+    });
+  }
+
   async function waitForPublishedMap(expectedVersion){
     const generation=++mapPublicationGenerationRef.current;
     const deadline=Date.now()+25*60*1000;
@@ -1554,6 +1564,8 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
       const maxBytes=90_000_000;
       if(!['image/png','image/jpeg','image/webp'].includes(String(file.type||'').toLowerCase()))throw new Error('Поддерживаются только PNG, JPG и WebP.');
       if(!Number.isFinite(file.size)||file.size<=0||file.size>maxBytes)throw new Error('Размер файла должен быть не больше 90 МБ.');
+      const dimensions=await readRasterDimensions(file);
+      if(dimensions.width!==dimensions.height)throw new Error('Изображение карты должно быть квадратным. Разрешение может быть любым.');
 
       const uploadResult=await new Promise((resolve,reject)=>{
         const xhr=new XMLHttpRequest();
@@ -1595,7 +1607,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}><Trash2 size={16} color="var(--red)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Города</div><span style={{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}}>{territories.length}</span></div>{territories.length===0?<div style={{fontSize:12,color:'var(--text-muted)'}}>Городов пока нет.</div>:territories.map(city=><div key={city.id} style={{display:'flex',alignItems:'center',gap:7,padding:'10px 0',borderTop:'1px solid var(--border)'}}><div style={{flex:1,minWidth:0}}><MinecraftText text={city.name} as="div" style={{fontSize:13,fontWeight:700}}/><div style={{fontSize:11,color:'var(--text-muted)'}}><MinecraftText text={city.owner}/> · {formatTerritoryCoords(city.coords)}</div></div><button onClick={()=>moveCity(city)} className="press" style={{border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',borderRadius:9,padding:'7px 9px',fontSize:11}}>Коорд.</button><button onClick={()=>changeFounder(city)} className="press" style={{border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--mint)',borderRadius:9,padding:'7px 9px',fontSize:11}}>Мэр</button><button onClick={()=>deleteCity(city.id)} className="press" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:9,padding:'7px 9px'}}><Trash2 size={14}/></button></div>)}</div>
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><MapIcon size={16} color="var(--purple)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Карта мира</div></div>
-      <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.5,marginBottom:10}}>Загрузите карту PNG, JPG или WebP любого подходящего разрешения. Система координат игрового мира фиксирована и не зависит от размера изображения; координаты городов располагаются по границам мира. Размер файла — до 90 МБ; исходник хранится в GitHub Releases, а тайлы публикуются отдельно.</div>
+      <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.5,marginBottom:10}}>Загрузите квадратную карту PNG, JPG или WebP любого разрешения. Размер и разрешение изображения не меняют фиксированную систему координат игрового мира. Размер файла — до 90 МБ; исходник хранится в GitHub Releases, а тайлы публикуются отдельно.</div>
       <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{display:'none'}} onChange={e=>saveMap(e.target.files?.[0])}/>
       <button onClick={()=>fileRef.current?.click()} disabled={mapSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'11px',background:'var(--purple)',color:'#fff',fontWeight:700}}>{mapSaving?(mapProcessing?'Обработка карты…':'Загрузка карты…'):'Загрузить карту мира'}</button>
       {mapSaving&&<div role="status" aria-live="polite" style={{marginTop:10}}><div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--text-muted)',marginBottom:5}}><span>{mapProcessing?'Генерация тайлов и публикация…':(mapProgress>=100?'Файл передан, запускаем обработку…':'Загрузка файла')}</span><span>{mapProcessing?'В работе':`${mapProgress}%`}</span></div><div style={{height:6,background:'var(--surface-3)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',width:`${mapProgress}%`,background:'var(--purple)',borderRadius:99,transition:'width 120ms linear'}}/></div></div>}
