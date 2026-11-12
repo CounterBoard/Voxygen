@@ -1,5 +1,6 @@
-// Voxygen-Version: v48
+// Voxygen-Version: v50
 import React, { useEffect, useState, useRef } from 'react';
+import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, isValidWorldCoordinate, coordinateGeometryMatchesManifest, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
 import {
   Map as MapIcon, List as ListIcon, Users, MessageCircle, ThumbsUp, ThumbsDown,
   Flag, X, ChevronLeft, ChevronRight, Camera, Check, Plus, Star, Heart,
@@ -228,15 +229,9 @@ const DEFAULT_FAQ_TEXT = `Voxygen — карта городов и их жите
 Чтобы дополнить или обновить карту Vox, создайте, полностью заполните карту без локатора 2-го уровня и отправьте на почтовый адрес "Vox" (карта будет отсканирована и отправлена адресанту, возможно с вознаграждением).`;
 
 
-// The displayed image may have any resolution; territory coordinates cover -2500…2500 blocks.
-// X=0 / Z=0 is the center of the world map.
-function voxWorldToPercent(x, z) {
-  const nx = Math.max(-2500, Math.min(2500, Number(x)));
-  const nz = Math.max(-2500, Math.min(2500, Number(z)));
-  return {
-    x: ((nx + 2500) / 5000) * 100,
-    y: ((nz + 2500) / 5000) * 100,
-  };
+// Minecraft block centers are mapped to normalized world-space percentages; raster resolution is independent.
+function voxWorldToPercent(x, z, coordinateSystem = WORLD_MAP_GEOMETRY) {
+  return worldCoordinateToPercent(x, z, coordinateSystem);
 }
 function finiteCoordinate(value) {
   if (value === null || value === undefined || String(value).trim() === '') return null;
@@ -336,6 +331,19 @@ function FontsAndTheme() {
           --radius-lg:20px;
         }
 
+        .atlas-root[data-theme="aurora"]{
+          --purple:#5FA8FF;
+          --purple-soft:rgba(95,168,255,.15);
+          --purple-strong:rgba(95,168,255,.32);
+          --purple-border:rgba(95,168,255,.30);
+          --mint:#65E6D2;
+          --mint-soft:rgba(101,230,210,.12);
+          --mint-strong:rgba(101,230,210,.30);
+          --gold:var(--mint);
+          --emerald:var(--mint);
+          --glow-purple:0 14px 34px rgba(95,168,255,.17);
+          --glow-mint:0 14px 34px rgba(101,230,210,.12);
+        }
         *{ box-sizing:border-box; }
         html,body,#root{ min-height:100%; }
         body{
@@ -1029,7 +1037,7 @@ function AddTerritoryModal({ onClose, onSubmit, isMainInspector = false }) {
 
         <Field label="Название территории" value={name} onChange={(e) => setName(e.target.value)} />
         <Field label="@username основателя/мэра (необязательно для главного инспектора)" value={owner} onChange={(e) => setOwner(e.target.value)} />
-        <Field label="Координаты (без высоты)" value={coords} onChange={(e) => setCoords(e.target.value)} />
+        <Field label="Координаты X Z (от −3008 до 3007, без высоты)" value={coords} onChange={(e) => setCoords(e.target.value)} />
 
         <button
           onClick={() => onSubmit({ name: name.trim(), owner: owner.trim(), coords: coords.trim() })}
@@ -1052,12 +1060,15 @@ function AddTerritoryModal({ onClose, onSubmit, isMainInspector = false }) {
 // ---------------------------------------------------------------------------
 // Interactive Vox map
 // ---------------------------------------------------------------------------
-function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, viewState = null, onViewStateChange, markersReady = false }) {
-  const MAX_MAP_ZOOM = 24;
+function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, viewState = null, onViewStateChange, markersReady = false, mapZoomPercent = 100, mapZoomReady = true }) {
+  const MAX_MAP_ZOOM = MAP_ZOOM_MAX_SCALE;
+  const defaultScale = mapZoomPercentToScale(mapZoomPercent);
   const viewportRef = useRef(null);
   const mapLayerRef = useRef(null);
   const pointersRef = useRef(new Map());
-  const transformRef = useRef(viewState || { x: 0, y: 0, scale: 1 });
+  const transformRef = useRef(viewState || { x: 0, y: 0, scale: defaultScale });
+  const userGestureRef = useRef(false);
+  const zoomPreferenceInitializedRef = useRef(false);
   const gestureRef = useRef(null);
   const lastResetRef = useRef(resetSignal);
   const paintFrameRef = useRef(null);
@@ -1231,10 +1242,25 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   }
 
   useEffect(() => {
-    if (!viewState) return;
+    if (!viewState || userGestureRef.current) return;
     transformRef.current = clamp(viewState);
     paintTransform();
   }, [viewState]);
+
+  useEffect(() => {
+    if (!mapZoomReady) return;
+    // First settings response must not override a manual gesture made while
+    // preferences were loading. Later global changes should update scale even
+    // after the user has interacted with the map.
+    if (!zoomPreferenceInitializedRef.current) {
+      zoomPreferenceInitializedRef.current = true;
+      if (userGestureRef.current) return;
+    }
+    transformRef.current = clamp({ ...transformRef.current, scale: defaultScale });
+    paintTransform();
+    scheduleTileRefresh();
+    onViewStateChange?.({ ...transformRef.current });
+  }, [defaultScale, mapZoomReady]);
 
   useEffect(() => {
     paintTransform();
@@ -1248,7 +1274,8 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   useEffect(() => {
     if (lastResetRef.current !== resetSignal) {
       lastResetRef.current = resetSignal;
-      transformRef.current = { x: 0, y: 0, scale: 1 };
+      userGestureRef.current = false;
+      transformRef.current = { x: 0, y: 0, scale: defaultScale };
       pointersRef.current.clear();
       gestureRef.current = null;
       paintTransform();
@@ -1277,6 +1304,7 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
   function down(e) {
+    userGestureRef.current = true;
     e.preventDefault?.();
     e.currentTarget.setPointerCapture?.(e.pointerId);
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1353,6 +1381,7 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   }
 
   function wheel(e) {
+    userGestureRef.current = true;
     e.preventDefault?.();
     const rect = viewportRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -1451,6 +1480,58 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
   const [faqText,setFaqText]=useState(''),[faqSaving,setFaqSaving]=useState(false),[faqLoading,setFaqLoading]=useState(true),[faqLoadError,setFaqLoadError]=useState('');
   const [managerModalCity,setManagerModalCity]=useState(null);
   const fileRef=useRef(null);
+  const mapPublicationGenerationRef=useRef(0);
+  const MAP_PUBLICATION_STORAGE_KEY='voxygen:map-publication-pending';
+
+  async function waitForPublishedMap(expectedVersion){
+    const generation=++mapPublicationGenerationRef.current;
+    const deadline=Date.now()+25*60*1000;
+    while(Date.now()<deadline&&generation===mapPublicationGenerationRef.current){
+      try{
+        const response=await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`,{cache:'no-store'});
+        if(response.ok){
+          const manifest=await response.json();
+          const source=manifest?.source;
+          if(manifest?.mapVersion===expectedVersion&&source&&['deepzoom','url-grid'].includes(source.type)){
+            if(source.type==='deepzoom'&&(!Number.isFinite(Number(source.width))||!Number.isFinite(Number(source.height))||Number(source.width)<1||Number(source.height)<1))throw new Error('Манифест содержит некорректные размеры растровой карты.');
+            if(!coordinateGeometryMatchesManifest(source.coordinateSystem))throw new Error('Манифест карты содержит несовместимые границы игрового мира.');
+            const previewPath=source.previewUrl||manifest.previewUrl;
+            if(!previewPath)throw new Error('В манифесте карты отсутствует previewUrl.');
+            const previewUrl=/^https?:\/\//i.test(previewPath)?previewPath:new URL(previewPath,MAP_ASSETS_BASE).href;
+            const preview=new Image();preview.decoding='async';preview.fetchPriority='high';preview.src=previewUrl;
+            if(typeof preview.decode==='function')await preview.decode();
+            else await new Promise((resolve,reject)=>{preview.onload=resolve;preview.onerror=()=>reject(new Error('Не удалось загрузить превью карты.'));});
+            if(!preview.naturalWidth||!preview.naturalHeight)throw new Error('Превью опубликованной карты не удалось декодировать.');
+            if(generation!==mapPublicationGenerationRef.current)return false;
+            const publishedSource={...source,assetBase:MAP_ASSETS_BASE,mapVersion:manifest.mapVersion};
+            try{localStorage.removeItem(MAP_PUBLICATION_STORAGE_KEY);}catch{}
+            setMapProgress(100);setNotice('Карта мира обновлена');setError('');
+            onMapSaved?.({image:previewUrl,source:publishedSource});
+            return true;
+          }
+        }
+      }catch(error){
+        if(/некорректные размеры растровой карты|границы игрового мира|previewUrl|превью опубликованной карты/.test(String(error?.message||'')))throw error;
+      }
+      await new Promise(resolve=>window.setTimeout(resolve,5000));
+    }
+    if(generation===mapPublicationGenerationRef.current)setError('Исходный файл загружен. Публикация тайлов ещё не завершена; проверка сохранена и продолжится при следующем открытии приложения.');
+    return false;
+  }
+
+  useEffect(()=>{
+    let pending=null;
+    try{pending=JSON.parse(localStorage.getItem(MAP_PUBLICATION_STORAGE_KEY)||'null');}catch{}
+    const version=String(pending?.mapVersion||'').trim();
+    if(!version)return undefined;
+    setMapSaving(true);setMapProcessing(true);setError('');
+    setNotice('Возобновляем проверку публикации карты…');
+    waitForPublishedMap(version).catch(error=>setError(safeCaughtError(error,'Не удалось завершить публикацию карты.'))).finally(()=>{
+      setMapSaving(false);setMapProcessing(false);window.setTimeout(()=>setMapProgress(0),900);
+    });
+    return ()=>{mapPublicationGenerationRef.current+=1;};
+  },[initData]);
+
   const [d1Diagnostics,setD1Diagnostics]=useState(null);
   const [d1DiagnosticsLoading,setD1DiagnosticsLoading]=useState(false);
   const [d1DiagnosticsError,setD1DiagnosticsError]=useState('');
@@ -1495,101 +1576,35 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
     if (!file) return;
     try {
       setError(''); setNotice(''); setMapSaving(true); setMapProcessing(false); setMapProgress(0);
-      const maxBytes = 90_000_000;
-      if (!['image/png','image/jpeg','image/webp'].includes(String(file.type || '').toLowerCase())) {
-        throw new Error('Поддерживаются только PNG, JPG и WebP.');
-      }
-      if (!Number.isFinite(file.size) || file.size <= 0 || file.size > maxBytes) {
-        throw new Error('Размер файла должен быть не больше 90 МБ.');
-      }
-      const uploadResult = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${API_BASE}/api/map`, true);
-        xhr.timeout = 600000;
-        xhr.setRequestHeader('Content-Type', file.type);
-        xhr.setRequestHeader('X-Telegram-Init-Data', initData);
-        xhr.setRequestHeader('X-Map-Size', String(file.size));
-        xhr.upload.onprogress = event => {
-          if (event.lengthComputable && event.total > 0) setMapProgress(Math.min(100, Math.round(event.loaded / event.total * 100)));
-        };
-        xhr.onload = () => {
-          let data = null;
-          try { data = JSON.parse(xhr.responseText || 'null'); } catch {}
-          if (xhr.status >= 200 && xhr.status < 300 && data?.ok) resolve(data);
-          else reject(new Error(data?.error || `Не удалось загрузить карту (HTTP ${xhr.status || 'ошибка'}).`));
-        };
-        xhr.onerror = () => reject(new Error('Соединение прервалось. Проверьте сеть и повторите загрузку.'));
-        xhr.ontimeout = () => reject(new Error('Загрузка заняла больше 10 минут и была остановлена. Проверьте соединение и повторите попытку.'));
-        xhr.onabort = () => reject(new Error('Загрузка карты отменена.'));
+      const maxBytes=90_000_000;
+      if(!['image/png','image/jpeg','image/webp'].includes(String(file.type||'').toLowerCase()))throw new Error('Поддерживаются только PNG, JPG и WebP.');
+      if(!Number.isFinite(file.size)||file.size<=0||file.size>maxBytes)throw new Error('Размер файла должен быть не больше 90 МБ.');
+
+      const uploadResult=await new Promise((resolve,reject)=>{
+        const xhr=new XMLHttpRequest();
+        xhr.open('POST',`${API_BASE}/api/map`,true);
+        xhr.timeout=600000;
+        xhr.setRequestHeader('Content-Type',file.type);
+        xhr.setRequestHeader('X-Telegram-Init-Data',initData);
+        xhr.setRequestHeader('X-Map-Size',String(file.size));
+        xhr.upload.onprogress=event=>{if(event.lengthComputable&&event.total>0)setMapProgress(Math.min(100,Math.round(event.loaded/event.total*100)));};
+        xhr.onload=()=>{let data=null;try{data=JSON.parse(xhr.responseText||'null');}catch{}if(xhr.status>=200&&xhr.status<300&&data?.ok)resolve(data);else reject(new Error(data?.error||`Не удалось загрузить карту (HTTP ${xhr.status||'ошибка'}).`));};
+        xhr.onerror=()=>reject(new Error('Соединение прервалось. Если файл не был полностью передан, загрузите его повторно.'));
+        xhr.ontimeout=()=>reject(new Error('Загрузка заняла больше 10 минут. Проверьте соединение и повторите попытку.'));
+        xhr.onabort=()=>reject(new Error('Загрузка карты отменена.'));
         xhr.send(file);
       });
-
-      const expectedVersion = String(uploadResult?.mapVersion || '').trim();
-      if (!expectedVersion) throw new Error('Worker сохранил файл, но не вернул версию для обработки карты.');
-      setMapProcessing(true);
-      setNotice('Файл загружен. Генерируем и публикуем тайлы карты…');
-
-      const deadline = Date.now() + 25 * 60 * 1000;
-      let publishedManifest = null;
-      while (Date.now() < deadline) {
-        try {
-          const response = await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`, { cache: 'no-store' });
-          if (response.ok) {
-            const manifest = await response.json();
-            if (manifest?.mapVersion === expectedVersion
-              && manifest?.source
-              && ['deepzoom', 'url-grid'].includes(manifest.source.type)) {
-              publishedManifest = manifest;
-              break;
-            }
-          }
-        } catch {}
-        await new Promise(resolve => window.setTimeout(resolve, 5000));
-      }
-      if (!publishedManifest) {
-        throw new Error('Исходный файл загружен, но публикация тайлов не завершилась за 25 минут. Предыдущая опубликованная карта осталась доступна. Проверьте запуск GitHub Actions в Voxygen-map-assets.');
-      }
-
-      const previewPath = publishedManifest.source.previewUrl || publishedManifest.previewUrl;
-      if (!previewPath) throw new Error('Публикация завершилась, но в манифесте отсутствует previewUrl.');
-      const previewUrl = /^https?:\/\//i.test(previewPath) ? previewPath : new URL(previewPath, MAP_ASSETS_BASE).href;
-      const preview = new Image();
-      preview.decoding = 'async';
-      preview.fetchPriority = 'high';
-      if (typeof preview.decode === 'function') {
-        preview.src = previewUrl;
-        await preview.decode();
-      } else {
-        await new Promise((resolve, reject) => {
-          if (preview.complete) {
-            if (preview.naturalWidth > 0) resolve();
-            else reject(new Error('Не удалось загрузить превью опубликованной карты.'));
-            return;
-          }
-          preview.onload = resolve;
-          preview.onerror = () => reject(new Error('Не удалось загрузить превью опубликованной карты.'));
-          preview.src = previewUrl;
-        });
-      }
-      if (!preview.naturalWidth || !preview.naturalHeight) {
-        throw new Error('Превью опубликованной карты не удалось декодировать.');
-      }
-
-      const publishedSource = {
-        ...publishedManifest.source,
-        assetBase: MAP_ASSETS_BASE,
-        mapVersion: publishedManifest.mapVersion,
-      };
-      setMapProgress(100);
-      setNotice('Карта мира обновлена');
-      onMapSaved?.({ image: previewUrl, source: publishedSource });
-    } catch (e) {
-      setError(safeCaughtError(e, 'Не удалось сохранить карту'));
+      const expectedVersion=String(uploadResult?.mapVersion||'').trim();
+      if(!expectedVersion)throw new Error('Worker сохранил файл, но не вернул версию для обработки карты.');
+      try{localStorage.setItem(MAP_PUBLICATION_STORAGE_KEY,JSON.stringify({mapVersion:expectedVersion,startedAt:Date.now()}));}catch{}
+      setMapProcessing(true);setNotice('Файл загружен. Продолжаем генерацию и публикацию тайлов…');
+      const published=await waitForPublishedMap(expectedVersion);
+      if(!published)throw new Error('Публикация ещё продолжается. Её проверка сохранена и автоматически возобновится при следующем открытии приложения.');
+    } catch(e) {
+      setError(safeCaughtError(e,'Не удалось сохранить карту'));
     } finally {
-      setMapSaving(false);
-      setMapProcessing(false);
-      window.setTimeout(() => setMapProgress(0), 900);
-      if (fileRef.current) fileRef.current.value = '';
+      setMapSaving(false);setMapProcessing(false);window.setTimeout(()=>setMapProgress(0),900);
+      if(fileRef.current)fileRef.current.value='';
     }
   }
   async function addUser(){const mc=newMcNickname.trim();const tid=Number(newTelegramId.trim());if(!mc||!Number.isSafeInteger(tid)||tid<=0){setError('Укажите Minecraft никнейм и корректный Telegram ID');return}try{setUserSaving(true);setError('');const r=await fetch(`${API_BASE}/api/admin/users`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,mcNickname:mc,telegramId:tid})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setNewMcNickname('');setNewTelegramId('');setNotice(d.user?.telegram_username?`Пользователь добавлен: @${String(d.user.telegram_username).replace(/^@/,'')}`:'Пользователь добавлен. Username появится после входа в Voxygen.');await loadUsers()}catch(e){setError(safeCaughtError(e, 'Не удалось добавить пользователя'))}finally{setUserSaving(false)}}
@@ -1597,7 +1612,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
   async function saveUser(id){const mc=editingUser.mcNickname.trim();const tid=String(editingUser.telegramId||'').trim();if(!mc||!tid){setError('Укажите Minecraft никнейм и Telegram ID');return}try{setUserSaving(true);setError('');const r=await fetch(`${API_BASE}/api/admin/users/update/${encodeURIComponent(id)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,mcNickname:mc,telegramId:Number(tid)})});let d=null;try{d=await r.json().catch(() => null)}catch{throw new Error(`HTTP ${r.status}`)}if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setEditingUserId(null);setNotice(d.user?.telegram_username?`Данные сохранены: @${String(d.user.telegram_username).replace(/^@/,'')}`:'Данные сохранены. Username обновится после входа пользователя.');await loadUsers()}catch(e){setError(safeCaughtError(e, 'Не удалось сохранить пользователя'))}finally{setUserSaving(false)}}
   async function deleteUser(id){if(!window.confirm('Удалить пользователя из списка?'))return;try{setUserSaving(true);setError('');const r=await fetch(`${API_BASE}/api/admin/users/delete/${encodeURIComponent(id)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));if(editingUserId===id)setEditingUserId(null);setNotice('Пользователь удалён');await loadUsers()}catch(e){setError(safeCaughtError(e, 'Не удалось удалить пользователя'))}finally{setUserSaving(false)}}
   async function deleteCity(id){if(!window.confirm('Удалить этот город? Это действие нельзя отменить.'))return;try{const r=await fetch(`${API_BASE}/api/admin/territories/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,territoryId:id})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setNotice('Город удалён');onTerritoriesChanged?.()}catch(e){setError(safeCaughtError(e, 'Не удалось удалить город'))}}
-  async function moveCity(city){const raw=window.prompt('Новые координаты X Z',`${city.vox_x??0} ${city.vox_z??0}`);if(raw===null)return;const m=raw.trim().replace(/−/g,'-').match(/^(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)$/);if(!m){setError('Формат: X Z');return}const x=Number(m[1].replace(',','.')),z=Number(m[2].replace(',','.'));if(!Number.isFinite(x)||!Number.isFinite(z)||x<-2500||x>2500||z<-2500||z>2500){setError('Координаты должны быть от −2500 до 2500');return}try{const r=await fetch(`${API_BASE}/api/admin/territories/coords`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,territoryId:city.id,x,z})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setNotice('Координаты обновлены');onTerritoriesChanged?.()}catch(e){setError(safeCaughtError(e, 'Не удалось изменить координаты'))}}
+  async function moveCity(city){const raw=window.prompt('Новые координаты X Z (от −3008 до 3007)',`${city.vox_x??0} ${city.vox_z??0}`);if(raw===null)return;const m=raw.trim().replace(/−/g,'-').match(/^(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)$/);if(!m){setError('Формат: X Z');return}const x=Number(m[1].replace(',','.')),z=Number(m[2].replace(',','.'));if(!isValidWorldCoordinate(x,z)){setError('Координаты должны быть от −3008 до 3007');return}try{const r=await fetch(`${API_BASE}/api/admin/territories/coords`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,territoryId:city.id,x,z})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setNotice('Координаты обновлены');onTerritoriesChanged?.()}catch(e){setError(safeCaughtError(e, 'Не удалось изменить координаты'))}}
   function changeFounder(city){ setManagerModalCity(city); setError(''); }
   return <div style={{marginTop:12}}>
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}><Users size={16} color="var(--gold)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Инспекторы</div><span style={{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}}>{inspectors.length}</span></div><input value={inspectorInput} onChange={e=>setInspectorInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')add()}} placeholder="Username или Telegram ID" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',marginBottom:8}}/><button onClick={add} disabled={saving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',background:'var(--gold)',color:'#06120D',fontWeight:700}}>{saving?'Добавление…':'Добавить инспектора'}</button>{loading?null:inspectors.map(i=><div key={i.telegram_id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderTop:'1px solid var(--border)'}}><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{i.telegram_username?`@${String(i.telegram_username).replace(/^@/,'')}`:'Username не указан'}</div><div style={{fontSize:11,color:'var(--text-muted)'}}>Telegram ID: {i.telegram_id}</div></div><button onClick={()=>remove(i.telegram_id)} className="press" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:9,padding:'8px'}}><Trash2 size={14}/></button></div>)}</div>
@@ -1605,7 +1620,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}><Trash2 size={16} color="var(--red)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Города</div><span style={{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}}>{territories.length}</span></div>{territories.length===0?<div style={{fontSize:12,color:'var(--text-muted)'}}>Городов пока нет.</div>:territories.map(city=><div key={city.id} style={{display:'flex',alignItems:'center',gap:7,padding:'10px 0',borderTop:'1px solid var(--border)'}}><div style={{flex:1,minWidth:0}}><MinecraftText text={city.name} as="div" style={{fontSize:13,fontWeight:700}}/><div style={{fontSize:11,color:'var(--text-muted)'}}><MinecraftText text={city.owner}/> · {formatTerritoryCoords(city.coords)}</div></div><button onClick={()=>moveCity(city)} className="press" style={{border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',borderRadius:9,padding:'7px 9px',fontSize:11}}>Коорд.</button><button onClick={()=>changeFounder(city)} className="press" style={{border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--mint)',borderRadius:9,padding:'7px 9px',fontSize:11}}>Мэр</button><button onClick={()=>deleteCity(city.id)} className="press" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:9,padding:'7px 9px'}}><Trash2 size={14}/></button></div>)}</div>
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><MapIcon size={16} color="var(--purple)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Карта мира</div></div>
-      <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.5,marginBottom:10}}>Загрузите изображение PNG, JPG или WebP любого разрешения. Исходное качество сохраняется; размер файла — до 90 МБ. Карта хранится в GitHub Releases.</div>
+      <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.5,marginBottom:10}}>Загрузите карту PNG, JPG или WebP любого подходящего разрешения. Система координат игрового мира фиксирована и не зависит от размера изображения; координаты городов располагаются по границам мира. Размер файла — до 90 МБ; исходник хранится в GitHub Releases, а тайлы публикуются отдельно.</div>
       <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{display:'none'}} onChange={e=>saveMap(e.target.files?.[0])}/>
       <button onClick={()=>fileRef.current?.click()} disabled={mapSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'11px',background:'var(--purple)',color:'#fff',fontWeight:700}}>{mapSaving?(mapProcessing?'Обработка карты…':'Загрузка карты…'):'Загрузить карту мира'}</button>
       {mapSaving&&<div role="status" aria-live="polite" style={{marginTop:10}}><div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--text-muted)',marginBottom:5}}><span>{mapProcessing?'Генерация тайлов и публикация…':(mapProgress>=100?'Файл передан, запускаем обработку…':'Загрузка файла')}</span><span>{mapProcessing?'В работе':`${mapProgress}%`}</span></div><div style={{height:6,background:'var(--surface-3)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',width:`${mapProgress}%`,background:'var(--purple)',borderRadius:99,transition:'width 120ms linear'}}/></div></div>}
@@ -1841,6 +1856,7 @@ function SettingsToggle({ checked, onChange, disabled = false, label, descriptio
   </div>;
 }
 
+function normalizeTheme(value){return String(value??'vox').trim().toLowerCase()==='aurora'?'aurora':'vox';}
 function normalizeTimezoneOffset(value){
   const raw=String(value??'').replace(/[\u0000-\u001F\u007F]/g,'').trim().toUpperCase();
   const offset=raw.startsWith('UTC')?raw.slice(3).trim():raw;
@@ -1866,7 +1882,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
         const response=await fetch(`${API_BASE}/api/user-settings`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
         const data=await response.json().catch(()=>null);
         if(!response.ok||!data?.ok||!data?.settings)throw new Error(apiErrorMessage(response,data,'Не удалось загрузить настройки.'));
-        if(!cancelled)setSettings({...data.settings,defaultTheme:'vox',timezone:normalizeTimezoneOffset(data.settings.timezone),territories:Array.isArray(data.settings.territories)?data.settings.territories:[]});
+        if(!cancelled)setSettings({...data.settings,defaultTheme:normalizeTheme(data.settings.defaultTheme),personalMapZoomPercent:normalizeMapZoomPercent(data.settings.personalMapZoomPercent??data.settings.mapZoomPercent),timezone:normalizeTimezoneOffset(data.settings.timezone),territories:Array.isArray(data.settings.territories)?data.settings.territories:[]});
       }catch(e){if(!cancelled)setError(safeCaughtError(e,'Не удалось загрузить настройки.'));}
       finally{if(!cancelled)setLoading(false);}
     }
@@ -1879,7 +1895,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
     if(!settings)return;
     try{
       setSaving(true);setError('');
-      const payload={defaultTheme:'vox',timezone:normalizeTimezoneOffset(settings.timezone),eventNotifications:Boolean(settings.eventNotifications),territories:(settings.territories||[]).map(item=>({id:String(item.id),enabled:Boolean(item.enabled)}))};
+      const payload={defaultTheme:normalizeTheme(settings.defaultTheme),mapZoomPercent:normalizeMapZoomPercent(settings.personalMapZoomPercent),timezone:normalizeTimezoneOffset(settings.timezone),eventNotifications:Boolean(settings.eventNotifications),territories:(settings.territories||[]).map(item=>({id:String(item.id),enabled:Boolean(item.enabled)}))};
       const response=await fetch(`${API_BASE}/api/user-settings`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({...payload,initData})});
       const data=await response.json().catch(()=>null);
       if(!response.ok||!data?.ok||!data?.settings)throw new Error(apiErrorMessage(response,data,'Не удалось сохранить настройки.'));
@@ -1890,10 +1906,17 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
   return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:130,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center',padding:'18px 14px'}} onClick={requestClose}>
     <div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(448px,100%)',maxHeight:'84vh',overflowY:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:22,padding:18,boxSizing:'border-box'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:16}}><div className="atlas-display" style={{fontSize:19,fontWeight:750}}>Настройки</div><button onClick={requestClose} className="press" aria-label="Закрыть настройки" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>
-      {loading?<div style={{padding:'24px 0',textAlign:'center',fontSize:13,color:'var(--text-muted)'}}>Загрузка настроек…</div>:!settings?<div style={{fontSize:12.5,color:'var(--red)',lineHeight:1.5}}>{error||'Настройки недоступны.'}<button onClick={()=>{setSettings(null);setError('');setLoading(true);const init=initData;fetch(`${API_BASE}/api/user-settings`,{headers:{'X-Telegram-Init-Data':init},cache:'no-store'}).then(async r=>{const d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(apiErrorMessage(r,d,'Не удалось загрузить настройки.'));setSettings({...d.settings,defaultTheme:'vox',timezone:normalizeTimezoneOffset(d.settings.timezone),territories:Array.isArray(d.settings.territories)?d.settings.territories:[]});}).catch(e=>setError(safeCaughtError(e,'Не удалось загрузить настройки.'))).finally(()=>setLoading(false));}} className="press" style={{display:'block',marginTop:10,padding:'8px 12px',borderRadius:10,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Повторить</button></div>:<>
+      {loading?<div style={{padding:'24px 0',textAlign:'center',fontSize:13,color:'var(--text-muted)'}}>Загрузка настроек…</div>:!settings?<div style={{fontSize:12.5,color:'var(--red)',lineHeight:1.5}}>{error||'Настройки недоступны.'}<button onClick={()=>{setSettings(null);setError('');setLoading(true);const init=initData;fetch(`${API_BASE}/api/user-settings`,{headers:{'X-Telegram-Init-Data':init},cache:'no-store'}).then(async r=>{const d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(apiErrorMessage(r,d,'Не удалось загрузить настройки.'));setSettings({...d.settings,defaultTheme:normalizeTheme(d.settings.defaultTheme),personalMapZoomPercent:normalizeMapZoomPercent(d.settings.personalMapZoomPercent??d.settings.mapZoomPercent),timezone:normalizeTimezoneOffset(d.settings.timezone),territories:Array.isArray(d.settings.territories)?d.settings.territories:[]});}).catch(e=>setError(safeCaughtError(e,'Не удалось загрузить настройки.'))).finally(()=>setLoading(false));}} className="press" style={{display:'block',marginTop:10,padding:'8px 12px',borderRadius:10,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Повторить</button></div>:<>
         <div style={{fontSize:15,fontWeight:750,marginBottom:8}}>Основные</div>
         <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:7}}>Тема по умолчанию</div>
-        <div role="status" aria-label="Выбранная тема по умолчанию: Vox" style={{display:'flex',alignItems:'center',padding:'11px 12px',minHeight:20,borderRadius:11,border:'1px solid var(--purple-border)',background:'var(--purple-soft)',color:'var(--purple)',fontSize:13,fontWeight:750,marginBottom:14}}>Vox</div>
+        <select value={normalizeTheme(settings.defaultTheme)} disabled={Boolean(settings.globalOverrides?.theme)} onChange={e=>patch({defaultTheme:normalizeTheme(e.target.value)})} style={{width:'100%',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:11,padding:'11px 12px',color:'var(--text)',fontSize:14,marginBottom:settings.globalOverrides?.theme?6:14}}>
+          <option value="vox">Vox</option><option value="aurora">Aurora</option>
+        </select>
+        {settings.globalOverrides?.theme&&<div style={{fontSize:11,color:'var(--purple)',marginBottom:14}}>Главный инспектор временно установил тему {settings.theme==='aurora'?'Aurora':'Vox'}. Личный выбор сохранён.</div>}
+        <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:7}}>Масштаб карты</div>
+        <input type="range" min="1" max="100" step="1" value={settings.personalMapZoomPercent??100} disabled={Boolean(settings.globalOverrides?.mapZoomPercent)} onChange={e=>patch({personalMapZoomPercent:normalizeMapZoomPercent(e.target.value)})} style={{width:'100%',accentColor:'var(--purple)',margin:'4px 0 2px'}}/>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--text-muted)',marginBottom:6}}><span>1% · приближение</span><strong style={{color:'var(--text)'}}>{settings.personalMapZoomPercent??100}%</strong><span>100% · обзор</span></div>
+        {settings.globalOverrides?.mapZoomPercent&&<div style={{fontSize:11,color:'var(--purple)',marginBottom:14}}>Глобально установлено {settings.mapZoomPercent}%. Ваш личный масштаб сохранён и восстановится после отмены или окончания срока.</div>}
         <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:6}}>Часовой пояс</div>
         <input value={settings.timezone||'UTC+3'} onChange={e=>patch({timezone:keepUtcPrefix(e.target.value)})} onBlur={()=>patch({timezone:normalizeTimezoneOffset(settings.timezone)})} placeholder="UTC+3" aria-label="Часовой пояс" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:11,padding:'11px 12px',color:'var(--text)',fontSize:14,marginBottom:16}}/>
         <div style={{fontSize:15,fontWeight:750,marginBottom:4}}>Уведомления</div>
@@ -1906,6 +1929,141 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
         <button onClick={save} disabled={saving} className="press" style={{width:'100%',marginTop:16,padding:'12px',border:'none',borderRadius:12,background:'var(--purple)',color:'#fff',fontSize:14,fontWeight:750}}>{saving?'Сохранение…':'Сохранить настройки'}</button>
       </>}
     </div>
+  </div>;
+}
+
+function GlobalSettingsPanel({ initData, onSettingsChanged }) {
+  const [entries,setEntries] = useState([]);
+  const [mapZoom,setMapZoom] = useState(100);
+  const [theme,setTheme] = useState('vox');
+  const [mapDuration,setMapDuration] = useState('1440');
+  const [themeDuration,setThemeDuration] = useState('1440');
+  const [loading,setLoading] = useState(true);
+  const [busy,setBusy] = useState('');
+  const [error,setError] = useState('');
+  const [notice,setNotice] = useState('');
+
+  async function load() {
+    try {
+      setLoading(true); setError('');
+      const response = await fetch(`${API_BASE}/api/admin/global-settings`, {
+        headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store',
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) throw new Error(apiErrorMessage(response,data,'Не удалось загрузить глобальные настройки.'));
+      const rows = Array.isArray(data.settings) ? data.settings : [];
+      setEntries(rows);
+      const zoom = rows.find(row => row.key==='map_zoom');
+      const currentTheme = rows.find(row => row.key==='theme');
+      if (zoom) setMapZoom(normalizeMapZoomPercent(zoom.value));
+      if (currentTheme) setTheme(normalizeTheme(currentTheme.value));
+    } catch (e) {
+      setError(safeCaughtError(e,'Не удалось загрузить глобальные настройки.'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { if (initData) load(); }, [initData]);
+
+  async function refreshEffectiveSettings() {
+    const response = await fetch(`${API_BASE}/api/user-settings`, {
+      headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store',
+    });
+    const data = await response.json().catch(() => null);
+    if (response.ok && data?.ok && data?.settings) onSettingsChanged?.(data.settings);
+  }
+
+  async function save(key,value,duration) {
+    try {
+      setBusy(key); setError(''); setNotice('');
+      const response = await fetch(`${API_BASE}/api/admin/global-settings`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'X-Telegram-Init-Data':initData },
+        body: JSON.stringify({ initData, key, value, durationMinutes: duration==='permanent' ? null : Number(duration) }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) throw new Error(apiErrorMessage(response,data,'Не удалось сохранить глобальную настройку.'));
+      setEntries(Array.isArray(data.settings)?data.settings:[]);
+      await refreshEffectiveSettings();
+      setNotice('Глобальная настройка применена');
+    } catch (e) {
+      setError(safeCaughtError(e,'Не удалось сохранить глобальную настройку.'));
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function clear(key) {
+    try {
+      setBusy(key); setError(''); setNotice('');
+      const response = await fetch(`${API_BASE}/api/admin/global-settings`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},
+        body:JSON.stringify({initData,key,clear:true}),
+      });
+      const data=await response.json().catch(()=>null);
+      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось отменить глобальную настройку.'));
+      setEntries(Array.isArray(data.settings)?data.settings:[]);
+      await refreshEffectiveSettings();
+      setNotice('Глобальное переопределение отменено. Личные настройки восстановлены.');
+    } catch(e) {
+      setError(safeCaughtError(e,'Не удалось отменить глобальную настройку.'));
+    } finally {
+      setBusy('');
+    }
+  }
+
+  const active = key => entries.find(row=>row.key===key&&row.active);
+  const status = key => {
+    const row=entries.find(item=>item.key===key);
+    if(!row)return 'Не задано';
+    if(!row.active)return 'Срок действия истёк; используется личная настройка';
+    if(row.expiresAt==null)return 'Действует постоянно';
+    return 'Действует до '+new Date(Number(row.expiresAt)).toLocaleString('ru-RU');
+  };
+  const durationOptions = [
+    {value:'60',label:'1 час'}, {value:'360',label:'6 часов'}, {value:'1440',label:'24 часа'},
+    {value:'10080',label:'7 дней'}, {value:'525600',label:'1 год'}, {value:'permanent',label:'Навсегда'},
+  ];
+  const selectStyle={width:'100%',minHeight:42,boxSizing:'border-box',border:'1px solid var(--border)',borderRadius:10,background:'var(--surface-2)',color:'var(--text)',padding:'9px 10px',fontSize:13};
+  const sectionStyle={borderTop:'1px solid var(--border)',paddingTop:12,marginTop:12};
+  return <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:15,marginTop:14,marginBottom:12}}>
+    <div className="atlas-display" style={{fontSize:16,fontWeight:800,marginBottom:4}}>Глобальные настройки</div>
+    <div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.45}}>Временные значения имеют приоритет над личными настройками всех пользователей. После окончания срока личные значения автоматически восстановятся.</div>
+    {loading?<div style={{padding:12,color:'var(--text-muted)',fontSize:12}}>Загрузка…</div>:<>
+      <div style={sectionStyle}>
+        <div style={{fontSize:13,fontWeight:750,marginBottom:4}}>Масштаб карты</div>
+        <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{status('map_zoom')}</div>
+        <input type="range" min="1" max="100" step="1" value={mapZoom} onChange={e=>setMapZoom(normalizeMapZoomPercent(e.target.value))} style={{width:'100%',accentColor:'var(--purple)'}}/>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--text-muted)',marginBottom:9}}><span>1% · приближение</span><strong style={{color:'var(--text)'}}>{mapZoom}%</strong><span>100% · обзор</span></div>
+        <label style={{display:'block',marginBottom:5}}>Срок действия</label>
+        <select value={mapDuration} onChange={e=>setMapDuration(e.target.value)} style={selectStyle}>
+          {durationOptions.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}
+        </select>
+        <div style={{display:'flex',gap:8,marginTop:9}}>
+          <button onClick={()=>save('map_zoom',mapZoom,mapDuration)} disabled={Boolean(busy)} className="press" style={{flex:1,minHeight:40,border:0,borderRadius:10,background:'var(--purple)',color:'#fff',fontWeight:750}}>{busy==='map_zoom'?'Сохранение…':'Применить всем'}</button>
+          <button onClick={()=>clear('map_zoom')} disabled={Boolean(busy)||!active('map_zoom')} className="press" style={{minHeight:40,border:'1px solid var(--border)',borderRadius:10,padding:'0 11px',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Снять</button>
+        </div>
+      </div>
+      <div style={sectionStyle}>
+        <div style={{fontSize:13,fontWeight:750,marginBottom:4}}>Тема приложения</div>
+        <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{status('theme')}</div>
+        <select value={theme} onChange={e=>setTheme(normalizeTheme(e.target.value))} style={selectStyle}>
+          <option value="vox">Vox</option><option value="aurora">Aurora</option>
+        </select>
+        <label style={{display:'block',marginTop:9,marginBottom:5}}>Срок действия</label>
+        <select value={themeDuration} onChange={e=>setThemeDuration(e.target.value)} style={selectStyle}>
+          {durationOptions.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}
+        </select>
+        <div style={{display:'flex',gap:8,marginTop:9}}>
+          <button onClick={()=>save('theme',theme,themeDuration)} disabled={Boolean(busy)} className="press" style={{flex:1,minHeight:40,border:0,borderRadius:10,background:'var(--purple)',color:'#fff',fontWeight:750}}>{busy==='theme'?'Сохранение…':'Применить всем'}</button>
+          <button onClick={()=>clear('theme')} disabled={Boolean(busy)||!active('theme')} className="press" style={{minHeight:40,border:'1px solid var(--border)',borderRadius:10,padding:'0 11px',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Снять</button>
+        </div>
+      </div>
+    </>}
+    {error&&<div role="alert" style={{fontSize:12,color:'var(--red)',marginTop:10}}>{error}</div>}
+    {notice&&<div role="status" style={{fontSize:12,color:'var(--mint)',marginTop:10}}>{notice}</div>}
   </div>;
 }
 
@@ -1932,12 +2090,13 @@ function ProfileScreen({ profile, profileLoadState, profileLoadError, claimNickn
     {!isInspector&&userCitiesForTreasury.map(city=><TreasuryCard key={`treasury-${city.id}`} city={city} initData={initData} tgUser={tgUser}/>)}
     {!isInspector&&managerCities.map(city=><CityManagementProfile key={`manage-${city.id}`} territory={city} managerTerritories={managerCities} initData={initData} tgUser={tgUser} onChanged={onTerritoriesChanged}/>)}
     {!isInspector&&residentCities.map(city=><CityManagementProfile key={`view-${city.id}`} territory={city} managerTerritories={managerCities} initData={initData} tgUser={tgUser} readOnly onChanged={onTerritoriesChanged}/>)}
-    {isMainInspector&&<MainInspectorPanel initData={initData} onMapSaved={onMapSaved} territories={territories} onTerritoriesChanged={onTerritoriesChanged} onFaqSaved={onFaqSaved}/>}
+    {isMainInspector&&<GlobalSettingsPanel initData={initData} onSettingsChanged={onSettingsSaved}/>}
+        {isMainInspector&&<MainInspectorPanel initData={initData} onMapSaved={onMapSaved} territories={territories} onTerritoriesChanged={onTerritoriesChanged} onFaqSaved={onFaqSaved}/>}
       {settingsOpen&&<ProfileSettingsModal initData={initData} onClose={()=>setSettingsOpen(false)} onSaved={settings=>onSettingsSaved?.(settings)}/>}
       </div>;
 }
 
-function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImage=null, mapSource=null, mapLoading=false, mapError='', onRetryMap, voxView, onVoxViewChange, markersReady=false }) {
+function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImage=null, mapSource=null, mapLoading=false, mapError='', onRetryMap, voxView, onVoxViewChange, markersReady=false, mapZoomPercent=100, mapZoomReady=true }) {
   const [sortBy,setSortBy]=useState('curator');
   const [resetSignal,setResetSignal]=useState(0);
 
@@ -1959,6 +2118,8 @@ function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImag
                 viewState={voxView}
                 onViewStateChange={onVoxViewChange}
                 markersReady={markersReady}
+                mapZoomPercent={mapZoomPercent}
+                mapZoomReady={mapZoomReady}
               />
             ) : (
               <div role="status" aria-live="polite" style={{width:'100%',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:24,boxSizing:'border-box',textAlign:'center',background:'var(--surface)',color:'var(--text-muted)',fontSize:13,lineHeight:1.5}}>
@@ -2369,11 +2530,18 @@ function EventsScreen({ initData, territories = [], onSelectTerritory, isMainIns
   const [createExpanded,setCreateExpanded]=useState(false);
   const [drafts, setDrafts] = useState({}), [busyId, setBusyId] = useState(null), [notice, setNotice] = useState(''), [editingEventId,setEditingEventId]=useState(null);
   const [clockNow,setClockNow]=useState(Date.now());
+  const eventLoadVersionRef=useRef(0), eventLoadControllerRef=useRef(null);
   async function load() {
+    if(document.visibilityState==='hidden')return;
+    const requestVersion=++eventLoadVersionRef.current;
+    eventLoadControllerRef.current?.abort();
+    const controller=new AbortController();
+    eventLoadControllerRef.current=controller;
     try {
       setError('');
-      const response = await fetch(`${API_BASE}/api/events`, { headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store' });
+      const response = await fetch(`${API_BASE}/api/events`, { headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store', signal:controller.signal });
       const data = await response.json().catch(() => null);
+      if(requestVersion!==eventLoadVersionRef.current)return;
       if (!response.ok || !data?.ok) throw new Error(apiErrorMessage(response, data, 'Не удалось загрузить ивенты.'));
       const items = (data.events || []).sort((a,b) => Number(a.event_at)-Number(b.event_at));
       setEvents(items);
@@ -2382,11 +2550,30 @@ function EventsScreen({ initData, territories = [], onSelectTerritory, isMainIns
         for (const event of items) if (!next[event.id]) next[event.id] = { value: '', unit: event.reminder?.unit || 'minutes' };
         return next;
       });
-    } catch (e) { setError(safeCaughtError(e, 'Не удалось загрузить ивенты.')); }
-    finally { setLoading(false); }
+    } catch (e) {
+      if(requestVersion!==eventLoadVersionRef.current||e?.name==='AbortError')return;
+      setError(safeCaughtError(e, 'Не удалось загрузить ивенты.'));
+    } finally {
+      if(requestVersion===eventLoadVersionRef.current){eventLoadControllerRef.current=null;setLoading(false);}
+    }
   }
-  useEffect(() => { load(); }, [initData]);
-  useEffect(() => { const timer=setInterval(()=>setClockNow(Date.now()),15000); return ()=>clearInterval(timer); }, []);
+  useEffect(() => {
+    load();
+    const timer=setInterval(load,60000);
+    const onVisible=()=>{
+      if(document.visibilityState==='visible')load();
+      else{eventLoadVersionRef.current+=1;eventLoadControllerRef.current?.abort();eventLoadControllerRef.current=null;}
+    };
+    document.addEventListener('visibilitychange',onVisible);
+    return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',onVisible);eventLoadVersionRef.current+=1;eventLoadControllerRef.current?.abort();eventLoadControllerRef.current=null;};
+  }, [initData]);
+  useEffect(() => {
+    const tick=()=>setClockNow(Date.now());
+    const onVisible=()=>{if(document.visibilityState==='visible')tick();};
+    const timer=setInterval(tick,15000);
+    document.addEventListener('visibilitychange',onVisible);
+    return ()=>{clearInterval(timer);document.removeEventListener('visibilitychange',onVisible);};
+  }, []);
   function updateDraft(id, patch) { setDrafts(prev => ({ ...prev, [id]: { value: prev[id]?.value ?? '', unit: prev[id]?.unit ?? 'minutes', ...patch } })); }
   async function saveReminder(event) {
     const draft = drafts[event.id] || { value: '', unit: 'minutes' };
@@ -2474,7 +2661,7 @@ function EventsScreen({ initData, territories = [], onSelectTerritory, isMainIns
         <span style={{flex:1,minWidth:0,fontSize:14,fontWeight:800}}>Создать ивент</span>
         {createExpanded?<ChevronUp size={18} color="var(--purple)"/>:<ChevronDown size={18} color="var(--purple)"/>}
       </button>
-      {createExpanded&&<div style={{borderTop:'1px solid var(--border)',padding:'0 14px 14px'}}><ProfileEventCreateForm embedded initData={initData} territories={territories} isMainInspector={isMainInspector} tgUser={tgUser} timezoneOffset={timezoneOffset}/></div>}
+      {createExpanded&&<div style={{borderTop:'1px solid var(--border)',padding:'0 14px 14px'}}><ProfileEventCreateForm embedded initData={initData} territories={territories} isMainInspector={isMainInspector} tgUser={tgUser} timezoneOffset={timezoneOffset} onPublished={load}/></div>}
     </div>
     <div style={{ display:'flex', alignItems:'center', gap:8, margin:'0 0 12px' }}><CalendarDays size={18} color="var(--purple)"/><div className="atlas-display" style={{fontSize:19,fontWeight:800}}>Ближайшие ивенты</div><span style={{marginLeft:'auto',fontSize:12,color:'var(--text-muted)'}}>{upcomingEvents.length}</span></div>
     {!loading && !upcomingEvents.length && <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:18,color:'var(--text-muted)',fontSize:13,lineHeight:1.5}}>Предстоящих ивентов пока нет.</div>}
@@ -2622,17 +2809,24 @@ function formatEventCoords(value) {
 function pluralRu(value, one, few, many) { const n=Math.abs(Math.trunc(Number(value)||0)),lastTwo=n%100,last=n%10; if(lastTwo>=11&&lastTwo<=14)return many; if(last===1)return one; if(last>=2&&last<=4)return few; return many; }
 function reminderUnitLabel(value, unit) { return unit==='hours'?pluralRu(value,'час','часа','часов'):pluralRu(value,'минуту','минуты','минут'); }
 
-function ProfileEventCreateForm({ initData, territories = [], isMainInspector = false, tgUser = null, embedded = false, timezoneOffset = 'UTC+3' }) {
+function ProfileEventCreateForm({ initData, territories = [], isMainInspector = false, tgUser = null, embedded = false, timezoneOffset = 'UTC+3', onPublished = () => {} }) {
   const userId=String(tgUser?.id||'');
   const eventInputTimezone=normalizeTimezoneOffset(timezoneOffset);
+  const draftStorageKey=`voxygen:event-create-draft:${userId||'anonymous'}`;
+  const [restoredDraft]=useState(()=>{try{const raw=localStorage.getItem(draftStorageKey);const value=raw?JSON.parse(raw):null;return value&&typeof value==='object'?value:null;}catch{return null;}});
   const userTerritories=(territories||[]).filter(city=>isMainInspector || String(city.owner_telegram_id||'')===userId || (Array.isArray(city.manager_telegram_ids)&&city.manager_telegram_ids.map(String).includes(userId)) || (Array.isArray(city.resident_telegram_ids)&&city.resident_telegram_ids.map(String).includes(userId)));
   const selectable=userTerritories.filter(city=>city&&!Number(city.is_government||0)&&city.status!=='pending');
-  const [placeId,setPlaceId]=useState('');
-  const [dateParts,setDateParts]=useState(()=>defaultEventDateParts(eventInputTimezone));
-  const [dateEdited,setDateEdited]=useState(false);
+  const [placeId,setPlaceId]=useState(()=>String(restoredDraft?.placeId||''));
+  const [dateParts,setDateParts]=useState(()=>restoredDraft?.dateParts||defaultEventDateParts(eventInputTimezone));
+  const [dateEdited,setDateEdited]=useState(()=>Boolean(restoredDraft?.dateEdited));
   const dateTimezoneRef=useRef(eventInputTimezone);
-  const [form,setForm]=useState({title:'',coords:'',description:'',imageData:null});
-  const [busy,setBusy]=useState(false),[imageBusy,setImageBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+  const [form,setForm]=useState(()=>{
+    const defaults={title:'',coords:'',description:'',imageData:null,requestKey:null,requestAttempted:false};
+    if(!restoredDraft?.form||typeof restoredDraft.form!=='object')return defaults;
+    const saved=restoredDraft.form;
+    return {...defaults,...saved,requestAttempted:typeof saved.requestAttempted==='boolean'?saved.requestAttempted:Boolean(saved.requestKey)};
+  });
+  const [busy,setBusy]=useState(false),[imageBusy,setImageBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(restoredDraft?'Черновик ивента восстановлен после перезапуска.':'');
   const fileRef=useRef(null);
   useEffect(()=>{
     if(dateTimezoneRef.current!==eventInputTimezone){
@@ -2641,9 +2835,17 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
     }
   },[eventInputTimezone,dateEdited]);
   const selectedPlace=selectable.find(city=>String(city.id)===String(placeId))||null;
+  useEffect(()=>{
+    const hasContent=Boolean(String(form.title||'').trim()||String(form.coords||'').trim()||String(form.description||'').trim()||form.imageData||placeId||dateEdited);
+    if(!hasContent){try{localStorage.removeItem(draftStorageKey);}catch{}return;}
+    const draft={form,placeId,dateParts,dateEdited,savedAt:Date.now()};
+    try{localStorage.setItem(draftStorageKey,JSON.stringify(draft));}
+    catch{try{localStorage.setItem(draftStorageKey,JSON.stringify({...draft,form:{...form,imageData:null}}));}catch{}}
+  },[draftStorageKey,form,placeId,dateParts,dateEdited]);
   const inputStyle={width:'100%',boxSizing:'border-box',minHeight:44,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:11,padding:'10px 12px',color:'var(--text)',fontSize:13,marginTop:6};
-  function patch(key,value){setForm(v=>({...v,[key]:value}));}
-  function choosePlace(id){const city=selectable.find(item=>String(item.id)===String(id));setPlaceId(city?String(city.id):'');patch('coords',formatEventCoords(city?.coords||''));setError('');}
+  function ensureRequestKey(){return form.requestKey||(window.crypto?.randomUUID?.()||`vox-event-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);}
+  function patch(key,value){if(busy)return;setForm(v=>({...v,[key]:value,requestKey:v.requestAttempted?null:v.requestKey,requestAttempted:false}));}
+  function choosePlace(id){if(busy)return;const city=selectable.find(item=>String(item.id)===String(id));setPlaceId(city?String(city.id):'');patch('coords',formatEventCoords(city?.coords||''));setError('');}
   async function chooseImage(event){const input=event.currentTarget,file=input.files?.[0];if(!file){patch('imageData',null);return;}try{setImageBusy(true);setError('');setNotice('');patch('imageData',await readEventImage(file));}catch(e){input.value='';patch('imageData',null);setError(safeCaughtError(e,'Не удалось подготовить изображение.'));}finally{setImageBusy(false);}}
   async function publish(){
     const title=String(form.title||'').trim(),eventAt=eventDatePartsTimestamp(dateParts, eventInputTimezone);
@@ -2651,9 +2853,15 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
     if(eventAt<=Date.now()){setError('Выберите дату и время в будущем.');return;}
     try{
       setBusy(true);setError('');setNotice('');
-      const response=await fetch(`${API_BASE}/api/events`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,title,territoryId:selectedPlace?String(selectedPlace.id):null,place:selectedPlace?String(selectedPlace.name||''):'Не указано',eventAt,eventTimezone:eventInputTimezone,coords:formatEventCoords(form.coords),description:String(form.description||'').trim(),imageData:form.imageData||null})});
+      const requestKey=ensureRequestKey();
+      const attemptedForm={...form,requestKey,requestAttempted:true};
+      setForm(attemptedForm);
+      const payload={initData,requestKey,title,territoryId:selectedPlace?String(selectedPlace.id):null,place:selectedPlace?String(selectedPlace.name||''):'Не указано',eventAt,eventTimezone:eventInputTimezone,coords:formatEventCoords(form.coords),description:String(form.description||'').trim(),imageData:form.imageData||null};
+      try{localStorage.setItem(draftStorageKey,JSON.stringify({form:attemptedForm,placeId,dateParts,dateEdited,savedAt:Date.now()}));}catch{}
+      const response=await fetch(`${API_BASE}/api/events`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify(payload)});
       const data=await response.json().catch(()=>null);if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось опубликовать ивент.'));
-      setForm({title:'',coords:'',description:'',imageData:null});setPlaceId('');setDateParts(defaultEventDateParts(eventInputTimezone));setDateEdited(false);if(fileRef.current)fileRef.current.value='';setNotice('Ивент создан');
+      try{localStorage.removeItem(draftStorageKey);}catch{}
+      setForm({title:'',coords:'',description:'',imageData:null,requestKey:null,requestAttempted:false});setPlaceId('');setDateParts(defaultEventDateParts(eventInputTimezone));setDateEdited(false);if(fileRef.current)fileRef.current.value='';setNotice(data?.replayed?'Ивент уже был создан ранее. Повтор не создал копию.':'Ивент создан');await onPublished?.(data);
     }catch(e){setError(safeCaughtError(e,'Не удалось опубликовать ивент.'));}finally{setBusy(false);}
   }
   const selectBtn=(active)=>({display:'flex',alignItems:'center',gap:7,minHeight:42,maxWidth:'100%',border:active?'1px solid var(--purple)':'1px solid var(--border)',borderRadius:11,padding:'8px 11px',background:active?'var(--purple-soft)':'var(--surface-2)',color:active?'var(--purple)':'var(--text)',fontSize:12.5,fontWeight:750,textAlign:'left'});
@@ -2667,7 +2875,7 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
       {selectable.map(city=>{const active=String(placeId)===String(city.id);return <button type="button" key={city.id} aria-pressed={active} onClick={()=>choosePlace(city.id)} className="press" style={selectBtn(active)}>{active?<Check size={14}/>:<MapPin size={14} color="var(--text-muted)"/>}<MinecraftText text={city.name} style={{minWidth:0}}/></button>;})}
     </div>
     <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15}}>Дата и время начала</label>
-    <EventDateTimeFields parts={dateParts} onChange={parts=>{setDateParts(parts);setDateEdited(true);}}/>
+    <EventDateTimeFields parts={dateParts} onChange={parts=>{if(busy)return;setDateParts(parts);setDateEdited(true);setForm(v=>({...v,requestKey:v.requestAttempted?null:v.requestKey,requestAttempted:false}));}}/>
     <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15}}>Координаты</label>
     <input value={formatEventCoords(form.coords)} onChange={e=>patch('coords',sanitizeEventCoords(e.target.value))} type="text" autoCapitalize="off" autoCorrect="off" placeholder="X / Z" style={inputStyle}/>
     <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15}}>Описание</label>
@@ -3175,6 +3383,9 @@ export default function CityRatingApp() {
   const tgUser = getTelegramUser();
   const [role, setRole] = useState('user');
   const [timezoneOffset,setTimezoneOffset] = useState('UTC+3');
+  const [mapZoomPercent,setMapZoomPercent] = useState(100);
+  const [mapZoomReady,setMapZoomReady] = useState(false);
+  const [theme,setTheme] = useState('vox');
   const [timezoneReady,setTimezoneReady] = useState(false);
   const [timezoneLoadError,setTimezoneLoadError] = useState('');
   const [timezoneRetryToken,setTimezoneRetryToken] = useState(0);
@@ -3202,6 +3413,7 @@ export default function CityRatingApp() {
   const territoriesRequestRef = useRef(false);
   const territoriesRefreshQueuedRef = useRef(false);
   const mapImageLoadedRef = useRef(false);
+  const mapLoadGenerationRef = useRef(0);
   const [showAddTerritory, setShowAddTerritory] = useState(false);
   const [homeToast, setHomeToast] = useState(null);
   const [worldMapImage, setWorldMapImage] = useState(null);
@@ -3308,72 +3520,140 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
   }, []);
 
   useEffect(() => {
-    let cancelled=false;
-    const initData=window.Telegram?.WebApp?.initData||'';
-    if(!initData){setTimezoneReady(true);return()=>{cancelled=true};}
-    setTimezoneReady(false);setTimezoneLoadError('');
-    fetch(`${API_BASE}/api/user-settings`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'}).then(async response=>{
-      const data=await response.json().catch(()=>null);
-      if(!response.ok||!data?.ok||!data?.settings)throw new Error('Settings fetch failed');
-      if(!cancelled){setTimezoneOffset(normalizeTimezoneOffset(data.settings.timezone));setTimezoneReady(true);setTimezoneLoadError('');}
-    }).catch(error=>{console.warn('Voxygen settings load failed',error);if(!cancelled)setTimezoneLoadError('Не удалось загрузить ваш часовой пояс. Создание и редактирование ивентов временно недоступно.');});
-    return()=>{cancelled=true};
-  },[timezoneRetryToken]);
+    let cancelled = false;
+    let intervalTimer = null;
+    let expiryTimer = null;
+    let settingsRequestVersion = 0;
+    let settingsController = null;
+    const initData = window.Telegram?.WebApp?.initData || '';
+    if (!initData) { setTimezoneReady(true); setMapZoomReady(true); return () => { cancelled = true; }; }
+    setTimezoneReady(false); setTimezoneLoadError('');
+
+    const cancelSettingsRequest = () => {
+      settingsRequestVersion += 1;
+      settingsController?.abort();
+      settingsController = null;
+    };
+
+    const loadSettings = async () => {
+      if (cancelled || document.visibilityState === 'hidden') return;
+      const requestVersion = ++settingsRequestVersion;
+      settingsController?.abort();
+      const controller = new AbortController();
+      settingsController = controller;
+      const requestTimeout = window.setTimeout(() => controller.abort(), 15000);
+      try {
+        const response = await fetch(`${API_BASE}/api/user-settings`, {
+          headers: { 'X-Telegram-Init-Data': initData },
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`Settings fetch failed (HTTP ${response.status})`);
+        const data = await response.json().catch(() => null);
+        if (cancelled || requestVersion !== settingsRequestVersion) return;
+        if (!response.ok || !data?.ok || !data?.settings) throw new Error(apiErrorMessage(response, data, 'Settings fetch failed'));
+        const value = data.settings;
+        setTimezoneOffset(normalizeTimezoneOffset(value.timezone));
+        setMapZoomPercent(normalizeMapZoomPercent(value.mapZoomPercent));
+        setMapZoomReady(true);
+        setTheme(normalizeTheme(value.theme || value.defaultTheme));
+        setTimezoneReady(true); setTimezoneLoadError('');
+        if (expiryTimer !== null) window.clearTimeout(expiryTimer);
+        const expiries = [value.globalOverrides?.mapZoomPercent?.expiresAt, value.globalOverrides?.theme?.expiresAt].map(Number).filter(at => Number.isFinite(at) && at > Date.now());
+        if (expiries.length) {
+          const nextExpiry = Math.min(...expiries);
+          expiryTimer = window.setTimeout(loadSettings, Math.min(2147480000, Math.max(500, nextExpiry - Date.now() + 250)));
+        }
+      } catch (error) {
+        if (cancelled || requestVersion !== settingsRequestVersion) return;
+        console.warn('Voxygen settings load failed', error);
+        const message = error?.name === 'AbortError'
+          ? 'Сервер не ответил за 15 секунд. Повторите загрузку настроек.'
+          : 'Не удалось загрузить ваши настройки. Создание и редактирование ивентов временно недоступно.';
+        setTimezoneLoadError(message);
+      } finally {
+        window.clearTimeout(requestTimeout);
+        if (settingsController === controller) settingsController = null;
+      }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') loadSettings();
+      else cancelSettingsRequest();
+    };
+    loadSettings();
+    intervalTimer = window.setInterval(loadSettings, 60000);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      cancelSettingsRequest();
+      if (intervalTimer !== null) window.clearInterval(intervalTimer);
+      if (expiryTimer !== null) window.clearTimeout(expiryTimer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [timezoneRetryToken]);
 
   async function loadWorldMap() {
     if (mapImageLoadedRef.current) return;
+    const generation = ++mapLoadGenerationRef.current;
+    const isCurrent = () => generation === mapLoadGenerationRef.current;
     setWorldMapLoading(true);
     setWorldMapError('');
     try {
-      // Prefer the published manifest. The small preview appears immediately;
-      // VoxMap then requests only the high-detail tiles visible at the current zoom.
-      try {
-        const manifestResponse = await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`, { cache: 'no-store' });
-        if (manifestResponse.ok) {
-          const manifest = await manifestResponse.json();
-          const source = manifest?.source;
-          if (!manifest?.mapVersion || !source || !['deepzoom', 'url-grid'].includes(source.type)) {
-            throw new Error('Опубликованная карта имеет неподдерживаемый формат.');
-          }
-          const previewPath = source.previewUrl || manifest.previewUrl;
-          if (!previewPath) throw new Error('В манифесте карты отсутствует previewUrl.');
-          const previewUrl = /^https?:\/\//i.test(previewPath) ? previewPath : new URL(previewPath, MAP_ASSETS_BASE).href;
-          const preloadImage = new Image();
-          preloadImage.decoding = 'async';
-          preloadImage.fetchPriority = 'high';
-          if (typeof preloadImage.decode === 'function') {
-            preloadImage.src = previewUrl;
-            await preloadImage.decode();
-          } else {
-            await new Promise((resolve, reject) => {
-              if (preloadImage.complete) {
-                if (preloadImage.naturalWidth > 0) resolve();
-                else reject(new Error('Не удалось загрузить превью карты.'));
-                return;
-              }
-              preloadImage.onload = resolve;
-              preloadImage.onerror = () => reject(new Error('Не удалось загрузить превью карты.'));
-              preloadImage.src = previewUrl;
-            });
-          }
-          if (!preloadImage.naturalWidth || !preloadImage.naturalHeight) {
-            throw new Error('Превью карты не удалось декодировать.');
-          }
-          setWorldMapImage(previewUrl);
-          setWorldMapSource({ ...source, assetBase: MAP_ASSETS_BASE, mapVersion: manifest.mapVersion });
-          mapImageLoadedRef.current = true;
-          return;
+      const manifestResponse = await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`, { cache: 'no-store' });
+      if (!isCurrent()) return;
+      if (manifestResponse.status !== 404) {
+        if (!manifestResponse.ok) throw new Error(`Не удалось проверить манифест карты (HTTP ${manifestResponse.status}).`);
+        const manifest = await manifestResponse.json();
+        if (!isCurrent()) return;
+        const source = manifest?.source;
+        if (!manifest?.mapVersion || !source || !['deepzoom', 'url-grid'].includes(source.type)) {
+          throw new Error('Опубликованная карта имеет неподдерживаемый формат.');
         }
-      } catch (manifestError) {
-        console.warn('Deep Zoom manifest unavailable; using the legacy map endpoint:', String(manifestError?.message || manifestError));
+        if (source.type === 'deepzoom' && (!Number.isFinite(Number(source.width)) || !Number.isFinite(Number(source.height)) || Number(source.width) < 1 || Number(source.height) < 1)) {
+          throw new Error('Манифест содержит некорректные размеры растровой карты.');
+        }
+        if (!coordinateGeometryMatchesManifest(source.coordinateSystem)) {
+          throw new Error('Манифест карты содержит несовместимые границы игрового мира.');
+        }
+        const previewPath = source.previewUrl || manifest.previewUrl;
+        if (!previewPath) throw new Error('В манифесте карты отсутствует previewUrl.');
+        const previewUrl = /^https?:\/\//i.test(previewPath) ? previewPath : new URL(previewPath, MAP_ASSETS_BASE).href;
+        const preloadImage = new Image();
+        preloadImage.decoding = 'async';
+        preloadImage.fetchPriority = 'high';
+        preloadImage.src = previewUrl;
+        if (typeof preloadImage.decode === 'function') {
+          await preloadImage.decode();
+        } else {
+          await new Promise((resolve, reject) => {
+            if (preloadImage.complete) {
+              if (preloadImage.naturalWidth > 0) resolve();
+              else reject(new Error('Не удалось загрузить превью карты.'));
+              return;
+            }
+            preloadImage.onload = resolve;
+            preloadImage.onerror = () => reject(new Error('Не удалось загрузить превью карты.'));
+          });
+        }
+        if (!isCurrent()) return;
+        if (!preloadImage.naturalWidth || !preloadImage.naturalHeight) {
+          throw new Error('Превью карты не удалось декодировать.');
+        }
+        setWorldMapImage(previewUrl);
+        setWorldMapSource({ ...source, assetBase: MAP_ASSETS_BASE, mapVersion: manifest.mapVersion });
+        mapImageLoadedRef.current = true;
+        return;
       }
 
-      // Compatibility fallback until the first Deep Zoom map has been published.
+      // Legacy image delivery is a temporary bridge only while no manifest
+      // exists. A present-but-invalid manifest must never be bypassed.
       const probe = await fetch(`${API_BASE}/api/map`, { method: 'HEAD', cache: 'no-store' });
+      if (!isCurrent()) return;
       if (!probe.ok) {
         const errorData = await fetch(`${API_BASE}/api/map`, { cache: 'no-store' })
           .then(response => response.json().catch(() => null))
           .catch(() => null);
+        if (!isCurrent()) return;
         throw new Error(errorData?.error || `Не удалось получить карту (HTTP ${probe.status}).`);
       }
       const contentType = String(probe.headers.get('Content-Type') || '').toLowerCase();
@@ -3399,19 +3679,18 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
           preloadImage.onerror = () => reject(new Error('Не удалось загрузить изображение карты.'));
         });
       }
-      if (!preloadImage.naturalWidth || !preloadImage.naturalHeight) {
-        throw new Error('Изображение карты не удалось декодировать.');
-      }
+      if (!isCurrent()) return;
       setWorldMapSource(null);
       setWorldMapImage(mapUrl);
       mapImageLoadedRef.current = true;
     } catch (error) {
+      if (!isCurrent()) return;
       setWorldMapImage(null);
       setWorldMapSource(null);
       setWorldMapError(safeCaughtError(error, 'Не удалось загрузить карту мира.'));
       console.error('Load world map error:', String(error?.message || error));
     } finally {
-      setWorldMapLoading(false);
+      if (isCurrent()) setWorldMapLoading(false);
     }
   }
 
@@ -3630,12 +3909,12 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
   }
 
   return (
-    <div className="atlas-root" style={{ minHeight: '100vh', width: '100%' }}>
+    <div className="atlas-root" data-theme={theme} style={{ minHeight: '100vh', width: '100%' }}>
       <FontsAndTheme />
       <div style={{ maxWidth: 448, margin: '0 auto', position: 'relative' }}>
         <div className="atlas-screen-transition" key={`${screen}-${selected?.id || 'none'}`}>
         {screen === 'profile' ? (
-          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));setTimezoneReady(true);setTimezoneLoadError('');}} />
+          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapLoadGenerationRef.current+=1;mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setTimezoneRetryToken(value=>value+1);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));setMapZoomPercent(normalizeMapZoomPercent(settings.mapZoomPercent));setMapZoomReady(true);setTheme(normalizeTheme(settings.theme||settings.defaultTheme));setTimezoneReady(true);setTimezoneLoadError('');}} />
         ) : screen === 'customization' ? (
           <CustomizationScreen initData={window.Telegram?.WebApp?.initData || ''} tgUser={tgUser} role={role} territories={territories} profile={profile} />
         ) : screen === 'events' ? (
@@ -3685,6 +3964,8 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
                     voxView={voxView}
                     onVoxViewChange={setVoxView}
                     markersReady={markersReady}
+                    mapZoomPercent={mapZoomPercent}
+                    mapZoomReady={mapZoomReady}
                   />
                 )}
           </>

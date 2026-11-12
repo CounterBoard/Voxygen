@@ -1,10 +1,17 @@
-// Voxygen-Version: v47
+// Voxygen-Version: v49
 // ============================================================
 // VOXYGEN BACKEND
 // v43: GitHub Releases is the only map-file storage; D1 stores only its URL and content type
 // Cloudflare Worker + D1 + Telegram Mini App
 // ============================================================
 
+import {
+  isValidWorldCoordinate,
+  worldCoordinateToPercent,
+  normalizeMapZoomPercent,
+} from '../../shared/world-map-coordinates.js';
+
+const SUPPORTED_THEMES = new Set(['vox', 'aurora']);
 const TELEGRAM_API = "https://api.telegram.org";
 const EVENT_TABLES_INIT_CACHE = new WeakMap();
 const USER_PREFERENCE_TABLES_INIT_CACHE = new WeakMap();
@@ -273,6 +280,7 @@ async function ensureUserPreferenceTables(env) {
         timezone TEXT NOT NULL DEFAULT 'UTC+3',
         all_notifications INTEGER NOT NULL DEFAULT 1,
         event_notifications INTEGER NOT NULL DEFAULT 0,
+        map_zoom_percent INTEGER NOT NULL DEFAULT 100,
         updated_at INTEGER NOT NULL DEFAULT 0
       )`).run();
       const preferenceColumns = await env.DB.prepare(`PRAGMA table_info(user_preferences)`).all();
@@ -283,12 +291,15 @@ async function ensureUserPreferenceTables(env) {
         try { await env.DB.prepare(`ALTER TABLE user_preferences ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC+3'`).run(); }
         catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
       }
-      if (preferenceColumnNames.has('default_map')) {
-        // Remove the retired JORICK/Vox map selector and its per-user stored values.
-        await env.DB.prepare(`ALTER TABLE user_preferences DROP COLUMN default_map`).run();
-      }
+      // Keep the legacy default_map column in place when present. It is no longer
+      // read or written, and leaving it avoids a destructive migration that can
+      // race across cold Worker instances or fail on older SQLite schema variants.
       if (!preferenceColumnNames.has('default_theme')) {
         try { await env.DB.prepare(`ALTER TABLE user_preferences ADD COLUMN default_theme TEXT NOT NULL DEFAULT 'vox'`).run(); }
+        catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
+      }
+      if (!preferenceColumnNames.has('map_zoom_percent')) {
+        try { await env.DB.prepare(`ALTER TABLE user_preferences ADD COLUMN map_zoom_percent INTEGER NOT NULL DEFAULT 100`).run(); }
         catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
       }
       await env.DB.prepare(`CREATE TABLE IF NOT EXISTS territory_notification_preferences (
@@ -406,14 +417,116 @@ async function notifyMainInspectorOfPurchase(env, details) {
   }
 }
 
+const GLOBAL_SETTINGS_INIT_CACHE = new WeakMap();
+async function ensureGlobalSettingsTable(env) {
+  let promise = GLOBAL_SETTINGS_INIT_CACHE.get(env);
+  if (!promise) {
+    promise = env.DB.prepare(`CREATE TABLE IF NOT EXISTS global_setting_overrides (
+      setting_key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      expires_at INTEGER,
+      updated_at INTEGER NOT NULL,
+      updated_by INTEGER NOT NULL
+    )`).run().catch(error => {
+      GLOBAL_SETTINGS_INIT_CACHE.delete(env);
+      throw error;
+    });
+    GLOBAL_SETTINGS_INIT_CACHE.set(env, promise);
+  }
+  return promise;
+}
+
+function normalizeTheme(value) {
+  const theme = String(value || 'vox').trim().toLowerCase();
+  return SUPPORTED_THEMES.has(theme) ? theme : 'vox';
+}
+
+async function readGlobalSettingOverrides(env, at = Date.now()) {
+  await ensureGlobalSettingsTable(env);
+  const rows = await env.DB.prepare(`SELECT setting_key,value,expires_at,updated_at,updated_by
+    FROM global_setting_overrides`).all();
+  const result = { theme: null, mapZoomPercent: null };
+  for (const row of rows.results || []) {
+    const expiresAt = row.expires_at == null ? null : Number(row.expires_at);
+    if (expiresAt !== null && (!Number.isFinite(expiresAt) || expiresAt <= at)) continue;
+    if (row.setting_key === 'theme') {
+      const value = normalizeTheme(row.value);
+      result.theme = { value, expiresAt, updatedAt: Number(row.updated_at || 0) };
+    } else if (row.setting_key === 'map_zoom') {
+      result.mapZoomPercent = { value: normalizeMapZoomPercent(row.value), expiresAt, updatedAt: Number(row.updated_at || 0) };
+    }
+  }
+  return result;
+}
+
+async function getAdminGlobalSettings(request, env) {
+  const auth = await requireMainInspector(request, env);
+  if (auth.error) return auth.error;
+  await ensureGlobalSettingsTable(env);
+  const rows = await env.DB.prepare(`SELECT setting_key,value,expires_at,updated_at,updated_by
+    FROM global_setting_overrides ORDER BY setting_key`).all();
+  const now = Date.now();
+  return json({
+    ok: true,
+    settings: (rows.results || []).map(row => ({
+      key: row.setting_key,
+      value: row.setting_key === 'map_zoom' ? normalizeMapZoomPercent(row.value) : normalizeTheme(row.value),
+      expiresAt: row.expires_at == null ? null : Number(row.expires_at),
+      active: row.expires_at == null || Number(row.expires_at) > now,
+      updatedAt: Number(row.updated_at || 0),
+      updatedBy: Number(row.updated_by || 0),
+    })),
+  });
+}
+
+async function saveAdminGlobalSetting(request, env) {
+  const auth = await requireMainInspector(request, env);
+  if (auth.error) return auth.error;
+  let body;
+  try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
+  const key = String(body?.key || '').trim();
+  if (!['theme', 'map_zoom'].includes(key)) return json({ ok: false, error: 'Неизвестная глобальная настройка' }, 400);
+  if (body?.clear === true) {
+    await ensureGlobalSettingsTable(env);
+    await env.DB.prepare('DELETE FROM global_setting_overrides WHERE setting_key=?').bind(key).run();
+    return getAdminGlobalSettings(new Request(request.url, { headers: { 'X-Telegram-Init-Data': String(request.headers.get('X-Telegram-Init-Data') || body?.initData || '') } }), env);
+  }
+  let value;
+  if (key === 'theme') {
+    const theme = String(body?.value || '').trim().toLowerCase();
+    if (!SUPPORTED_THEMES.has(theme)) return json({ ok: false, error: 'Выбрана неподдерживаемая тема' }, 400);
+    value = theme;
+  } else {
+    const raw = Number(body?.value);
+    if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 1 || raw > 100) return json({ ok: false, error: 'Масштаб должен быть от 1 до 100%' }, 400);
+    value = String(normalizeMapZoomPercent(raw));
+  }
+  const durationMinutes = body?.durationMinutes == null ? null : Number(body.durationMinutes);
+  if (durationMinutes !== null && (!Number.isSafeInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 5256000)) {
+    return json({ ok: false, error: 'Срок действия должен быть от 1 минуты до 10 лет или «Навсегда»' }, 400);
+  }
+  const now = Date.now();
+  const expiresAt = durationMinutes === null ? null : now + durationMinutes * 60000;
+  await ensureGlobalSettingsTable(env);
+  await env.DB.prepare(`INSERT INTO global_setting_overrides(setting_key,value,expires_at,updated_at,updated_by)
+    VALUES(?,?,?,?,?) ON CONFLICT(setting_key) DO UPDATE SET value=excluded.value,
+    expires_at=excluded.expires_at,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
+    .bind(key, String(value), expiresAt, now, Number(auth.user.id)).run();
+  return getAdminGlobalSettings(new Request(request.url, { headers: { 'X-Telegram-Init-Data': String(request.headers.get('X-Telegram-Init-Data') || body?.initData || '') } }), env);
+}
+
 async function getUserSettings(request, env) {
   const auth = await requireUser(request, env);
   if (auth.error) return auth.error;
   const uid = Number(auth.user.id);
   await ensureWorldTables(env);
   await ensureUserPreferenceTables(env);
-  await env.DB.prepare(`INSERT OR IGNORE INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,updated_at) VALUES(?,'vox','UTC+3',1,0,?)`).bind(uid, Date.now()).run();
-  const settings = await env.DB.prepare(`SELECT default_theme,timezone,all_notifications,event_notifications FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first();
+  await ensureGlobalSettingsTable(env);
+  await env.DB.prepare(`INSERT OR IGNORE INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,map_zoom_percent,updated_at) VALUES(?,'vox','UTC+3',1,0,100,?)`).bind(uid, Date.now()).run();
+  const [settings, globalOverrides] = await Promise.all([
+    env.DB.prepare(`SELECT default_theme,timezone,all_notifications,event_notifications,map_zoom_percent FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first(),
+    readGlobalSettingOverrides(env),
+  ]);
   const territories = await env.DB.prepare(`SELECT t.id,t.name,
       CASE WHEN t.owner_telegram_id=? OR EXISTS(SELECT 1 FROM territory_managers tm WHERE tm.territory_id=t.id AND tm.telegram_id=?) THEN 1 ELSE 0 END AS is_manager,
       EXISTS(SELECT 1 FROM city_memberships cm WHERE cm.territory_id=t.id AND cm.telegram_id=?) AS is_member,
@@ -421,8 +534,14 @@ async function getUserSettings(request, env) {
     FROM territories t LEFT JOIN territory_notification_preferences p ON p.territory_id=t.id AND p.telegram_id=?
     WHERE t.status='approved' AND (t.owner_telegram_id=? OR EXISTS(SELECT 1 FROM territory_managers tm WHERE tm.territory_id=t.id AND tm.telegram_id=?) OR EXISTS(SELECT 1 FROM city_memberships cm WHERE cm.territory_id=t.id AND cm.telegram_id=?))
     ORDER BY t.name COLLATE NOCASE ASC`).bind(uid,uid,uid,uid,uid,uid,uid).all();
+  const personalTheme = normalizeTheme(settings?.default_theme || 'vox');
+  const personalMapZoomPercent = normalizeMapZoomPercent(settings?.map_zoom_percent ?? 100);
   return json({ ok: true, settings: {
-    defaultTheme: 'vox',
+    defaultTheme: personalTheme,
+    theme: globalOverrides.theme?.value || personalTheme,
+    personalMapZoomPercent,
+    mapZoomPercent: globalOverrides.mapZoomPercent?.value ?? personalMapZoomPercent,
+    globalOverrides,
     timezone: normalizeUserTimezone(settings?.timezone || 'UTC+3'),
     // Kept in the response for older clients; the global notification switch is retired.
     allNotifications: true,
@@ -441,16 +560,23 @@ async function saveUserSettings(request, env) {
   if (auth.error) return auth.error;
   let body; try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
   const uid = Number(auth.user.id), now = Date.now();
-  const defaultTheme = 'vox';
-  const timezone = normalizeUserTimezone(body?.timezone ?? 'UTC+3');
-  // The former global switch is retired; preserve the column for DB compatibility.
-  const allNotifications = 1;
-  let eventNotifications = body?.eventNotifications === true ? 1 : 0;
   await ensureWorldTables(env);
   await ensureUserPreferenceTables(env);
-  await env.DB.prepare(`INSERT INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,updated_at)
-    VALUES(?,?,?,?,?,?) ON CONFLICT(telegram_id) DO UPDATE SET default_theme=excluded.default_theme,timezone=excluded.timezone,all_notifications=excluded.all_notifications,event_notifications=excluded.event_notifications,updated_at=excluded.updated_at`)
-    .bind(uid, defaultTheme, timezone, allNotifications, eventNotifications, now).run();
+  // Older open Mini App sessions may still submit only timezone/notification
+  // fields. Preserve newer personal settings when those fields are omitted.
+  const existing = await env.DB.prepare(`SELECT default_theme,timezone,event_notifications,map_zoom_percent
+    FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first();
+  const defaultTheme = normalizeTheme(body?.defaultTheme ?? existing?.default_theme ?? 'vox');
+  const timezone = normalizeUserTimezone(body?.timezone ?? existing?.timezone ?? 'UTC+3');
+  const mapZoomPercent = normalizeMapZoomPercent(body?.mapZoomPercent ?? existing?.map_zoom_percent ?? 100);
+  // The former global switch is retired; preserve the column for DB compatibility.
+  const allNotifications = 1;
+  const eventNotifications = body?.eventNotifications === undefined
+    ? Number(existing?.event_notifications ?? 0)
+    : body.eventNotifications === true ? 1 : 0;
+  await env.DB.prepare(`INSERT INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,map_zoom_percent,updated_at)
+    VALUES(?,?,?,?,?,?,?) ON CONFLICT(telegram_id) DO UPDATE SET default_theme=excluded.default_theme,timezone=excluded.timezone,all_notifications=excluded.all_notifications,event_notifications=excluded.event_notifications,map_zoom_percent=excluded.map_zoom_percent,updated_at=excluded.updated_at`)
+    .bind(uid, defaultTheme, timezone, allNotifications, eventNotifications, mapZoomPercent, now).run();
   const allowedRows = await env.DB.prepare(`SELECT t.id FROM territories t WHERE t.status='approved' AND (t.owner_telegram_id=? OR EXISTS(SELECT 1 FROM territory_managers tm WHERE tm.territory_id=t.id AND tm.telegram_id=?) OR EXISTS(SELECT 1 FROM city_memberships cm WHERE cm.territory_id=t.id AND cm.telegram_id=?))`).bind(uid,uid,uid).all();
   const allowed = new Set((allowedRows.results || []).map(row => String(row.id)));
   for (const item of (Array.isArray(body?.territories) ? body.territories : [])) {
@@ -2549,8 +2675,9 @@ async function getTerritories(request, env) {
     }
     const territories=(result.results||[]).map(row=>{
       const parsed=parseRequestCoords(row.coords),ms=byCity[row.id]||[];
-      let x=null,y=null;
-      if(parsed){x=((parsed.x+2500)/5000)*100;y=((parsed.z+2500)/5000)*100}
+      const markerPosition = parsed ? worldCoordinateToPercent(parsed.x, parsed.z) : null;
+      const x = markerPosition?.x ?? null;
+      const y = markerPosition?.y ?? null;
       const vr=viewerRatingsByCity[row.id];
       const myRating=vr?{rated:true,next_at:Number(vr.created_at)+20*60*60*1000,values:{integrity:Number(vr.integrity),comfort:Number(vr.comfort),atmosphere:Number(vr.atmosphere),detail:Number(vr.detail)}}:{rated:false,next_at:null,values:null};
       const isGovernment=Number(row.is_government||0)===1;
@@ -2603,8 +2730,8 @@ async function createTerritory(request, env) {
   const owner = String(body?.owner || "").trim();
   const coords = String(body?.coords || "").trim();
   const parsed = parseTwoCoordinates(coords);
-  if (!name || (!isMainInspector && !owner) || !parsed || Math.abs(parsed.x) > 2500 || Math.abs(parsed.z) > 2500) {
-    const requirement = isMainInspector ? "Укажите название и две координаты от −2500 до 2500" : "Укажите название, владельца и две координаты от −2500 до 2500";
+  if (!name || (!isMainInspector && !owner) || !parsed || !isValidWorldCoordinate(parsed.x, parsed.z)) {
+    const requirement = isMainInspector ? "Укажите название и две координаты от −3008 до 3007" : "Укажите название, владельца и две координаты от −3008 до 3007";
     return json({ ok: false, error: requirement }, 400);
   }
   if (name.length > 120 || owner.length > 120) return json({ ok: false, error: "Название или имя владельца слишком длинное" }, 400);
@@ -3981,8 +4108,7 @@ async function updateTerritoryCoords(request, env) {
   const x = Number(body?.x);
   const z = Number(body?.z);
 
-  if (!territoryId || !Number.isFinite(x) || !Number.isFinite(z) ||
-      x < -2500 || x > 2500 || z < -2500 || z > 2500) {
+  if (!territoryId || !isValidWorldCoordinate(x, z)) {
     return json({ ok: false, error: "Invalid coordinates" }, 400);
   }
 
@@ -4115,10 +4241,10 @@ async function finalizeTerritoryApproval(env, chatId, id, name, owner, x, z, isG
   const nx = Number(String(x).replace(",", "."));
   const nz = Number(String(z).replace(",", "."));
   if (!name || (!isGovernment && !owner) || !Number.isFinite(nx) || !Number.isFinite(nz) ||
-      nx < -2500 || nx > 2500 || nz < -2500 || nz > 2500) {
+      !isValidWorldCoordinate(nx, nz)) {
     await telegram(env, "sendMessage", {
       chat_id: chatId,
-      text: "⚠️ В поле координат должно быть 2 числа. Допустимый диапазон: от −2500 до 2500.",
+      text: "⚠️ В поле координат должно быть 2 числа. Допустимый диапазон: от −3008 до 3007.",
     });
     return false;
   }
@@ -4526,12 +4652,41 @@ async function initializeEventsTables(env) {
     remind_at INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     attempts INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at INTEGER NOT NULL DEFAULT 0,
+    claim_token TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     sent_at INTEGER,
     UNIQUE(event_id,telegram_id)
   )`).run();
-  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_event_reminders_due ON event_reminders(status,remind_at)`).run();
+  const reminderCols = await env.DB.prepare(`PRAGMA table_info(event_reminders)`).all();
+  const reminderColumnNames = new Set((reminderCols.results || []).map(row => row.name));
+  if (!reminderColumnNames.has('next_attempt_at')) {
+    try { await env.DB.prepare(`ALTER TABLE event_reminders ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0`).run(); }
+    catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
+  }
+  if (!reminderColumnNames.has('claim_token')) {
+    try { await env.DB.prepare(`ALTER TABLE event_reminders ADD COLUMN claim_token TEXT`).run(); }
+    catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
+  }
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_event_reminders_retry_due ON event_reminders(status,next_attempt_at,remind_at)`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS event_create_requests (
+    telegram_id INTEGER NOT NULL,
+    request_key TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    payload_hash TEXT,
+    status TEXT NOT NULL DEFAULT 'processing',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY(telegram_id,request_key)
+  )`).run();
+  const requestCols = await env.DB.prepare(`PRAGMA table_info(event_create_requests)`).all();
+  const requestColumnNames = new Set((requestCols.results || []).map(row => row.name));
+  if (!requestColumnNames.has('payload_hash')) {
+    try { await env.DB.prepare(`ALTER TABLE event_create_requests ADD COLUMN payload_hash TEXT`).run(); }
+    catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
+  }
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_event_create_requests_created ON event_create_requests(created_at)`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS bank_transactions (
     id TEXT PRIMARY KEY,
     update_id INTEGER NOT NULL UNIQUE,
@@ -4584,6 +4739,7 @@ async function purgeExpiredEvents(env, at = Date.now()) {
   // Remove user reminders first because legacy D1 tables do not declare ON DELETE CASCADE.
   await env.DB.prepare(`DELETE FROM event_reminders WHERE event_id IN (SELECT id FROM events WHERE event_at<=?)`).bind(cutoff).run();
   const result = await env.DB.prepare(`DELETE FROM events WHERE event_at<=?`).bind(cutoff).run();
+  await env.DB.prepare(`DELETE FROM event_create_requests WHERE created_at<?`).bind(Number(at || Date.now()) - 30 * 24 * 60 * 60 * 1000).run();
   return Number(result?.meta?.changes || 0);
 }
 
@@ -4629,7 +4785,7 @@ function validateEventBody(body, { partial = false } = {}) {
   if (!partial || body.eventTimezone !== undefined) out.eventTimezone = String(body?.eventTimezone || 'UTC').trim() || 'UTC';
   if (out.title !== undefined && (!out.title || out.title.length > 160)) return { error: 'Название события должно содержать 1–160 символов' };
   if (out.place !== undefined && out.place.length > 200) return { error: 'Место проведения не должно превышать 200 символов' };
-  if (out.eventAt !== undefined && (!Number.isSafeInteger(out.eventAt) || (!partial && out.eventAt <= Date.now()))) return { error: 'Укажите дату и время в будущем' };
+  if (out.eventAt !== undefined && (!Number.isSafeInteger(out.eventAt) || ((!partial || body?.eventAt !== undefined) && out.eventAt <= Date.now()))) return { error: 'Укажите дату и время в будущем' };
   if (out.coords !== undefined && out.coords.length > 180) return { error: 'Координаты слишком длинные' };
   if (out.description !== undefined && out.description.length > 542) return { error: 'Описание ивента не должно превышать 542 символа' };
   if (out.imageData && (!/^data:image\/(?:png|jpeg|webp);base64,/i.test(out.imageData) || out.imageData.length > 1_500_000)) return { error: 'Изображение должно быть PNG, JPG или WebP размером до 1,1 МБ' };
@@ -4694,12 +4850,46 @@ async function createEvent(request, env) {
   // The venue is always derived from a verified, allowed territory; otherwise it is explicitly unset.
   e.place = selectedCity ? String(selectedCity.name || '') : 'Не указано';
   if (!e.place) e.place = 'Не указано';
-  const id = crypto.randomUUID(), now = Date.now();
+  const now = Date.now();
   await ensureEventsTables(env);
-  await env.DB.prepare(`INSERT INTO events(id,title,territory_id,place,event_at,coords,description,image_data,page_url,event_timezone,created_by,created_at,updated_at,active)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1)`).bind(id,e.title,e.territoryId,e.place,e.eventAt,e.coords,e.description,e.imageData,e.pageUrl, e.eventTimezone,creatorId,now,now).run();
-  try { await notifyUsersOfNewEvent(env, e); } catch (error) { console.error('New event notification pass failed:', error); }
-  return json({ ok: true, id, status: 'created' });
+  const requestKey = String(body?.requestKey || '').trim() || crypto.randomUUID();
+  if (requestKey.length < 8 || requestKey.length > 120) return json({ ok: false, error: 'Некорректный ключ отправки ивента' }, 400);
+  const payloadForHash = JSON.stringify([
+    e.title, e.territoryId, e.place, e.eventAt, e.coords, e.description,
+    e.imageData, e.pageUrl, e.eventTimezone,
+  ]);
+  const payloadDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payloadForHash));
+  const payloadHash = [...new Uint8Array(payloadDigest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+  const candidateId = crypto.randomUUID();
+  await env.DB.prepare(`INSERT OR IGNORE INTO event_create_requests(telegram_id,request_key,event_id,payload_hash,status,created_at,updated_at)
+    VALUES(?,?,?,?, 'processing',?,?)`).bind(creatorId,requestKey,candidateId,payloadHash,now,now).run();
+  let reservation = await env.DB.prepare(`SELECT event_id,payload_hash FROM event_create_requests WHERE telegram_id=? AND request_key=? LIMIT 1`).bind(creatorId,requestKey).first();
+  if (!reservation?.event_id) return json({ ok: false, error: 'Не удалось зарезервировать публикацию ивента' }, 500);
+  // Backfill keys created by older versions without a payload fingerprint. The
+  // conditional update makes competing retries agree on the first accepted body.
+  if (!reservation.payload_hash) {
+    await env.DB.prepare(`UPDATE event_create_requests SET payload_hash=?,updated_at=?
+      WHERE telegram_id=? AND request_key=? AND payload_hash IS NULL`).bind(payloadHash,now,creatorId,requestKey).run();
+    reservation = await env.DB.prepare(`SELECT event_id,payload_hash FROM event_create_requests WHERE telegram_id=? AND request_key=? LIMIT 1`).bind(creatorId,requestKey).first();
+  }
+  if (String(reservation?.payload_hash || '') !== payloadHash) {
+    return json({ ok: false, error: 'Этот ключ отправки уже связан с другим содержимым ивента. Измените черновик и отправьте его заново.' }, 409);
+  }
+  const id = String(reservation.event_id);
+  const existing = await env.DB.prepare(`SELECT id FROM events WHERE id=? LIMIT 1`).bind(id).first();
+  if (existing) {
+    await env.DB.prepare(`UPDATE event_create_requests SET status='completed',updated_at=? WHERE telegram_id=? AND request_key=?`).bind(now,creatorId,requestKey).run();
+    return json({ ok: true, id, status: 'created', replayed: true });
+  }
+  const inserted = await env.DB.prepare(`INSERT OR IGNORE INTO events(id,title,territory_id,place,event_at,coords,description,image_data,page_url,event_timezone,created_by,created_at,updated_at,active)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1)`).bind(id,e.title,e.territoryId,e.place,e.eventAt,e.coords,e.description,e.imageData,e.pageUrl,e.eventTimezone,creatorId,now,now).run();
+  const created = await env.DB.prepare(`SELECT id FROM events WHERE id=? LIMIT 1`).bind(id).first();
+  if (!created) return json({ ok: false, error: 'Не удалось сохранить ивент. Повторите отправку.' }, 500);
+  await env.DB.prepare(`UPDATE event_create_requests SET status='completed',updated_at=? WHERE telegram_id=? AND request_key=?`).bind(now,creatorId,requestKey).run();
+  if (Number(inserted.meta?.changes || 0) > 0) {
+    try { await notifyUsersOfNewEvent(env, e); } catch (error) { console.error('New event notification pass failed:', error); }
+  }
+  return json({ ok: true, id, status: 'created', replayed: Number(inserted.meta?.changes || 0) === 0 });
 }
 
 async function updateEvent(request, env) {
@@ -4739,14 +4929,18 @@ async function updateEvent(request, env) {
     eventTimezone: e.eventTimezone ?? current.event_timezone ?? 'UTC',
   };
   const now = Date.now();
-  await env.DB.prepare(`UPDATE events SET title=?,territory_id=?,place=?,event_at=?,coords=?,description=?,image_data=?,page_url=?,event_timezone=?,updated_at=? WHERE id=?`)
-    .bind(value.title,value.territoryId,value.place,value.eventAt,value.coords,value.description,value.imageData,value.pageUrl,value.eventTimezone,now,id).run();
+  const eventUpdate = env.DB.prepare(`UPDATE events SET title=?,territory_id=?,place=?,event_at=?,coords=?,description=?,image_data=?,page_url=?,event_timezone=?,updated_at=? WHERE id=?`)
+    .bind(value.title,value.territoryId,value.place,value.eventAt,value.coords,value.description,value.imageData,value.pageUrl,value.eventTimezone,now,id);
   if (e.eventAt !== undefined && Number(e.eventAt)!==Number(current.event_at)) {
-    // Keep reminders consistent with a changed event date. Reminders that would now be in the past are expired instead of sent late.
-    await env.DB.prepare(`UPDATE event_reminders SET remind_at=? - CASE WHEN lead_unit='hours' THEN lead_value*3600000 ELSE lead_value*60000 END,
+    // Update the event and its reminder schedule atomically. Cron cannot observe a mixed state
+    // with the new date but the previous remind_at (or vice versa).
+    const reminderUpdate = env.DB.prepare(`UPDATE event_reminders SET remind_at=? - CASE WHEN lead_unit='hours' THEN lead_value*3600000 ELSE lead_value*60000 END,
       status=CASE WHEN (? - CASE WHEN lead_unit='hours' THEN lead_value*3600000 ELSE lead_value*60000 END)<=? THEN 'expired' ELSE 'pending' END,
-      attempts=0,sent_at=NULL,updated_at=? WHERE event_id=? AND status IN ('pending','sent','failed','expired')`)
-      .bind(value.eventAt,value.eventAt,now,now,id).run();
+      attempts=0,next_attempt_at=0,claim_token=NULL,sent_at=NULL,updated_at=? WHERE event_id=? AND status IN ('pending','sending','sent','failed','expired')`)
+      .bind(value.eventAt,value.eventAt,now,now,id);
+    await env.DB.batch([eventUpdate,reminderUpdate]);
+  } else {
+    await eventUpdate.run();
   }
   return json({ ok: true, id, status: 'updated' });
 }
@@ -4767,7 +4961,7 @@ async function deleteEvent(request, env) {
   const now=Date.now();
   const result = await env.DB.prepare(`UPDATE events SET active=0,updated_at=? WHERE id=? AND active=1`).bind(now,id).run();
   if (!result.meta?.changes) return json({ ok: false, error: 'Событие не найдено' }, 404);
-  await env.DB.prepare(`UPDATE event_reminders SET status='cancelled',updated_at=? WHERE event_id=? AND status IN ('pending','sending')`).bind(now,id).run();
+  await env.DB.prepare(`UPDATE event_reminders SET status='cancelled',claim_token=NULL,updated_at=? WHERE event_id=? AND status IN ('pending','sending')`).bind(now,id).run();
   return json({ ok: true, id, status: 'deleted' });
 }
 
@@ -4790,9 +4984,9 @@ async function saveEventReminder(request, env, remove = false) {
   const eventAt = Number(event.event_at), remindAt = eventAt - value * (unit === 'hours' ? 3600000 : 60000), now = Date.now();
   if (eventAt <= now || remindAt <= now) return json({ ok: false, error: 'Это время напоминания уже прошло' }, 400);
   const id = crypto.randomUUID();
-  await env.DB.prepare(`INSERT INTO event_reminders(id,event_id,telegram_id,lead_value,lead_unit,remind_at,status,attempts,created_at,updated_at,sent_at)
-    VALUES(?,?,?,?,?,?,'pending',0,?,?,NULL)
-    ON CONFLICT(event_id,telegram_id) DO UPDATE SET lead_value=excluded.lead_value,lead_unit=excluded.lead_unit,remind_at=excluded.remind_at,status='pending',attempts=0,updated_at=excluded.updated_at,sent_at=NULL`)
+  await env.DB.prepare(`INSERT INTO event_reminders(id,event_id,telegram_id,lead_value,lead_unit,remind_at,status,attempts,next_attempt_at,claim_token,created_at,updated_at,sent_at)
+    VALUES(?,?,?,?,?,?,'pending',0,0,NULL,?,?,NULL)
+    ON CONFLICT(event_id,telegram_id) DO UPDATE SET lead_value=excluded.lead_value,lead_unit=excluded.lead_unit,remind_at=excluded.remind_at,status='pending',attempts=0,next_attempt_at=0,claim_token=NULL,updated_at=excluded.updated_at,sent_at=NULL`)
     .bind(id,eventId,Number(auth.user.id),value,unit,remindAt,now,now).run();
   const saved = await env.DB.prepare(`SELECT id,lead_value,lead_unit,remind_at,status FROM event_reminders WHERE event_id=? AND telegram_id=?`).bind(eventId,Number(auth.user.id)).first();
   return json({ ok: true, reminder: saved });
@@ -4802,41 +4996,78 @@ async function deliverEventReminders(env, at = Date.now()) {
   await ensureEventsTables(env);
   await ensureUserPreferenceTables(env);
   const now = Number(at || Date.now());
-  await env.DB.prepare(`UPDATE event_reminders SET status='expired',updated_at=? WHERE status IN ('pending','sending') AND event_id IN (SELECT id FROM events WHERE active=0 OR event_at<=?)`).bind(now,now).run();
-  await env.DB.prepare(`UPDATE event_reminders SET status='pending',updated_at=? WHERE status='sending' AND updated_at<?`).bind(now,now-5*60*1000).run();
-  const due = await env.DB.prepare(`SELECT r.id,r.telegram_id,r.event_id,r.attempts,e.title,e.place,e.coords,e.description,e.event_at,e.event_timezone,e.page_url,t.name AS territory_name,p.timezone AS user_timezone
-    FROM event_reminders r JOIN events e ON e.id=r.event_id LEFT JOIN territories t ON t.id=e.territory_id
-    LEFT JOIN user_preferences p ON p.telegram_id=r.telegram_id
-    WHERE r.status='pending' AND r.remind_at<=? AND e.active=1 AND e.event_at>? ORDER BY r.remind_at ASC LIMIT 50`).bind(now,now).all();
+  await env.DB.prepare(`UPDATE event_reminders SET status='expired',claim_token=NULL,updated_at=?
+    WHERE status IN ('pending','sending') AND event_id IN (SELECT id FROM events WHERE active=0 OR event_at<=?)`).bind(now,now).run();
+  // Recover stale claims with a delay. A Worker deployment must not cause an immediate retry storm.
+  const staleLeaseAt = now - 5 * 60 * 1000;
+  const stale = await env.DB.prepare(`SELECT id,attempts FROM event_reminders WHERE status='sending' AND updated_at<? LIMIT 100`).bind(staleLeaseAt).all();
+  for (const row of stale.results || []) {
+    const attempts = Number(row.attempts || 0) + 1;
+    const delay = Math.min(60_000 * (2 ** Math.max(0, attempts - 1)), 30 * 60 * 1000);
+    await env.DB.prepare(`UPDATE event_reminders SET status=?,attempts=?,next_attempt_at=?,claim_token=NULL,updated_at=?
+      WHERE id=? AND status='sending' AND updated_at<?`).bind(attempts >= 8 ? 'failed' : 'pending',attempts,now+delay,now,row.id,staleLeaseAt).run();
+  }
+  const due = await env.DB.prepare(`SELECT r.id,r.telegram_id,r.event_id
+    FROM event_reminders r JOIN events e ON e.id=r.event_id
+    WHERE r.status='pending' AND r.remind_at<=? AND r.next_attempt_at<=? AND e.active=1 AND e.event_at>?
+    ORDER BY r.remind_at ASC LIMIT 50`).bind(now,now,now).all();
   for (const item of due.results || []) {
-    const claim = await env.DB.prepare(`UPDATE event_reminders SET status='sending',updated_at=? WHERE id=? AND status='pending'`).bind(now,item.id).run();
+    const claimToken = crypto.randomUUID();
+    const claim = await env.DB.prepare(`UPDATE event_reminders SET status='sending',claim_token=?,updated_at=?
+      WHERE id=? AND status='pending' AND next_attempt_at<=?`).bind(claimToken,now,item.id,now).run();
     if (!claim.meta?.changes) continue;
-    const date = formatEventTimeForUser(item.event_at, item.user_timezone);
-    const cleanTitle=stripMinecraftFormatting(item.title).trim()||'Ивент';
-    const placeSource=stripMinecraftFormatting(item.territory_name||'').trim()||stripMinecraftFormatting(item.place||'').trim();
+    // Re-read after the atomic claim. Event edits/deletes may have raced with queue discovery.
+    const fresh = await env.DB.prepare(`SELECT r.id,r.telegram_id,r.event_id,r.attempts,r.remind_at,
+        e.title,e.place,e.coords,e.description,e.event_at,e.active,e.event_timezone,
+        t.name AS territory_name,p.timezone AS user_timezone
+      FROM event_reminders r JOIN events e ON e.id=r.event_id
+      LEFT JOIN territories t ON t.id=e.territory_id
+      LEFT JOIN user_preferences p ON p.telegram_id=r.telegram_id
+      WHERE r.id=? AND r.status='sending' AND r.claim_token=? LIMIT 1`).bind(item.id,claimToken).first();
+    if (!fresh) continue;
+    const eventAt = Number(fresh.event_at || 0);
+    if (Number(fresh.active) !== 1 || eventAt <= now || Number(fresh.remind_at) > now) {
+      await env.DB.prepare(`UPDATE event_reminders SET status=?,claim_token=NULL,updated_at=?
+        WHERE id=? AND status='sending' AND claim_token=?`).bind(Number(fresh.active) === 1 && eventAt > now ? 'pending' : 'expired',now,item.id,claimToken).run();
+      continue;
+    }
+    const date = formatEventTimeForUser(eventAt, fresh.user_timezone);
+    const cleanTitle=stripMinecraftFormatting(fresh.title||'').trim()||'Ивент';
+    const placeSource=stripMinecraftFormatting(fresh.territory_name||'').trim()||stripMinecraftFormatting(fresh.place||'').trim();
     const cleanPlace=/^(не указано|место не указано)$/i.test(placeSource)?'':placeSource;
-    const rawCoords=stripMinecraftFormatting(item.coords||'').trim();
+    const rawCoords=stripMinecraftFormatting(fresh.coords||'').trim();
     const cleanCoords=rawCoords?formatTerritoryCoords(rawCoords):'Координаты не указаны';
-    const cleanDescription=stripMinecraftFormatting(String(item.description||'')).trim().slice(0,2000);
+    const cleanDescription=stripMinecraftFormatting(String(fresh.description||'')).trim().slice(0,2000);
     let text = `🔔 <b>Напоминание об ивенте</b>\n\n<b>${escapeHtml(cleanTitle)}</b>\n\n📅 ${escapeHtml(date)}`;
     if (cleanPlace) text += `\n🏙 ${escapeHtml(cleanPlace)}`;
     text += `\n🧭 ${escapeHtml(cleanCoords)}`;
     if (cleanDescription) text += `\n\n${escapeHtml(cleanDescription)}`;
-    let telegramFailure=null;
     try {
-      const { response, data } = await telegram(env,'sendMessage',{chat_id:Number(item.telegram_id),text,parse_mode:'HTML',disable_web_page_preview:true});
-      if (!response.ok || !data?.ok) { telegramFailure={status:Number(data?.error_code||response.status),description:String(data?.description||'Telegram API error').slice(0,180)}; throw new Error('Telegram send failed'); }
-      await env.DB.prepare(`UPDATE event_reminders SET status='sent',sent_at=?,updated_at=? WHERE id=? AND status='sending'`).bind(now,now,item.id).run();
+      const { response, data } = await telegram(env,'sendMessage',{chat_id:Number(fresh.telegram_id),text,parse_mode:'HTML',disable_web_page_preview:true});
+      if (!response.ok || !data?.ok) {
+        const status = Number(data?.error_code || response.status || 0);
+        const retryAfter = Number(data?.parameters?.retry_after || 0);
+        const attempts = Number(fresh.attempts || 0) + 1;
+        const permanent = [400,401,403].includes(status) || attempts >= 8;
+        const exponentialDelay = Math.min(60_000 * (2 ** Math.max(0, attempts - 1)), 30 * 60 * 1000);
+        const delay = retryAfter > 0 ? Math.max(1000,retryAfter * 1000) : exponentialDelay;
+        await env.DB.prepare(`UPDATE event_reminders SET status=?,attempts=?,next_attempt_at=?,claim_token=NULL,updated_at=?
+          WHERE id=? AND status='sending' AND claim_token=?`).bind(permanent?'failed':'pending',attempts,now+delay,now,item.id,claimToken).run();
+        console.error(JSON.stringify({event:'event_reminder_send_rejected',reminderId:item.id,attempts,telegramStatus:status,retryAfter:retryAfter||null,code:'TELEGRAM_SEND_FAILED'}));
+        continue;
+      }
+      await env.DB.prepare(`UPDATE event_reminders SET status='sent',sent_at=?,next_attempt_at=0,claim_token=NULL,updated_at=?
+        WHERE id=? AND status='sending' AND claim_token=?`).bind(now,now,item.id,claimToken).run();
     } catch (error) {
-      const attempts = Number(item.attempts || 0) + 1;
-      const nextStatus = attempts >= 8 ? 'failed' : 'pending';
-      await env.DB.prepare(`UPDATE event_reminders SET status=?,attempts=?,updated_at=? WHERE id=? AND status='sending'`).bind(nextStatus,attempts,now,item.id).run();
-      console.error(JSON.stringify({event:'event_reminder_send_failed',reminderId:item.id,attempts,telegramStatus:telegramFailure?.status||null,telegramDescription:telegramFailure?.description||String(error?.message||error).slice(0,180),code:'TELEGRAM_SEND_FAILED'}));
+      const attempts = Number(fresh.attempts || 0) + 1;
+      const delay = Math.min(60_000 * (2 ** Math.max(0, attempts - 1)), 30 * 60 * 1000);
+      await env.DB.prepare(`UPDATE event_reminders SET status=?,attempts=?,next_attempt_at=?,claim_token=NULL,updated_at=?
+        WHERE id=? AND status='sending' AND claim_token=?`).bind(attempts>=8?'failed':'pending',attempts,now+delay,now,item.id,claimToken).run();
+      console.error(JSON.stringify({event:'event_reminder_send_failed',reminderId:item.id,attempts,code:'TELEGRAM_SEND_FAILED',message:String(error?.message||error).slice(0,180)}));
     }
   }
   return { processed: (due.results || []).length };
 }
-
 function normalizeVisualCommandText(value) {
   return stripMinecraftFormatting(String(value || ''))
     .normalize('NFKC')
@@ -5520,6 +5751,13 @@ export default {
     }
     if (url.pathname === "/api/user-settings" && request.method === "POST") {
       return saveUserSettings(request, env);
+    }
+
+    if (url.pathname === "/api/admin/global-settings" && request.method === "GET") {
+      return getAdminGlobalSettings(request, env);
+    }
+    if (url.pathname === "/api/admin/global-settings" && request.method === "POST") {
+      return saveAdminGlobalSetting(request, env);
     }
 
     if (url.pathname === "/api/map" && (request.method === "GET" || request.method === "HEAD")) {
