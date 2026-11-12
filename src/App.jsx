@@ -3588,56 +3588,51 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
     setWorldMapLoading(true);
     setWorldMapError('');
     try {
-      // Prefer the published manifest. The small preview appears immediately;
-      // VoxMap then requests only the high-detail tiles visible at the current zoom.
-      try {
-        const manifestResponse = await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`, { cache: 'no-store' });
-        if (manifestResponse.ok) {
-          const manifest = await manifestResponse.json();
-          const source = manifest?.source;
-          if (!manifest?.mapVersion || !source || !['deepzoom', 'url-grid'].includes(source.type)) {
-            throw new Error('Опубликованная карта имеет неподдерживаемый формат.');
-          }
-          if (Number(source.width) !== WORLD_MAP_GEOMETRY.width || Number(source.height) !== WORLD_MAP_GEOMETRY.height) {
-            throw new Error('Размер карты не совпадает с калибровкой координат Voxygen (6016 × 6016).');
-          }
-          if (!coordinateGeometryMatchesManifest(source.coordinateSystem)) {
-            throw new Error('В манифесте карты отсутствует обязательная калибровка координат или она не совпадает с backend Voxygen.');
-          }
-          const previewPath = source.previewUrl || manifest.previewUrl;
-          if (!previewPath) throw new Error('В манифесте карты отсутствует previewUrl.');
-          const previewUrl = /^https?:\/\//i.test(previewPath) ? previewPath : new URL(previewPath, MAP_ASSETS_BASE).href;
-          const preloadImage = new Image();
-          preloadImage.decoding = 'async';
-          preloadImage.fetchPriority = 'high';
-          if (typeof preloadImage.decode === 'function') {
-            preloadImage.src = previewUrl;
-            await preloadImage.decode();
-          } else {
-            await new Promise((resolve, reject) => {
-              if (preloadImage.complete) {
-                if (preloadImage.naturalWidth > 0) resolve();
-                else reject(new Error('Не удалось загрузить превью карты.'));
-                return;
-              }
-              preloadImage.onload = resolve;
-              preloadImage.onerror = () => reject(new Error('Не удалось загрузить превью карты.'));
-              preloadImage.src = previewUrl;
-            });
-          }
-          if (!preloadImage.naturalWidth || !preloadImage.naturalHeight) {
-            throw new Error('Превью карты не удалось декодировать.');
-          }
-          setWorldMapImage(previewUrl);
-          setWorldMapSource({ ...source, assetBase: MAP_ASSETS_BASE, mapVersion: manifest.mapVersion });
-          mapImageLoadedRef.current = true;
-          return;
+      const manifestResponse = await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`, { cache: 'no-store' });
+      if (manifestResponse.status !== 404) {
+        if (!manifestResponse.ok) throw new Error(`Не удалось проверить манифест карты (HTTP ${manifestResponse.status}).`);
+        const manifest = await manifestResponse.json();
+        const source = manifest?.source;
+        if (!manifest?.mapVersion || !source || !['deepzoom', 'url-grid'].includes(source.type)) {
+          throw new Error('Опубликованная карта имеет неподдерживаемый формат.');
         }
-      } catch (manifestError) {
-        console.warn('Deep Zoom manifest unavailable; using the legacy map endpoint:', String(manifestError?.message || manifestError));
+        if (Number(source.width) !== WORLD_MAP_GEOMETRY.width || Number(source.height) !== WORLD_MAP_GEOMETRY.height) {
+          throw new Error('Размер карты не совпадает с калибровкой координат Voxygen (6016 × 6016).');
+        }
+        if (!coordinateGeometryMatchesManifest(source.coordinateSystem)) {
+          throw new Error('В манифесте карты отсутствует обязательная калибровка координат или она не совпадает с backend Voxygen.');
+        }
+        const previewPath = source.previewUrl || manifest.previewUrl;
+        if (!previewPath) throw new Error('В манифесте карты отсутствует previewUrl.');
+        const previewUrl = /^https?:\/\//i.test(previewPath) ? previewPath : new URL(previewPath, MAP_ASSETS_BASE).href;
+        const preloadImage = new Image();
+        preloadImage.decoding = 'async';
+        preloadImage.fetchPriority = 'high';
+        preloadImage.src = previewUrl;
+        if (typeof preloadImage.decode === 'function') {
+          await preloadImage.decode();
+        } else {
+          await new Promise((resolve, reject) => {
+            if (preloadImage.complete) {
+              if (preloadImage.naturalWidth > 0) resolve();
+              else reject(new Error('Не удалось загрузить превью карты.'));
+              return;
+            }
+            preloadImage.onload = resolve;
+            preloadImage.onerror = () => reject(new Error('Не удалось загрузить превью карты.'));
+          });
+        }
+        if (!preloadImage.naturalWidth || !preloadImage.naturalHeight) {
+          throw new Error('Превью карты не удалось декодировать.');
+        }
+        setWorldMapImage(previewUrl);
+        setWorldMapSource({ ...source, assetBase: MAP_ASSETS_BASE, mapVersion: manifest.mapVersion });
+        mapImageLoadedRef.current = true;
+        return;
       }
 
-      // Compatibility fallback until the first Deep Zoom map has been published.
+      // Legacy image delivery is a temporary bridge only while no manifest
+      // exists. A present-but-invalid manifest must never be bypassed.
       const probe = await fetch(`${API_BASE}/api/map`, { method: 'HEAD', cache: 'no-store' });
       if (!probe.ok) {
         const errorData = await fetch(`${API_BASE}/api/map`, { cache: 'no-store' })
@@ -3668,8 +3663,8 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
           preloadImage.onerror = () => reject(new Error('Не удалось загрузить изображение карты.'));
         });
       }
-      if (!preloadImage.naturalWidth || !preloadImage.naturalHeight) {
-        throw new Error('Изображение карты не удалось декодировать.');
+      if (preloadImage.naturalWidth !== WORLD_MAP_GEOMETRY.width || preloadImage.naturalHeight !== WORLD_MAP_GEOMETRY.height) {
+        throw new Error('Старая карта не соответствует новой геометрии: требуется изображение 6016 × 6016 пикселей.');
       }
       setWorldMapSource(null);
       setWorldMapImage(mapUrl);
