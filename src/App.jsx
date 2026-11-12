@@ -1,4 +1,4 @@
-// Voxygen-Version: v48
+// Voxygen-Version: v49
 import React, { useEffect, useState, useRef } from 'react';
 import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, isValidWorldCoordinate, coordinateGeometryMatchesManifest, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
 import {
