@@ -1060,7 +1060,7 @@ function AddTerritoryModal({ onClose, onSubmit, isMainInspector = false }) {
 // ---------------------------------------------------------------------------
 // Interactive Vox map
 // ---------------------------------------------------------------------------
-function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, viewState = null, onViewStateChange, markersReady = false, mapZoomPercent = 100 }) {
+function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, viewState = null, onViewStateChange, markersReady = false, mapZoomPercent = 100, mapZoomReady = true }) {
   const MAX_MAP_ZOOM = MAP_ZOOM_MAX_SCALE;
   const defaultScale = mapZoomPercentToScale(mapZoomPercent);
   const viewportRef = useRef(null);
@@ -1068,6 +1068,7 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   const pointersRef = useRef(new Map());
   const transformRef = useRef(viewState || { x: 0, y: 0, scale: defaultScale });
   const userGestureRef = useRef(false);
+  const zoomPreferenceInitializedRef = useRef(false);
   const gestureRef = useRef(null);
   const lastResetRef = useRef(resetSignal);
   const paintFrameRef = useRef(null);
@@ -1247,12 +1248,19 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   }, [viewState]);
 
   useEffect(() => {
-    if (userGestureRef.current) return;
+    if (!mapZoomReady) return;
+    // First settings response must not override a manual gesture made while
+    // preferences were loading. Later global changes should update scale even
+    // after the user has interacted with the map.
+    if (!zoomPreferenceInitializedRef.current) {
+      zoomPreferenceInitializedRef.current = true;
+      if (userGestureRef.current) return;
+    }
     transformRef.current = clamp({ x: 0, y: 0, scale: defaultScale });
     paintTransform();
     scheduleTileRefresh();
     onViewStateChange?.({ ...transformRef.current });
-  }, [defaultScale]);
+  }, [defaultScale, mapZoomReady]);
 
   useEffect(() => {
     paintTransform();
@@ -2102,7 +2110,7 @@ function ProfileScreen({ profile, profileLoadState, profileLoadError, claimNickn
       </div>;
 }
 
-function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImage=null, mapSource=null, mapLoading=false, mapError='', onRetryMap, voxView, onVoxViewChange, markersReady=false, mapZoomPercent=100 }) {
+function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImage=null, mapSource=null, mapLoading=false, mapError='', onRetryMap, voxView, onVoxViewChange, markersReady=false, mapZoomPercent=100, mapZoomReady=true }) {
   const [sortBy,setSortBy]=useState('curator');
   const [resetSignal,setResetSignal]=useState(0);
 
@@ -2125,6 +2133,7 @@ function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImag
                 onViewStateChange={onVoxViewChange}
                 markersReady={markersReady}
                 mapZoomPercent={mapZoomPercent}
+                mapZoomReady={mapZoomReady}
               />
             ) : (
               <div role="status" aria-live="polite" style={{width:'100%',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:24,boxSizing:'border-box',textAlign:'center',background:'var(--surface)',color:'var(--text-muted)',fontSize:13,lineHeight:1.5}}>
@@ -3362,6 +3371,7 @@ export default function CityRatingApp() {
   const [role, setRole] = useState('user');
   const [timezoneOffset,setTimezoneOffset] = useState('UTC+3');
   const [mapZoomPercent,setMapZoomPercent] = useState(100);
+  const [mapZoomReady,setMapZoomReady] = useState(false);
   const [theme,setTheme] = useState('vox');
   const [timezoneReady,setTimezoneReady] = useState(false);
   const [timezoneLoadError,setTimezoneLoadError] = useState('');
@@ -3500,7 +3510,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
     let intervalTimer = null;
     let expiryTimer = null;
     const initData = window.Telegram?.WebApp?.initData || '';
-    if (!initData) { setTimezoneReady(true); return () => { cancelled = true; }; }
+    if (!initData) { setTimezoneReady(true); setMapZoomReady(true); return () => { cancelled = true; }; }
     setTimezoneReady(false); setTimezoneLoadError('');
     const loadSettings = async () => {
       if (cancelled || document.visibilityState === 'hidden') return;
@@ -3512,6 +3522,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         const value = data.settings;
         setTimezoneOffset(normalizeTimezoneOffset(value.timezone));
         setMapZoomPercent(normalizeMapZoomPercent(value.mapZoomPercent));
+        setMapZoomReady(true);
         setTheme(normalizeTheme(value.theme || value.defaultTheme));
         setTimezoneReady(true); setTimezoneLoadError('');
         if (expiryTimer !== null) window.clearTimeout(expiryTimer);
@@ -3858,7 +3869,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
       <div style={{ maxWidth: 448, margin: '0 auto', position: 'relative' }}>
         <div className="atlas-screen-transition" key={`${screen}-${selected?.id || 'none'}`}>
         {screen === 'profile' ? (
-          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));setMapZoomPercent(normalizeMapZoomPercent(settings.mapZoomPercent));setTheme(normalizeTheme(settings.theme||settings.defaultTheme));setTimezoneReady(true);setTimezoneLoadError('');}} />
+          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));setMapZoomPercent(normalizeMapZoomPercent(settings.mapZoomPercent));setMapZoomReady(true);setTheme(normalizeTheme(settings.theme||settings.defaultTheme));setTimezoneReady(true);setTimezoneLoadError('');}} />
         ) : screen === 'customization' ? (
           <CustomizationScreen initData={window.Telegram?.WebApp?.initData || ''} tgUser={tgUser} role={role} territories={territories} profile={profile} />
         ) : screen === 'events' ? (
@@ -3909,6 +3920,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
                     onVoxViewChange={setVoxView}
                     markersReady={markersReady}
                     mapZoomPercent={mapZoomPercent}
+                    mapZoomReady={mapZoomReady}
                   />
                 )}
           </>
