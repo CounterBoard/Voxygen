@@ -1777,7 +1777,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
     <div style={{fontSize:12,color:'var(--text-muted)',marginBottom:6}}>Название</div><div style={{display:'flex',gap:8,marginBottom:4}}><input value={name} readOnly={readOnly} onChange={e=>setName(e.target.value)} style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,cursor:readOnly?'default':'text'}}/>{!readOnly&&<button onClick={rename} className="press" style={iconBtn('var(--purple)','#fff',true)}><Pencil size={15}/></button>}</div>
     <div style={{fontSize:12,color:'var(--text-muted)',marginTop:12,marginBottom:6}}>Доп. информация</div>
     {readOnly
-      ? <TelegramRichText text={additionalInfo} interactive style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,marginBottom:4,minHeight:72}}/>
+      ? <TelegramMinecraftText text={additionalInfo} interactive style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,marginBottom:4,minHeight:72}}/>
       : <textarea value={additionalInfo} onChange={e=>setAdditionalInfo(e.target.value.slice(0,542))} rows={4} maxLength={542} placeholder="Дополнительная информация о территории (необязательно)" style={{width:'100%',boxSizing:'border-box',resize:'none',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,marginBottom:4}}/>}
     {!readOnly&&<button onClick={saveAdditionalInfo} disabled={additionalInfo===String(territory?.additional_info||'')} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',marginTop:8,marginBottom:14,background:'var(--purple)',color:'#fff',fontWeight:700}}>Сохранить доп. информацию</button>}
     {managers.length>0&&<div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:14,padding:12,marginBottom:14}}><div style={{fontSize:13,fontWeight:700,marginBottom:8}}>Основатели/мэры</div>{managers.map(m=><div key={m.telegram_id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderTop:'1px solid var(--border)'}}><AvatarHead nickname={m.mc_nickname} skinUrl={m.skin_url} size={32}/><div style={{flex:1,minWidth:0}}><MinecraftText as="div" text={m.mc_nickname||'Без ника'} style={{fontSize:12.5,fontWeight:700}}/><div style={{fontSize:10.5,color:'var(--text-muted)'}}>{m.telegram_username?`@${String(m.telegram_username).replace(/^@/,'')}`:'Username не указан'}</div></div>{!readOnly&&managers.length>1&&<button onClick={()=>demoteManager(m.telegram_id)} className="press" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:8,padding:'6px 8px',fontSize:10.5}}>Понизить</button>}{!readOnly&&managers.length>1&&(()=>{const currentContact=String(newRecruitmentUsername||'').replace(/^@/,'').trim().toLowerCase();const managerUsername=String(m.telegram_username||'').replace(/^@/,'').trim().toLowerCase();const inAnnouncement=Boolean(currentContact&&managerUsername&&currentContact===managerUsername);return <button onClick={()=>!inAnnouncement&&setRecruitmentUsername(m.telegram_id)} disabled={inAnnouncement} className="press" style={{border:'1px solid var(--border)',background:inAnnouncement?'var(--surface-3)':'var(--purple)',color:inAnnouncement?'var(--text-muted)':'#fff',borderRadius:8,padding:'6px 8px',fontSize:10.5,opacity:inAnnouncement?1:.98}}>{inAnnouncement?'В объявлении':'В объявление'}</button>})()}</div>)}</div>}
@@ -2415,10 +2415,10 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
             </div>
             {editingCommentId===r.id
               ? <div style={{display:'flex',gap:6,marginBottom:8}}><input value={editingCommentText} onChange={e=>setEditingCommentText(e.target.value)} style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'8px 10px',color:'var(--text)',fontSize:12.5}}/><button onClick={()=>editComment(r.id)} className="press" style={{border:'none',background:'var(--purple)',color:'#fff',borderRadius:9,padding:'0 10px'}}>✓</button></div>
-              : <MinecraftText as="div" text={r.text} style={{ fontSize: 13, lineHeight: 1.4, marginBottom: 8 }} />}
+              : <TelegramMinecraftText text={r.text} interactive style={{ fontSize: 13, lineHeight: 1.4, marginBottom: 8 }} />}
             {r.reply && <div style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--surface-2)', borderRadius: 10, padding: '8px 10px', marginBottom: 8, borderLeft: '2px solid var(--mint)' }}>
               <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><b style={{ color: 'var(--mint)' }}><MinecraftText text={t.owner}/>: </b>{isOwner&&<div style={{marginLeft:'auto',display:'flex',gap:4}}><button onClick={()=>{setEditingReplyId(r.id);setEditingReplyText(r.reply||'')}} className="press" title="Изменить" style={{border:'none',background:'var(--purple-soft)',color:'var(--purple)',borderRadius:8,padding:6}}><Pencil size={15}/></button><button onClick={()=>removeReply(r.id)} className="press" title="Удалить" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:8,padding:6}}><Trash2 size={15}/></button></div>}</div>
-              {editingReplyId===r.id ? <div style={{display:'flex',gap:6}}><input value={editingReplyText} onChange={e=>setEditingReplyText(e.target.value)} style={{flex:1,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:9,padding:'7px 9px',color:'var(--text)',fontSize:12}}/><button onClick={()=>editReply(r.id)} className="press" style={{border:'none',background:'var(--purple)',color:'#fff',borderRadius:8,padding:'0 9px'}}>✓</button></div> : <MinecraftText as="div" text={r.reply} style={{fontSize:12,lineHeight:1.45}} />}
+              {editingReplyId===r.id ? <div style={{display:'flex',gap:6}}><input value={editingReplyText} onChange={e=>setEditingReplyText(e.target.value)} style={{flex:1,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:9,padding:'7px 9px',color:'var(--text)',fontSize:12}}/><button onClick={()=>editReply(r.id)} className="press" style={{border:'none',background:'var(--purple)',color:'#fff',borderRadius:8,padding:'0 9px'}}>✓</button></div> : <TelegramMinecraftText text={r.reply} interactive style={{fontSize:12,lineHeight:1.45}} />}
             </div>}
             {isOwner && !r.reply && <ReplyBox onSend={text => reply(r.id, text)} />}
           </div>;
@@ -2494,7 +2494,7 @@ function RecruitmentScreen({ territories, onSelect }) {
         <ScoreBadge type="curator" value={Number(selected.curator||0)} size="lg" />
         <ScoreBadge type="community" value={Number(selected.community||0)} size="lg" />
       </div>
-      <TelegramRichText text={selected.recruitment_description} interactive style={{background:'var(--surface-2)',borderRadius:12,padding:'11px 12px',fontSize:13,lineHeight:1.55,marginBottom:14}}/>
+      <TelegramMinecraftText text={selected.recruitment_description} interactive style={{background:'var(--surface-2)',borderRadius:12,padding:'11px 12px',fontSize:13,lineHeight:1.55,marginBottom:14}}/>
       <button onClick={()=>{setSelected(null);onSelect(selected.id)}} className="press" style={{width:'100%',padding:'11px 0',border:'none',borderRadius:11,background:'var(--purple)',color:'#fff',fontWeight:700}}>Перейти на страницу города</button>
     </SimpleModal>}
   </div>;
@@ -3041,6 +3041,69 @@ function TelegramRichText({text,interactive=true,style={}}) {
   }
   if(cursor<value.length)pieces.push(value.slice(cursor));
   return <div style={{whiteSpace:'pre-wrap',...style}}>{pieces}</div>;
+}
+
+function TelegramMinecraftText({text,interactive=true,style={}}) {
+  const source=String(text??'').replace(/§x(?:§[0-9a-fA-F]){6}/gi,value=>'§#'+value.replace(/§x|§/gi,''));
+  const pieces=[];
+  const state={color:null,bold:false,italic:false,underline:false,strike:false,obfuscated:false};
+  const tokenPattern=/§(?:#([0-9a-fA-F]{6})|([0-9a-fk-oK-OrR]))/gi;
+  let cursor=0,linkIndex=0,match;
+  const statePrefix=()=>{
+    let prefix='';
+    if(state.color){
+      const hex=String(state.color).match(/^#[0-9a-f]{6}$/i);
+      if(hex)prefix+='§'+hex[0];
+      else {
+        const code=Object.keys(MINECRAFT_COLORS).find(key=>MINECRAFT_COLORS[key]===state.color);
+        if(code)prefix+='§'+code;
+      }
+    }
+    if(state.obfuscated)prefix+='§k';
+    if(state.bold)prefix+='§l';
+    if(state.strike)prefix+='§m';
+    if(state.underline)prefix+='§n';
+    if(state.italic)prefix+='§o';
+    return prefix;
+  };
+  const updateState=value=>{
+    tokenPattern.lastIndex=0;
+    let token;
+    while((token=tokenPattern.exec(value))){
+      if(token[1])state.color='#'+token[1];
+      else {
+        const code=String(token[2]||'').toLowerCase();
+        if(Object.prototype.hasOwnProperty.call(MINECRAFT_COLORS,code))state.color=MINECRAFT_COLORS[code];
+        else if(code==='l')state.bold=true;
+        else if(code==='o')state.italic=true;
+        else if(code==='n')state.underline=true;
+        else if(code==='m')state.strike=true;
+        else if(code==='k')state.obfuscated=true;
+        else if(code==='r'){state.color=null;state.bold=false;state.italic=false;state.underline=false;state.strike=false;state.obfuscated=false;}
+      }
+    }
+  };
+  const addText=value=>{
+    if(!value)return;
+    pieces.push(<MinecraftText key={'mc-'+linkIndex++} text={statePrefix()+value} style={style}/>);
+    updateState(value);
+  };
+  const isBoundary=at=>{
+    let prefix=source.slice(0,at);
+    let token;
+    while((token=prefix.match(/§(?:#[0-9a-fA-F]{6}|[0-9a-fk-or])$/i)))prefix=prefix.slice(0,-token[0].length);
+    const previous=prefix.slice(-1);
+    return !previous||!/[A-Za-z0-9_.]/.test(previous);
+  };
+  const usernamePattern=/@[A-Za-z][A-Za-z0-9_]{4,31}/g;
+  while((match=usernamePattern.exec(source))){
+    if(!isBoundary(match.index))continue;
+    addText(source.slice(cursor,match.index));
+    pieces.push(<TelegramUsername key={'tg-'+match.index} username={match[0]} interactive style={style}/>);
+    cursor=match.index+match[0].length;
+  }
+  addText(source.slice(cursor));
+  return <div style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere',...style}}>{pieces}</div>;
 }
 
 function FaqModal({onClose,text}){
