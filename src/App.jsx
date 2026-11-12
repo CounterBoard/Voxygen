@@ -1849,6 +1849,7 @@ function SettingsToggle({ checked, onChange, disabled = false, label, descriptio
   </div>;
 }
 
+function normalizeTheme(value){return String(value??'vox').trim().toLowerCase()==='aurora'?'aurora':'vox';}
 function normalizeTimezoneOffset(value){
   const raw=String(value??'').replace(/[\u0000-\u001F\u007F]/g,'').trim().toUpperCase();
   const offset=raw.startsWith('UTC')?raw.slice(3).trim():raw;
@@ -1874,7 +1875,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
         const response=await fetch(`${API_BASE}/api/user-settings`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
         const data=await response.json().catch(()=>null);
         if(!response.ok||!data?.ok||!data?.settings)throw new Error(apiErrorMessage(response,data,'Не удалось загрузить настройки.'));
-        if(!cancelled)setSettings({...data.settings,defaultTheme:'vox',timezone:normalizeTimezoneOffset(data.settings.timezone),territories:Array.isArray(data.settings.territories)?data.settings.territories:[]});
+        if(!cancelled)setSettings({...data.settings,defaultTheme:normalizeTheme(data.settings.defaultTheme),personalMapZoomPercent:normalizeMapZoomPercent(data.settings.personalMapZoomPercent??data.settings.mapZoomPercent),timezone:normalizeTimezoneOffset(data.settings.timezone),territories:Array.isArray(data.settings.territories)?data.settings.territories:[]});
       }catch(e){if(!cancelled)setError(safeCaughtError(e,'Не удалось загрузить настройки.'));}
       finally{if(!cancelled)setLoading(false);}
     }
@@ -1887,7 +1888,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
     if(!settings)return;
     try{
       setSaving(true);setError('');
-      const payload={defaultTheme:'vox',timezone:normalizeTimezoneOffset(settings.timezone),eventNotifications:Boolean(settings.eventNotifications),territories:(settings.territories||[]).map(item=>({id:String(item.id),enabled:Boolean(item.enabled)}))};
+      const payload={defaultTheme:normalizeTheme(settings.defaultTheme),mapZoomPercent:normalizeMapZoomPercent(settings.personalMapZoomPercent),timezone:normalizeTimezoneOffset(settings.timezone),eventNotifications:Boolean(settings.eventNotifications),territories:(settings.territories||[]).map(item=>({id:String(item.id),enabled:Boolean(item.enabled)}))};
       const response=await fetch(`${API_BASE}/api/user-settings`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({...payload,initData})});
       const data=await response.json().catch(()=>null);
       if(!response.ok||!data?.ok||!data?.settings)throw new Error(apiErrorMessage(response,data,'Не удалось сохранить настройки.'));
@@ -1898,10 +1899,17 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
   return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:130,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center',padding:'18px 14px'}} onClick={requestClose}>
     <div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(448px,100%)',maxHeight:'84vh',overflowY:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:22,padding:18,boxSizing:'border-box'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:16}}><div className="atlas-display" style={{fontSize:19,fontWeight:750}}>Настройки</div><button onClick={requestClose} className="press" aria-label="Закрыть настройки" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>
-      {loading?<div style={{padding:'24px 0',textAlign:'center',fontSize:13,color:'var(--text-muted)'}}>Загрузка настроек…</div>:!settings?<div style={{fontSize:12.5,color:'var(--red)',lineHeight:1.5}}>{error||'Настройки недоступны.'}<button onClick={()=>{setSettings(null);setError('');setLoading(true);const init=initData;fetch(`${API_BASE}/api/user-settings`,{headers:{'X-Telegram-Init-Data':init},cache:'no-store'}).then(async r=>{const d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(apiErrorMessage(r,d,'Не удалось загрузить настройки.'));setSettings({...d.settings,defaultTheme:'vox',timezone:normalizeTimezoneOffset(d.settings.timezone),territories:Array.isArray(d.settings.territories)?d.settings.territories:[]});}).catch(e=>setError(safeCaughtError(e,'Не удалось загрузить настройки.'))).finally(()=>setLoading(false));}} className="press" style={{display:'block',marginTop:10,padding:'8px 12px',borderRadius:10,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Повторить</button></div>:<>
+      {loading?<div style={{padding:'24px 0',textAlign:'center',fontSize:13,color:'var(--text-muted)'}}>Загрузка настроек…</div>:!settings?<div style={{fontSize:12.5,color:'var(--red)',lineHeight:1.5}}>{error||'Настройки недоступны.'}<button onClick={()=>{setSettings(null);setError('');setLoading(true);const init=initData;fetch(`${API_BASE}/api/user-settings`,{headers:{'X-Telegram-Init-Data':init},cache:'no-store'}).then(async r=>{const d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(apiErrorMessage(r,d,'Не удалось загрузить настройки.'));setSettings({...d.settings,defaultTheme:normalizeTheme(d.settings.defaultTheme),personalMapZoomPercent:normalizeMapZoomPercent(d.settings.personalMapZoomPercent??d.settings.mapZoomPercent),timezone:normalizeTimezoneOffset(d.settings.timezone),territories:Array.isArray(d.settings.territories)?d.settings.territories:[]});}).catch(e=>setError(safeCaughtError(e,'Не удалось загрузить настройки.'))).finally(()=>setLoading(false));}} className="press" style={{display:'block',marginTop:10,padding:'8px 12px',borderRadius:10,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Повторить</button></div>:<>
         <div style={{fontSize:15,fontWeight:750,marginBottom:8}}>Основные</div>
         <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:7}}>Тема по умолчанию</div>
-        <div role="status" aria-label="Выбранная тема по умолчанию: Vox" style={{display:'flex',alignItems:'center',padding:'11px 12px',minHeight:20,borderRadius:11,border:'1px solid var(--purple-border)',background:'var(--purple-soft)',color:'var(--purple)',fontSize:13,fontWeight:750,marginBottom:14}}>Vox</div>
+        <select value={normalizeTheme(settings.defaultTheme)} disabled={Boolean(settings.globalOverrides?.theme)} onChange={e=>patch({defaultTheme:normalizeTheme(e.target.value)})} style={{width:'100%',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:11,padding:'11px 12px',color:'var(--text)',fontSize:14,marginBottom:settings.globalOverrides?.theme?6:14}}>
+          <option value="vox">Vox</option><option value="aurora">Aurora</option>
+        </select>
+        {settings.globalOverrides?.theme&&<div style={{fontSize:11,color:'var(--purple)',marginBottom:14}}>Главный инспектор временно установил тему {settings.theme==='aurora'?'Aurora':'Vox'}. Личный выбор сохранён.</div>}
+        <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:7}}>Масштаб карты</div>
+        <input type="range" min="1" max="100" step="1" value={settings.personalMapZoomPercent??100} disabled={Boolean(settings.globalOverrides?.mapZoomPercent)} onChange={e=>patch({personalMapZoomPercent:normalizeMapZoomPercent(e.target.value)})} style={{width:'100%',accentColor:'var(--purple)',margin:'4px 0 2px'}}/>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--text-muted)',marginBottom:6}}><span>1% · приближение</span><strong style={{color:'var(--text)'}}>{settings.personalMapZoomPercent??100}%</strong><span>100% · обзор</span></div>
+        {settings.globalOverrides?.mapZoomPercent&&<div style={{fontSize:11,color:'var(--purple)',marginBottom:14}}>Глобально установлено {settings.mapZoomPercent}%. Ваш личный масштаб сохранён и восстановится после отмены или окончания срока.</div>}
         <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:6}}>Часовой пояс</div>
         <input value={settings.timezone||'UTC+3'} onChange={e=>patch({timezone:keepUtcPrefix(e.target.value)})} onBlur={()=>patch({timezone:normalizeTimezoneOffset(settings.timezone)})} placeholder="UTC+3" aria-label="Часовой пояс" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:11,padding:'11px 12px',color:'var(--text)',fontSize:14,marginBottom:16}}/>
         <div style={{fontSize:15,fontWeight:750,marginBottom:4}}>Уведомления</div>
