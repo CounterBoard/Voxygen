@@ -1256,7 +1256,7 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
       zoomPreferenceInitializedRef.current = true;
       if (userGestureRef.current) return;
     }
-    transformRef.current = clamp({ x: 0, y: 0, scale: defaultScale });
+    transformRef.current = clamp({ ...transformRef.current, scale: defaultScale });
     paintTransform();
     scheduleTileRefresh();
     onViewStateChange?.({ ...transformRef.current });
