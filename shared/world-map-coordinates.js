@@ -4,9 +4,9 @@ export const WORLD_MAP_GEOMETRY = Object.freeze({
   originX: 3008,
   originZ: 3008,
   minX: -3008,
-  maxX: 3008,
+  maxX: 3007,
   minZ: -3008,
-  maxZ: 3008,
+  maxZ: 3007,
   coordinateSystem: "minecraft-block-pixel-centers",
 });
 
