@@ -1047,12 +1047,14 @@ function AddTerritoryModal({ onClose, onSubmit, isMainInspector = false }) {
 // ---------------------------------------------------------------------------
 // Interactive Vox map
 // ---------------------------------------------------------------------------
-function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, viewState = null, onViewStateChange, markersReady = false }) {
-  const MAX_MAP_ZOOM = 24;
+function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, viewState = null, onViewStateChange, markersReady = false, mapZoomPercent = 100 }) {
+  const MAX_MAP_ZOOM = MAP_ZOOM_MAX_SCALE;
+  const defaultScale = mapZoomPercentToScale(mapZoomPercent);
   const viewportRef = useRef(null);
   const mapLayerRef = useRef(null);
   const pointersRef = useRef(new Map());
-  const transformRef = useRef(viewState || { x: 0, y: 0, scale: 1 });
+  const transformRef = useRef(viewState || { x: 0, y: 0, scale: defaultScale });
+  const userGestureRef = useRef(false);
   const gestureRef = useRef(null);
   const lastResetRef = useRef(resetSignal);
   const paintFrameRef = useRef(null);
@@ -1226,10 +1228,18 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   }
 
   useEffect(() => {
-    if (!viewState) return;
+    if (!viewState || userGestureRef.current) return;
     transformRef.current = clamp(viewState);
     paintTransform();
   }, [viewState]);
+
+  useEffect(() => {
+    if (userGestureRef.current) return;
+    transformRef.current = clamp({ x: 0, y: 0, scale: defaultScale });
+    paintTransform();
+    scheduleTileRefresh();
+    onViewStateChange?.({ ...transformRef.current });
+  }, [defaultScale]);
 
   useEffect(() => {
     paintTransform();
@@ -1243,7 +1253,8 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   useEffect(() => {
     if (lastResetRef.current !== resetSignal) {
       lastResetRef.current = resetSignal;
-      transformRef.current = { x: 0, y: 0, scale: 1 };
+      userGestureRef.current = false;
+      transformRef.current = { x: 0, y: 0, scale: defaultScale };
       pointersRef.current.clear();
       gestureRef.current = null;
       paintTransform();
@@ -1272,6 +1283,7 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
   function down(e) {
+    userGestureRef.current = true;
     e.preventDefault?.();
     e.currentTarget.setPointerCapture?.(e.pointerId);
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1348,6 +1360,7 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   }
 
   function wheel(e) {
+    userGestureRef.current = true;
     e.preventDefault?.();
     const rect = viewportRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -1932,7 +1945,7 @@ function ProfileScreen({ profile, profileLoadState, profileLoadError, claimNickn
       </div>;
 }
 
-function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImage=null, mapSource=null, mapLoading=false, mapError='', onRetryMap, voxView, onVoxViewChange, markersReady=false }) {
+function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImage=null, mapSource=null, mapLoading=false, mapError='', onRetryMap, voxView, onVoxViewChange, markersReady=false, mapZoomPercent=100 }) {
   const [sortBy,setSortBy]=useState('curator');
   const [resetSignal,setResetSignal]=useState(0);
 
@@ -1954,6 +1967,7 @@ function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImag
                 viewState={voxView}
                 onViewStateChange={onVoxViewChange}
                 markersReady={markersReady}
+                mapZoomPercent={mapZoomPercent}
               />
             ) : (
               <div role="status" aria-live="polite" style={{width:'100%',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:24,boxSizing:'border-box',textAlign:'center',background:'var(--surface)',color:'var(--text-muted)',fontSize:13,lineHeight:1.5}}>
@@ -3680,6 +3694,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
                     voxView={voxView}
                     onVoxViewChange={setVoxView}
                     markersReady={markersReady}
+                    mapZoomPercent={mapZoomPercent}
                   />
                 )}
           </>
