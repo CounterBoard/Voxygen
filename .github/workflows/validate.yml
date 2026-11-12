@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/automatic-deepzoom-map
+      - feature/coordinate-zoom-global-settings-reliable-updates
   pull_request:
     branches:
       - main
