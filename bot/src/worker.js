@@ -4654,12 +4654,29 @@ async function initializeEventsTables(env) {
     remind_at INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     attempts INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     sent_at INTEGER,
     UNIQUE(event_id,telegram_id)
   )`).run();
-  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_event_reminders_due ON event_reminders(status,remind_at)`).run();
+  const reminderCols = await env.DB.prepare(`PRAGMA table_info(event_reminders)`).all();
+  const reminderColumnNames = new Set((reminderCols.results || []).map(row => row.name));
+  if (!reminderColumnNames.has('next_attempt_at')) {
+    try { await env.DB.prepare(`ALTER TABLE event_reminders ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0`).run(); }
+    catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
+  }
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_event_reminders_due ON event_reminders(status,next_attempt_at,remind_at)`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS event_create_requests (
+    telegram_id INTEGER NOT NULL,
+    request_key TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'processing',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY(telegram_id,request_key)
+  )`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_event_create_requests_created ON event_create_requests(created_at)`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS bank_transactions (
     id TEXT PRIMARY KEY,
     update_id INTEGER NOT NULL UNIQUE,
