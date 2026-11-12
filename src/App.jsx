@@ -3909,7 +3909,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         )}
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
-        {globalSettingsOpen&&role==='main_inspector'&&<GlobalSettingsPanel initData={window.Telegram?.WebApp?.initData||''} onSettingsChanged={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);setMapZoomPercent(nextZoom);setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));setMapZoomReady(true);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));}} onClose={()=>setGlobalSettingsOpen(false)}/ >}
+        {globalSettingsOpen&&role==='main_inspector'&&<GlobalSettingsPanel initData={window.Telegram?.WebApp?.initData||''} onSettingsChanged={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);setMapZoomPercent(nextZoom);setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));setMapZoomReady(true);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));}} onClose={()=>setGlobalSettingsOpen(false)}/>}
 
         {showAddTerritory && (
           <AddTerritoryModal onClose={() => setShowAddTerritory(false)} onSubmit={submitTerritoryRequest} isMainInspector={role==='main_inspector'} />
