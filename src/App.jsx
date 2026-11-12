@@ -3515,16 +3515,34 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
     let cancelled = false;
     let intervalTimer = null;
     let expiryTimer = null;
+    let settingsRequestVersion = 0;
+    let settingsController = null;
     const initData = window.Telegram?.WebApp?.initData || '';
     if (!initData) { setTimezoneReady(true); setMapZoomReady(true); return () => { cancelled = true; }; }
     setTimezoneReady(false); setTimezoneLoadError('');
+
+    const cancelSettingsRequest = () => {
+      settingsRequestVersion += 1;
+      settingsController?.abort();
+      settingsController = null;
+    };
+
     const loadSettings = async () => {
       if (cancelled || document.visibilityState === 'hidden') return;
+      const requestVersion = ++settingsRequestVersion;
+      settingsController?.abort();
+      const controller = new AbortController();
+      settingsController = controller;
+      const requestTimeout = window.setTimeout(() => controller.abort(), 15000);
       try {
-        const response = await fetch(`${API_BASE}/api/user-settings`, { headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store' });
+        const response = await fetch(`${API_BASE}/api/user-settings`, {
+          headers: { 'X-Telegram-Init-Data': initData },
+          cache: 'no-store',
+          signal: controller.signal,
+        });
         const data = await response.json().catch(() => null);
+        if (cancelled || requestVersion !== settingsRequestVersion) return;
         if (!response.ok || !data?.ok || !data?.settings) throw new Error(apiErrorMessage(response, data, 'Settings fetch failed'));
-        if (cancelled) return;
         const value = data.settings;
         setTimezoneOffset(normalizeTimezoneOffset(value.timezone));
         setMapZoomPercent(normalizeMapZoomPercent(value.mapZoomPercent));
@@ -3538,16 +3556,27 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
           expiryTimer = window.setTimeout(loadSettings, Math.min(2147480000, Math.max(500, nextExpiry - Date.now() + 250)));
         }
       } catch (error) {
+        if (cancelled || requestVersion !== settingsRequestVersion) return;
         console.warn('Voxygen settings load failed', error);
-        if (!cancelled) setTimezoneLoadError('Не удалось загрузить ваши настройки времени. Создание и редактирование ивентов временно недоступно.');
+        const message = error?.name === 'AbortError'
+          ? 'Сервер не ответил за 15 секунд. Повторите загрузку настроек.'
+          : 'Не удалось загрузить ваши настройки. Создание и редактирование ивентов временно недоступно.';
+        setTimezoneLoadError(message);
+      } finally {
+        window.clearTimeout(requestTimeout);
+        if (settingsController === controller) settingsController = null;
       }
     };
-    const onVisible = () => { if (document.visibilityState === 'visible') loadSettings(); };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') loadSettings();
+      else cancelSettingsRequest();
+    };
     loadSettings();
     intervalTimer = window.setInterval(loadSettings, 60000);
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
+      cancelSettingsRequest();
       if (intervalTimer !== null) window.clearInterval(intervalTimer);
       if (expiryTimer !== null) window.clearTimeout(expiryTimer);
       document.removeEventListener('visibilitychange', onVisible);
