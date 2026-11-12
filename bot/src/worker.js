@@ -4671,7 +4671,7 @@ async function initializeEventsTables(env) {
     try { await env.DB.prepare(`ALTER TABLE event_reminders ADD COLUMN claim_token TEXT`).run(); }
     catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
   }
-  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_event_reminders_due ON event_reminders(status,next_attempt_at,remind_at)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_event_reminders_retry_due ON event_reminders(status,next_attempt_at,remind_at)`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS event_create_requests (
     telegram_id INTEGER NOT NULL,
     request_key TEXT NOT NULL,
