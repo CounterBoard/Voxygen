@@ -2543,11 +2543,17 @@ function EventsScreen({ initData, territories = [], onSelectTerritory, isMainIns
   const [createExpanded,setCreateExpanded]=useState(false);
   const [drafts, setDrafts] = useState({}), [busyId, setBusyId] = useState(null), [notice, setNotice] = useState(''), [editingEventId,setEditingEventId]=useState(null);
   const [clockNow,setClockNow]=useState(Date.now());
+  const eventLoadVersionRef=useRef(0), eventLoadControllerRef=useRef(null);
   async function load() {
+    const requestVersion=++eventLoadVersionRef.current;
+    eventLoadControllerRef.current?.abort();
+    const controller=new AbortController();
+    eventLoadControllerRef.current=controller;
     try {
       setError('');
-      const response = await fetch(`${API_BASE}/api/events`, { headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store' });
+      const response = await fetch(`${API_BASE}/api/events`, { headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store', signal:controller.signal });
       const data = await response.json().catch(() => null);
+      if(requestVersion!==eventLoadVersionRef.current)return;
       if (!response.ok || !data?.ok) throw new Error(apiErrorMessage(response, data, 'Не удалось загрузить ивенты.'));
       const items = (data.events || []).sort((a,b) => Number(a.event_at)-Number(b.event_at));
       setEvents(items);
@@ -2556,10 +2562,20 @@ function EventsScreen({ initData, territories = [], onSelectTerritory, isMainIns
         for (const event of items) if (!next[event.id]) next[event.id] = { value: '', unit: event.reminder?.unit || 'minutes' };
         return next;
       });
-    } catch (e) { setError(safeCaughtError(e, 'Не удалось загрузить ивенты.')); }
-    finally { setLoading(false); }
+    } catch (e) {
+      if(requestVersion!==eventLoadVersionRef.current||e?.name==='AbortError')return;
+      setError(safeCaughtError(e, 'Не удалось загрузить ивенты.'));
+    } finally {
+      if(requestVersion===eventLoadVersionRef.current){eventLoadControllerRef.current=null;setLoading(false);}
+    }
   }
-  useEffect(() => { load(); }, [initData]);
+  useEffect(() => {
+    load();
+    const timer=setInterval(load,60000);
+    const onVisible=()=>{if(document.visibilityState==='visible')load();};
+    document.addEventListener('visibilitychange',onVisible);
+    return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',onVisible);eventLoadVersionRef.current+=1;eventLoadControllerRef.current?.abort();eventLoadControllerRef.current=null;};
+  }, [initData]);
   useEffect(() => {
     const tick=()=>setClockNow(Date.now());
     const onVisible=()=>{if(document.visibilityState==='visible')tick();};
@@ -2654,7 +2670,7 @@ function EventsScreen({ initData, territories = [], onSelectTerritory, isMainIns
         <span style={{flex:1,minWidth:0,fontSize:14,fontWeight:800}}>Создать ивент</span>
         {createExpanded?<ChevronUp size={18} color="var(--purple)"/>:<ChevronDown size={18} color="var(--purple)"/>}
       </button>
-      {createExpanded&&<div style={{borderTop:'1px solid var(--border)',padding:'0 14px 14px'}}><ProfileEventCreateForm embedded initData={initData} territories={territories} isMainInspector={isMainInspector} tgUser={tgUser} timezoneOffset={timezoneOffset}/></div>}
+      {createExpanded&&<div style={{borderTop:'1px solid var(--border)',padding:'0 14px 14px'}}><ProfileEventCreateForm embedded initData={initData} territories={territories} isMainInspector={isMainInspector} tgUser={tgUser} timezoneOffset={timezoneOffset} onPublished={load}/></div>}
     </div>
     <div style={{ display:'flex', alignItems:'center', gap:8, margin:'0 0 12px' }}><CalendarDays size={18} color="var(--purple)"/><div className="atlas-display" style={{fontSize:19,fontWeight:800}}>Ближайшие ивенты</div><span style={{marginLeft:'auto',fontSize:12,color:'var(--text-muted)'}}>{upcomingEvents.length}</span></div>
     {!loading && !upcomingEvents.length && <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:18,color:'var(--text-muted)',fontSize:13,lineHeight:1.5}}>Предстоящих ивентов пока нет.</div>}
@@ -2802,7 +2818,7 @@ function formatEventCoords(value) {
 function pluralRu(value, one, few, many) { const n=Math.abs(Math.trunc(Number(value)||0)),lastTwo=n%100,last=n%10; if(lastTwo>=11&&lastTwo<=14)return many; if(last===1)return one; if(last>=2&&last<=4)return few; return many; }
 function reminderUnitLabel(value, unit) { return unit==='hours'?pluralRu(value,'час','часа','часов'):pluralRu(value,'минуту','минуты','минут'); }
 
-function ProfileEventCreateForm({ initData, territories = [], isMainInspector = false, tgUser = null, embedded = false, timezoneOffset = 'UTC+3' }) {
+function ProfileEventCreateForm({ initData, territories = [], isMainInspector = false, tgUser = null, embedded = false, timezoneOffset = 'UTC+3', onPublished = () => {} }) {
   const userId=String(tgUser?.id||'');
   const eventInputTimezone=normalizeTimezoneOffset(timezoneOffset);
   const draftStorageKey=`voxygen:event-create-draft:${userId||'anonymous'}`;
@@ -2854,7 +2870,7 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
       const response=await fetch(`${API_BASE}/api/events`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify(payload)});
       const data=await response.json().catch(()=>null);if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось опубликовать ивент.'));
       try{localStorage.removeItem(draftStorageKey);}catch{}
-      setForm({title:'',coords:'',description:'',imageData:null,requestKey:null,requestAttempted:false});setPlaceId('');setDateParts(defaultEventDateParts(eventInputTimezone));setDateEdited(false);if(fileRef.current)fileRef.current.value='';setNotice(data?.replayed?'Ивент уже был создан ранее. Повтор не создал копию.':'Ивент создан');
+      setForm({title:'',coords:'',description:'',imageData:null,requestKey:null,requestAttempted:false});setPlaceId('');setDateParts(defaultEventDateParts(eventInputTimezone));setDateEdited(false);if(fileRef.current)fileRef.current.value='';setNotice(data?.replayed?'Ивент уже был создан ранее. Повтор не создал копию.':'Ивент создан');await onPublished?.(data);
     }catch(e){setError(safeCaughtError(e,'Не удалось опубликовать ивент.'));}finally{setBusy(false);}
   }
   const selectBtn=(active)=>({display:'flex',alignItems:'center',gap:7,minHeight:42,maxWidth:'100%',border:active?'1px solid var(--purple)':'1px solid var(--border)',borderRadius:11,padding:'8px 11px',background:active?'var(--purple-soft)':'var(--surface-2)',color:active?'var(--purple)':'var(--text)',fontSize:12.5,fontWeight:750,textAlign:'left'});
