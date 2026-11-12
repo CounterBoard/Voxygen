@@ -1,4 +1,4 @@
-// Voxygen-Version: v48
+// Voxygen-Version: v49
 // ============================================================
 // VOXYGEN BACKEND
 // v43: GitHub Releases is the only map-file storage; D1 stores only its URL and content type
@@ -6,7 +6,6 @@
 // ============================================================
 
 import {
-  WORLD_MAP_GEOMETRY,
   isValidWorldCoordinate,
   worldCoordinateToPercent,
   normalizeMapZoomPercent,
@@ -20,7 +19,7 @@ const USER_PREFERENCE_TABLES_INIT_CACHE = new WeakMap();
 function withCors(response) {
   const headers = new Headers(response.headers);
   headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, X-Telegram-Init-Data, X-Map-Size, X-Map-Width, X-Map-Height, If-None-Match");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, X-Telegram-Init-Data, X-Map-Size, If-None-Match");
   headers.set("Access-Control-Allow-Methods", "GET, HEAD, POST, PATCH, DELETE, OPTIONS");
   headers.set("Access-Control-Expose-Headers", "X-Request-ID, Server-Timing, X-Map-Version");
   return new Response(response.body, {
@@ -888,11 +887,6 @@ async function saveMapSettings(request, env, requestId = null) {
       return json({ ok: false, error: 'Размер загружаемого файла не совпадает с указанным размером.' }, 400);
     }
     if (declaredSize > WORLD_MAP_MAX_BYTES) return json({ ok: false, error: 'Размер карты превышает 90 МБ.' }, 413);
-    const declaredWidth = Number(request.headers.get('X-Map-Width') || 0);
-    const declaredHeight = Number(request.headers.get('X-Map-Height') || 0);
-    if (declaredWidth !== WORLD_MAP_GEOMETRY.width || declaredHeight !== WORLD_MAP_GEOMETRY.height) {
-      return json({ ok: false, error: 'Перед загрузкой карты необходимо подтвердить размер 6016 × 6016 пикселей.' }, 400);
-    }
     if (!request.body) return json({ ok: false, error: 'Файл карты не передан.' }, 400);
 
     const token = String(env.GITHUB_TOKEN || '').trim();
