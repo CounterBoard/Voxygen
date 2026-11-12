@@ -50,9 +50,14 @@ test("new and legacy manifests do not bind coordinates to image width or height"
   assert.equal(coordinateGeometryMatchesManifest({ ...manifestGeometry, type: "unknown" }), false);
 });
 
-test("map zoom percent is bounded and stable at both ends", () => {
+test("map visibility percentage maps to the expected magnification", () => {
   assert.equal(mapZoomPercentToScale(100), 1);
+  assert.equal(mapZoomPercentToScale(50), 2);
+  assert.equal(mapZoomPercentToScale(25), 4);
+  assert.equal(mapZoomPercentToScale(10), 10);
   assert.equal(mapZoomPercentToScale(1), 24);
+  assert.equal(mapZoomPercentToScale(0), 24);
+  assert.equal(mapZoomPercentToScale(140), 1);
   assert.equal(normalizeMapZoomPercent(-10), 1);
   assert.equal(normalizeMapZoomPercent(140), 100);
   assert.equal(normalizeMapZoomPercent("invalid"), 100);
