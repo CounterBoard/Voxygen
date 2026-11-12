@@ -1,6 +1,6 @@
 // Voxygen-Version: v48
 import React, { useEffect, useState, useRef } from 'react';
-import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
+import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, coordinateGeometryMatchesManifest, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
 import {
   Map as MapIcon, List as ListIcon, Users, MessageCircle, ThumbsUp, ThumbsDown,
   Flag, X, ChevronLeft, ChevronRight, Camera, Check, Plus, Star, Heart,
@@ -331,6 +331,19 @@ function FontsAndTheme() {
           --radius-lg:20px;
         }
 
+        .atlas-root[data-theme="aurora"]{
+          --purple:#5FA8FF;
+          --purple-soft:rgba(95,168,255,.15);
+          --purple-strong:rgba(95,168,255,.32);
+          --purple-border:rgba(95,168,255,.30);
+          --mint:#65E6D2;
+          --mint-soft:rgba(101,230,210,.12);
+          --mint-strong:rgba(101,230,210,.30);
+          --gold:var(--mint);
+          --emerald:var(--mint);
+          --glow-purple:0 14px 34px rgba(95,168,255,.17);
+          --glow-mint:0 14px 34px rgba(101,230,210,.12);
+        }
         *{ box-sizing:border-box; }
         html,body,#root{ min-height:100%; }
         body{
@@ -3382,6 +3395,12 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
           const source = manifest?.source;
           if (!manifest?.mapVersion || !source || !['deepzoom', 'url-grid'].includes(source.type)) {
             throw new Error('Опубликованная карта имеет неподдерживаемый формат.');
+          }
+          if (Number(source.width) !== WORLD_MAP_GEOMETRY.width || Number(source.height) !== WORLD_MAP_GEOMETRY.height) {
+            throw new Error('Размер карты не совпадает с калибровкой координат Voxygen (6001 × 6001).');
+          }
+          if (source.coordinateSystem && !coordinateGeometryMatchesManifest(source.coordinateSystem)) {
+            throw new Error('Калибровка координат карты не совпадает с backend Voxygen.');
           }
           const previewPath = source.previewUrl || manifest.previewUrl;
           if (!previewPath) throw new Error('В манифесте карты отсутствует previewUrl.');
