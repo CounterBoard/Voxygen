@@ -3540,6 +3540,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
           cache: 'no-store',
           signal: controller.signal,
         });
+        if (!response.ok) throw new Error(`Settings fetch failed (HTTP ${response.status})`);
         const data = await response.json().catch(() => null);
         if (cancelled || requestVersion !== settingsRequestVersion) return;
         if (!response.ok || !data?.ok || !data?.settings) throw new Error(apiErrorMessage(response, data, 'Settings fetch failed'));
