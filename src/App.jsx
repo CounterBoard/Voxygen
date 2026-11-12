@@ -2813,7 +2813,12 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
   const [dateParts,setDateParts]=useState(()=>restoredDraft?.dateParts||defaultEventDateParts(eventInputTimezone));
   const [dateEdited,setDateEdited]=useState(()=>Boolean(restoredDraft?.dateEdited));
   const dateTimezoneRef=useRef(eventInputTimezone);
-  const [form,setForm]=useState(()=>restoredDraft?.form&&typeof restoredDraft.form==='object'?{title:'',coords:'',description:'',imageData:null,...restoredDraft.form}:{title:'',coords:'',description:'',imageData:null});
+  const [form,setForm]=useState(()=>{
+    const defaults={title:'',coords:'',description:'',imageData:null,requestKey:null,requestAttempted:false};
+    if(!restoredDraft?.form||typeof restoredDraft.form!=='object')return defaults;
+    const saved=restoredDraft.form;
+    return {...defaults,...saved,requestAttempted:typeof saved.requestAttempted==='boolean'?saved.requestAttempted:Boolean(saved.requestKey)};
+  });
   const [busy,setBusy]=useState(false),[imageBusy,setImageBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(restoredDraft?'Черновик ивента восстановлен после перезапуска.':'');
   const fileRef=useRef(null);
   useEffect(()=>{
@@ -2832,8 +2837,8 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
   },[draftStorageKey,form,placeId,dateParts,dateEdited]);
   const inputStyle={width:'100%',boxSizing:'border-box',minHeight:44,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:11,padding:'10px 12px',color:'var(--text)',fontSize:13,marginTop:6};
   function ensureRequestKey(){return form.requestKey||(window.crypto?.randomUUID?.()||`vox-event-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);}
-  function patch(key,value){setForm(v=>({...v,[key]:value,requestKey:v.requestKey||ensureRequestKey()}));}
-  function choosePlace(id){const city=selectable.find(item=>String(item.id)===String(id));setPlaceId(city?String(city.id):'');patch('coords',formatEventCoords(city?.coords||''));setError('');}
+  function patch(key,value){if(busy)return;setForm(v=>({...v,[key]:value,requestKey:v.requestAttempted?null:v.requestKey,requestAttempted:false}));}
+  function choosePlace(id){if(busy)return;const city=selectable.find(item=>String(item.id)===String(id));setPlaceId(city?String(city.id):'');patch('coords',formatEventCoords(city?.coords||''));setError('');}
   async function chooseImage(event){const input=event.currentTarget,file=input.files?.[0];if(!file){patch('imageData',null);return;}try{setImageBusy(true);setError('');setNotice('');patch('imageData',await readEventImage(file));}catch(e){input.value='';patch('imageData',null);setError(safeCaughtError(e,'Не удалось подготовить изображение.'));}finally{setImageBusy(false);}}
   async function publish(){
     const title=String(form.title||'').trim(),eventAt=eventDatePartsTimestamp(dateParts, eventInputTimezone);
@@ -2842,12 +2847,14 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
     try{
       setBusy(true);setError('');setNotice('');
       const requestKey=ensureRequestKey();
+      const attemptedForm={...form,requestKey,requestAttempted:true};
+      setForm(attemptedForm);
       const payload={initData,requestKey,title,territoryId:selectedPlace?String(selectedPlace.id):null,place:selectedPlace?String(selectedPlace.name||''):'Не указано',eventAt,eventTimezone:eventInputTimezone,coords:formatEventCoords(form.coords),description:String(form.description||'').trim(),imageData:form.imageData||null};
-      try{localStorage.setItem(draftStorageKey,JSON.stringify({form:{...form,requestKey},placeId,dateParts,dateEdited,savedAt:Date.now()}));}catch{}
+      try{localStorage.setItem(draftStorageKey,JSON.stringify({form:attemptedForm,placeId,dateParts,dateEdited,savedAt:Date.now()}));}catch{}
       const response=await fetch(`${API_BASE}/api/events`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify(payload)});
       const data=await response.json().catch(()=>null);if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось опубликовать ивент.'));
       try{localStorage.removeItem(draftStorageKey);}catch{}
-      setForm({title:'',coords:'',description:'',imageData:null,requestKey:null});setPlaceId('');setDateParts(defaultEventDateParts(eventInputTimezone));setDateEdited(false);if(fileRef.current)fileRef.current.value='';setNotice(data?.replayed?'Ивент уже был создан ранее. Повтор не создал копию.':'Ивент создан');
+      setForm({title:'',coords:'',description:'',imageData:null,requestKey:null,requestAttempted:false});setPlaceId('');setDateParts(defaultEventDateParts(eventInputTimezone));setDateEdited(false);if(fileRef.current)fileRef.current.value='';setNotice(data?.replayed?'Ивент уже был создан ранее. Повтор не создал копию.':'Ивент создан');
     }catch(e){setError(safeCaughtError(e,'Не удалось опубликовать ивент.'));}finally{setBusy(false);}
   }
   const selectBtn=(active)=>({display:'flex',alignItems:'center',gap:7,minHeight:42,maxWidth:'100%',border:active?'1px solid var(--purple)':'1px solid var(--border)',borderRadius:11,padding:'8px 11px',background:active?'var(--purple-soft)':'var(--surface-2)',color:active?'var(--purple)':'var(--text)',fontSize:12.5,fontWeight:750,textAlign:'left'});
@@ -2861,7 +2868,7 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
       {selectable.map(city=>{const active=String(placeId)===String(city.id);return <button type="button" key={city.id} aria-pressed={active} onClick={()=>choosePlace(city.id)} className="press" style={selectBtn(active)}>{active?<Check size={14}/>:<MapPin size={14} color="var(--text-muted)"/>}<MinecraftText text={city.name} style={{minWidth:0}}/></button>;})}
     </div>
     <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15}}>Дата и время начала</label>
-    <EventDateTimeFields parts={dateParts} onChange={parts=>{setDateParts(parts);setDateEdited(true);setForm(v=>({...v,requestKey:v.requestKey||ensureRequestKey()}));}}/>
+    <EventDateTimeFields parts={dateParts} onChange={parts=>{if(busy)return;setDateParts(parts);setDateEdited(true);setForm(v=>({...v,requestKey:v.requestAttempted?null:v.requestKey,requestAttempted:false}));}}/>
     <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15}}>Координаты</label>
     <input value={formatEventCoords(form.coords)} onChange={e=>patch('coords',sanitizeEventCoords(e.target.value))} type="text" autoCapitalize="off" autoCorrect="off" placeholder="X / Z" style={inputStyle}/>
     <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15}}>Описание</label>
