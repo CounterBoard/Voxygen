@@ -5,6 +5,14 @@
 // Cloudflare Worker + D1 + Telegram Mini App
 // ============================================================
 
+import {
+  WORLD_MAP_GEOMETRY,
+  isValidWorldCoordinate,
+  worldCoordinateToPercent,
+  normalizeMapZoomPercent,
+} from '../../shared/world-map-coordinates.js';
+
+const SUPPORTED_THEMES = new Set(['vox', 'aurora']);
 const TELEGRAM_API = "https://api.telegram.org";
 const EVENT_TABLES_INIT_CACHE = new WeakMap();
 const USER_PREFERENCE_TABLES_INIT_CACHE = new WeakMap();
@@ -273,6 +281,7 @@ async function ensureUserPreferenceTables(env) {
         timezone TEXT NOT NULL DEFAULT 'UTC+3',
         all_notifications INTEGER NOT NULL DEFAULT 1,
         event_notifications INTEGER NOT NULL DEFAULT 0,
+        map_zoom_percent INTEGER NOT NULL DEFAULT 100,
         updated_at INTEGER NOT NULL DEFAULT 0
       )`).run();
       const preferenceColumns = await env.DB.prepare(`PRAGMA table_info(user_preferences)`).all();
@@ -289,6 +298,10 @@ async function ensureUserPreferenceTables(env) {
       }
       if (!preferenceColumnNames.has('default_theme')) {
         try { await env.DB.prepare(`ALTER TABLE user_preferences ADD COLUMN default_theme TEXT NOT NULL DEFAULT 'vox'`).run(); }
+        catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
+      }
+      if (!preferenceColumnNames.has('map_zoom_percent')) {
+        try { await env.DB.prepare(`ALTER TABLE user_preferences ADD COLUMN map_zoom_percent INTEGER NOT NULL DEFAULT 100`).run(); }
         catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
       }
       await env.DB.prepare(`CREATE TABLE IF NOT EXISTS territory_notification_preferences (
@@ -406,14 +419,116 @@ async function notifyMainInspectorOfPurchase(env, details) {
   }
 }
 
+const GLOBAL_SETTINGS_INIT_CACHE = new WeakMap();
+async function ensureGlobalSettingsTable(env) {
+  let promise = GLOBAL_SETTINGS_INIT_CACHE.get(env);
+  if (!promise) {
+    promise = env.DB.prepare(`CREATE TABLE IF NOT EXISTS global_setting_overrides (
+      setting_key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      expires_at INTEGER,
+      updated_at INTEGER NOT NULL,
+      updated_by INTEGER NOT NULL
+    )`).run().catch(error => {
+      GLOBAL_SETTINGS_INIT_CACHE.delete(env);
+      throw error;
+    });
+    GLOBAL_SETTINGS_INIT_CACHE.set(env, promise);
+  }
+  return promise;
+}
+
+function normalizeTheme(value) {
+  const theme = String(value || 'vox').trim().toLowerCase();
+  return SUPPORTED_THEMES.has(theme) ? theme : 'vox';
+}
+
+async function readGlobalSettingOverrides(env, at = Date.now()) {
+  await ensureGlobalSettingsTable(env);
+  const rows = await env.DB.prepare(`SELECT setting_key,value,expires_at,updated_at,updated_by
+    FROM global_setting_overrides`).all();
+  const result = { theme: null, mapZoomPercent: null };
+  for (const row of rows.results || []) {
+    const expiresAt = row.expires_at == null ? null : Number(row.expires_at);
+    if (expiresAt !== null && (!Number.isFinite(expiresAt) || expiresAt <= at)) continue;
+    if (row.setting_key === 'theme') {
+      const value = normalizeTheme(row.value);
+      result.theme = { value, expiresAt, updatedAt: Number(row.updated_at || 0) };
+    } else if (row.setting_key === 'map_zoom') {
+      result.mapZoomPercent = { value: normalizeMapZoomPercent(row.value), expiresAt, updatedAt: Number(row.updated_at || 0) };
+    }
+  }
+  return result;
+}
+
+async function getAdminGlobalSettings(request, env) {
+  const auth = await requireMainInspector(request, env);
+  if (auth.error) return auth.error;
+  await ensureGlobalSettingsTable(env);
+  const rows = await env.DB.prepare(`SELECT setting_key,value,expires_at,updated_at,updated_by
+    FROM global_setting_overrides ORDER BY setting_key`).all();
+  const now = Date.now();
+  return json({
+    ok: true,
+    settings: (rows.results || []).map(row => ({
+      key: row.setting_key,
+      value: row.setting_key === 'map_zoom' ? normalizeMapZoomPercent(row.value) : normalizeTheme(row.value),
+      expiresAt: row.expires_at == null ? null : Number(row.expires_at),
+      active: row.expires_at == null || Number(row.expires_at) > now,
+      updatedAt: Number(row.updated_at || 0),
+      updatedBy: Number(row.updated_by || 0),
+    })),
+  });
+}
+
+async function saveAdminGlobalSetting(request, env) {
+  const auth = await requireMainInspector(request, env);
+  if (auth.error) return auth.error;
+  let body;
+  try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
+  const key = String(body?.key || '').trim();
+  if (!['theme', 'map_zoom'].includes(key)) return json({ ok: false, error: 'Неизвестная глобальная настройка' }, 400);
+  if (body?.clear === true) {
+    await ensureGlobalSettingsTable(env);
+    await env.DB.prepare('DELETE FROM global_setting_overrides WHERE setting_key=?').bind(key).run();
+    return getAdminGlobalSettings(new Request(request.url, { headers: { 'X-Telegram-Init-Data': String(request.headers.get('X-Telegram-Init-Data') || body?.initData || '') } }), env);
+  }
+  let value;
+  if (key === 'theme') {
+    const theme = String(body?.value || '').trim().toLowerCase();
+    if (!SUPPORTED_THEMES.has(theme)) return json({ ok: false, error: 'Выбрана неподдерживаемая тема' }, 400);
+    value = theme;
+  } else {
+    const raw = Number(body?.value);
+    if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 1 || raw > 100) return json({ ok: false, error: 'Масштаб должен быть от 1 до 100%' }, 400);
+    value = String(normalizeMapZoomPercent(raw));
+  }
+  const durationMinutes = body?.durationMinutes == null ? null : Number(body.durationMinutes);
+  if (durationMinutes !== null && (!Number.isSafeInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 5256000)) {
+    return json({ ok: false, error: 'Срок действия должен быть от 1 минуты до 10 лет или «Навсегда»' }, 400);
+  }
+  const now = Date.now();
+  const expiresAt = durationMinutes === null ? null : now + durationMinutes * 60000;
+  await ensureGlobalSettingsTable(env);
+  await env.DB.prepare(`INSERT INTO global_setting_overrides(setting_key,value,expires_at,updated_at,updated_by)
+    VALUES(?,?,?,?,?) ON CONFLICT(setting_key) DO UPDATE SET value=excluded.value,
+    expires_at=excluded.expires_at,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
+    .bind(key, String(value), expiresAt, now, Number(auth.user.id)).run();
+  return getAdminGlobalSettings(new Request(request.url, { headers: { 'X-Telegram-Init-Data': String(request.headers.get('X-Telegram-Init-Data') || body?.initData || '') } }), env);
+}
+
 async function getUserSettings(request, env) {
   const auth = await requireUser(request, env);
   if (auth.error) return auth.error;
   const uid = Number(auth.user.id);
   await ensureWorldTables(env);
   await ensureUserPreferenceTables(env);
-  await env.DB.prepare(`INSERT OR IGNORE INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,updated_at) VALUES(?,'vox','UTC+3',1,0,?)`).bind(uid, Date.now()).run();
-  const settings = await env.DB.prepare(`SELECT default_theme,timezone,all_notifications,event_notifications FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first();
+  await ensureGlobalSettingsTable(env);
+  await env.DB.prepare(`INSERT OR IGNORE INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,map_zoom_percent,updated_at) VALUES(?,'vox','UTC+3',1,0,100,?)`).bind(uid, Date.now()).run();
+  const [settings, globalOverrides] = await Promise.all([
+    env.DB.prepare(`SELECT default_theme,timezone,all_notifications,event_notifications,map_zoom_percent FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first(),
+    readGlobalSettingOverrides(env),
+  ]);
   const territories = await env.DB.prepare(`SELECT t.id,t.name,
       CASE WHEN t.owner_telegram_id=? OR EXISTS(SELECT 1 FROM territory_managers tm WHERE tm.territory_id=t.id AND tm.telegram_id=?) THEN 1 ELSE 0 END AS is_manager,
       EXISTS(SELECT 1 FROM city_memberships cm WHERE cm.territory_id=t.id AND cm.telegram_id=?) AS is_member,
@@ -421,8 +536,14 @@ async function getUserSettings(request, env) {
     FROM territories t LEFT JOIN territory_notification_preferences p ON p.territory_id=t.id AND p.telegram_id=?
     WHERE t.status='approved' AND (t.owner_telegram_id=? OR EXISTS(SELECT 1 FROM territory_managers tm WHERE tm.territory_id=t.id AND tm.telegram_id=?) OR EXISTS(SELECT 1 FROM city_memberships cm WHERE cm.territory_id=t.id AND cm.telegram_id=?))
     ORDER BY t.name COLLATE NOCASE ASC`).bind(uid,uid,uid,uid,uid,uid,uid).all();
+  const personalTheme = normalizeTheme(settings?.default_theme || 'vox');
+  const personalMapZoomPercent = normalizeMapZoomPercent(settings?.map_zoom_percent ?? 100);
   return json({ ok: true, settings: {
-    defaultTheme: 'vox',
+    defaultTheme: personalTheme,
+    theme: globalOverrides.theme?.value || personalTheme,
+    personalMapZoomPercent,
+    mapZoomPercent: globalOverrides.mapZoomPercent?.value ?? personalMapZoomPercent,
+    globalOverrides,
     timezone: normalizeUserTimezone(settings?.timezone || 'UTC+3'),
     // Kept in the response for older clients; the global notification switch is retired.
     allNotifications: true,
@@ -441,16 +562,17 @@ async function saveUserSettings(request, env) {
   if (auth.error) return auth.error;
   let body; try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
   const uid = Number(auth.user.id), now = Date.now();
-  const defaultTheme = 'vox';
+  const defaultTheme = normalizeTheme(body?.defaultTheme ?? 'vox');
   const timezone = normalizeUserTimezone(body?.timezone ?? 'UTC+3');
+  const mapZoomPercent = normalizeMapZoomPercent(body?.mapZoomPercent ?? 100);
   // The former global switch is retired; preserve the column for DB compatibility.
   const allNotifications = 1;
   let eventNotifications = body?.eventNotifications === true ? 1 : 0;
   await ensureWorldTables(env);
   await ensureUserPreferenceTables(env);
-  await env.DB.prepare(`INSERT INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,updated_at)
-    VALUES(?,?,?,?,?,?) ON CONFLICT(telegram_id) DO UPDATE SET default_theme=excluded.default_theme,timezone=excluded.timezone,all_notifications=excluded.all_notifications,event_notifications=excluded.event_notifications,updated_at=excluded.updated_at`)
-    .bind(uid, defaultTheme, timezone, allNotifications, eventNotifications, now).run();
+  await env.DB.prepare(`INSERT INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,map_zoom_percent,updated_at)
+    VALUES(?,?,?,?,?,?,?) ON CONFLICT(telegram_id) DO UPDATE SET default_theme=excluded.default_theme,timezone=excluded.timezone,all_notifications=excluded.all_notifications,event_notifications=excluded.event_notifications,map_zoom_percent=excluded.map_zoom_percent,updated_at=excluded.updated_at`)
+    .bind(uid, defaultTheme, timezone, allNotifications, eventNotifications, mapZoomPercent, now).run();
   const allowedRows = await env.DB.prepare(`SELECT t.id FROM territories t WHERE t.status='approved' AND (t.owner_telegram_id=? OR EXISTS(SELECT 1 FROM territory_managers tm WHERE tm.territory_id=t.id AND tm.telegram_id=?) OR EXISTS(SELECT 1 FROM city_memberships cm WHERE cm.territory_id=t.id AND cm.telegram_id=?))`).bind(uid,uid,uid).all();
   const allowed = new Set((allowedRows.results || []).map(row => String(row.id)));
   for (const item of (Array.isArray(body?.territories) ? body.territories : [])) {
