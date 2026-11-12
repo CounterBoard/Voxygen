@@ -4675,11 +4675,18 @@ async function initializeEventsTables(env) {
     telegram_id INTEGER NOT NULL,
     request_key TEXT NOT NULL,
     event_id TEXT NOT NULL,
+    payload_hash TEXT,
     status TEXT NOT NULL DEFAULT 'processing',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     PRIMARY KEY(telegram_id,request_key)
   )`).run();
+  const requestCols = await env.DB.prepare(`PRAGMA table_info(event_create_requests)`).all();
+  const requestColumnNames = new Set((requestCols.results || []).map(row => row.name));
+  if (!requestColumnNames.has('payload_hash')) {
+    try { await env.DB.prepare(`ALTER TABLE event_create_requests ADD COLUMN payload_hash TEXT`).run(); }
+    catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
+  }
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_event_create_requests_created ON event_create_requests(created_at)`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS bank_transactions (
     id TEXT PRIMARY KEY,
@@ -4848,12 +4855,28 @@ async function createEvent(request, env) {
   await ensureEventsTables(env);
   const requestKey = String(body?.requestKey || '').trim() || crypto.randomUUID();
   if (requestKey.length < 8 || requestKey.length > 120) return json({ ok: false, error: 'Некорректный ключ отправки ивента' }, 400);
+  const payloadForHash = JSON.stringify([
+    e.title, e.territoryId, e.place, e.eventAt, e.coords, e.description,
+    e.imageData, e.pageUrl, e.eventTimezone,
+  ]);
+  const payloadDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payloadForHash));
+  const payloadHash = [...new Uint8Array(payloadDigest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
   const candidateId = crypto.randomUUID();
-  await env.DB.prepare(`INSERT OR IGNORE INTO event_create_requests(telegram_id,request_key,event_id,status,created_at,updated_at)
-    VALUES(?,?,?,'processing',?,?)`).bind(creatorId,requestKey,candidateId,now,now).run();
-  const reservation = await env.DB.prepare(`SELECT event_id FROM event_create_requests WHERE telegram_id=? AND request_key=? LIMIT 1`).bind(creatorId,requestKey).first();
-  const id = String(reservation?.event_id || '');
-  if (!id) return json({ ok: false, error: 'Не удалось зарезервировать публикацию ивента' }, 500);
+  await env.DB.prepare(`INSERT OR IGNORE INTO event_create_requests(telegram_id,request_key,event_id,payload_hash,status,created_at,updated_at)
+    VALUES(?,?,?,?, 'processing',?,?)`).bind(creatorId,requestKey,candidateId,payloadHash,now,now).run();
+  let reservation = await env.DB.prepare(`SELECT event_id,payload_hash FROM event_create_requests WHERE telegram_id=? AND request_key=? LIMIT 1`).bind(creatorId,requestKey).first();
+  if (!reservation?.event_id) return json({ ok: false, error: 'Не удалось зарезервировать публикацию ивента' }, 500);
+  // Backfill keys created by older versions without a payload fingerprint. The
+  // conditional update makes competing retries agree on the first accepted body.
+  if (!reservation.payload_hash) {
+    await env.DB.prepare(`UPDATE event_create_requests SET payload_hash=?,updated_at=?
+      WHERE telegram_id=? AND request_key=? AND payload_hash IS NULL`).bind(payloadHash,now,creatorId,requestKey).run();
+    reservation = await env.DB.prepare(`SELECT event_id,payload_hash FROM event_create_requests WHERE telegram_id=? AND request_key=? LIMIT 1`).bind(creatorId,requestKey).first();
+  }
+  if (String(reservation?.payload_hash || '') !== payloadHash) {
+    return json({ ok: false, error: 'Этот ключ отправки уже связан с другим содержимым ивента. Измените черновик и отправьте его заново.' }, 409);
+  }
+  const id = String(reservation.event_id);
   const existing = await env.DB.prepare(`SELECT id FROM events WHERE id=? LIMIT 1`).bind(id).first();
   if (existing) {
     await env.DB.prepare(`UPDATE event_create_requests SET status='completed',updated_at=? WHERE telegram_id=? AND request_key=?`).bind(now,creatorId,requestKey).run();
