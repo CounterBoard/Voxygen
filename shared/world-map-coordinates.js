@@ -51,11 +51,13 @@ export const MAP_ZOOM_MAX_SCALE = 24;
 
 export function mapZoomPercentToScale(percent) {
   const numeric = Number(percent);
-  const normalized = Number.isFinite(numeric)
+  const visibleWorldPercent = Number.isFinite(numeric)
     ? Math.min(MAP_ZOOM_MAX_PERCENT, Math.max(MAP_ZOOM_MIN_PERCENT, numeric))
     : MAP_ZOOM_MAX_PERCENT;
-  return 1 + ((MAP_ZOOM_MAX_PERCENT - normalized) / (MAP_ZOOM_MAX_PERCENT - MAP_ZOOM_MIN_PERCENT))
-    * (MAP_ZOOM_MAX_SCALE - 1);
+  // The setting means how much of the world remains visible:
+  // 100% is the full map (1x), 50% is 2x, 25% is 4x.
+  // The upper zoom cap protects usability at the smallest percentages.
+  return Math.min(MAP_ZOOM_MAX_SCALE, 100 / visibleWorldPercent);
 }
 
 export function normalizeMapZoomPercent(value) {
