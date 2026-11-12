@@ -4780,7 +4780,7 @@ function validateEventBody(body, { partial = false } = {}) {
   if (!partial || body.eventTimezone !== undefined) out.eventTimezone = String(body?.eventTimezone || 'UTC').trim() || 'UTC';
   if (out.title !== undefined && (!out.title || out.title.length > 160)) return { error: 'Название события должно содержать 1–160 символов' };
   if (out.place !== undefined && out.place.length > 200) return { error: 'Место проведения не должно превышать 200 символов' };
-  if (out.eventAt !== undefined && (!Number.isSafeInteger(out.eventAt) || (!partial && out.eventAt <= Date.now()))) return { error: 'Укажите дату и время в будущем' };
+  if (out.eventAt !== undefined && (!Number.isSafeInteger(out.eventAt) || ((!partial || body?.eventAt !== undefined) && out.eventAt <= Date.now()))) return { error: 'Укажите дату и время в будущем' };
   if (out.coords !== undefined && out.coords.length > 180) return { error: 'Координаты слишком длинные' };
   if (out.description !== undefined && out.description.length > 542) return { error: 'Описание ивента не должно превышать 542 символа' };
   if (out.imageData && (!/^data:image\/(?:png|jpeg|webp);base64,/i.test(out.imageData) || out.imageData.length > 1_500_000)) return { error: 'Изображение должно быть PNG, JPG или WebP размером до 1,1 МБ' };
@@ -4908,14 +4908,18 @@ async function updateEvent(request, env) {
     eventTimezone: e.eventTimezone ?? current.event_timezone ?? 'UTC',
   };
   const now = Date.now();
-  await env.DB.prepare(`UPDATE events SET title=?,territory_id=?,place=?,event_at=?,coords=?,description=?,image_data=?,page_url=?,event_timezone=?,updated_at=? WHERE id=?`)
-    .bind(value.title,value.territoryId,value.place,value.eventAt,value.coords,value.description,value.imageData,value.pageUrl,value.eventTimezone,now,id).run();
+  const eventUpdate = env.DB.prepare(`UPDATE events SET title=?,territory_id=?,place=?,event_at=?,coords=?,description=?,image_data=?,page_url=?,event_timezone=?,updated_at=? WHERE id=?`)
+    .bind(value.title,value.territoryId,value.place,value.eventAt,value.coords,value.description,value.imageData,value.pageUrl,value.eventTimezone,now,id);
   if (e.eventAt !== undefined && Number(e.eventAt)!==Number(current.event_at)) {
-    // Keep reminders consistent with a changed event date. Reminders that would now be in the past are expired instead of sent late.
-    await env.DB.prepare(`UPDATE event_reminders SET remind_at=? - CASE WHEN lead_unit='hours' THEN lead_value*3600000 ELSE lead_value*60000 END,
+    // Update the event and its reminder schedule atomically. Cron cannot observe a mixed state
+    // with the new date but the previous remind_at (or vice versa).
+    const reminderUpdate = env.DB.prepare(`UPDATE event_reminders SET remind_at=? - CASE WHEN lead_unit='hours' THEN lead_value*3600000 ELSE lead_value*60000 END,
       status=CASE WHEN (? - CASE WHEN lead_unit='hours' THEN lead_value*3600000 ELSE lead_value*60000 END)<=? THEN 'expired' ELSE 'pending' END,
       attempts=0,next_attempt_at=0,claim_token=NULL,sent_at=NULL,updated_at=? WHERE event_id=? AND status IN ('pending','sending','sent','failed','expired')`)
-      .bind(value.eventAt,value.eventAt,now,now,id).run();
+      .bind(value.eventAt,value.eventAt,now,now,id);
+    await env.DB.batch([eventUpdate,reminderUpdate]);
+  } else {
+    await eventUpdate.run();
   }
   return json({ ok: true, id, status: 'updated' });
 }
