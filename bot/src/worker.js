@@ -425,12 +425,6 @@ function normalizeVoxygenTheme(value) {
   return VOXYGEN_THEMES.has(theme) ? theme : 'vox';
 }
 
-function normalizeGlobalSettingValue(key, value) {
-  if (key === 'map_zoom') return String(normalizeMapZoomPercent(value));
-  if (key === 'theme') return normalizeVoxygenTheme(value);
-  throw new Error('Неизвестная глобальная настройка');
-}
-
 async function ensureGlobalSettingsTable(env) {
   let promise = GLOBAL_SETTINGS_INIT_CACHE.get(env);
   if (!promise) {
