@@ -4729,6 +4729,7 @@ async function purgeExpiredEvents(env, at = Date.now()) {
   // Remove user reminders first because legacy D1 tables do not declare ON DELETE CASCADE.
   await env.DB.prepare(`DELETE FROM event_reminders WHERE event_id IN (SELECT id FROM events WHERE event_at<=?)`).bind(cutoff).run();
   const result = await env.DB.prepare(`DELETE FROM events WHERE event_at<=?`).bind(cutoff).run();
+  await env.DB.prepare(`DELETE FROM event_create_requests WHERE created_at<?`).bind(Number(at || Date.now()) - 30 * 24 * 60 * 60 * 1000).run();
   return Number(result?.meta?.changes || 0);
 }
 
@@ -4839,12 +4840,30 @@ async function createEvent(request, env) {
   // The venue is always derived from a verified, allowed territory; otherwise it is explicitly unset.
   e.place = selectedCity ? String(selectedCity.name || '') : 'Не указано';
   if (!e.place) e.place = 'Не указано';
-  const id = crypto.randomUUID(), now = Date.now();
+  const now = Date.now();
   await ensureEventsTables(env);
-  await env.DB.prepare(`INSERT INTO events(id,title,territory_id,place,event_at,coords,description,image_data,page_url,event_timezone,created_by,created_at,updated_at,active)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1)`).bind(id,e.title,e.territoryId,e.place,e.eventAt,e.coords,e.description,e.imageData,e.pageUrl, e.eventTimezone,creatorId,now,now).run();
-  try { await notifyUsersOfNewEvent(env, e); } catch (error) { console.error('New event notification pass failed:', error); }
-  return json({ ok: true, id, status: 'created' });
+  const requestKey = String(body?.requestKey || '').trim() || crypto.randomUUID();
+  if (requestKey.length < 8 || requestKey.length > 120) return json({ ok: false, error: 'Некорректный ключ отправки ивента' }, 400);
+  const candidateId = crypto.randomUUID();
+  await env.DB.prepare(`INSERT OR IGNORE INTO event_create_requests(telegram_id,request_key,event_id,status,created_at,updated_at)
+    VALUES(?,?,?,'processing',?,?)`).bind(creatorId,requestKey,candidateId,now,now).run();
+  const reservation = await env.DB.prepare(`SELECT event_id FROM event_create_requests WHERE telegram_id=? AND request_key=? LIMIT 1`).bind(creatorId,requestKey).first();
+  const id = String(reservation?.event_id || '');
+  if (!id) return json({ ok: false, error: 'Не удалось зарезервировать публикацию ивента' }, 500);
+  const existing = await env.DB.prepare(`SELECT id FROM events WHERE id=? LIMIT 1`).bind(id).first();
+  if (existing) {
+    await env.DB.prepare(`UPDATE event_create_requests SET status='completed',updated_at=? WHERE telegram_id=? AND request_key=?`).bind(now,creatorId,requestKey).run();
+    return json({ ok: true, id, status: 'created', replayed: true });
+  }
+  const inserted = await env.DB.prepare(`INSERT OR IGNORE INTO events(id,title,territory_id,place,event_at,coords,description,image_data,page_url,event_timezone,created_by,created_at,updated_at,active)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1)`).bind(id,e.title,e.territoryId,e.place,e.eventAt,e.coords,e.description,e.imageData,e.pageUrl,e.eventTimezone,creatorId,now,now).run();
+  const created = await env.DB.prepare(`SELECT id FROM events WHERE id=? LIMIT 1`).bind(id).first();
+  if (!created) return json({ ok: false, error: 'Не удалось сохранить ивент. Повторите отправку.' }, 500);
+  await env.DB.prepare(`UPDATE event_create_requests SET status='completed',updated_at=? WHERE telegram_id=? AND request_key=?`).bind(now,creatorId,requestKey).run();
+  if (Number(inserted.meta?.changes || 0) > 0) {
+    try { await notifyUsersOfNewEvent(env, e); } catch (error) { console.error('New event notification pass failed:', error); }
+  }
+  return json({ ok: true, id, status: 'created', replayed: Number(inserted.meta?.changes || 0) === 0 });
 }
 
 async function updateEvent(request, env) {
