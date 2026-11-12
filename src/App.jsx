@@ -1521,7 +1521,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
           }
         }
       }catch(error){
-        if(/неверный размер|несовместимую калибровку|отсутствует previewUrl/.test(String(error?.message||'')))throw error;
+        if(/неверный размер|обязательную калибровку|калибровку координат|previewUrl|превью опубликованной карты/.test(String(error?.message||'')))throw error;
       }
       await new Promise(resolve=>window.setTimeout(resolve,5000));
     }
