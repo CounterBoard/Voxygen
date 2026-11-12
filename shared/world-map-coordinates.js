@@ -47,16 +47,17 @@ export function coordinateGeometryMatchesManifest(value) {
 
 export const MAP_ZOOM_MIN_PERCENT = 1;
 export const MAP_ZOOM_MAX_PERCENT = 100;
-export const MAP_ZOOM_MAX_SCALE = 100;
+export const MAP_ZOOM_MAX_SCALE = 24;
 
-// The preference means the percentage of the whole map visible across the
-// viewport: 100% shows the complete map; 50% shows half its width; 1% shows 1%.
+// Preserve Voxygen's established zoom range: 100% is full-map overview,
+// while 1% is the maximum supported close-up.
 export function mapZoomPercentToScale(percent) {
   const numeric = Number(percent);
   const normalized = Number.isFinite(numeric)
     ? Math.min(MAP_ZOOM_MAX_PERCENT, Math.max(MAP_ZOOM_MIN_PERCENT, numeric))
     : MAP_ZOOM_MAX_PERCENT;
-  return MAP_ZOOM_MAX_PERCENT / normalized;
+  return 1 + ((MAP_ZOOM_MAX_PERCENT - normalized) / (MAP_ZOOM_MAX_PERCENT - MAP_ZOOM_MIN_PERCENT))
+    * (MAP_ZOOM_MAX_SCALE - 1);
 }
 
 export function normalizeMapZoomPercent(value) {
