@@ -31,8 +31,8 @@ export function worldCoordinateToPercent(x, z, geometry = WORLD_MAP_GEOMETRY) {
 }
 
 export function coordinateGeometryMatchesManifest(value) {
-  // Older map manifests did not describe coordinate geometry. They remain
-  // compatible because Voxygen owns one fixed world-coordinate system.
+  // Old map manifests without coordinate metadata remain compatible: Voxygen
+  // uses one fixed block-space coordinate system independent of image pixels.
   if (value == null) return true;
   if (typeof value !== "object") return false;
   const supportedTypes = new Set([
@@ -49,6 +49,8 @@ export const MAP_ZOOM_MIN_PERCENT = 1;
 export const MAP_ZOOM_MAX_PERCENT = 100;
 export const MAP_ZOOM_MAX_SCALE = 24;
 
+// Preserve Voxygen's established zoom range: 100% is full-map overview,
+// while 1% is the maximum supported close-up.
 export function mapZoomPercentToScale(percent) {
   const numeric = Number(percent);
   const normalized = Number.isFinite(numeric)

@@ -1,4 +1,4 @@
-// Voxygen-Version: v49
+// Voxygen-Version: v50
 // ============================================================
 // VOXYGEN BACKEND
 // v43: GitHub Releases is the only map-file storage; D1 stores only its URL and content type
@@ -11,7 +11,6 @@ import {
   normalizeMapZoomPercent,
 } from '../../shared/world-map-coordinates.js';
 
-const SUPPORTED_THEMES = new Set(['vox', 'aurora']);
 const TELEGRAM_API = "https://api.telegram.org";
 const EVENT_TABLES_INIT_CACHE = new WeakMap();
 const USER_PREFERENCE_TABLES_INIT_CACHE = new WeakMap();
@@ -436,25 +435,16 @@ async function ensureGlobalSettingsTable(env) {
   return promise;
 }
 
-function normalizeTheme(value) {
-  const theme = String(value || 'vox').trim().toLowerCase();
-  return SUPPORTED_THEMES.has(theme) ? theme : 'vox';
-}
-
 async function readGlobalSettingOverrides(env, at = Date.now()) {
   await ensureGlobalSettingsTable(env);
   const rows = await env.DB.prepare(`SELECT setting_key,value,expires_at,updated_at,updated_by
     FROM global_setting_overrides`).all();
   const result = { theme: null, mapZoomPercent: null };
   for (const row of rows.results || []) {
+    if (row.setting_key !== 'map_zoom') continue;
     const expiresAt = row.expires_at == null ? null : Number(row.expires_at);
     if (expiresAt !== null && (!Number.isFinite(expiresAt) || expiresAt <= at)) continue;
-    if (row.setting_key === 'theme') {
-      const value = normalizeTheme(row.value);
-      result.theme = { value, expiresAt, updatedAt: Number(row.updated_at || 0) };
-    } else if (row.setting_key === 'map_zoom') {
-      result.mapZoomPercent = { value: normalizeMapZoomPercent(row.value), expiresAt, updatedAt: Number(row.updated_at || 0) };
-    }
+    result.mapZoomPercent = { value: normalizeMapZoomPercent(row.value), expiresAt, updatedAt: Number(row.updated_at || 0) };
   }
   return result;
 }
@@ -464,13 +454,13 @@ async function getAdminGlobalSettings(request, env) {
   if (auth.error) return auth.error;
   await ensureGlobalSettingsTable(env);
   const rows = await env.DB.prepare(`SELECT setting_key,value,expires_at,updated_at,updated_by
-    FROM global_setting_overrides ORDER BY setting_key`).all();
+    FROM global_setting_overrides WHERE setting_key='map_zoom'`).all();
   const now = Date.now();
   return json({
     ok: true,
     settings: (rows.results || []).map(row => ({
       key: row.setting_key,
-      value: row.setting_key === 'map_zoom' ? normalizeMapZoomPercent(row.value) : normalizeTheme(row.value),
+      value: normalizeMapZoomPercent(row.value),
       expiresAt: row.expires_at == null ? null : Number(row.expires_at),
       active: row.expires_at == null || Number(row.expires_at) > now,
       updatedAt: Number(row.updated_at || 0),
@@ -485,22 +475,15 @@ async function saveAdminGlobalSetting(request, env) {
   let body;
   try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
   const key = String(body?.key || '').trim();
-  if (!['theme', 'map_zoom'].includes(key)) return json({ ok: false, error: 'Неизвестная глобальная настройка' }, 400);
+  if (key !== 'map_zoom') return json({ ok: false, error: 'Неизвестная глобальная настройка' }, 400);
   if (body?.clear === true) {
     await ensureGlobalSettingsTable(env);
     await env.DB.prepare('DELETE FROM global_setting_overrides WHERE setting_key=?').bind(key).run();
     return getAdminGlobalSettings(new Request(request.url, { headers: { 'X-Telegram-Init-Data': String(request.headers.get('X-Telegram-Init-Data') || body?.initData || '') } }), env);
   }
-  let value;
-  if (key === 'theme') {
-    const theme = String(body?.value || '').trim().toLowerCase();
-    if (!SUPPORTED_THEMES.has(theme)) return json({ ok: false, error: 'Выбрана неподдерживаемая тема' }, 400);
-    value = theme;
-  } else {
-    const raw = Number(body?.value);
-    if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 1 || raw > 100) return json({ ok: false, error: 'Масштаб должен быть от 1 до 100%' }, 400);
-    value = String(normalizeMapZoomPercent(raw));
-  }
+  const raw = Number(body?.value);
+  if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 1 || raw > 100) return json({ ok: false, error: 'Масштаб должен быть от 1 до 100%' }, 400);
+  const value = String(normalizeMapZoomPercent(raw));
   const durationMinutes = body?.durationMinutes == null ? null : Number(body.durationMinutes);
   if (durationMinutes !== null && (!Number.isSafeInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 5256000)) {
     return json({ ok: false, error: 'Срок действия должен быть от 1 минуты до 10 лет или «Навсегда»' }, 400);
@@ -534,11 +517,10 @@ async function getUserSettings(request, env) {
     FROM territories t LEFT JOIN territory_notification_preferences p ON p.territory_id=t.id AND p.telegram_id=?
     WHERE t.status='approved' AND (t.owner_telegram_id=? OR EXISTS(SELECT 1 FROM territory_managers tm WHERE tm.territory_id=t.id AND tm.telegram_id=?) OR EXISTS(SELECT 1 FROM city_memberships cm WHERE cm.territory_id=t.id AND cm.telegram_id=?))
     ORDER BY t.name COLLATE NOCASE ASC`).bind(uid,uid,uid,uid,uid,uid,uid).all();
-  const personalTheme = normalizeTheme(settings?.default_theme || 'vox');
   const personalMapZoomPercent = normalizeMapZoomPercent(settings?.map_zoom_percent ?? 100);
   return json({ ok: true, settings: {
-    defaultTheme: personalTheme,
-    theme: globalOverrides.theme?.value || personalTheme,
+    defaultTheme: 'vox',
+    theme: 'vox',
     personalMapZoomPercent,
     mapZoomPercent: globalOverrides.mapZoomPercent?.value ?? personalMapZoomPercent,
     globalOverrides,
@@ -566,7 +548,7 @@ async function saveUserSettings(request, env) {
   // fields. Preserve newer personal settings when those fields are omitted.
   const existing = await env.DB.prepare(`SELECT default_theme,timezone,event_notifications,map_zoom_percent
     FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first();
-  const defaultTheme = normalizeTheme(body?.defaultTheme ?? existing?.default_theme ?? 'vox');
+  const defaultTheme = 'vox';
   const timezone = normalizeUserTimezone(body?.timezone ?? existing?.timezone ?? 'UTC+3');
   const mapZoomPercent = normalizeMapZoomPercent(body?.mapZoomPercent ?? existing?.map_zoom_percent ?? 100);
   // The former global switch is retired; preserve the column for DB compatibility.

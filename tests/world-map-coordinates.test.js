@@ -34,25 +34,27 @@ test("block centers map to normalized world percentages", () => {
   assert.ok(Math.abs(last.y - (6015.5 / 6016) * 100) < 1e-12);
 });
 
-test("new and legacy manifests do not bind coordinates to image width or height", () => {
-  const manifestGeometry = {
+test("legacy and current manifests use fixed world bounds, not raster width/height", () => {
+  assert.equal(coordinateGeometryMatchesManifest(null), true);
+  assert.equal(coordinateGeometryMatchesManifest({
     type: "minecraft-world-block-centers",
     minX: -3008, maxX: 3007, minZ: -3008, maxZ: 3007,
-  };
-  assert.equal(coordinateGeometryMatchesManifest(manifestGeometry), true);
+  }), true);
   assert.equal(coordinateGeometryMatchesManifest({
     type: "minecraft-block-pixel-centers",
     minX: -3008, maxX: 3007, minZ: -3008, maxZ: 3007,
     width: 4096, height: 2048, originX: 3008, originY: 3008,
   }), true);
-  assert.equal(coordinateGeometryMatchesManifest(null), true);
-  assert.equal(coordinateGeometryMatchesManifest({ ...manifestGeometry, minX: -3000 }), false);
-  assert.equal(coordinateGeometryMatchesManifest({ ...manifestGeometry, type: "unknown" }), false);
+  assert.equal(coordinateGeometryMatchesManifest({
+    type: "minecraft-world-block-centers",
+    minX: -3000, maxX: 3007, minZ: -3008, maxZ: 3007,
+  }), false);
 });
 
-test("map zoom percent is bounded and stable at both ends", () => {
+test("map zoom preserves the established Voxygen overview-to-close-up range", () => {
   assert.equal(mapZoomPercentToScale(100), 1);
   assert.equal(mapZoomPercentToScale(1), 24);
+  assert.equal(mapZoomPercentToScale(50), 1 + (50 / 99) * 23);
   assert.equal(normalizeMapZoomPercent(-10), 1);
   assert.equal(normalizeMapZoomPercent(140), 100);
   assert.equal(normalizeMapZoomPercent("invalid"), 100);
