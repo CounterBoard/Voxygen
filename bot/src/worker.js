@@ -4246,7 +4246,7 @@ async function finalizeTerritoryApproval(env, chatId, id, name, owner, x, z, isG
       !isValidWorldCoordinate(nx, nz)) {
     await telegram(env, "sendMessage", {
       chat_id: chatId,
-      text: "⚠️ В поле координат должно быть 2 числа. Допустимый диапазон: от −3000 до 3000.",
+      text: "⚠️ В поле координат должно быть 2 числа. Допустимый диапазон: от −3008 до 3007.",
     });
     return false;
   }
