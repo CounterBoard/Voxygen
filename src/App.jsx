@@ -1,4 +1,4 @@
-// Voxygen-Version: v51
+// Voxygen-Version: v52
 import React, { useEffect, useState, useRef } from 'react';
 import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, isValidWorldCoordinate, coordinateGeometryMatchesManifest, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
 import {
@@ -1054,8 +1054,6 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   const mapLayerRef = useRef(null);
   const pointersRef = useRef(new Map());
   const transformRef = useRef(viewState || { x: 0, y: 0, scale: defaultScale });
-  const userGestureRef = useRef(false);
-  const zoomPreferenceInitializedRef = useRef(false);
   const gestureRef = useRef(null);
   const lastResetRef = useRef(resetSignal);
   const paintFrameRef = useRef(null);
@@ -1236,13 +1234,6 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
 
   useEffect(() => {
     if (!mapZoomReady) return;
-    // First settings response must not override a manual gesture made while
-    // preferences were loading. Later global changes should update scale even
-    // after the user has interacted with the map.
-    if (!zoomPreferenceInitializedRef.current) {
-      zoomPreferenceInitializedRef.current = true;
-      if (userGestureRef.current) return;
-    }
     transformRef.current = clamp({ ...transformRef.current, scale: defaultScale });
     paintTransform();
     scheduleTileRefresh();
@@ -1261,7 +1252,6 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   useEffect(() => {
     if (lastResetRef.current !== resetSignal) {
       lastResetRef.current = resetSignal;
-      userGestureRef.current = false;
       transformRef.current = { x: 0, y: 0, scale: defaultScale };
       pointersRef.current.clear();
       gestureRef.current = null;
@@ -1291,7 +1281,6 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
   function down(e) {
-    userGestureRef.current = true;
     e.preventDefault?.();
     e.currentTarget.setPointerCapture?.(e.pointerId);
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1368,7 +1357,6 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
   }
 
   function wheel(e) {
-    userGestureRef.current = true;
     e.preventDefault?.();
     const rect = viewportRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -2043,7 +2031,7 @@ function ProfileScreen({ profile, profileLoadState, profileLoadError, claimNickn
       </div>;
 }
 
-function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImage=null, mapSource=null, mapLoading=false, mapError='', onRetryMap, voxView, onVoxViewChange, markersReady=false, mapZoomPercent=100, mapZoomReady=true }) {
+function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImage=null, mapSource=null, mapLoading=false, mapError='', onRetryMap, voxView, onVoxViewChange, markersReady=false, mapZoomPercent=100, mapZoomReady=false }) {
   const [sortBy,setSortBy]=useState('curator');
   const [resetSignal,setResetSignal]=useState(0);
 
@@ -2055,7 +2043,7 @@ function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImag
     {mode==='map'
       ? <div style={{padding:'0 16px'}}>
           <div style={{position:'relative',width:'100%',aspectRatio:'1 / 1',borderRadius:6,border:'1px solid var(--border)',overflow:'hidden',background:'var(--bg)'}}>
-            {mapImage ? (
+            {mapImage && mapZoomReady ? (
               <VoxMap
                 image={mapImage}
                 source={mapSource}
@@ -2069,9 +2057,8 @@ function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImag
                 mapZoomReady={mapZoomReady}
               />
             ) : (
-              <div role="status" aria-live="polite" style={{width:'100%',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:24,boxSizing:'border-box',textAlign:'center',background:'var(--surface)',color:'var(--text-muted)',fontSize:13,lineHeight:1.5}}>
-                <div>{mapLoading ? 'Загружаем карту…' : (mapError || 'Карта ещё не загружена.')}</div>
-                {!mapLoading && <button type="button" onClick={onRetryMap} className="press" style={{border:'1px solid var(--purple-border)',borderRadius:10,padding:'8px 14px',background:'var(--purple-soft)',color:'var(--purple)',fontWeight:700}}>Повторить</button>}
+              <div role="status" aria-live="polite" aria-label="Подготовка карты" style={{width:'100%',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,padding:24,boxSizing:'border-box',textAlign:'center',background:'var(--surface)',color:'var(--text-muted)',fontSize:13,lineHeight:1.5}}>
+                {mapZoomReady && !mapLoading && !mapImage ? <><div>{mapError || 'Карта ещё не загружена.'}</div><button type="button" onClick={onRetryMap} className="press" style={{border:'1px solid var(--purple-border)',borderRadius:10,padding:'8px 14px',background:'var(--purple-soft)',color:'var(--purple)',fontWeight:700}}>Повторить</button></> : null}
               </div>
             )}
           </div>
@@ -3332,7 +3319,6 @@ export default function CityRatingApp() {
   const [timezoneOffset,setTimezoneOffset] = useState('UTC+3');
   const [mapZoomPercent,setMapZoomPercent] = useState(100);
   const [mapZoomReady,setMapZoomReady] = useState(false);
-  const [theme,setTheme] = useState('vox');
   const [timezoneReady,setTimezoneReady] = useState(false);
   const [timezoneLoadError,setTimezoneLoadError] = useState('');
   const [timezoneRetryToken,setTimezoneRetryToken] = useState(0);
@@ -3367,7 +3353,7 @@ export default function CityRatingApp() {
   const [worldMapSource, setWorldMapSource] = useState(null);
   const [worldMapLoading, setWorldMapLoading] = useState(true);
   const [worldMapError, setWorldMapError] = useState('');
-  const [voxView, setVoxView] = useState({ x: 0, y: 0, scale: 1 });
+  const [voxView, setVoxView] = useState(null);
   const [markersReady, setMarkersReady] = useState(false);
   const [faqOpen, setFaqOpen] = useState(false);
   const [faqText, setFaqText] = useState('');
@@ -3375,6 +3361,7 @@ export default function CityRatingApp() {
   const [homeFeatureButton,setHomeFeatureButton]=useState({imageData:'',title:'Информация',subtitle:'',text:'',hidden:false});
   const [homeFeatureButtonReady,setHomeFeatureButtonReady]=useState(false);
   const [homeFeatureOpen,setHomeFeatureOpen]=useState(false);
+  const [globalSettingsOpen,setGlobalSettingsOpen]=useState(false);
 
   const selected = territories.find((t) => String(t.id) === String(selectedId));
 
@@ -3500,13 +3487,14 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         if (cancelled || requestVersion !== settingsRequestVersion) return;
         if (!response.ok || !data?.ok || !data?.settings) throw new Error(apiErrorMessage(response, data, 'Settings fetch failed'));
         const value = data.settings;
+        const nextZoom=normalizeMapZoomPercent(value.mapZoomPercent ?? value.personalMapZoomPercent ?? 100);
         setTimezoneOffset(normalizeTimezoneOffset(value.timezone));
-        setMapZoomPercent(normalizeMapZoomPercent(value.mapZoomPercent));
+        setMapZoomPercent(nextZoom);
+        setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));
         setMapZoomReady(true);
-        setTheme(normalizeTheme(value.theme || value.defaultTheme));
         setTimezoneReady(true); setTimezoneLoadError('');
         if (expiryTimer !== null) window.clearTimeout(expiryTimer);
-        const expiries = [value.globalOverrides?.mapZoomPercent?.expiresAt, value.globalOverrides?.theme?.expiresAt].map(Number).filter(at => Number.isFinite(at) && at > Date.now());
+        const expiries = [value.globalOverrides?.mapZoomPercent?.expiresAt].map(Number).filter(at => Number.isFinite(at) && at > Date.now());
         if (expiries.length) {
           const nextExpiry = Math.min(...expiries);
           expiryTimer = window.setTimeout(loadSettings, Math.min(2147480000, Math.max(500, nextExpiry - Date.now() + 250)));
@@ -3518,6 +3506,8 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
           ? 'Сервер не ответил за 15 секунд. Повторите загрузку настроек.'
           : 'Не удалось загрузить ваши настройки. Создание и редактирование ивентов временно недоступно.';
         setTimezoneLoadError(message);
+        setVoxView(current=>current||{x:0,y:0,scale:1});
+        setMapZoomReady(true);
       } finally {
         window.clearTimeout(requestTimeout);
         if (settingsController === controller) settingsController = null;
@@ -3856,12 +3846,12 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
   }
 
   return (
-    <div className="atlas-root" data-theme={theme} style={{ minHeight: '100vh', width: '100%' }}>
+    <div className="atlas-root" data-theme="vox" style={{ minHeight: '100vh', width: '100%' }}>
       <FontsAndTheme />
       <div style={{ maxWidth: 448, margin: '0 auto', position: 'relative' }}>
         <div className="atlas-screen-transition" key={`${screen}-${selected?.id || 'none'}`}>
         {screen === 'profile' ? (
-          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapLoadGenerationRef.current+=1;mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setTimezoneRetryToken(value=>value+1);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));setMapZoomPercent(normalizeMapZoomPercent(settings.mapZoomPercent));setMapZoomReady(true);setTheme(normalizeTheme(settings.theme||settings.defaultTheme));setTimezoneReady(true);setTimezoneLoadError('');}} />
+          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapLoadGenerationRef.current+=1;mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);setTimezoneRetryToken(value=>value+1);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));setMapZoomPercent(nextZoom);setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));setMapZoomReady(true);setTimezoneReady(true);setTimezoneLoadError('');}} />
         ) : screen === 'customization' ? (
           <CustomizationScreen initData={window.Telegram?.WebApp?.initData || ''} tgUser={tgUser} role={role} territories={territories} profile={profile} />
         ) : screen === 'events' ? (
@@ -3885,7 +3875,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
                 <div className="atlas-display" style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.3 }}>Multi-Punk</div>
                 <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{territories.length} {pluralizeTerritories(territories.length)}</div>
               </div>
-              <div style={{display:'flex',alignItems:'center',gap:7,flexShrink:0,marginTop:2,marginLeft:'auto'}}>{homeFeatureButtonReady&&(role==='main_inspector'||!homeFeatureButton.hidden)&&<button type="button" onClick={()=>setHomeFeatureOpen(true)} className="press" aria-label="Информация от главного инспектора" title={homeFeatureButton.title||'Информация'} style={{width:36,height:36,padding:0,overflow:'hidden',border:'1px solid var(--border)',borderRadius:'50%',background:'var(--surface)',color:'var(--purple)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{homeFeatureButton.imageData?<img src={homeFeatureButton.imageData} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<ImagePlus size={17}/>}</button>}<button onClick={openFaq} className="press" style={{height:36,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 12px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:13}}>ЧиВо</button>{(profile.status==='verified'||role==='main_inspector') && <button onClick={()=>setShowAddTerritory(true)} className="press" style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:999,border:'none',background:'var(--purple)',color:'#fff',fontWeight:700,fontSize:13}}><Plus size={15}/> Добавить</button>}</div>
+              <div style={{display:'flex',alignItems:'center',gap:7,flexShrink:0,marginTop:2,marginLeft:'auto'}}>{homeFeatureButtonReady&&(role==='main_inspector'||!homeFeatureButton.hidden)&&<button type="button" onClick={()=>setHomeFeatureOpen(true)} className="press" aria-label="Информация от главного инспектора" title={homeFeatureButton.title||'Информация'} style={{width:36,height:36,padding:0,overflow:'hidden',border:'1px solid var(--border)',borderRadius:'50%',background:'var(--surface)',color:'var(--purple)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{homeFeatureButton.imageData?<img src={homeFeatureButton.imageData} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<ImagePlus size={17}/>}</button>}{role==='main_inspector'&&<button type="button" onClick={()=>setGlobalSettingsOpen(true)} className="press" aria-label="Глобальные настройки" title="Глобальные настройки" style={{width:36,height:36,padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--border)',borderRadius:'50%',background:'var(--surface)',color:'var(--text-muted)',flexShrink:0}}><Settings size={17}/></button>}<button onClick={openFaq} className="press" style={{height:36,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 12px',borderRadius:999,border:'1px solid var(--border)',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:13}}>ЧиВо</button>{(profile.status==='verified'||role==='main_inspector') && <button onClick={()=>setShowAddTerritory(true)} className="press" style={{display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:999,border:'none',background:'var(--purple)',color:'#fff',fontWeight:700,fontSize:13}}><Plus size={15}/> Добавить</button>}</div>
             </div>
 
             <MainTabs tab={mainTab} onChange={changeMainTab} />
@@ -3919,6 +3909,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         )}
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
+        {globalSettingsOpen&&role==='main_inspector'&&<GlobalSettingsPanel initData={window.Telegram?.WebApp?.initData||''} onSettingsChanged={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);setMapZoomPercent(nextZoom);setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));setMapZoomReady(true);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));}} onClose={()=>setGlobalSettingsOpen(false)}/ >}
 
         {showAddTerritory && (
           <AddTerritoryModal onClose={() => setShowAddTerritory(false)} onSubmit={submitTerritoryRequest} isMainInspector={role==='main_inspector'} />
