@@ -1776,7 +1776,9 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
     <MinecraftText text={territory.name} as="div" className="atlas-display" style={{fontSize:16,fontWeight:700,marginBottom:12}}/>
     <div style={{fontSize:12,color:'var(--text-muted)',marginBottom:6}}>Название</div><div style={{display:'flex',gap:8,marginBottom:4}}><input value={name} readOnly={readOnly} onChange={e=>setName(e.target.value)} style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,cursor:readOnly?'default':'text'}}/>{!readOnly&&<button onClick={rename} className="press" style={iconBtn('var(--purple)','#fff',true)}><Pencil size={15}/></button>}</div>
     <div style={{fontSize:12,color:'var(--text-muted)',marginTop:12,marginBottom:6}}>Доп. информация</div>
-    <textarea value={additionalInfo} readOnly={readOnly} onChange={e=>setAdditionalInfo(e.target.value.slice(0,542))} rows={4} maxLength={542} placeholder={readOnly?'':'Дополнительная информация о территории (необязательно)'} style={{width:'100%',boxSizing:'border-box',resize:'none',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,marginBottom:4,cursor:readOnly?'default':'text'}} />
+    {readOnly
+      ? <TelegramMinecraftText text={additionalInfo} interactive style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,marginBottom:4,minHeight:72}}/>
+      : <textarea value={additionalInfo} onChange={e=>setAdditionalInfo(e.target.value.slice(0,542))} rows={4} maxLength={542} placeholder="Дополнительная информация о территории (необязательно)" style={{width:'100%',boxSizing:'border-box',resize:'none',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,marginBottom:4}}/>}
     {!readOnly&&<button onClick={saveAdditionalInfo} disabled={additionalInfo===String(territory?.additional_info||'')} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',marginTop:8,marginBottom:14,background:'var(--purple)',color:'#fff',fontWeight:700}}>Сохранить доп. информацию</button>}
     {managers.length>0&&<div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:14,padding:12,marginBottom:14}}><div style={{fontSize:13,fontWeight:700,marginBottom:8}}>Основатели/мэры</div>{managers.map(m=><div key={m.telegram_id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderTop:'1px solid var(--border)'}}><AvatarHead nickname={m.mc_nickname} skinUrl={m.skin_url} size={32}/><div style={{flex:1,minWidth:0}}><MinecraftText as="div" text={m.mc_nickname||'Без ника'} style={{fontSize:12.5,fontWeight:700}}/><div style={{fontSize:10.5,color:'var(--text-muted)'}}>{m.telegram_username?`@${String(m.telegram_username).replace(/^@/,'')}`:'Username не указан'}</div></div>{!readOnly&&managers.length>1&&<button onClick={()=>demoteManager(m.telegram_id)} className="press" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:8,padding:'6px 8px',fontSize:10.5}}>Понизить</button>}{!readOnly&&managers.length>1&&(()=>{const currentContact=String(newRecruitmentUsername||'').replace(/^@/,'').trim().toLowerCase();const managerUsername=String(m.telegram_username||'').replace(/^@/,'').trim().toLowerCase();const inAnnouncement=Boolean(currentContact&&managerUsername&&currentContact===managerUsername);return <button onClick={()=>!inAnnouncement&&setRecruitmentUsername(m.telegram_id)} disabled={inAnnouncement} className="press" style={{border:'1px solid var(--border)',background:inAnnouncement?'var(--surface-3)':'var(--purple)',color:inAnnouncement?'var(--text-muted)':'#fff',borderRadius:8,padding:'6px 8px',fontSize:10.5,opacity:inAnnouncement?1:.98}}>{inAnnouncement?'В объявлении':'В объявление'}</button>})()}</div>)}</div>}
     <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:14,padding:12,marginBottom:14}}>
@@ -1870,7 +1872,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
         const response=await fetch(API_BASE+'/api/user-settings',{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
         const data=await response.json().catch(()=>null);
         if(!response.ok||!data?.ok||!data?.settings)throw new Error(apiErrorMessage(response,data,'Не удалось загрузить настройки.'));
-        if(!cancelled)setSettings({...data.settings,defaultTheme:'vox',personalMapZoomPercent:normalizeMapZoomPercent(data.settings.personalMapZoomPercent??data.settings.mapZoomPercent??100),timezone:normalizeTimezoneOffset(data.settings.timezone),territories:Array.isArray(data.settings.territories)?data.settings.territories:[]});
+        if(!cancelled){const personalTheme=String(data.settings.personalTheme??'vox');setSettings({...data.settings,defaultTheme:personalTheme,personalTheme,personalMapZoomPercent:normalizeMapZoomPercent(data.settings.personalMapZoomPercent??data.settings.mapZoomPercent??100),timezone:normalizeTimezoneOffset(data.settings.timezone),territories:Array.isArray(data.settings.territories)?data.settings.territories:[]});}
       }catch(e){if(!cancelled)setError(safeCaughtError(e,'Не удалось загрузить настройки.'));}
       finally{if(!cancelled)setLoading(false);}
     }
@@ -1884,7 +1886,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
     if(!settings)return;
     try{
       setSaving(true);setError('');
-      const payload={defaultTheme:'vox',mapZoomPercent:normalizeMapZoomPercent(settings.personalMapZoomPercent),timezone:normalizeTimezoneOffset(settings.timezone),eventNotifications:Boolean(settings.eventNotifications),territories:(settings.territories||[]).map(item=>({id:String(item.id),enabled:Boolean(item.enabled)}))};
+      const payload={defaultTheme:String(settings.personalTheme??settings.defaultTheme??'vox'),mapZoomPercent:normalizeMapZoomPercent(settings.personalMapZoomPercent),timezone:normalizeTimezoneOffset(settings.timezone),eventNotifications:Boolean(settings.eventNotifications),territories:(settings.territories||[]).map(item=>({id:String(item.id),enabled:Boolean(item.enabled)}))};
       const response=await fetch(API_BASE+'/api/user-settings',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({...payload,initData})});
       const data=await response.json().catch(()=>null);
       if(!response.ok||!data?.ok||!data?.settings)throw new Error(apiErrorMessage(response,data,'Не удалось сохранить настройки.'));
@@ -1909,6 +1911,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
         <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:6}}>Часовой пояс</div>
         <input value={settings.timezone||'UTC+3'} onChange={e=>patch({timezone:keepUtcPrefix(e.target.value)})} onBlur={()=>patch({timezone:normalizeTimezoneOffset(settings.timezone)})} placeholder="UTC+3" aria-label="Часовой пояс" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:11,padding:'11px 12px',color:'var(--text)',fontSize:14,marginBottom:16}}/>
         <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:7}}>Масштаб карты</div>
+        {settings.globalOverrides?.mapZoomPercent&&<div style={{fontSize:11.5,color:'var(--mint)',lineHeight:1.45,marginBottom:7}}>Сейчас для всех действует глобальный масштаб {settings.mapZoomPercent}%. Ваш личный выбор сохраняется и вернётся после окончания срока.</div>}
         <input type="range" min="1" max="100" step="1" value={settings.personalMapZoomPercent??100} onChange={e=>patch({personalMapZoomPercent:normalizeMapZoomPercent(e.target.value)})} style={{width:'100%',accentColor:'var(--purple)',margin:'4px 0 2px'}}/>
         <div style={{fontSize:12,color:'var(--text)',fontWeight:700,textAlign:'center',marginBottom:16}}>{settings.personalMapZoomPercent??100}%</div>
         <div style={{fontSize:15,fontWeight:750,marginBottom:4}}>Уведомления</div>
@@ -1924,10 +1927,11 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
   </div>;
 }
 
-function GlobalSettingsPanel({ initData, onSettingsChanged, onClose }) {
+function GlobalSettingsPanel({ initData, onSettingsChanged, onClose, timezoneOffset='UTC+3' }) {
   const [entries,setEntries] = useState([]);
   const [mapZoom,setMapZoom] = useState(100);
-  const [mapDuration,setMapDuration] = useState('1440');
+  const [theme,setTheme] = useState('vox');
+  const [expiresAtParts,setExpiresAtParts] = useState(()=>defaultGlobalExpiryDateParts(timezoneOffset));
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState('');
@@ -1944,7 +1948,14 @@ function GlobalSettingsPanel({ initData, onSettingsChanged, onClose }) {
       const rows=Array.isArray(data.settings)?data.settings:[];
       setEntries(rows);
       const zoom=rows.find(row=>row.key==='map_zoom');
-      setMapZoom(zoom?normalizeMapZoomPercent(zoom.value):100);
+      const themeRow=rows.find(row=>row.key==='theme');
+      setMapZoom(zoom&&zoom.active?normalizeMapZoomPercent(zoom.value):100);
+      setTheme(themeRow&&themeRow.active?String(themeRow.value||'vox'):'vox');
+      const expiryRows=rows.filter(row=>row.active&&row.expiresAt!=null);
+      if(expiryRows.length){
+        const earliest=Math.min(...expiryRows.map(row=>Number(row.expiresAt)).filter(Number.isFinite));
+        if(Number.isFinite(earliest))setExpiresAtParts(globalExpiryDatePartsFromTimestamp(Math.max(Date.now()+60000,earliest),timezoneOffset));
+      }else setExpiresAtParts(defaultGlobalExpiryDateParts(timezoneOffset));
     }catch(e){setError(safeCaughtError(e,'Не удалось загрузить глобальные настройки.'));}
     finally{setLoading(false);}
   }
@@ -1955,60 +1966,78 @@ function GlobalSettingsPanel({ initData, onSettingsChanged, onClose }) {
     const data=await response.json().catch(()=>null);
     if(response.ok&&data?.ok&&data?.settings)onSettingsChanged?.(data.settings);
   }
-  async function save(){
+  async function apply(permanent=false){
     try{
       setBusy(true);setError('');setNotice('');
-      const response=await fetch(API_BASE+'/api/admin/global-settings',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,key:'map_zoom',value:normalizeMapZoomPercent(mapZoom),durationMinutes:mapDuration==='permanent'?null:Number(mapDuration)})});
+      const expiresAt=permanent?undefined:globalExpiryPartsTimestamp(expiresAtParts,timezoneOffset);
+      if(!permanent&&!expiresAt)throw new Error('Выберите корректную дату и время в будущем.');
+      const payload={
+        initData,
+        settings:{map_zoom:normalizeMapZoomPercent(mapZoom),theme},
+        ...(permanent?{permanent:true}:{expiresAt})
+      };
+      const response=await fetch(API_BASE+'/api/admin/global-settings',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify(payload)});
       const data=await response.json().catch(()=>null);
-      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось сохранить глобальный масштаб.'));
+      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось применить глобальные настройки.'));
       setEntries(Array.isArray(data.settings)?data.settings:[]);
       await refreshEffectiveSettings();
-      setNotice('Глобальный масштаб применён');
-    }catch(e){setError(safeCaughtError(e,'Не удалось сохранить глобальный масштаб.'));}
+      setNotice(permanent?'Глобальные настройки применены навсегда':'Глобальные настройки применены для всех до указанного времени');
+    }catch(e){setError(safeCaughtError(e,'Не удалось применить глобальные настройки.'));}
     finally{setBusy(false);}
   }
   async function clear(){
     try{
       setBusy(true);setError('');setNotice('');
-      const response=await fetch(API_BASE+'/api/admin/global-settings',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,key:'map_zoom',clear:true})});
+      const response=await fetch(API_BASE+'/api/admin/global-settings',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,clear:true})});
       const data=await response.json().catch(()=>null);
-      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось снять глобальный масштаб.'));
+      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось снять глобальные настройки.'));
       setEntries(Array.isArray(data.settings)?data.settings:[]);
       await refreshEffectiveSettings();
-      setMapZoom(100);
-      setNotice('Личные настройки масштаба восстановлены');
-    }catch(e){setError(safeCaughtError(e,'Не удалось снять глобальный масштаб.'));}
+      setMapZoom(100);setTheme('vox');
+      setNotice('Личные настройки пользователей восстановлены');
+    }catch(e){setError(safeCaughtError(e,'Не удалось снять глобальные настройки.'));}
     finally{setBusy(false);}
   }
 
-  const row=entries.find(item=>item.key==='map_zoom');
-  const active=Boolean(row&&row.active);
-  const status=!row?'Не задано':!row.active?'Срок действия истёк; используются личные значения':row.expiresAt==null?'Действует постоянно':'Действует до '+new Date(Number(row.expiresAt)).toLocaleString('ru-RU');
-  const durationOptions=[{value:'60',label:'1 час'},{value:'360',label:'6 часов'},{value:'1440',label:'24 часа'},{value:'10080',label:'7 дней'},{value:'525600',label:'1 год'},{value:'permanent',label:'Навсегда'}];
+  const activeEntries=entries.filter(item=>item.active);
+  const active=activeEntries.length>0;
+  const status=entry=>{
+    if(!entry)return 'Не задано';
+    if(!entry.active)return 'Срок действия истёк';
+    return entry.expiresAt==null?'Действует постоянно':'До '+new Date(Number(entry.expiresAt)).toLocaleString('ru-RU');
+  };
+  const zoomRow=entries.find(item=>item.key==='map_zoom');
+  const themeRow=entries.find(item=>item.key==='theme');
 
   return <div className={'atlas-overlay'+(closing?' atlas-closing':'')} style={{position:'fixed',inset:0,zIndex:140,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center',padding:'18px 14px'}} onClick={requestClose}>
-    <div onClick={e=>e.stopPropagation()} className={'atlas-modal-shell'+(closing?' atlas-closing':'')} style={{width:'min(448px,100%)',maxHeight:'86vh',overflowY:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:22,padding:18,boxSizing:'border-box'}}>
+    <div onClick={e=>e.stopPropagation()} className={'atlas-modal-shell'+(closing?' atlas-closing':'')} style={{width:'min(448px,100%)',maxHeight:'88vh',overflowY:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:22,padding:18,boxSizing:'border-box'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:8}}>
         <div className="atlas-display" style={{fontSize:19,fontWeight:800}}>Глобальные настройки</div>
         <button onClick={requestClose} className="press" aria-label="Закрыть глобальные настройки" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button>
       </div>
-      <div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.45,marginBottom:14}}>Заданный масштаб временно применяется ко всем пользователям. После окончания срока их личные значения восстановятся.</div>
+      <div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.45,marginBottom:14}}>Заданные значения принудительно применяются всем пользователям. Их личные настройки сохраняются и автоматически возвращаются по окончании срока, даже если пользователь менял их во время действия глобального режима.</div>
       {loading?<div style={{padding:16,color:'var(--text-muted)',fontSize:12}}>Загрузка…</div>:<>
-        <div style={{fontSize:13,fontWeight:750,marginBottom:5}}>Масштаб карты</div>
-        <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:9}}>{status}</div>
-        <input type="range" min="1" max="100" step="1" value={mapZoom} onChange={e=>setMapZoom(normalizeMapZoomPercent(e.target.value))} style={{width:'100%',accentColor:'var(--purple)'}}/>
-        <div style={{fontSize:12,color:'var(--text)',fontWeight:700,textAlign:'center',marginBottom:14}}>{mapZoom}%</div>
-        <label style={{display:'block',fontSize:12,fontWeight:700,marginBottom:5}}>Срок действия</label>
-        <select value={mapDuration} onChange={e=>setMapDuration(e.target.value)} style={{width:'100%',minHeight:42,boxSizing:'border-box',border:'1px solid var(--border)',borderRadius:10,background:'var(--surface-2)',color:'var(--text)',padding:'9px 10px',fontSize:13}}>
-          {durationOptions.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}
+        <div style={{fontSize:13,fontWeight:750,marginBottom:5}}>Тема</div>
+        <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:7}}>Сейчас доступна одна тема; поле уже поддерживает будущие варианты оформления.</div>
+        <select value={theme} onChange={e=>setTheme(e.target.value)} style={{width:'100%',minHeight:42,boxSizing:'border-box',border:'1px solid var(--border)',borderRadius:10,background:'var(--surface-2)',color:'var(--text)',padding:'9px 10px',fontSize:13,marginBottom:14}}>
+          <option value="vox">Vox</option>
         </select>
-        <div style={{display:'flex',gap:8,marginTop:12}}>
-          <button onClick={save} disabled={busy} className="press" style={{flex:1,minHeight:42,border:0,borderRadius:10,background:'var(--purple)',color:'#fff',fontWeight:750}}>{busy?'Сохранение…':'Применить всем'}</button>
-          <button onClick={clear} disabled={busy||!active} className="press" style={{minHeight:42,border:'1px solid var(--border)',borderRadius:10,padding:'0 12px',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Снять</button>
+        <div style={{fontSize:13,fontWeight:750,marginBottom:5}}>Масштаб карты</div>
+        <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:9}}>{status(zoomRow)}</div>
+        <input type="range" min="1" max="100" step="1" value={mapZoom} onChange={e=>setMapZoom(normalizeMapZoomPercent(e.target.value))} style={{width:'100%',accentColor:'var(--mint)'}}/>
+        <div style={{fontSize:12,color:'var(--text)',fontWeight:700,textAlign:'center',marginBottom:14}}>{mapZoom}%</div>
+        <div style={{fontSize:12,fontWeight:750,marginBottom:3}}>Действует до</div>
+        <div style={{fontSize:10.5,color:'var(--text-muted)',marginBottom:4}}>Время указано по часовому поясу вашего профиля: {normalizeTimezoneOffset(timezoneOffset)}</div>
+        <EventDateTimeFields parts={expiresAtParts} onChange={setExpiresAtParts} includeYear timezoneOffset={timezoneOffset}/>
+        <div style={{display:'flex',gap:8,marginTop:12,flexWrap:'wrap'}}>
+          <button onClick={()=>apply(false)} disabled={busy} className="press" style={{flex:'1 1 180px',minHeight:42,border:0,borderRadius:10,background:'var(--mint)',color:'#06120D',fontWeight:800}}>{busy?'Сохранение…':'Применить до даты'}</button>
+          <button onClick={()=>apply(true)} disabled={busy} className="press" style={{flex:'1 1 108px',minHeight:42,border:'1px solid var(--mint)',borderRadius:10,padding:'0 12px',background:'var(--mint-soft)',color:'var(--mint)',fontWeight:800}}>Навсегда</button>
+          <button onClick={clear} disabled={busy||!active} className="press" style={{flex:'1 1 100%',minHeight:40,border:'1px solid var(--border)',borderRadius:10,padding:'0 12px',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Снять глобальные настройки</button>
         </div>
       </>}
       {error&&<div role="alert" style={{fontSize:12,color:'var(--red)',marginTop:10}}>{error}</div>}
       {notice&&<div role="status" style={{fontSize:12,color:'var(--mint)',marginTop:10}}>{notice}</div>}
+      <div style={{fontSize:10.5,color:'var(--text-muted)',lineHeight:1.4,marginTop:10}}>Тема: {status(themeRow)}. Масштаб: {status(zoomRow)}.</div>
       {!loading&&error&&<button onClick={()=>setReloadToken(value=>value+1)} className="press" style={{width:'100%',marginTop:10,padding:'9px',border:'1px solid var(--border)',borderRadius:10,background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Повторить загрузку</button>}
     </div>
   </div>;
@@ -2034,7 +2063,7 @@ function ProfileScreen({ profile, profileLoadState, profileLoadError, claimNickn
     {profileLoadError&&<div role="status" style={{display:'flex',alignItems:'center',gap:10,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:12,padding:12,marginBottom:12,fontSize:12.5,lineHeight:1.45}}><span style={{flex:1,color:'var(--text-muted)'}}>{profileLoadError}{profileLoadState!=='error'?' Последние подтверждённые данные сохранены.':''}</span><button onClick={refreshProfile} className="press" style={{border:'1px solid var(--border)',borderRadius:10,background:'var(--surface)',color:'var(--text)',padding:'8px 10px',fontWeight:700,flexShrink:0}}>Повторить</button></div>}
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}><AvatarHead nickname={profile.status==='verified'?profile.nickname:null} skinUrl={profile.status==='verified'?profile.skinUrl:null} size={46}/><div><div style={{fontSize:15,fontWeight:600}}>{profileLoadState==='error'?'Профиль временно недоступен':<MinecraftText text={profile.nickname||'Ник не указан'}/>}</div>{isInspector?<div style={{fontSize:11.5,color:'var(--gold)',display:'flex',alignItems:'center',gap:4,fontWeight:700}}><ShieldCheck size={12}/>{isMainInspector?'Главный инспектор':'Инспектор'}</div>:profile.status==='verified'?<div style={{fontSize:11.5,color:'var(--emerald)'}}>Ник подтверждён</div>:profile.status==='pending'?<div style={{fontSize:11.5,color:'var(--gold)'}}>Ожидает подтверждения инспектора</div>:<div style={{fontSize:11.5,color:'var(--text-muted)'}}>Ник в Minecraft</div>}</div><div style={{display:'flex',alignItems:'center',gap:6,marginLeft:'auto',flexShrink:0}}>
         <button type="button" onClick={()=>setSettingsOpen(true)} className="press" aria-label="Настройки профиля" title="Настройки" style={{width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--border)',borderRadius:12,background:'var(--surface-2)',color:'var(--text-muted)'}}><Settings size={18}/></button>
-        {isMainInspector&&<button type="button" onClick={()=>onOpenGlobalSettings?.()} className="press" aria-label="Глобальные настройки" title="Глобальные настройки" style={{width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--border)',borderRadius:12,background:'var(--surface-2)',color:'var(--text-muted)'}}><Settings size={18}/></button>}
+        {isMainInspector&&<button type="button" onClick={()=>onOpenGlobalSettings?.()} className="press" aria-label="Глобальные настройки" title="Глобальные настройки" style={{width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--mint)',borderRadius:12,background:'var(--mint)',color:'#06120D'}}><Settings size={18}/></button>}
       </div></div><div style={{fontSize:11.5,color:'var(--text-muted)',marginBottom:10}}>Telegram: {tgUser?`@${tgUser.username||'—'} · id ${tgUser.id}`:'не определён'}</div>{!isInspector&&profileLoadState==='needs_nickname'&&profile.status!=='verified'&&<><div style={{display:'flex',gap:8}}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ваш ник в Minecraft" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13}}/><button onClick={submit} className="press" style={iconBtn('var(--purple)','#fff',true)}><Pencil size={15}/></button></div>{error&&<div style={{fontSize:12,color:'var(--red)',marginTop:8}}>{error}</div>}</>}</div>
     <ProfileInventory initData={initData} role={role} tgUser={tgUser}/>
     {!isInspector&&userCitiesForTreasury.map(city=><TreasuryCard key={`treasury-${city.id}`} city={city} initData={initData} tgUser={tgUser}/>)}
@@ -2376,6 +2405,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
           return <div key={r.id} className="atlas-review-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 12, animationDelay: `${Math.min(reviewIndex * 24, 144)}ms` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
               <MinecraftText text={r.author || r.telegram_username || 'Пользователь'} style={{fontSize:13,fontWeight:600}}/>
+              {r.telegram_username&&<TelegramUsername username={r.telegram_username} interactive style={{fontSize:11.5}}/>}
               {(r.role === 'inspector' || r.role === 'main_inspector') && <span style={{ fontSize: 10, color: 'var(--mint)', background: 'var(--mint-soft)', border: '1px solid var(--mint)', borderRadius: 999, padding: '2px 6px', fontWeight: 700 }}>Инспектор</span>}
               {isResidentReviewer && <span style={{ fontSize: 10, color: 'var(--purple)', border: '1px solid var(--purple)', borderRadius: 999, padding: '2px 6px', fontWeight: 700 }}>Житель</span>}
               {(isMyComment || isMainInspector) && <div style={{ marginLeft:'auto', display:'flex', gap:4 }}>
@@ -2385,10 +2415,10 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
             </div>
             {editingCommentId===r.id
               ? <div style={{display:'flex',gap:6,marginBottom:8}}><input value={editingCommentText} onChange={e=>setEditingCommentText(e.target.value)} style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'8px 10px',color:'var(--text)',fontSize:12.5}}/><button onClick={()=>editComment(r.id)} className="press" style={{border:'none',background:'var(--purple)',color:'#fff',borderRadius:9,padding:'0 10px'}}>✓</button></div>
-              : <MinecraftText as="div" text={r.text} style={{ fontSize: 13, lineHeight: 1.4, marginBottom: 8 }} />}
+              : <TelegramMinecraftText text={r.text} interactive style={{ fontSize: 13, lineHeight: 1.4, marginBottom: 8 }} />}
             {r.reply && <div style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--surface-2)', borderRadius: 10, padding: '8px 10px', marginBottom: 8, borderLeft: '2px solid var(--mint)' }}>
               <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}><b style={{ color: 'var(--mint)' }}><MinecraftText text={t.owner}/>: </b>{isOwner&&<div style={{marginLeft:'auto',display:'flex',gap:4}}><button onClick={()=>{setEditingReplyId(r.id);setEditingReplyText(r.reply||'')}} className="press" title="Изменить" style={{border:'none',background:'var(--purple-soft)',color:'var(--purple)',borderRadius:8,padding:6}}><Pencil size={15}/></button><button onClick={()=>removeReply(r.id)} className="press" title="Удалить" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:8,padding:6}}><Trash2 size={15}/></button></div>}</div>
-              {editingReplyId===r.id ? <div style={{display:'flex',gap:6}}><input value={editingReplyText} onChange={e=>setEditingReplyText(e.target.value)} style={{flex:1,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:9,padding:'7px 9px',color:'var(--text)',fontSize:12}}/><button onClick={()=>editReply(r.id)} className="press" style={{border:'none',background:'var(--purple)',color:'#fff',borderRadius:8,padding:'0 9px'}}>✓</button></div> : <MinecraftText as="div" text={r.reply} style={{fontSize:12,lineHeight:1.45}} />}
+              {editingReplyId===r.id ? <div style={{display:'flex',gap:6}}><input value={editingReplyText} onChange={e=>setEditingReplyText(e.target.value)} style={{flex:1,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:9,padding:'7px 9px',color:'var(--text)',fontSize:12}}/><button onClick={()=>editReply(r.id)} className="press" style={{border:'none',background:'var(--purple)',color:'#fff',borderRadius:8,padding:'0 9px'}}>✓</button></div> : <TelegramMinecraftText text={r.reply} interactive style={{fontSize:12,lineHeight:1.45}} />}
             </div>}
             {isOwner && !r.reply && <ReplyBox onSend={text => reply(r.id, text)} />}
           </div>;
@@ -2439,10 +2469,7 @@ function RecruitmentScreen({ territories, onSelect }) {
   const cities = (territories || [])
     .filter(t => Number(t.recruitment_enabled) === 1 && String(t.recruitment_description || '').trim())
     .sort((a,b) => Number(b.curator||0) - Number(a.curator||0));
-  const contact = city => {
-    const raw = String(city?.recruitment_contact_username || city?.owner_telegram_username || '').trim().replace(/^@+/, '');
-    return raw ? `@${raw}` : 'не указан';
-  };
+  const contact = city => String(city?.recruitment_contact_username || city?.owner_telegram_username || '').trim().replace(/^@+/, '');
   const formatCoords = formatTerritoryCoords;
   return <div className="atlas-page atlas-page--recruitment" style={{padding:'0 16px 100px'}}>
     {cities.length===0 ? <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:18,color:'var(--text-muted)',fontSize:13}}>Сейчас нет открытых объявлений о наборе.</div> :
@@ -2451,7 +2478,7 @@ function RecruitmentScreen({ territories, onSelect }) {
           <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',alignItems:'center',gap:10,minWidth:0,minHeight:48}}>
             <div style={{minWidth:0}}>
               <MinecraftText text={city.name} as="div" lang="ru" className="atlas-display" style={{fontSize:22,fontWeight:800,lineHeight:1.2,minWidth:0,whiteSpace:'normal',overflowWrap:'anywhere',wordBreak:'normal',hyphens:'auto',hyphenateCharacter:'–'}} />
-              <div style={{fontSize:12,color:'var(--text-muted)',marginTop:6,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}><span style={{color:'var(--text)'}}>Связь:</span> {contact(city)}</div>
+              <div style={{fontSize:12,color:'var(--text-muted)',marginTop:6,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}><span style={{color:'var(--text)'}}>Связь:</span> {contact(city)?<TelegramUsername username={contact(city)}/>: 'не указан'}</div>
             </div>
             <div style={{display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:6,flexShrink:0}}>
               <ScoreBadge type="curator" value={Number(city.curator||0)} size="recruitment" />
@@ -2462,12 +2489,12 @@ function RecruitmentScreen({ territories, onSelect }) {
       </div>}
     {selected&&<SimpleModal title={<MinecraftText text={selected.name} style={{fontSize:22,fontWeight:800}} />} onClose={()=>setSelected(null)}>
       <div style={{fontSize:16,color:'var(--text-muted)',lineHeight:1.1,marginBottom:12}}>{formatCoords(selected.coords)}</div>
-      <div style={{fontSize:14,marginBottom:14}}><b>Связь:</b> {contact(selected)}</div>
+      <div style={{fontSize:14,marginBottom:14}}><b>Связь:</b> {contact(selected)?<TelegramUsername username={contact(selected)} interactive/>:'не указан'}</div>
       <div style={{display:'flex',gap:10,marginBottom:14}}>
         <ScoreBadge type="curator" value={Number(selected.curator||0)} size="lg" />
         <ScoreBadge type="community" value={Number(selected.community||0)} size="lg" />
       </div>
-      <MinecraftText as="div" text={selected.recruitment_description} style={{background:'var(--surface-2)',borderRadius:12,padding:'11px 12px',fontSize:13,lineHeight:1.55,whiteSpace:'pre-wrap',marginBottom:14}} />
+      <TelegramMinecraftText text={selected.recruitment_description} interactive style={{background:'var(--surface-2)',borderRadius:12,padding:'11px 12px',fontSize:13,lineHeight:1.55,marginBottom:14}}/>
       <button onClick={()=>{setSelected(null);onSelect(selected.id)}} className="press" style={{width:'100%',padding:'11px 0',border:'none',borderRadius:11,background:'var(--purple)',color:'#fff',fontWeight:700}}>Перейти на страницу города</button>
     </SimpleModal>}
   </div>;
@@ -2654,6 +2681,32 @@ function defaultEventDateParts(timeZone = EVENT_TIME_ZONE) {
   // Round up to the next full minute so the default is immediately publishable.
   return eventDatePartsFromTimestamp(Math.floor(Date.now() / 60000) * 60000 + 60000, timeZone);
 }
+function globalExpiryDatePartsFromTimestamp(timestamp, timeZone = EVENT_TIME_ZONE) {
+  const parts = eventZonedParts(Number(timestamp), timeZone);
+  if (!parts) return defaultGlobalExpiryDateParts(timeZone);
+  return { year:parts.year, day:parts.day, month:parts.month, hour:parts.hour, minute:parts.minute };
+}
+function defaultGlobalExpiryDateParts(timeZone = EVENT_TIME_ZONE) {
+  const timestamp = Math.ceil((Date.now() + 60 * 60000) / 60000) * 60000;
+  return globalExpiryDatePartsFromTimestamp(timestamp, timeZone);
+}
+function globalExpiryPartsTimestamp(parts, timeZone = EVENT_TIME_ZONE) {
+  const year=Number(parts?.year),day=Number(parts?.day),month=Number(parts?.month),hour=Number(parts?.hour),minute=Number(parts?.minute);
+  if (![year,day,month,hour,minute].every(Number.isInteger) || year<2000 || year>2200 || month<1 || month>12 || day<1 || day>new Date(Date.UTC(year,month,0)).getUTCDate() || hour<0 || hour>23 || minute<0 || minute>59) return null;
+  const targetUtc=Date.UTC(year,month-1,day,hour,minute,0,0);
+  let candidate=targetUtc;
+  for(let attempt=0;attempt<5;attempt++){
+    const zoned=eventZonedParts(candidate,timeZone);
+    if(!zoned)return null;
+    const representedUtc=Date.UTC(zoned.year,zoned.month-1,zoned.day,zoned.hour,zoned.minute,zoned.second||0,0);
+    const delta=targetUtc-representedUtc;
+    candidate+=delta;
+    if(delta===0)break;
+  }
+  const check=eventZonedParts(candidate,timeZone);
+  if(!check||check.year!==year||check.month!==month||check.day!==day||check.hour!==hour||check.minute!==minute||candidate<=Date.now())return null;
+  return candidate;
+}
 function eventDatePartsTimestamp(parts, timeZone = EVENT_TIME_ZONE) {
   const day=Number(parts?.day), month=Number(parts?.month), hour=Number(parts?.hour), minute=Number(parts?.minute);
   if (![day,month,hour,minute].every(Number.isInteger) || day<1 || day>31 || month<1 || month>12 || hour<0 || hour>23 || minute<0 || minute>59) return null;
@@ -2722,22 +2775,29 @@ function EventWheelColumn({ label, value, options, onChange }) {
     </div>
   </label>;
 }
-function EventDateTimeFields({ parts, onChange }) {
-  const safe=parts||defaultEventDateParts();
-  const daysInSelectedMonth=new Date(2000,Number(safe.month||1),0).getDate();
+function EventDateTimeFields({ parts, onChange, includeYear = false, timezoneOffset = EVENT_TIME_ZONE }) {
+  const safe=parts|| (includeYear ? defaultGlobalExpiryDateParts(timezoneOffset) : defaultEventDateParts(timezoneOffset));
+  const currentYear=Number(eventZonedParts(Date.now(),timezoneOffset)?.year)||new Date().getFullYear();
+  const selectedYear=Number(safe.year)||currentYear;
+  const selectedMonth=Number(safe.month)||1;
+  const daysInSelectedMonth=new Date(Date.UTC(selectedYear,selectedMonth,0)).getUTCDate();
   function setPart(key,value) {
     const next={...safe,[key]:Number(value)};
-    if(key==='month') next.day=Math.min(Number(next.day||1),new Date(2000,next.month,0).getDate());
+    if(key==='month'||key==='year') {
+      const dayLimit=new Date(Date.UTC(Number(next.year)||selectedYear,Number(next.month)||selectedMonth,0)).getUTCDate();
+      next.day=Math.min(Number(next.day||1),dayLimit);
+    }
     onChange(next);
   }
   const fields=[
+    ...(includeYear?[{key:'year',label:'Год',options:Array.from({length:11},(_,i)=>({value:currentYear+i,label:String(currentYear+i)}))}]:[]),
     {key:'day',label:'День',options:Array.from({length:daysInSelectedMonth},(_,i)=>({value:i+1,label:String(i+1).padStart(2,'0')}))},
     {key:'month',label:'Месяц',options:VOXYGEN_EVENT_MONTHS.map((label,i)=>({value:i+1,label}))},
     {key:'hour',label:'Часы',options:Array.from({length:24},(_,i)=>({value:i,label:String(i).padStart(2,'0')}))},
     {key:'minute',label:'Минуты',options:Array.from({length:60},(_,i)=>({value:i,label:String(i).padStart(2,'0')}))},
   ];
-  return <div style={{display:'flex',gap:7,marginTop:7,padding:9,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:15}}>
-    {fields.map(field=><EventWheelColumn key={field.key} label={field.label} value={safe[field.key]} options={field.options} onChange={value=>setPart(field.key,value)}/>) }
+  return <div style={{display:'flex',gap:includeYear?5:7,marginTop:7,padding:9,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:15}}>
+    {fields.map(field=><EventWheelColumn key={field.key} label={field.label} value={safe[field.key]} options={field.options} onChange={value=>setPart(field.key,value)}/>)}
   </div>;
 }
 function sanitizeEventCoords(value) { return String(value??'').replace(/[\u0000-\u001F\u007F]/g,'').slice(0,180); }
@@ -2949,9 +3009,106 @@ function MainTabs({ tab, onChange }) {
 
 
 function SimpleModal({title,children,onClose}){const {closing,requestClose}=useAnimatedClose(onClose,175);return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:100,background:'rgba(0,0,0,.78)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(448px,100%)',maxHeight:'76vh',overflowY:'auto',margin:'auto',background:'#12151D',border:'1px solid var(--border)',borderRadius:22,padding:18}}><div style={{display:'flex',alignItems:'center',justifyContent:title?'space-between':'flex-end',marginBottom:title?14:10}}>{title&&<div className="atlas-display" style={{fontSize:18,fontWeight:700}}>{title}</div>}<button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>{children}</div></div>}
+function normalizedTelegramUsername(value) {
+  const username=String(value||'').trim().replace(/^@+/,'');
+  return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username) ? username : '';
+}
+function TelegramUsername({username,interactive=false,style={}}) {
+  const raw=String(username||'').trim().replace(/^@+/,'');
+  if(!raw)return null;
+  const normalized=normalizedTelegramUsername(raw);
+  const label='@'+raw;
+  const appearance={...style,color:'var(--mint)',fontWeight:style.fontWeight??750,textDecoration:'none'};
+  if(!interactive||!normalized)return <span style={appearance}>{label}</span>;
+  const href='https://t.me/'+normalized;
+  return <a href={href} target="_blank" rel="noopener noreferrer" onClick={event=>{
+    event.stopPropagation();
+    const openTelegramLink=window.Telegram?.WebApp?.openTelegramLink;
+    if(typeof openTelegramLink==='function'){event.preventDefault();openTelegramLink.call(window.Telegram.WebApp,href);}
+  }} style={appearance}>{label}</a>;
+}
+function TelegramRichText({text,interactive=true,style={}}) {
+  const value=String(text??'');
+  const pattern=/@[A-Za-z][A-Za-z0-9_]{4,31}/g;
+  const pieces=[];
+  let cursor=0,match;
+  while((match=pattern.exec(value))){
+    const previous=match.index>0?value[match.index-1]:'';
+    if(previous&&/[A-Za-z0-9_.]/.test(previous))continue;
+    if(match.index>cursor)pieces.push(value.slice(cursor,match.index));
+    pieces.push(<TelegramUsername key={match.index} username={match[0]} interactive={interactive}/>);
+    cursor=match.index+match[0].length;
+  }
+  if(cursor<value.length)pieces.push(value.slice(cursor));
+  return <div style={{whiteSpace:'pre-wrap',...style}}>{pieces}</div>;
+}
+
+function TelegramMinecraftText({text,interactive=true,style={}}) {
+  const source=String(text??'').replace(/§x(?:§[0-9a-fA-F]){6}/gi,value=>'§#'+value.replace(/§x|§/gi,''));
+  const pieces=[];
+  const state={color:null,bold:false,italic:false,underline:false,strike:false,obfuscated:false};
+  const tokenPattern=/§(?:#([0-9a-fA-F]{6})|([0-9a-fk-oK-OrR]))/gi;
+  let cursor=0,linkIndex=0,match;
+  const statePrefix=()=>{
+    let prefix='';
+    if(state.color){
+      const hex=String(state.color).match(/^#[0-9a-f]{6}$/i);
+      if(hex)prefix+='§'+hex[0];
+      else {
+        const code=Object.keys(MINECRAFT_COLORS).find(key=>MINECRAFT_COLORS[key]===state.color);
+        if(code)prefix+='§'+code;
+      }
+    }
+    if(state.obfuscated)prefix+='§k';
+    if(state.bold)prefix+='§l';
+    if(state.strike)prefix+='§m';
+    if(state.underline)prefix+='§n';
+    if(state.italic)prefix+='§o';
+    return prefix;
+  };
+  const updateState=value=>{
+    tokenPattern.lastIndex=0;
+    let token;
+    while((token=tokenPattern.exec(value))){
+      if(token[1])state.color='#'+token[1];
+      else {
+        const code=String(token[2]||'').toLowerCase();
+        if(Object.prototype.hasOwnProperty.call(MINECRAFT_COLORS,code))state.color=MINECRAFT_COLORS[code];
+        else if(code==='l')state.bold=true;
+        else if(code==='o')state.italic=true;
+        else if(code==='n')state.underline=true;
+        else if(code==='m')state.strike=true;
+        else if(code==='k')state.obfuscated=true;
+        else if(code==='r'){state.color=null;state.bold=false;state.italic=false;state.underline=false;state.strike=false;state.obfuscated=false;}
+      }
+    }
+  };
+  const addText=value=>{
+    if(!value)return;
+    pieces.push(<MinecraftText key={'mc-'+linkIndex++} text={statePrefix()+value} style={style}/>);
+    updateState(value);
+  };
+  const isBoundary=at=>{
+    let prefix=source.slice(0,at);
+    let token;
+    while((token=prefix.match(/§(?:#[0-9a-fA-F]{6}|[0-9a-fk-or])$/i)))prefix=prefix.slice(0,-token[0].length);
+    const previous=prefix.slice(-1);
+    return !previous||!/[A-Za-z0-9_.]/.test(previous);
+  };
+  const usernamePattern=/@[A-Za-z][A-Za-z0-9_]{4,31}/g;
+  while((match=usernamePattern.exec(source))){
+    if(!isBoundary(match.index))continue;
+    addText(source.slice(cursor,match.index));
+    pieces.push(<TelegramUsername key={'tg-'+match.index} username={match[0]} interactive style={style}/>);
+    cursor=match.index+match[0].length;
+  }
+  addText(source.slice(cursor));
+  return <div style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere',...style}}>{pieces}</div>;
+}
+
 function FaqModal({onClose,text}){
   return <SimpleModal title="ЧиВо" onClose={onClose}>
-    <div style={{fontSize:13,lineHeight:1.55,color:'var(--text-muted)',whiteSpace:'pre-wrap'}}>{String(text??'')}</div>
+    <TelegramRichText text={String(text??'')} interactive style={{fontSize:13,lineHeight:1.55,color:'var(--text-muted)'}}/>
   </SimpleModal>;
 }
 function HomeFeatureButtonModal({mode='view',config,onClose,initData,onSaved}){
@@ -3535,7 +3692,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
       else cancelSettingsRequest();
     };
     loadSettings();
-    intervalTimer = window.setInterval(loadSettings, 60000);
+    intervalTimer = window.setInterval(loadSettings, 15000);
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
@@ -3926,7 +4083,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         )}
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
-        {globalSettingsOpen&&role==='main_inspector'&&<GlobalSettingsPanel initData={window.Telegram?.WebApp?.initData||''} onSettingsChanged={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);const zoomChanged=mapZoomPreferenceRef.current===null||mapZoomPreferenceRef.current!==nextZoom;mapZoomPreferenceRef.current=nextZoom;setMapZoomPercent(nextZoom);if(zoomChanged)setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));setMapZoomReady(true);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));}} onClose={()=>setGlobalSettingsOpen(false)}/>}
+        {globalSettingsOpen&&role==='main_inspector'&&<GlobalSettingsPanel timezoneOffset={timezoneOffset} initData={window.Telegram?.WebApp?.initData||''} onSettingsChanged={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);const zoomChanged=mapZoomPreferenceRef.current===null||mapZoomPreferenceRef.current!==nextZoom;mapZoomPreferenceRef.current=nextZoom;setMapZoomPercent(nextZoom);if(zoomChanged)setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));setMapZoomReady(true);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));}} onClose={()=>setGlobalSettingsOpen(false)}/>}
 
         {showAddTerritory && (
           <AddTerritoryModal onClose={() => setShowAddTerritory(false)} onSubmit={submitTerritoryRequest} isMainInspector={role==='main_inspector'} />

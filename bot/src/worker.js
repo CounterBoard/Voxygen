@@ -417,6 +417,14 @@ async function notifyMainInspectorOfPurchase(env, details) {
 }
 
 const GLOBAL_SETTINGS_INIT_CACHE = new WeakMap();
+const GLOBAL_SETTING_KEYS = new Set(['theme', 'map_zoom']);
+const VOXYGEN_THEMES = new Set(['vox']);
+
+function normalizeVoxygenTheme(value) {
+  const theme = String(value || 'vox').trim().toLowerCase();
+  return VOXYGEN_THEMES.has(theme) ? theme : 'vox';
+}
+
 async function ensureGlobalSettingsTable(env) {
   let promise = GLOBAL_SETTINGS_INIT_CACHE.get(env);
   if (!promise) {
@@ -441,10 +449,18 @@ async function readGlobalSettingOverrides(env, at = Date.now()) {
     FROM global_setting_overrides`).all();
   const result = { theme: null, mapZoomPercent: null };
   for (const row of rows.results || []) {
-    if (row.setting_key !== 'map_zoom') continue;
+    if (!GLOBAL_SETTING_KEYS.has(row.setting_key)) continue;
     const expiresAt = row.expires_at == null ? null : Number(row.expires_at);
     if (expiresAt !== null && (!Number.isFinite(expiresAt) || expiresAt <= at)) continue;
-    result.mapZoomPercent = { value: normalizeMapZoomPercent(row.value), expiresAt, updatedAt: Number(row.updated_at || 0) };
+    const entry = {
+      value: row.setting_key === 'map_zoom'
+        ? normalizeMapZoomPercent(row.value)
+        : normalizeVoxygenTheme(row.value),
+      expiresAt,
+      updatedAt: Number(row.updated_at || 0),
+    };
+    if (row.setting_key === 'map_zoom') result.mapZoomPercent = entry;
+    if (row.setting_key === 'theme') result.theme = entry;
   }
   return result;
 }
@@ -454,13 +470,15 @@ async function getAdminGlobalSettings(request, env) {
   if (auth.error) return auth.error;
   await ensureGlobalSettingsTable(env);
   const rows = await env.DB.prepare(`SELECT setting_key,value,expires_at,updated_at,updated_by
-    FROM global_setting_overrides WHERE setting_key='map_zoom'`).all();
+    FROM global_setting_overrides WHERE setting_key IN ('map_zoom','theme')`).all();
   const now = Date.now();
   return json({
     ok: true,
     settings: (rows.results || []).map(row => ({
       key: row.setting_key,
-      value: normalizeMapZoomPercent(row.value),
+      value: row.setting_key === 'map_zoom'
+        ? normalizeMapZoomPercent(row.value)
+        : normalizeVoxygenTheme(row.value),
       expiresAt: row.expires_at == null ? null : Number(row.expires_at),
       active: row.expires_at == null || Number(row.expires_at) > now,
       updatedAt: Number(row.updated_at || 0),
@@ -474,28 +492,66 @@ async function saveAdminGlobalSetting(request, env) {
   if (auth.error) return auth.error;
   let body;
   try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
-  const key = String(body?.key || '').trim();
-  if (key !== 'map_zoom') return json({ ok: false, error: 'Неизвестная глобальная настройка' }, 400);
-  if (body?.clear === true) {
-    await ensureGlobalSettingsTable(env);
-    await env.DB.prepare('DELETE FROM global_setting_overrides WHERE setting_key=?').bind(key).run();
-    return getAdminGlobalSettings(new Request(request.url, { headers: { 'X-Telegram-Init-Data': String(request.headers.get('X-Telegram-Init-Data') || body?.initData || '') } }), env);
-  }
-  const raw = Number(body?.value);
-  if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 1 || raw > 100) return json({ ok: false, error: 'Масштаб должен быть от 1 до 100%' }, 400);
-  const value = String(normalizeMapZoomPercent(raw));
-  const durationMinutes = body?.durationMinutes == null ? null : Number(body.durationMinutes);
-  if (durationMinutes !== null && (!Number.isSafeInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 5256000)) {
-    return json({ ok: false, error: 'Срок действия должен быть от 1 минуты до 10 лет или «Навсегда»' }, 400);
-  }
-  const now = Date.now();
-  const expiresAt = durationMinutes === null ? null : now + durationMinutes * 60000;
+
   await ensureGlobalSettingsTable(env);
-  await env.DB.prepare(`INSERT INTO global_setting_overrides(setting_key,value,expires_at,updated_at,updated_by)
-    VALUES(?,?,?,?,?) ON CONFLICT(setting_key) DO UPDATE SET value=excluded.value,
-    expires_at=excluded.expires_at,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
-    .bind(key, String(value), expiresAt, now, Number(auth.user.id)).run();
-  return getAdminGlobalSettings(new Request(request.url, { headers: { 'X-Telegram-Init-Data': String(request.headers.get('X-Telegram-Init-Data') || body?.initData || '') } }), env);
+  const requestHeaders = { 'X-Telegram-Init-Data': String(request.headers.get('X-Telegram-Init-Data') || body?.initData || '') };
+  const refresh = () => getAdminGlobalSettings(new Request(request.url, { headers: requestHeaders }), env);
+
+  if (body?.clear === true) {
+    const keys = body.key ? [String(body.key).trim()] : [...GLOBAL_SETTING_KEYS];
+    if (keys.some(key => !GLOBAL_SETTING_KEYS.has(key))) return json({ ok: false, error: 'Неизвестная глобальная настройка' }, 400);
+    await env.DB.batch(keys.map(key => env.DB.prepare('DELETE FROM global_setting_overrides WHERE setting_key=?').bind(key)));
+    return refresh();
+  }
+
+  const rawSettings = body?.settings && typeof body.settings === 'object' && !Array.isArray(body.settings)
+    ? body.settings
+    : { [String(body?.key || '').trim()]: body?.value };
+  const keys = Object.keys(rawSettings);
+  if (!keys.length || keys.some(key => !GLOBAL_SETTING_KEYS.has(key))) {
+    return json({ ok: false, error: 'Неизвестная глобальная настройка' }, 400);
+  }
+
+  let expiresAt = null;
+  const now = Date.now();
+  if (body?.permanent === true) {
+    expiresAt = null;
+  } else if (body?.expiresAt !== undefined) {
+    const requestedExpiry = Number(body.expiresAt);
+    const maxExpiry = now + 10 * 365 * 24 * 60 * 60 * 1000;
+    if (!Number.isSafeInteger(requestedExpiry) || requestedExpiry <= now || requestedExpiry > maxExpiry) {
+      return json({ ok: false, error: 'Выберите будущую дату в пределах ближайших 10 лет или нажмите «Навсегда»' }, 400);
+    }
+    expiresAt = requestedExpiry;
+  } else {
+    const durationMinutes = body?.durationMinutes == null ? null : Number(body.durationMinutes);
+    if (durationMinutes !== null && (!Number.isSafeInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 5256000)) {
+      return json({ ok: false, error: 'Срок действия должен быть от 1 минуты до 10 лет или «Навсегда»' }, 400);
+    }
+    expiresAt = durationMinutes === null ? null : now + durationMinutes * 60000;
+  }
+
+  const statements = [];
+  for (const key of keys) {
+    let value;
+    if (key === 'map_zoom') {
+      const raw = Number(rawSettings[key]);
+      if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 1 || raw > 100) {
+        return json({ ok: false, error: 'Масштаб должен быть от 1 до 100%' }, 400);
+      }
+      value = String(normalizeMapZoomPercent(raw));
+    } else {
+      const theme = String(rawSettings[key] || '').trim().toLowerCase();
+      if (!VOXYGEN_THEMES.has(theme)) return json({ ok: false, error: 'Неизвестная тема оформления' }, 400);
+      value = normalizeVoxygenTheme(theme);
+    }
+    statements.push(env.DB.prepare(`INSERT INTO global_setting_overrides(setting_key,value,expires_at,updated_at,updated_by)
+      VALUES(?,?,?,?,?) ON CONFLICT(setting_key) DO UPDATE SET value=excluded.value,
+      expires_at=excluded.expires_at,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
+      .bind(key, value, expiresAt, now, Number(auth.user.id)));
+  }
+  await env.DB.batch(statements);
+  return refresh();
 }
 
 async function getUserSettings(request, env) {
@@ -518,9 +574,11 @@ async function getUserSettings(request, env) {
     WHERE t.status='approved' AND (t.owner_telegram_id=? OR EXISTS(SELECT 1 FROM territory_managers tm WHERE tm.territory_id=t.id AND tm.telegram_id=?) OR EXISTS(SELECT 1 FROM city_memberships cm WHERE cm.territory_id=t.id AND cm.telegram_id=?))
     ORDER BY t.name COLLATE NOCASE ASC`).bind(uid,uid,uid,uid,uid,uid,uid).all();
   const personalMapZoomPercent = normalizeMapZoomPercent(settings?.map_zoom_percent ?? 100);
+  const personalTheme = normalizeVoxygenTheme(settings?.default_theme ?? 'vox');
   return json({ ok: true, settings: {
-    defaultTheme: 'vox',
-    theme: 'vox',
+    defaultTheme: globalOverrides.theme?.value ?? personalTheme,
+    theme: globalOverrides.theme?.value ?? personalTheme,
+    personalTheme,
     personalMapZoomPercent,
     mapZoomPercent: globalOverrides.mapZoomPercent?.value ?? personalMapZoomPercent,
     globalOverrides,
@@ -548,7 +606,7 @@ async function saveUserSettings(request, env) {
   // fields. Preserve newer personal settings when those fields are omitted.
   const existing = await env.DB.prepare(`SELECT default_theme,timezone,event_notifications,map_zoom_percent
     FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first();
-  const defaultTheme = 'vox';
+  const defaultTheme = normalizeVoxygenTheme(body?.defaultTheme ?? existing?.default_theme ?? 'vox');
   const timezone = normalizeUserTimezone(body?.timezone ?? existing?.timezone ?? 'UTC+3');
   const mapZoomPercent = normalizeMapZoomPercent(body?.mapZoomPercent ?? existing?.map_zoom_percent ?? 100);
   // The former global switch is retired; preserve the column for DB compatibility.
