@@ -3406,6 +3406,7 @@ export default function CityRatingApp() {
   const territoriesRequestRef = useRef(false);
   const territoriesRefreshQueuedRef = useRef(false);
   const mapImageLoadedRef = useRef(false);
+  const mapLoadGenerationRef = useRef(0);
   const [showAddTerritory, setShowAddTerritory] = useState(false);
   const [homeToast, setHomeToast] = useState(null);
   const [worldMapImage, setWorldMapImage] = useState(null);
@@ -3586,13 +3587,17 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
 
   async function loadWorldMap() {
     if (mapImageLoadedRef.current) return;
+    const generation = ++mapLoadGenerationRef.current;
+    const isCurrent = () => generation === mapLoadGenerationRef.current;
     setWorldMapLoading(true);
     setWorldMapError('');
     try {
       const manifestResponse = await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`, { cache: 'no-store' });
+      if (!isCurrent()) return;
       if (manifestResponse.status !== 404) {
         if (!manifestResponse.ok) throw new Error(`Не удалось проверить манифест карты (HTTP ${manifestResponse.status}).`);
         const manifest = await manifestResponse.json();
+        if (!isCurrent()) return;
         const source = manifest?.source;
         if (!manifest?.mapVersion || !source || !['deepzoom', 'url-grid'].includes(source.type)) {
           throw new Error('Опубликованная карта имеет неподдерживаемый формат.');
@@ -3605,7 +3610,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         }
         const previewPath = source.previewUrl || manifest.previewUrl;
         if (!previewPath) throw new Error('В манифесте карты отсутствует previewUrl.');
-        const previewUrl = /^https?:\/\//i.test(previewPath) ? previewPath : new URL(previewPath, MAP_ASSETS_BASE).href;
+        const previewUrl = /^https?:\\/\\//i.test(previewPath) ? previewPath : new URL(previewPath, MAP_ASSETS_BASE).href;
         const preloadImage = new Image();
         preloadImage.decoding = 'async';
         preloadImage.fetchPriority = 'high';
@@ -3623,6 +3628,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
             preloadImage.onerror = () => reject(new Error('Не удалось загрузить превью карты.'));
           });
         }
+        if (!isCurrent()) return;
         if (!preloadImage.naturalWidth || !preloadImage.naturalHeight) {
           throw new Error('Превью карты не удалось декодировать.');
         }
@@ -3635,10 +3641,12 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
       // Legacy image delivery is a temporary bridge only while no manifest
       // exists. A present-but-invalid manifest must never be bypassed.
       const probe = await fetch(`${API_BASE}/api/map`, { method: 'HEAD', cache: 'no-store' });
+      if (!isCurrent()) return;
       if (!probe.ok) {
         const errorData = await fetch(`${API_BASE}/api/map`, { cache: 'no-store' })
           .then(response => response.json().catch(() => null))
           .catch(() => null);
+        if (!isCurrent()) return;
         throw new Error(errorData?.error || `Не удалось получить карту (HTTP ${probe.status}).`);
       }
       const contentType = String(probe.headers.get('Content-Type') || '').toLowerCase();
@@ -3664,6 +3672,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
           preloadImage.onerror = () => reject(new Error('Не удалось загрузить изображение карты.'));
         });
       }
+      if (!isCurrent()) return;
       if (preloadImage.naturalWidth !== WORLD_MAP_GEOMETRY.width || preloadImage.naturalHeight !== WORLD_MAP_GEOMETRY.height) {
         throw new Error('Старая карта не соответствует новой геометрии: требуется изображение 6016 × 6016 пикселей.');
       }
@@ -3671,12 +3680,13 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
       setWorldMapImage(mapUrl);
       mapImageLoadedRef.current = true;
     } catch (error) {
+      if (!isCurrent()) return;
       setWorldMapImage(null);
       setWorldMapSource(null);
       setWorldMapError(safeCaughtError(error, 'Не удалось загрузить карту мира.'));
       console.error('Load world map error:', String(error?.message || error));
     } finally {
-      setWorldMapLoading(false);
+      if (isCurrent()) setWorldMapLoading(false);
     }
   }
 
@@ -3900,7 +3910,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
       <div style={{ maxWidth: 448, margin: '0 auto', position: 'relative' }}>
         <div className="atlas-screen-transition" key={`${screen}-${selected?.id || 'none'}`}>
         {screen === 'profile' ? (
-          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));setMapZoomPercent(normalizeMapZoomPercent(settings.mapZoomPercent));setMapZoomReady(true);setTheme(normalizeTheme(settings.theme||settings.defaultTheme));setTimezoneReady(true);setTimezoneLoadError('');}} />
+          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapLoadGenerationRef.current+=1;mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setTimezoneRetryToken(value=>value+1);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));setMapZoomPercent(normalizeMapZoomPercent(settings.mapZoomPercent));setMapZoomReady(true);setTheme(normalizeTheme(settings.theme||settings.defaultTheme));setTimezoneReady(true);setTimezoneLoadError('');}} />
         ) : screen === 'customization' ? (
           <CustomizationScreen initData={window.Telegram?.WebApp?.initData || ''} tgUser={tgUser} role={role} territories={territories} profile={profile} />
         ) : screen === 'events' ? (
