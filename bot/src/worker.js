@@ -11,7 +11,6 @@ import {
   normalizeMapZoomPercent,
 } from '../../shared/world-map-coordinates.js';
 
-const SUPPORTED_THEMES = new Set(['vox']);
 const TELEGRAM_API = "https://api.telegram.org";
 const EVENT_TABLES_INIT_CACHE = new WeakMap();
 const USER_PREFERENCE_TABLES_INIT_CACHE = new WeakMap();
@@ -434,10 +433,6 @@ async function ensureGlobalSettingsTable(env) {
     GLOBAL_SETTINGS_INIT_CACHE.set(env, promise);
   }
   return promise;
-}
-
-function normalizeTheme() {
-  return 'vox';
 }
 
 async function readGlobalSettingOverrides(env, at = Date.now()) {
