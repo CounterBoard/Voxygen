@@ -1938,6 +1938,141 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
   </div>;
 }
 
+function GlobalSettingsPanel({ initData, onSettingsChanged }) {
+  const [entries,setEntries] = useState([]);
+  const [mapZoom,setMapZoom] = useState(100);
+  const [theme,setTheme] = useState('vox');
+  const [mapDuration,setMapDuration] = useState('1440');
+  const [themeDuration,setThemeDuration] = useState('1440');
+  const [loading,setLoading] = useState(true);
+  const [busy,setBusy] = useState('');
+  const [error,setError] = useState('');
+  const [notice,setNotice] = useState('');
+
+  async function load() {
+    try {
+      setLoading(true); setError('');
+      const response = await fetch(`${API_BASE}/api/admin/global-settings`, {
+        headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store',
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) throw new Error(apiErrorMessage(response,data,'Не удалось загрузить глобальные настройки.'));
+      const rows = Array.isArray(data.settings) ? data.settings : [];
+      setEntries(rows);
+      const zoom = rows.find(row => row.key==='map_zoom');
+      const currentTheme = rows.find(row => row.key==='theme');
+      if (zoom) setMapZoom(normalizeMapZoomPercent(zoom.value));
+      if (currentTheme) setTheme(normalizeTheme(currentTheme.value));
+    } catch (e) {
+      setError(safeCaughtError(e,'Не удалось загрузить глобальные настройки.'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { if (initData) load(); }, [initData]);
+
+  async function refreshEffectiveSettings() {
+    const response = await fetch(`${API_BASE}/api/user-settings`, {
+      headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store',
+    });
+    const data = await response.json().catch(() => null);
+    if (response.ok && data?.ok && data?.settings) onSettingsChanged?.(data.settings);
+  }
+
+  async function save(key,value,duration) {
+    try {
+      setBusy(key); setError(''); setNotice('');
+      const response = await fetch(`${API_BASE}/api/admin/global-settings`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'X-Telegram-Init-Data':initData },
+        body: JSON.stringify({ initData, key, value, durationMinutes: duration==='permanent' ? null : Number(duration) }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) throw new Error(apiErrorMessage(response,data,'Не удалось сохранить глобальную настройку.'));
+      setEntries(Array.isArray(data.settings)?data.settings:[]);
+      await refreshEffectiveSettings();
+      setNotice('Глобальная настройка применена');
+    } catch (e) {
+      setError(safeCaughtError(e,'Не удалось сохранить глобальную настройку.'));
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function clear(key) {
+    try {
+      setBusy(key); setError(''); setNotice('');
+      const response = await fetch(`${API_BASE}/api/admin/global-settings`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},
+        body:JSON.stringify({initData,key,clear:true}),
+      });
+      const data=await response.json().catch(()=>null);
+      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось отменить глобальную настройку.'));
+      setEntries(Array.isArray(data.settings)?data.settings:[]);
+      await refreshEffectiveSettings();
+      setNotice('Глобальное переопределение отменено. Личные настройки восстановлены.');
+    } catch(e) {
+      setError(safeCaughtError(e,'Не удалось отменить глобальную настройку.'));
+    } finally {
+      setBusy('');
+    }
+  }
+
+  const active = key => entries.find(row=>row.key===key&&row.active);
+  const status = key => {
+    const row=entries.find(item=>item.key===key);
+    if(!row)return 'Не задано';
+    if(!row.active)return 'Срок действия истёк; используется личная настройка';
+    if(row.expiresAt==null)return 'Действует постоянно';
+    return 'Действует до '+new Date(Number(row.expiresAt)).toLocaleString('ru-RU');
+  };
+  const durationOptions = [
+    {value:'60',label:'1 час'}, {value:'360',label:'6 часов'}, {value:'1440',label:'24 часа'},
+    {value:'10080',label:'7 дней'}, {value:'525600',label:'1 год'}, {value:'permanent',label:'Навсегда'},
+  ];
+  const selectStyle={width:'100%',minHeight:42,boxSizing:'border-box',border:'1px solid var(--border)',borderRadius:10,background:'var(--surface-2)',color:'var(--text)',padding:'9px 10px',fontSize:13};
+  const sectionStyle={borderTop:'1px solid var(--border)',paddingTop:12,marginTop:12};
+  return <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:15,marginTop:14,marginBottom:12}}>
+    <div className="atlas-display" style={{fontSize:16,fontWeight:800,marginBottom:4}}>Глобальные настройки</div>
+    <div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.45}}>Временные значения имеют приоритет над личными настройками всех пользователей. После окончания срока личные значения автоматически восстановятся.</div>
+    {loading?<div style={{padding:12,color:'var(--text-muted)',fontSize:12}}>Загрузка…</div>:<>
+      <div style={sectionStyle}>
+        <div style={{fontSize:13,fontWeight:750,marginBottom:4}}>Масштаб карты</div>
+        <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{status('map_zoom')}</div>
+        <input type="range" min="1" max="100" step="1" value={mapZoom} onChange={e=>setMapZoom(normalizeMapZoomPercent(e.target.value))} style={{width:'100%',accentColor:'var(--purple)'}}/>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--text-muted)',marginBottom:9}}><span>1% · приближение</span><strong style={{color:'var(--text)'}}>{mapZoom}%</strong><span>100% · обзор</span></div>
+        <label style={{display:'block',marginBottom:5}}>Срок действия</label>
+        <select value={mapDuration} onChange={e=>setMapDuration(e.target.value)} style={selectStyle}>
+          {durationOptions.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}
+        </select>
+        <div style={{display:'flex',gap:8,marginTop:9}}>
+          <button onClick={()=>save('map_zoom',mapZoom,mapDuration)} disabled={Boolean(busy)} className="press" style={{flex:1,minHeight:40,border:0,borderRadius:10,background:'var(--purple)',color:'#fff',fontWeight:750}}>{busy==='map_zoom'?'Сохранение…':'Применить всем'}</button>
+          <button onClick={()=>clear('map_zoom')} disabled={Boolean(busy)||!active('map_zoom')} className="press" style={{minHeight:40,border:'1px solid var(--border)',borderRadius:10,padding:'0 11px',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Снять</button>
+        </div>
+      </div>
+      <div style={sectionStyle}>
+        <div style={{fontSize:13,fontWeight:750,marginBottom:4}}>Тема приложения</div>
+        <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{status('theme')}</div>
+        <select value={theme} onChange={e=>setTheme(normalizeTheme(e.target.value))} style={selectStyle}>
+          <option value="vox">Vox</option><option value="aurora">Aurora</option>
+        </select>
+        <label style={{display:'block',marginTop:9,marginBottom:5}}>Срок действия</label>
+        <select value={themeDuration} onChange={e=>setThemeDuration(e.target.value)} style={selectStyle}>
+          {durationOptions.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}
+        </select>
+        <div style={{display:'flex',gap:8,marginTop:9}}>
+          <button onClick={()=>save('theme',theme,themeDuration)} disabled={Boolean(busy)} className="press" style={{flex:1,minHeight:40,border:0,borderRadius:10,background:'var(--purple)',color:'#fff',fontWeight:750}}>{busy==='theme'?'Сохранение…':'Применить всем'}</button>
+          <button onClick={()=>clear('theme')} disabled={Boolean(busy)||!active('theme')} className="press" style={{minHeight:40,border:'1px solid var(--border)',borderRadius:10,padding:'0 11px',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Снять</button>
+        </div>
+      </div>
+    </>}
+    {error&&<div role="alert" style={{fontSize:12,color:'var(--red)',marginTop:10}}>{error}</div>}
+    {notice&&<div role="status" style={{fontSize:12,color:'var(--mint)',marginTop:10}}>{notice}</div>}
+  </div>;
+}
+
 function ProfileScreen({ profile, profileLoadState, profileLoadError, claimNickname, role, tgUser, refreshProfile, territories, onTerritoriesChanged, onMapSaved, onFaqSaved, onSettingsSaved }) {
   const isInspector = role === 'inspector' || role === 'main_inspector';
   const isMainInspector = role === 'main_inspector';
@@ -1961,7 +2096,8 @@ function ProfileScreen({ profile, profileLoadState, profileLoadError, claimNickn
     {!isInspector&&userCitiesForTreasury.map(city=><TreasuryCard key={`treasury-${city.id}`} city={city} initData={initData} tgUser={tgUser}/>)}
     {!isInspector&&managerCities.map(city=><CityManagementProfile key={`manage-${city.id}`} territory={city} managerTerritories={managerCities} initData={initData} tgUser={tgUser} onChanged={onTerritoriesChanged}/>)}
     {!isInspector&&residentCities.map(city=><CityManagementProfile key={`view-${city.id}`} territory={city} managerTerritories={managerCities} initData={initData} tgUser={tgUser} readOnly onChanged={onTerritoriesChanged}/>)}
-    {isMainInspector&&<MainInspectorPanel initData={initData} onMapSaved={onMapSaved} territories={territories} onTerritoriesChanged={onTerritoriesChanged} onFaqSaved={onFaqSaved}/>}
+    {isMainInspector&&<GlobalSettingsPanel initData={initData} onSettingsChanged={onSettingsSaved}/>}
+        {isMainInspector&&<MainInspectorPanel initData={initData} onMapSaved={onMapSaved} territories={territories} onTerritoriesChanged={onTerritoriesChanged} onFaqSaved={onFaqSaved}/>}
       {settingsOpen&&<ProfileSettingsModal initData={initData} onClose={()=>setSettingsOpen(false)} onSaved={settings=>onSettingsSaved?.(settings)}/>}
       </div>;
 }
