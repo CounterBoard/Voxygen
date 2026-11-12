@@ -20,7 +20,7 @@ const USER_PREFERENCE_TABLES_INIT_CACHE = new WeakMap();
 function withCors(response) {
   const headers = new Headers(response.headers);
   headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, X-Telegram-Init-Data, X-Map-Size, If-None-Match");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, X-Telegram-Init-Data, X-Map-Size, X-Map-Width, X-Map-Height, If-None-Match");
   headers.set("Access-Control-Allow-Methods", "GET, HEAD, POST, PATCH, DELETE, OPTIONS");
   headers.set("Access-Control-Expose-Headers", "X-Request-ID, Server-Timing, X-Map-Version");
   return new Response(response.body, {
