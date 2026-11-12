@@ -3568,9 +3568,16 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
     setWorldMapLoading(true);
     setWorldMapError('');
     try {
-      const manifestResponse = await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`, { cache: 'no-store' });
+      let manifestResponse = null;
+      try {
+        manifestResponse = await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`, { cache: 'no-store' });
+      } catch (manifestError) {
+        console.warn('World-map manifest unavailable; trying the legacy map endpoint:', String(manifestError?.message || manifestError));
+      }
       if (!isCurrent()) return;
-      if (manifestResponse.status !== 404) {
+      // Keep the historical legacy endpoint as a network/5xx/404 fallback.
+      // A reachable but malformed manifest is still a hard error and is not bypassed.
+      if (manifestResponse && manifestResponse.status !== 404 && manifestResponse.status < 500) {
         if (!manifestResponse.ok) throw new Error(`Не удалось проверить манифест карты (HTTP ${manifestResponse.status}).`);
         const manifest = await manifestResponse.json();
         if (!isCurrent()) return;
@@ -3649,6 +3656,9 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         });
       }
       if (!isCurrent()) return;
+      if (!preloadImage.naturalWidth || !preloadImage.naturalHeight) {
+        throw new Error('Изображение карты не удалось декодировать.');
+      }
       setWorldMapSource(null);
       setWorldMapImage(mapUrl);
       mapImageLoadedRef.current = true;
