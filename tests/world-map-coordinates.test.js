@@ -51,12 +51,10 @@ test("legacy and current manifests use fixed world bounds, not raster width/heig
   }), false);
 });
 
-test("map zoom percentages correspond to visible map width exactly", () => {
+test("map zoom preserves the established Voxygen overview-to-close-up range", () => {
   assert.equal(mapZoomPercentToScale(100), 1);
-  assert.equal(mapZoomPercentToScale(50), 2);
-  assert.equal(mapZoomPercentToScale(25), 4);
-  assert.equal(mapZoomPercentToScale(10), 10);
-  assert.equal(mapZoomPercentToScale(1), 100);
+  assert.equal(mapZoomPercentToScale(1), 24);
+  assert.equal(mapZoomPercentToScale(50), 1 + (50 / 99) * 23);
   assert.equal(normalizeMapZoomPercent(-10), 1);
   assert.equal(normalizeMapZoomPercent(140), 100);
   assert.equal(normalizeMapZoomPercent("invalid"), 100);
