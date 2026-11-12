@@ -2552,7 +2552,13 @@ function EventsScreen({ initData, territories = [], onSelectTerritory, isMainIns
     finally { setLoading(false); }
   }
   useEffect(() => { load(); }, [initData]);
-  useEffect(() => { const timer=setInterval(()=>setClockNow(Date.now()),15000); return ()=>clearInterval(timer); }, []);
+  useEffect(() => {
+    const tick=()=>setClockNow(Date.now());
+    const onVisible=()=>{if(document.visibilityState==='visible')tick();};
+    const timer=setInterval(tick,15000);
+    document.addEventListener('visibilitychange',onVisible);
+    return ()=>{clearInterval(timer);document.removeEventListener('visibilitychange',onVisible);};
+  }, []);
   function updateDraft(id, patch) { setDrafts(prev => ({ ...prev, [id]: { value: prev[id]?.value ?? '', unit: prev[id]?.unit ?? 'minutes', ...patch } })); }
   async function saveReminder(event) {
     const draft = drafts[event.id] || { value: '', unit: 'minutes' };
