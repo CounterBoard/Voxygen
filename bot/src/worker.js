@@ -292,10 +292,9 @@ async function ensureUserPreferenceTables(env) {
         try { await env.DB.prepare(`ALTER TABLE user_preferences ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC+3'`).run(); }
         catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
       }
-      if (preferenceColumnNames.has('default_map')) {
-        // Remove the retired JORICK/Vox map selector and its per-user stored values.
-        await env.DB.prepare(`ALTER TABLE user_preferences DROP COLUMN default_map`).run();
-      }
+      // Keep the legacy default_map column in place when present. It is no longer
+      // read or written, and leaving it avoids a destructive migration that can
+      // race across cold Worker instances or fail on older SQLite schema variants.
       if (!preferenceColumnNames.has('default_theme')) {
         try { await env.DB.prepare(`ALTER TABLE user_preferences ADD COLUMN default_theme TEXT NOT NULL DEFAULT 'vox'`).run(); }
         catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
