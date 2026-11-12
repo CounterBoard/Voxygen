@@ -561,14 +561,20 @@ async function saveUserSettings(request, env) {
   if (auth.error) return auth.error;
   let body; try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
   const uid = Number(auth.user.id), now = Date.now();
-  const defaultTheme = normalizeTheme(body?.defaultTheme ?? 'vox');
-  const timezone = normalizeUserTimezone(body?.timezone ?? 'UTC+3');
-  const mapZoomPercent = normalizeMapZoomPercent(body?.mapZoomPercent ?? 100);
-  // The former global switch is retired; preserve the column for DB compatibility.
-  const allNotifications = 1;
-  let eventNotifications = body?.eventNotifications === true ? 1 : 0;
   await ensureWorldTables(env);
   await ensureUserPreferenceTables(env);
+  // Older open Mini App sessions may still submit only timezone/notification
+  // fields. Preserve newer personal settings when those fields are omitted.
+  const existing = await env.DB.prepare(`SELECT default_theme,timezone,event_notifications,map_zoom_percent
+    FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first();
+  const defaultTheme = normalizeTheme(body?.defaultTheme ?? existing?.default_theme ?? 'vox');
+  const timezone = normalizeUserTimezone(body?.timezone ?? existing?.timezone ?? 'UTC+3');
+  const mapZoomPercent = normalizeMapZoomPercent(body?.mapZoomPercent ?? existing?.map_zoom_percent ?? 100);
+  // The former global switch is retired; preserve the column for DB compatibility.
+  const allNotifications = 1;
+  const eventNotifications = body?.eventNotifications === undefined
+    ? Number(existing?.event_notifications ?? 0)
+    : body.eventNotifications === true ? 1 : 0;
   await env.DB.prepare(`INSERT INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,map_zoom_percent,updated_at)
     VALUES(?,?,?,?,?,?,?) ON CONFLICT(telegram_id) DO UPDATE SET default_theme=excluded.default_theme,timezone=excluded.timezone,all_notifications=excluded.all_notifications,event_notifications=excluded.event_notifications,map_zoom_percent=excluded.map_zoom_percent,updated_at=excluded.updated_at`)
     .bind(uid, defaultTheme, timezone, allNotifications, eventNotifications, mapZoomPercent, now).run();
