@@ -1,4 +1,4 @@
-// Voxygen-Version: v52
+// Voxygen-Version: v53
 import React, { useEffect, useState, useRef } from 'react';
 import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, isValidWorldCoordinate, coordinateGeometryMatchesManifest, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
 import {
@@ -3333,6 +3333,7 @@ export default function CityRatingApp() {
   const [timezoneOffset,setTimezoneOffset] = useState('UTC+3');
   const [mapZoomPercent,setMapZoomPercent] = useState(100);
   const [mapZoomReady,setMapZoomReady] = useState(false);
+  const mapZoomPreferenceRef = useRef(null);
   const [timezoneReady,setTimezoneReady] = useState(false);
   const [timezoneLoadError,setTimezoneLoadError] = useState('');
   const [timezoneRetryToken,setTimezoneRetryToken] = useState(0);
@@ -3502,9 +3503,11 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         if (!response.ok || !data?.ok || !data?.settings) throw new Error(apiErrorMessage(response, data, 'Settings fetch failed'));
         const value = data.settings;
         const nextZoom=normalizeMapZoomPercent(value.mapZoomPercent ?? value.personalMapZoomPercent ?? 100);
+        const zoomPreferenceChanged=mapZoomPreferenceRef.current===null||mapZoomPreferenceRef.current!==nextZoom;
+        mapZoomPreferenceRef.current=nextZoom;
         setTimezoneOffset(normalizeTimezoneOffset(value.timezone));
         setMapZoomPercent(nextZoom);
-        setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));
+        if(zoomPreferenceChanged)setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));
         setMapZoomReady(true);
         setTimezoneReady(true); setTimezoneLoadError('');
         if (expiryTimer !== null) window.clearTimeout(expiryTimer);
@@ -3865,7 +3868,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
       <div style={{ maxWidth: 448, margin: '0 auto', position: 'relative' }}>
         <div className="atlas-screen-transition" key={`${screen}-${selected?.id || 'none'}`}>
         {screen === 'profile' ? (
-          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapLoadGenerationRef.current+=1;mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);setTimezoneRetryToken(value=>value+1);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));setMapZoomPercent(nextZoom);setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));setMapZoomReady(true);setTimezoneReady(true);setTimezoneLoadError('');}} onOpenGlobalSettings={()=>setGlobalSettingsOpen(true)} />
+          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapLoadGenerationRef.current+=1;mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);setTimezoneRetryToken(value=>value+1);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));mapZoomPreferenceRef.current=nextZoom;setMapZoomPercent(nextZoom);setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));setMapZoomReady(true);setTimezoneReady(true);setTimezoneLoadError('');}} onOpenGlobalSettings={()=>setGlobalSettingsOpen(true)} />
         ) : screen === 'customization' ? (
           <CustomizationScreen initData={window.Telegram?.WebApp?.initData || ''} tgUser={tgUser} role={role} territories={territories} profile={profile} />
         ) : screen === 'events' ? (
@@ -3923,7 +3926,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         )}
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
-        {globalSettingsOpen&&role==='main_inspector'&&<GlobalSettingsPanel initData={window.Telegram?.WebApp?.initData||''} onSettingsChanged={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);setMapZoomPercent(nextZoom);setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));setMapZoomReady(true);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));}} onClose={()=>setGlobalSettingsOpen(false)}/>}
+        {globalSettingsOpen&&role==='main_inspector'&&<GlobalSettingsPanel initData={window.Telegram?.WebApp?.initData||''} onSettingsChanged={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);mapZoomPreferenceRef.current=nextZoom;setMapZoomPercent(nextZoom);setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));setMapZoomReady(true);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));}} onClose={()=>setGlobalSettingsOpen(false)}/>}
 
         {showAddTerritory && (
           <AddTerritoryModal onClose={() => setShowAddTerritory(false)} onSubmit={submitTerritoryRequest} isMainInspector={role==='main_inspector'} />
