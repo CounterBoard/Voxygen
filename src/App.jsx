@@ -1,5 +1,6 @@
 // Voxygen-Version: v48
 import React, { useEffect, useState, useRef } from 'react';
+import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
 import {
   Map as MapIcon, List as ListIcon, Users, MessageCircle, ThumbsUp, ThumbsDown,
   Flag, X, ChevronLeft, ChevronRight, Camera, Check, Plus, Star, Heart,
@@ -228,15 +229,9 @@ const DEFAULT_FAQ_TEXT = `Voxygen — карта городов и их жите
 Чтобы дополнить или обновить карту Vox, создайте, полностью заполните карту без локатора 2-го уровня и отправьте на почтовый адрес "Vox" (карта будет отсканирована и отправлена адресанту, возможно с вознаграждением).`;
 
 
-// The displayed image may have any resolution; territory coordinates cover -2500…2500 blocks.
-// X=0 / Z=0 is the center of the world map.
-function voxWorldToPercent(x, z) {
-  const nx = Math.max(-2500, Math.min(2500, Number(x)));
-  const nz = Math.max(-2500, Math.min(2500, Number(z)));
-  return {
-    x: ((nx + 2500) / 5000) * 100,
-    y: ((nz + 2500) / 5000) * 100,
-  };
+// Pixel-center mapping keeps X=0/Z=0 on the exact center pixel of the 6001x6001 map.
+function voxWorldToPercent(x, z, coordinateSystem = WORLD_MAP_GEOMETRY) {
+  return worldCoordinateToPercent(x, z, coordinateSystem);
 }
 function finiteCoordinate(value) {
   if (value === null || value === undefined || String(value).trim() === '') return null;
