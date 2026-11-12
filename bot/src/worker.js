@@ -884,9 +884,8 @@ async function saveMapSettings(request, env, requestId = null) {
     if (declaredSize > WORLD_MAP_MAX_BYTES) return json({ ok: false, error: 'Размер карты превышает 90 МБ.' }, 413);
     const declaredWidth = Number(request.headers.get('X-Map-Width') || 0);
     const declaredHeight = Number(request.headers.get('X-Map-Height') || 0);
-    if ((declaredWidth && declaredWidth !== WORLD_MAP_GEOMETRY.width)
-      || (declaredHeight && declaredHeight !== WORLD_MAP_GEOMETRY.height)) {
-      return json({ ok: false, error: 'Карта Voxygen должна иметь размер 6016 × 6016 пикселей.' }, 400);
+    if (declaredWidth !== WORLD_MAP_GEOMETRY.width || declaredHeight !== WORLD_MAP_GEOMETRY.height) {
+      return json({ ok: false, error: 'Перед загрузкой карты необходимо подтвердить размер 6016 × 6016 пикселей.' }, 400);
     }
     if (!request.body) return json({ ok: false, error: 'Файл карты не передан.' }, 400);
 
