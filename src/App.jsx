@@ -1504,7 +1504,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
           const source=manifest?.source;
           if(manifest?.mapVersion===expectedVersion&&source&&['deepzoom','url-grid'].includes(source.type)){
             if(Number(source.width)!==WORLD_MAP_GEOMETRY.width||Number(source.height)!==WORLD_MAP_GEOMETRY.height)throw new Error('Опубликованная карта имеет неверный размер: требуется 6016 × 6016.');
-            if(source.coordinateSystem&&!coordinateGeometryMatchesManifest(source.coordinateSystem))throw new Error('Опубликованная карта имеет несовместимую калибровку координат.');
+            if(!coordinateGeometryMatchesManifest(source.coordinateSystem))throw new Error('Опубликованная карта не содержит обязательную калибровку координат или имеет несовместимую геометрию.');
             const previewPath=source.previewUrl||manifest.previewUrl;
             if(!previewPath)throw new Error('В манифесте карты отсутствует previewUrl.');
             const previewUrl=/^https?:\/\//i.test(previewPath)?previewPath:new URL(previewPath,MAP_ASSETS_BASE).href;
@@ -3601,8 +3601,8 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
           if (Number(source.width) !== WORLD_MAP_GEOMETRY.width || Number(source.height) !== WORLD_MAP_GEOMETRY.height) {
             throw new Error('Размер карты не совпадает с калибровкой координат Voxygen (6016 × 6016).');
           }
-          if (source.coordinateSystem && !coordinateGeometryMatchesManifest(source.coordinateSystem)) {
-            throw new Error('Калибровка координат карты не совпадает с backend Voxygen.');
+          if (!coordinateGeometryMatchesManifest(source.coordinateSystem)) {
+            throw new Error('В манифесте карты отсутствует обязательная калибровка координат или она не совпадает с backend Voxygen.');
           }
           const previewPath = source.previewUrl || manifest.previewUrl;
           if (!previewPath) throw new Error('В манифесте карты отсутствует previewUrl.');
