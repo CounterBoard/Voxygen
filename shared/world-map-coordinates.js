@@ -1,12 +1,12 @@
 export const WORLD_MAP_GEOMETRY = Object.freeze({
-  width: 6001,
-  height: 6001,
-  originX: 3000,
-  originZ: 3000,
-  minX: -3000,
-  maxX: 3000,
-  minZ: -3000,
-  maxZ: 3000,
+  width: 6016,
+  height: 6016,
+  originX: 3008,
+  originZ: 3008,
+  minX: -3008,
+  maxX: 3008,
+  minZ: -3008,
+  maxZ: 3008,
   coordinateSystem: "minecraft-block-pixel-centers",
 });
 
