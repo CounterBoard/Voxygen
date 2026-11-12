@@ -27,8 +27,14 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Run unit tests
+        run: npm test
+
       - name: Build Voxygen app
         run: npm run build
 
       - name: Check backend Worker syntax
         run: node --check bot/src/worker.js
+
+      - name: Bundle backend Worker (dry run)
+        run: npx --yes wrangler@latest deploy --dry-run --config bot/wrangler.toml
