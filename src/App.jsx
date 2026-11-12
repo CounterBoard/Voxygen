@@ -1,4 +1,4 @@
-// Voxygen-Version: v49
+// Voxygen-Version: v50
 import React, { useEffect, useState, useRef } from 'react';
 import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, isValidWorldCoordinate, coordinateGeometryMatchesManifest, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
 import {
@@ -229,7 +229,7 @@ const DEFAULT_FAQ_TEXT = `Voxygen — карта городов и их жите
 Чтобы дополнить или обновить карту Vox, создайте, полностью заполните карту без локатора 2-го уровня и отправьте на почтовый адрес "Vox" (карта будет отсканирована и отправлена адресанту, возможно с вознаграждением).`;
 
 
-// Pixel-center mapping keeps X=0/Z=0 on the exact center pixel of the 6016x6016 map.
+// Minecraft block centers are mapped to normalized world-space percentages; raster resolution is independent.
 function voxWorldToPercent(x, z, coordinateSystem = WORLD_MAP_GEOMETRY) {
   return worldCoordinateToPercent(x, z, coordinateSystem);
 }
@@ -1483,16 +1483,6 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
   const mapPublicationGenerationRef=useRef(0);
   const MAP_PUBLICATION_STORAGE_KEY='voxygen:map-publication-pending';
 
-  async function readRasterDimensions(file){
-    return new Promise((resolve,reject)=>{
-      const url=URL.createObjectURL(file);
-      const image=new Image();
-      image.onload=()=>{const result={width:image.naturalWidth,height:image.naturalHeight};URL.revokeObjectURL(url);resolve(result);};
-      image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Не удалось прочитать размеры изображения карты.'));};
-      image.src=url;
-    });
-  }
-
   async function waitForPublishedMap(expectedVersion){
     const generation=++mapPublicationGenerationRef.current;
     const deadline=Date.now()+25*60*1000;
@@ -1503,8 +1493,8 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
           const manifest=await response.json();
           const source=manifest?.source;
           if(manifest?.mapVersion===expectedVersion&&source&&['deepzoom','url-grid'].includes(source.type)){
-            if(Number(source.width)!==WORLD_MAP_GEOMETRY.width||Number(source.height)!==WORLD_MAP_GEOMETRY.height)throw new Error('Опубликованная карта имеет неверный размер: требуется 6016 × 6016.');
-            if(!coordinateGeometryMatchesManifest(source.coordinateSystem))throw new Error('Опубликованная карта не содержит обязательную калибровку координат или имеет несовместимую геометрию.');
+            if(source.type==='deepzoom'&&(!Number.isFinite(Number(source.width))||!Number.isFinite(Number(source.height))||Number(source.width)<1||Number(source.height)<1))throw new Error('Манифест содержит некорректные размеры растровой карты.');
+            if(!coordinateGeometryMatchesManifest(source.coordinateSystem))throw new Error('Манифест карты содержит несовместимые границы игрового мира.');
             const previewPath=source.previewUrl||manifest.previewUrl;
             if(!previewPath)throw new Error('В манифесте карты отсутствует previewUrl.');
             const previewUrl=/^https?:\/\//i.test(previewPath)?previewPath:new URL(previewPath,MAP_ASSETS_BASE).href;
@@ -1521,7 +1511,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
           }
         }
       }catch(error){
-        if(/неверный размер|обязательную калибровку|калибровку координат|previewUrl|превью опубликованной карты/.test(String(error?.message||'')))throw error;
+        if(/некорректные размеры растровой карты|границы игрового мира|previewUrl|превью опубликованной карты/.test(String(error?.message||'')))throw error;
       }
       await new Promise(resolve=>window.setTimeout(resolve,5000));
     }
@@ -1589,8 +1579,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
       const maxBytes=90_000_000;
       if(!['image/png','image/jpeg','image/webp'].includes(String(file.type||'').toLowerCase()))throw new Error('Поддерживаются только PNG, JPG и WebP.');
       if(!Number.isFinite(file.size)||file.size<=0||file.size>maxBytes)throw new Error('Размер файла должен быть не больше 90 МБ.');
-      const dimensions=await readRasterDimensions(file);
-      if(dimensions.width!==WORLD_MAP_GEOMETRY.width||dimensions.height!==WORLD_MAP_GEOMETRY.height)throw new Error('Размер карты должен быть ровно 6016 × 6016 пикселей. Это необходимо для точного положения городов и координат.');
+
       const uploadResult=await new Promise((resolve,reject)=>{
         const xhr=new XMLHttpRequest();
         xhr.open('POST',`${API_BASE}/api/map`,true);
@@ -1598,8 +1587,6 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
         xhr.setRequestHeader('Content-Type',file.type);
         xhr.setRequestHeader('X-Telegram-Init-Data',initData);
         xhr.setRequestHeader('X-Map-Size',String(file.size));
-        xhr.setRequestHeader('X-Map-Width',String(dimensions.width));
-        xhr.setRequestHeader('X-Map-Height',String(dimensions.height));
         xhr.upload.onprogress=event=>{if(event.lengthComputable&&event.total>0)setMapProgress(Math.min(100,Math.round(event.loaded/event.total*100)));};
         xhr.onload=()=>{let data=null;try{data=JSON.parse(xhr.responseText||'null');}catch{}if(xhr.status>=200&&xhr.status<300&&data?.ok)resolve(data);else reject(new Error(data?.error||`Не удалось загрузить карту (HTTP ${xhr.status||'ошибка'}).`));};
         xhr.onerror=()=>reject(new Error('Соединение прервалось. Если файл не был полностью передан, загрузите его повторно.'));
@@ -1633,7 +1620,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}><Trash2 size={16} color="var(--red)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Города</div><span style={{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}}>{territories.length}</span></div>{territories.length===0?<div style={{fontSize:12,color:'var(--text-muted)'}}>Городов пока нет.</div>:territories.map(city=><div key={city.id} style={{display:'flex',alignItems:'center',gap:7,padding:'10px 0',borderTop:'1px solid var(--border)'}}><div style={{flex:1,minWidth:0}}><MinecraftText text={city.name} as="div" style={{fontSize:13,fontWeight:700}}/><div style={{fontSize:11,color:'var(--text-muted)'}}><MinecraftText text={city.owner}/> · {formatTerritoryCoords(city.coords)}</div></div><button onClick={()=>moveCity(city)} className="press" style={{border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',borderRadius:9,padding:'7px 9px',fontSize:11}}>Коорд.</button><button onClick={()=>changeFounder(city)} className="press" style={{border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--mint)',borderRadius:9,padding:'7px 9px',fontSize:11}}>Мэр</button><button onClick={()=>deleteCity(city.id)} className="press" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:9,padding:'7px 9px'}}><Trash2 size={14}/></button></div>)}</div>
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><MapIcon size={16} color="var(--purple)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Карта мира</div></div>
-      <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.5,marginBottom:10}}>Загрузите карту PNG, JPG или WebP размером ровно 6016 × 6016 пикселей. Координаты городов привязаны к центрам пикселей. Размер файла — до 90 МБ; исходник хранится в GitHub Releases, а тайлы публикуются отдельно.</div>
+      <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.5,marginBottom:10}}>Загрузите карту PNG, JPG или WebP любого подходящего разрешения. Система координат игрового мира фиксирована и не зависит от размера изображения; координаты городов располагаются по границам мира. Размер файла — до 90 МБ; исходник хранится в GitHub Releases, а тайлы публикуются отдельно.</div>
       <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{display:'none'}} onChange={e=>saveMap(e.target.files?.[0])}/>
       <button onClick={()=>fileRef.current?.click()} disabled={mapSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'11px',background:'var(--purple)',color:'#fff',fontWeight:700}}>{mapSaving?(mapProcessing?'Обработка карты…':'Загрузка карты…'):'Загрузить карту мира'}</button>
       {mapSaving&&<div role="status" aria-live="polite" style={{marginTop:10}}><div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--text-muted)',marginBottom:5}}><span>{mapProcessing?'Генерация тайлов и публикация…':(mapProgress>=100?'Файл передан, запускаем обработку…':'Загрузка файла')}</span><span>{mapProcessing?'В работе':`${mapProgress}%`}</span></div><div style={{height:6,background:'var(--surface-3)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',width:`${mapProgress}%`,background:'var(--purple)',borderRadius:99,transition:'width 120ms linear'}}/></div></div>}
@@ -3622,11 +3609,11 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         if (!manifest?.mapVersion || !source || !['deepzoom', 'url-grid'].includes(source.type)) {
           throw new Error('Опубликованная карта имеет неподдерживаемый формат.');
         }
-        if (Number(source.width) !== WORLD_MAP_GEOMETRY.width || Number(source.height) !== WORLD_MAP_GEOMETRY.height) {
-          throw new Error('Размер карты не совпадает с калибровкой координат Voxygen (6016 × 6016).');
+        if (source.type === 'deepzoom' && (!Number.isFinite(Number(source.width)) || !Number.isFinite(Number(source.height)) || Number(source.width) < 1 || Number(source.height) < 1)) {
+          throw new Error('Манифест содержит некорректные размеры растровой карты.');
         }
         if (!coordinateGeometryMatchesManifest(source.coordinateSystem)) {
-          throw new Error('В манифесте карты отсутствует обязательная калибровка координат или она не совпадает с backend Voxygen.');
+          throw new Error('Манифест карты содержит несовместимые границы игрового мира.');
         }
         const previewPath = source.previewUrl || manifest.previewUrl;
         if (!previewPath) throw new Error('В манифесте карты отсутствует previewUrl.');
@@ -3693,9 +3680,6 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         });
       }
       if (!isCurrent()) return;
-      if (preloadImage.naturalWidth !== WORLD_MAP_GEOMETRY.width || preloadImage.naturalHeight !== WORLD_MAP_GEOMETRY.height) {
-        throw new Error('Старая карта не соответствует новой геометрии: требуется изображение 6016 × 6016 пикселей.');
-      }
       setWorldMapSource(null);
       setWorldMapImage(mapUrl);
       mapImageLoadedRef.current = true;
