@@ -3192,6 +3192,8 @@ export default function CityRatingApp() {
   const tgUser = getTelegramUser();
   const [role, setRole] = useState('user');
   const [timezoneOffset,setTimezoneOffset] = useState('UTC+3');
+  const [mapZoomPercent,setMapZoomPercent] = useState(100);
+  const [theme,setTheme] = useState('vox');
   const [timezoneReady,setTimezoneReady] = useState(false);
   const [timezoneLoadError,setTimezoneLoadError] = useState('');
   const [timezoneRetryToken,setTimezoneRetryToken] = useState(0);
@@ -3325,17 +3327,46 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
   }, []);
 
   useEffect(() => {
-    let cancelled=false;
-    const initData=window.Telegram?.WebApp?.initData||'';
-    if(!initData){setTimezoneReady(true);return()=>{cancelled=true};}
-    setTimezoneReady(false);setTimezoneLoadError('');
-    fetch(`${API_BASE}/api/user-settings`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'}).then(async response=>{
-      const data=await response.json().catch(()=>null);
-      if(!response.ok||!data?.ok||!data?.settings)throw new Error('Settings fetch failed');
-      if(!cancelled){setTimezoneOffset(normalizeTimezoneOffset(data.settings.timezone));setTimezoneReady(true);setTimezoneLoadError('');}
-    }).catch(error=>{console.warn('Voxygen settings load failed',error);if(!cancelled)setTimezoneLoadError('Не удалось загрузить ваш часовой пояс. Создание и редактирование ивентов временно недоступно.');});
-    return()=>{cancelled=true};
-  },[timezoneRetryToken]);
+    let cancelled = false;
+    let intervalTimer = null;
+    let expiryTimer = null;
+    const initData = window.Telegram?.WebApp?.initData || '';
+    if (!initData) { setTimezoneReady(true); return () => { cancelled = true; }; }
+    setTimezoneReady(false); setTimezoneLoadError('');
+    const loadSettings = async () => {
+      if (cancelled || document.visibilityState === 'hidden') return;
+      try {
+        const response = await fetch(`${API_BASE}/api/user-settings`, { headers: { 'X-Telegram-Init-Data': initData }, cache: 'no-store' });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.ok || !data?.settings) throw new Error(apiErrorMessage(response, data, 'Settings fetch failed'));
+        if (cancelled) return;
+        const value = data.settings;
+        setTimezoneOffset(normalizeTimezoneOffset(value.timezone));
+        setMapZoomPercent(normalizeMapZoomPercent(value.mapZoomPercent));
+        setTheme(normalizeTheme(value.theme || value.defaultTheme));
+        setTimezoneReady(true); setTimezoneLoadError('');
+        if (expiryTimer !== null) window.clearTimeout(expiryTimer);
+        const expiries = [value.globalOverrides?.mapZoomPercent?.expiresAt, value.globalOverrides?.theme?.expiresAt].map(Number).filter(at => Number.isFinite(at) && at > Date.now());
+        if (expiries.length) {
+          const nextExpiry = Math.min(...expiries);
+          expiryTimer = window.setTimeout(loadSettings, Math.min(2147480000, Math.max(500, nextExpiry - Date.now() + 250)));
+        }
+      } catch (error) {
+        console.warn('Voxygen settings load failed', error);
+        if (!cancelled) setTimezoneLoadError('Не удалось загрузить ваши настройки времени. Создание и редактирование ивентов временно недоступно.');
+      }
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') loadSettings(); };
+    loadSettings();
+    intervalTimer = window.setInterval(loadSettings, 60000);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      if (intervalTimer !== null) window.clearInterval(intervalTimer);
+      if (expiryTimer !== null) window.clearTimeout(expiryTimer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [timezoneRetryToken]);
 
   async function loadWorldMap() {
     if (mapImageLoadedRef.current) return;
@@ -3647,12 +3678,12 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
   }
 
   return (
-    <div className="atlas-root" style={{ minHeight: '100vh', width: '100%' }}>
+    <div className="atlas-root" data-theme={theme} style={{ minHeight: '100vh', width: '100%' }}>
       <FontsAndTheme />
       <div style={{ maxWidth: 448, margin: '0 auto', position: 'relative' }}>
         <div className="atlas-screen-transition" key={`${screen}-${selected?.id || 'none'}`}>
         {screen === 'profile' ? (
-          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));setTimezoneReady(true);setTimezoneLoadError('');}} />
+          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));setMapZoomPercent(normalizeMapZoomPercent(settings.mapZoomPercent));setTheme(normalizeTheme(settings.theme||settings.defaultTheme));setTimezoneReady(true);setTimezoneLoadError('');}} />
         ) : screen === 'customization' ? (
           <CustomizationScreen initData={window.Telegram?.WebApp?.initData || ''} tgUser={tgUser} role={role} territories={territories} profile={profile} />
         ) : screen === 'events' ? (
