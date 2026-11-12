@@ -1872,7 +1872,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
         const response=await fetch(API_BASE+'/api/user-settings',{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
         const data=await response.json().catch(()=>null);
         if(!response.ok||!data?.ok||!data?.settings)throw new Error(apiErrorMessage(response,data,'Не удалось загрузить настройки.'));
-        if(!cancelled)setSettings({...data.settings,defaultTheme:'vox',personalMapZoomPercent:normalizeMapZoomPercent(data.settings.personalMapZoomPercent??data.settings.mapZoomPercent??100),timezone:normalizeTimezoneOffset(data.settings.timezone),territories:Array.isArray(data.settings.territories)?data.settings.territories:[]});
+        if(!cancelled){const personalTheme=String(data.settings.personalTheme??'vox');setSettings({...data.settings,defaultTheme:personalTheme,personalTheme,personalMapZoomPercent:normalizeMapZoomPercent(data.settings.personalMapZoomPercent??data.settings.mapZoomPercent??100),timezone:normalizeTimezoneOffset(data.settings.timezone),territories:Array.isArray(data.settings.territories)?data.settings.territories:[]});}
       }catch(e){if(!cancelled)setError(safeCaughtError(e,'Не удалось загрузить настройки.'));}
       finally{if(!cancelled)setLoading(false);}
     }
@@ -1886,7 +1886,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
     if(!settings)return;
     try{
       setSaving(true);setError('');
-      const payload={defaultTheme:'vox',mapZoomPercent:normalizeMapZoomPercent(settings.personalMapZoomPercent),timezone:normalizeTimezoneOffset(settings.timezone),eventNotifications:Boolean(settings.eventNotifications),territories:(settings.territories||[]).map(item=>({id:String(item.id),enabled:Boolean(item.enabled)}))};
+      const payload={defaultTheme:String(settings.personalTheme??settings.defaultTheme??'vox'),mapZoomPercent:normalizeMapZoomPercent(settings.personalMapZoomPercent),timezone:normalizeTimezoneOffset(settings.timezone),eventNotifications:Boolean(settings.eventNotifications),territories:(settings.territories||[]).map(item=>({id:String(item.id),enabled:Boolean(item.enabled)}))};
       const response=await fetch(API_BASE+'/api/user-settings',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({...payload,initData})});
       const data=await response.json().catch(()=>null);
       if(!response.ok||!data?.ok||!data?.settings)throw new Error(apiErrorMessage(response,data,'Не удалось сохранить настройки.'));
