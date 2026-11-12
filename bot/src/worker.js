@@ -883,6 +883,12 @@ async function saveMapSettings(request, env, requestId = null) {
       return json({ ok: false, error: 'Размер загружаемого файла не совпадает с указанным размером.' }, 400);
     }
     if (declaredSize > WORLD_MAP_MAX_BYTES) return json({ ok: false, error: 'Размер карты превышает 90 МБ.' }, 413);
+    const declaredWidth = Number(request.headers.get('X-Map-Width') || 0);
+    const declaredHeight = Number(request.headers.get('X-Map-Height') || 0);
+    if ((declaredWidth && declaredWidth !== WORLD_MAP_GEOMETRY.width)
+      || (declaredHeight && declaredHeight !== WORLD_MAP_GEOMETRY.height)) {
+      return json({ ok: false, error: 'Карта Voxygen должна иметь размер 6001 × 6001 пикселей.' }, 400);
+    }
     if (!request.body) return json({ ok: false, error: 'Файл карты не передан.' }, 400);
 
     const token = String(env.GITHUB_TOKEN || '').trim();
@@ -2671,8 +2677,9 @@ async function getTerritories(request, env) {
     }
     const territories=(result.results||[]).map(row=>{
       const parsed=parseRequestCoords(row.coords),ms=byCity[row.id]||[];
-      let x=null,y=null;
-      if(parsed){x=((parsed.x+2500)/5000)*100;y=((parsed.z+2500)/5000)*100}
+      const markerPosition = parsed ? worldCoordinateToPercent(parsed.x, parsed.z) : null;
+      const x = markerPosition?.x ?? null;
+      const y = markerPosition?.y ?? null;
       const vr=viewerRatingsByCity[row.id];
       const myRating=vr?{rated:true,next_at:Number(vr.created_at)+20*60*60*1000,values:{integrity:Number(vr.integrity),comfort:Number(vr.comfort),atmosphere:Number(vr.atmosphere),detail:Number(vr.detail)}}:{rated:false,next_at:null,values:null};
       const isGovernment=Number(row.is_government||0)===1;
@@ -2725,8 +2732,8 @@ async function createTerritory(request, env) {
   const owner = String(body?.owner || "").trim();
   const coords = String(body?.coords || "").trim();
   const parsed = parseTwoCoordinates(coords);
-  if (!name || (!isMainInspector && !owner) || !parsed || Math.abs(parsed.x) > 2500 || Math.abs(parsed.z) > 2500) {
-    const requirement = isMainInspector ? "Укажите название и две координаты от −2500 до 2500" : "Укажите название, владельца и две координаты от −2500 до 2500";
+  if (!name || (!isMainInspector && !owner) || !parsed || !isValidWorldCoordinate(parsed.x, parsed.z)) {
+    const requirement = isMainInspector ? "Укажите название и две координаты от −3000 до 3000" : "Укажите название, владельца и две координаты от −3000 до 3000";
     return json({ ok: false, error: requirement }, 400);
   }
   if (name.length > 120 || owner.length > 120) return json({ ok: false, error: "Название или имя владельца слишком длинное" }, 400);
@@ -4103,8 +4110,7 @@ async function updateTerritoryCoords(request, env) {
   const x = Number(body?.x);
   const z = Number(body?.z);
 
-  if (!territoryId || !Number.isFinite(x) || !Number.isFinite(z) ||
-      x < -2500 || x > 2500 || z < -2500 || z > 2500) {
+  if (!territoryId || !isValidWorldCoordinate(x, z)) {
     return json({ ok: false, error: "Invalid coordinates" }, 400);
   }
 
@@ -4237,10 +4243,10 @@ async function finalizeTerritoryApproval(env, chatId, id, name, owner, x, z, isG
   const nx = Number(String(x).replace(",", "."));
   const nz = Number(String(z).replace(",", "."));
   if (!name || (!isGovernment && !owner) || !Number.isFinite(nx) || !Number.isFinite(nz) ||
-      nx < -2500 || nx > 2500 || nz < -2500 || nz > 2500) {
+      !isValidWorldCoordinate(nx, nz)) {
     await telegram(env, "sendMessage", {
       chat_id: chatId,
-      text: "⚠️ В поле координат должно быть 2 числа. Допустимый диапазон: от −2500 до 2500.",
+      text: "⚠️ В поле координат должно быть 2 числа. Допустимый диапазон: от −3000 до 3000.",
     });
     return false;
   }
@@ -5642,6 +5648,13 @@ export default {
     }
     if (url.pathname === "/api/user-settings" && request.method === "POST") {
       return saveUserSettings(request, env);
+    }
+
+    if (url.pathname === "/api/admin/global-settings" && request.method === "GET") {
+      return getAdminGlobalSettings(request, env);
+    }
+    if (url.pathname === "/api/admin/global-settings" && request.method === "POST") {
+      return saveAdminGlobalSetting(request, env);
     }
 
     if (url.pathname === "/api/map" && (request.method === "GET" || request.method === "HEAD")) {
