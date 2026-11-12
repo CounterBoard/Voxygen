@@ -4971,41 +4971,78 @@ async function deliverEventReminders(env, at = Date.now()) {
   await ensureEventsTables(env);
   await ensureUserPreferenceTables(env);
   const now = Number(at || Date.now());
-  await env.DB.prepare(`UPDATE event_reminders SET status='expired',updated_at=? WHERE status IN ('pending','sending') AND event_id IN (SELECT id FROM events WHERE active=0 OR event_at<=?)`).bind(now,now).run();
-  await env.DB.prepare(`UPDATE event_reminders SET status='pending',updated_at=? WHERE status='sending' AND updated_at<?`).bind(now,now-5*60*1000).run();
-  const due = await env.DB.prepare(`SELECT r.id,r.telegram_id,r.event_id,r.attempts,e.title,e.place,e.coords,e.description,e.event_at,e.event_timezone,e.page_url,t.name AS territory_name,p.timezone AS user_timezone
-    FROM event_reminders r JOIN events e ON e.id=r.event_id LEFT JOIN territories t ON t.id=e.territory_id
-    LEFT JOIN user_preferences p ON p.telegram_id=r.telegram_id
-    WHERE r.status='pending' AND r.remind_at<=? AND e.active=1 AND e.event_at>? ORDER BY r.remind_at ASC LIMIT 50`).bind(now,now).all();
+  await env.DB.prepare(`UPDATE event_reminders SET status='expired',claim_token=NULL,updated_at=?
+    WHERE status IN ('pending','sending') AND event_id IN (SELECT id FROM events WHERE active=0 OR event_at<=?)`).bind(now,now).run();
+  // Recover stale claims with a delay. A Worker deployment must not cause an immediate retry storm.
+  const staleLeaseAt = now - 5 * 60 * 1000;
+  const stale = await env.DB.prepare(`SELECT id,attempts FROM event_reminders WHERE status='sending' AND updated_at<? LIMIT 100`).bind(staleLeaseAt).all();
+  for (const row of stale.results || []) {
+    const attempts = Number(row.attempts || 0) + 1;
+    const delay = Math.min(60_000 * (2 ** Math.max(0, attempts - 1)), 30 * 60 * 1000);
+    await env.DB.prepare(`UPDATE event_reminders SET status=?,attempts=?,next_attempt_at=?,claim_token=NULL,updated_at=?
+      WHERE id=? AND status='sending' AND updated_at<?`).bind(attempts >= 8 ? 'failed' : 'pending',attempts,now+delay,now,row.id,staleLeaseAt).run();
+  }
+  const due = await env.DB.prepare(`SELECT r.id,r.telegram_id,r.event_id
+    FROM event_reminders r JOIN events e ON e.id=r.event_id
+    WHERE r.status='pending' AND r.remind_at<=? AND r.next_attempt_at<=? AND e.active=1 AND e.event_at>?
+    ORDER BY r.remind_at ASC LIMIT 50`).bind(now,now,now).all();
   for (const item of due.results || []) {
-    const claim = await env.DB.prepare(`UPDATE event_reminders SET status='sending',updated_at=? WHERE id=? AND status='pending'`).bind(now,item.id).run();
+    const claimToken = crypto.randomUUID();
+    const claim = await env.DB.prepare(`UPDATE event_reminders SET status='sending',claim_token=?,updated_at=?
+      WHERE id=? AND status='pending' AND next_attempt_at<=?`).bind(claimToken,now,item.id,now).run();
     if (!claim.meta?.changes) continue;
-    const date = formatEventTimeForUser(item.event_at, item.user_timezone);
-    const cleanTitle=stripMinecraftFormatting(item.title).trim()||'Ивент';
-    const placeSource=stripMinecraftFormatting(item.territory_name||'').trim()||stripMinecraftFormatting(item.place||'').trim();
+    // Re-read after the atomic claim. Event edits/deletes may have raced with queue discovery.
+    const fresh = await env.DB.prepare(`SELECT r.id,r.telegram_id,r.event_id,r.attempts,r.remind_at,
+        e.title,e.place,e.coords,e.description,e.event_at,e.active,e.event_timezone,
+        t.name AS territory_name,p.timezone AS user_timezone
+      FROM event_reminders r JOIN events e ON e.id=r.event_id
+      LEFT JOIN territories t ON t.id=e.territory_id
+      LEFT JOIN user_preferences p ON p.telegram_id=r.telegram_id
+      WHERE r.id=? AND r.status='sending' AND r.claim_token=? LIMIT 1`).bind(item.id,claimToken).first();
+    if (!fresh) continue;
+    const eventAt = Number(fresh.event_at || 0);
+    if (Number(fresh.active) !== 1 || eventAt <= now || Number(fresh.remind_at) > now) {
+      await env.DB.prepare(`UPDATE event_reminders SET status=?,claim_token=NULL,updated_at=?
+        WHERE id=? AND status='sending' AND claim_token=?`).bind(Number(fresh.active) === 1 && eventAt > now ? 'pending' : 'expired',now,item.id,claimToken).run();
+      continue;
+    }
+    const date = formatEventTimeForUser(eventAt, fresh.user_timezone);
+    const cleanTitle=stripMinecraftFormatting(fresh.title||'').trim()||'Ивент';
+    const placeSource=stripMinecraftFormatting(fresh.territory_name||'').trim()||stripMinecraftFormatting(fresh.place||'').trim();
     const cleanPlace=/^(не указано|место не указано)$/i.test(placeSource)?'':placeSource;
-    const rawCoords=stripMinecraftFormatting(item.coords||'').trim();
+    const rawCoords=stripMinecraftFormatting(fresh.coords||'').trim();
     const cleanCoords=rawCoords?formatTerritoryCoords(rawCoords):'Координаты не указаны';
-    const cleanDescription=stripMinecraftFormatting(String(item.description||'')).trim().slice(0,2000);
+    const cleanDescription=stripMinecraftFormatting(String(fresh.description||'')).trim().slice(0,2000);
     let text = `🔔 <b>Напоминание об ивенте</b>\n\n<b>${escapeHtml(cleanTitle)}</b>\n\n📅 ${escapeHtml(date)}`;
     if (cleanPlace) text += `\n🏙 ${escapeHtml(cleanPlace)}`;
     text += `\n🧭 ${escapeHtml(cleanCoords)}`;
     if (cleanDescription) text += `\n\n${escapeHtml(cleanDescription)}`;
-    let telegramFailure=null;
     try {
-      const { response, data } = await telegram(env,'sendMessage',{chat_id:Number(item.telegram_id),text,parse_mode:'HTML',disable_web_page_preview:true});
-      if (!response.ok || !data?.ok) { telegramFailure={status:Number(data?.error_code||response.status),description:String(data?.description||'Telegram API error').slice(0,180)}; throw new Error('Telegram send failed'); }
-      await env.DB.prepare(`UPDATE event_reminders SET status='sent',sent_at=?,updated_at=? WHERE id=? AND status='sending'`).bind(now,now,item.id).run();
+      const { response, data } = await telegram(env,'sendMessage',{chat_id:Number(fresh.telegram_id),text,parse_mode:'HTML',disable_web_page_preview:true});
+      if (!response.ok || !data?.ok) {
+        const status = Number(data?.error_code || response.status || 0);
+        const retryAfter = Number(data?.parameters?.retry_after || 0);
+        const attempts = Number(fresh.attempts || 0) + 1;
+        const permanent = [400,401,403].includes(status) || attempts >= 8;
+        const exponentialDelay = Math.min(60_000 * (2 ** Math.max(0, attempts - 1)), 30 * 60 * 1000);
+        const delay = retryAfter > 0 ? Math.max(1000,retryAfter * 1000) : exponentialDelay;
+        await env.DB.prepare(`UPDATE event_reminders SET status=?,attempts=?,next_attempt_at=?,claim_token=NULL,updated_at=?
+          WHERE id=? AND status='sending' AND claim_token=?`).bind(permanent?'failed':'pending',attempts,now+delay,now,item.id,claimToken).run();
+        console.error(JSON.stringify({event:'event_reminder_send_rejected',reminderId:item.id,attempts,telegramStatus:status,retryAfter:retryAfter||null,code:'TELEGRAM_SEND_FAILED'}));
+        continue;
+      }
+      await env.DB.prepare(`UPDATE event_reminders SET status='sent',sent_at=?,next_attempt_at=0,claim_token=NULL,updated_at=?
+        WHERE id=? AND status='sending' AND claim_token=?`).bind(now,now,item.id,claimToken).run();
     } catch (error) {
-      const attempts = Number(item.attempts || 0) + 1;
-      const nextStatus = attempts >= 8 ? 'failed' : 'pending';
-      await env.DB.prepare(`UPDATE event_reminders SET status=?,attempts=?,updated_at=? WHERE id=? AND status='sending'`).bind(nextStatus,attempts,now,item.id).run();
-      console.error(JSON.stringify({event:'event_reminder_send_failed',reminderId:item.id,attempts,telegramStatus:telegramFailure?.status||null,telegramDescription:telegramFailure?.description||String(error?.message||error).slice(0,180),code:'TELEGRAM_SEND_FAILED'}));
+      const attempts = Number(fresh.attempts || 0) + 1;
+      const delay = Math.min(60_000 * (2 ** Math.max(0, attempts - 1)), 30 * 60 * 1000);
+      await env.DB.prepare(`UPDATE event_reminders SET status=?,attempts=?,next_attempt_at=?,claim_token=NULL,updated_at=?
+        WHERE id=? AND status='sending' AND claim_token=?`).bind(attempts>=8?'failed':'pending',attempts,now+delay,now,item.id,claimToken).run();
+      console.error(JSON.stringify({event:'event_reminder_send_failed',reminderId:item.id,attempts,code:'TELEGRAM_SEND_FAILED',message:String(error?.message||error).slice(0,180)}));
     }
   }
   return { processed: (due.results || []).length };
 }
-
 function normalizeVisualCommandText(value) {
   return stripMinecraftFormatting(String(value || ''))
     .normalize('NFKC')
