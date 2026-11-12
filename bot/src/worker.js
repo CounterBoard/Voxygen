@@ -4655,6 +4655,7 @@ async function initializeEventsTables(env) {
     status TEXT NOT NULL DEFAULT 'pending',
     attempts INTEGER NOT NULL DEFAULT 0,
     next_attempt_at INTEGER NOT NULL DEFAULT 0,
+    claim_token TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     sent_at INTEGER,
@@ -4664,6 +4665,10 @@ async function initializeEventsTables(env) {
   const reminderColumnNames = new Set((reminderCols.results || []).map(row => row.name));
   if (!reminderColumnNames.has('next_attempt_at')) {
     try { await env.DB.prepare(`ALTER TABLE event_reminders ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0`).run(); }
+    catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
+  }
+  if (!reminderColumnNames.has('claim_token')) {
+    try { await env.DB.prepare(`ALTER TABLE event_reminders ADD COLUMN claim_token TEXT`).run(); }
     catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
   }
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_event_reminders_due ON event_reminders(status,next_attempt_at,remind_at)`).run();
@@ -4909,7 +4914,7 @@ async function updateEvent(request, env) {
     // Keep reminders consistent with a changed event date. Reminders that would now be in the past are expired instead of sent late.
     await env.DB.prepare(`UPDATE event_reminders SET remind_at=? - CASE WHEN lead_unit='hours' THEN lead_value*3600000 ELSE lead_value*60000 END,
       status=CASE WHEN (? - CASE WHEN lead_unit='hours' THEN lead_value*3600000 ELSE lead_value*60000 END)<=? THEN 'expired' ELSE 'pending' END,
-      attempts=0,sent_at=NULL,updated_at=? WHERE event_id=? AND status IN ('pending','sent','failed','expired')`)
+      attempts=0,next_attempt_at=0,claim_token=NULL,sent_at=NULL,updated_at=? WHERE event_id=? AND status IN ('pending','sending','sent','failed','expired')`)
       .bind(value.eventAt,value.eventAt,now,now,id).run();
   }
   return json({ ok: true, id, status: 'updated' });
@@ -4931,7 +4936,7 @@ async function deleteEvent(request, env) {
   const now=Date.now();
   const result = await env.DB.prepare(`UPDATE events SET active=0,updated_at=? WHERE id=? AND active=1`).bind(now,id).run();
   if (!result.meta?.changes) return json({ ok: false, error: 'Событие не найдено' }, 404);
-  await env.DB.prepare(`UPDATE event_reminders SET status='cancelled',updated_at=? WHERE event_id=? AND status IN ('pending','sending')`).bind(now,id).run();
+  await env.DB.prepare(`UPDATE event_reminders SET status='cancelled',claim_token=NULL,updated_at=? WHERE event_id=? AND status IN ('pending','sending')`).bind(now,id).run();
   return json({ ok: true, id, status: 'deleted' });
 }
 
@@ -4954,9 +4959,9 @@ async function saveEventReminder(request, env, remove = false) {
   const eventAt = Number(event.event_at), remindAt = eventAt - value * (unit === 'hours' ? 3600000 : 60000), now = Date.now();
   if (eventAt <= now || remindAt <= now) return json({ ok: false, error: 'Это время напоминания уже прошло' }, 400);
   const id = crypto.randomUUID();
-  await env.DB.prepare(`INSERT INTO event_reminders(id,event_id,telegram_id,lead_value,lead_unit,remind_at,status,attempts,created_at,updated_at,sent_at)
-    VALUES(?,?,?,?,?,?,'pending',0,?,?,NULL)
-    ON CONFLICT(event_id,telegram_id) DO UPDATE SET lead_value=excluded.lead_value,lead_unit=excluded.lead_unit,remind_at=excluded.remind_at,status='pending',attempts=0,updated_at=excluded.updated_at,sent_at=NULL`)
+  await env.DB.prepare(`INSERT INTO event_reminders(id,event_id,telegram_id,lead_value,lead_unit,remind_at,status,attempts,next_attempt_at,claim_token,created_at,updated_at,sent_at)
+    VALUES(?,?,?,?,?,?,'pending',0,0,NULL,?,?,NULL)
+    ON CONFLICT(event_id,telegram_id) DO UPDATE SET lead_value=excluded.lead_value,lead_unit=excluded.lead_unit,remind_at=excluded.remind_at,status='pending',attempts=0,next_attempt_at=0,claim_token=NULL,updated_at=excluded.updated_at,sent_at=NULL`)
     .bind(id,eventId,Number(auth.user.id),value,unit,remindAt,now,now).run();
   const saved = await env.DB.prepare(`SELECT id,lead_value,lead_unit,remind_at,status FROM event_reminders WHERE event_id=? AND telegram_id=?`).bind(eventId,Number(auth.user.id)).first();
   return json({ ok: true, reminder: saved });
