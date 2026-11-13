@@ -2498,8 +2498,8 @@ Workflow validate-map-pipeline.yml:
 - запускает python -m unittest discover -s tests -p 'test_*.py' -v.
 
 Последний подтверждённый map-assets CI:
-- run id 43530472497;
-- commit 5ce4f163fd106ae5f860955e5381d39a56de63b6;
+- run id 43530614455;
+- commit 7a9c6b5ce23bc6be2406abe9858ca3abdf153c8c;
 - conclusion success;
 - 13 Python unit tests завершились успешно.
 
@@ -2531,8 +2531,8 @@ Workflow Process and publish world map остаётся отдельным workf
 Основной репозиторий имеет workflow Validate Voxygen: npm test, npm run build, node --check bot/src/worker.js и Wrangler deploy --dry-run.
 
 Результат основного CI для текущего кода и документации на момент этой редакции:
-- run id 43530293540;
-- commit 8825a18980c05bf8850b41f0ad7d900470223971;
+- run id 43530591050;
+- commit 3e9ea81c75cc6b9722d2d1a2682d537dfaf821b4;
 - conclusion success;
 - npm test: 17 tests, 17 passed, 0 failed;
 - npm run build: success;
