@@ -1862,6 +1862,8 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
   const [saving,setSaving] = useState(false);
   const [error,setError] = useState('');
   const [reloadToken,setReloadToken] = useState(0);
+  const [personalZoomChanged,setPersonalZoomChanged] = useState(false);
+  const [personalThemeChanged,setPersonalThemeChanged] = useState(false);
   const { closing, requestClose } = useAnimatedClose(onClose, 175);
 
   useEffect(()=>{
@@ -1886,7 +1888,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
     if(!settings)return;
     try{
       setSaving(true);setError('');
-      const payload={defaultTheme:String(settings.personalTheme??settings.defaultTheme??'vox'),mapZoomPercent:normalizeMapZoomPercent(settings.personalMapZoomPercent),timezone:normalizeTimezoneOffset(settings.timezone),eventNotifications:Boolean(settings.eventNotifications),territories:(settings.territories||[]).map(item=>({id:String(item.id),enabled:Boolean(item.enabled)}))};
+      const payload={defaultTheme:String(settings.personalTheme??settings.defaultTheme??'vox'),mapZoomPercent:normalizeMapZoomPercent(settings.personalMapZoomPercent),personalThemeChanged,personalMapZoomChanged:personalZoomChanged,timezone:normalizeTimezoneOffset(settings.timezone),eventNotifications:Boolean(settings.eventNotifications),territories:(settings.territories||[]).map(item=>({id:String(item.id),enabled:Boolean(item.enabled)}))};
       const response=await fetch(API_BASE+'/api/user-settings',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({...payload,initData})});
       const data=await response.json().catch(()=>null);
       if(!response.ok||!data?.ok||!data?.settings)throw new Error(apiErrorMessage(response,data,'Не удалось сохранить настройки.'));
@@ -1911,7 +1913,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
         <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:6}}>Часовой пояс</div>
         <input value={settings.timezone||'UTC+3'} onChange={e=>patch({timezone:keepUtcPrefix(e.target.value)})} onBlur={()=>patch({timezone:normalizeTimezoneOffset(settings.timezone)})} placeholder="UTC+3" aria-label="Часовой пояс" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:11,padding:'11px 12px',color:'var(--text)',fontSize:14,marginBottom:16}}/>
         <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:7}}>Масштаб карты</div>
-        <input type="range" className="slider-player" min="1" max="100" step="1" value={settings.personalMapZoomPercent??100} onChange={e=>patch({personalMapZoomPercent:normalizeMapZoomPercent(e.target.value)})} style={{'--slider-progress':`${((settings.personalMapZoomPercent??100)-1)/99*100}%`,width:'100%',margin:'4px 0 2px'}}/>
+        <input type="range" className="slider-player" min="1" max="100" step="1" value={settings.personalMapZoomPercent??100} onChange={e=>{setPersonalZoomChanged(true);patch({personalMapZoomPercent:normalizeMapZoomPercent(e.target.value)})}} style={{'--slider-progress':`${((settings.personalMapZoomPercent??100)-1)/99*100}%`,width:'100%',margin:'4px 0 2px'}}/>
         <div style={{fontSize:12,color:'var(--text)',fontWeight:700,textAlign:'center',marginBottom:16}}>{settings.personalMapZoomPercent??100}%</div>
         <div style={{fontSize:15,fontWeight:750,marginBottom:4}}>Уведомления</div>
         <div style={{borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)',marginBottom:9}}>
