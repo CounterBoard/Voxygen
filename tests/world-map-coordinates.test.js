@@ -50,14 +50,29 @@ test("new and legacy manifests do not bind coordinates to image width or height"
   assert.equal(coordinateGeometryMatchesManifest({ ...manifestGeometry, type: "unknown" }), false);
 });
 
-test("map visibility percentage maps to the expected magnification", () => {
+test("map zoom uses a smooth exponential scale with exact 1x and 24x endpoints", () => {
   assert.equal(mapZoomPercentToScale(100), 1);
-  assert.equal(mapZoomPercentToScale(50), 2);
-  assert.equal(mapZoomPercentToScale(25), 4);
-  assert.equal(mapZoomPercentToScale(10), 10);
   assert.equal(mapZoomPercentToScale(1), 24);
   assert.equal(mapZoomPercentToScale(0), 24);
   assert.equal(mapZoomPercentToScale(140), 1);
+
+  // A one-point change from the overview should be subtle, not the 23% jump
+  // created by a linear interpolation from 1x to 24x.
+  const firstStep = mapZoomPercentToScale(99);
+  assert.ok(firstStep > 1);
+  assert.ok(firstStep < 1.04);
+
+  // The geometric midpoint of the range is the geometric mean of its endpoints.
+  const expectedMidpoint = Math.sqrt(24);
+  assert.ok(Math.abs(mapZoomPercentToScale(50.5) - expectedMidpoint) < 1e-12);
+
+  // Every one-point slider step has the same relative magnification change.
+  const expectedRatio = 24 ** (1 / 99);
+  for (let percent = 2; percent <= 100; percent += 1) {
+    const ratio = mapZoomPercentToScale(percent - 1) / mapZoomPercentToScale(percent);
+    assert.ok(Math.abs(ratio - expectedRatio) < 1e-12);
+  }
+
   assert.equal(normalizeMapZoomPercent(-10), 1);
   assert.equal(normalizeMapZoomPercent(140), 100);
   assert.equal(normalizeMapZoomPercent("invalid"), 100);
