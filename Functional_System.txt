@@ -1804,7 +1804,7 @@ ASSETS
 
 Workflow запускается для pull request в main и для push в main, чтобы каждое прямое обновление основной ветки проходило ту же проверку.
 
-Workflow настроен на определённые feature-ветки и pull request в main. Наличие файла workflow само по себе не означает, что проверка запускалась для каждого коммита main.
+Отдельный workflow репозитория Voxygen-map-assets после аудита также запускается при push в main, при push в feature-ветку проверки координат и при pull request в main. Он выполняет полный набор Python unit tests. Workflow публикации карты остаётся отдельным ручным workflow_dispatch и не запускается автоматически от обычного push.
 
 В репозитории карты есть отдельный workflow проверки pipeline и workflow публикации карты.
 
@@ -2098,3 +2098,458 @@ GitHub Actions проверяет npm test, npm run build, node --check bot/src/
 32.13. Согласованность интерфейса инвентаря
 
 CustomizationScreen отслеживает состав доступных счетов по ID территорий, а не только по их количеству. Ответы старых запросов полной загрузки и обновления баланса игнорируются, если пользователь уже переключился на другой счёт. Это предотвращает отображение инвентаря или баланса предыдущей территории после быстрой смены счёта.
+
+
+======================================================================
+33. ПОДРОБНЫЙ АУДИТ КАРТОГРАФИЧЕСКОЙ ПОДСИСТЕМЫ
+======================================================================
+
+Раздел фиксирует повторную проверку полной цепочки карты: загрузку исходника, хранение, запуск GitHub Actions, генерацию Deep Zoom, публикацию статических ресурсов, manifest, клиентский выбор тайлов, кэширование и обработку ошибок. Описание относится к исходному коду main двух репозиториев; состояние Cloudflare production отдельно оговаривается в подразделе 33.11.
+
+33.1. Состав компонентов
+
+Картографическая подсистема состоит из следующих независимых частей:
+
+1. Frontend:
+   - src/App.jsx;
+   - административная функция saveMap() в панели главного инспектора;
+   - waitForPublishedMap();
+   - loadWorldMap();
+   - компонент VoxMap;
+   - shared/world-map-coordinates.js.
+
+2. Основной backend:
+   - bot/src/worker.js;
+   - POST /api/map → saveMapSettings();
+   - GET/HEAD /api/map → getMapSettings();
+   - D1 app_settings;
+   - GitHub Release API и GitHub Actions API.
+
+3. Pipeline:
+   - репозиторий CounterBoard/Voxygen-map-assets;
+   - .github/workflows/publish-map.yml;
+   - tools/download_release_asset.py;
+   - tools/build_map.py;
+   - public/world-map/;
+   - public/_headers;
+   - Wrangler Static Assets Worker voxygen-map-assets.
+
+4. Хранилище исходников:
+   - CounterBoard/Voxygen-map-storage;
+   - Release tag world-map;
+   - Release Assets с исходными PNG/JPEG/WebP файлами.
+
+В D1 не хранятся исходные байты карты, preview или Deep Zoom-тайлы. В app_settings остаются только URL актуального GitHub Release Asset и его MIME-тип. Опубликованные тайлы размещаются в статическом каталоге отдельного Worker.
+
+33.2. Загрузка карты из интерфейса
+
+Функция saveMap(file) выполняется в панели главного инспектора.
+
+Проверки на клиенте:
+- MIME-тип должен быть image/png, image/jpeg или image/webp;
+- размер должен быть больше нуля и не превышать 90 000 000 байт;
+- реальные размеры изображения читаются через Image и URL.createObjectURL();
+- ширина и высота должны совпадать;
+- фронтенд не уменьшает исходный растр перед отправкой.
+
+Передача:
+- метод POST;
+- адрес https://voxygen.counterboard.workers.dev/api/map;
+- Content-Type содержит MIME-тип файла;
+- X-Telegram-Init-Data содержит Telegram Web App Init Data;
+- X-Map-Size содержит File.size;
+- используется XMLHttpRequest, чтобы показывать upload progress;
+- таймаут XHR — 600 000 мс;
+- обрабатываются сетевой сбой, таймаут и отмена запроса.
+
+После ответа Worker интерфейс ожидает mapVersion. Затем сохраняет в localStorage ключ voxygen:map-publication-pending с версией и временем начала и начинает проверять публикацию. Если ожидание завершилось по таймауту, запись остаётся и проверка может быть возобновлена при следующем открытии панели.
+
+33.3. Серверная проверка и передача в GitHub Release
+
+saveMapSettings() сначала вызывает requireMainInspector(). Клиентская роль не считается достаточным подтверждением административного доступа.
+
+Проверяются:
+- MIME-тип;
+- X-Map-Size или Content-Length;
+- корректность целого безопасного положительного размера;
+- совпадение Content-Length с заявленным размером, если Content-Length доступен;
+- верхний предел 90 000 000 байт;
+- наличие request.body;
+- GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO;
+- MAP_PIPELINE_GITHUB_TOKEN.
+
+Для имени Asset используется:
+voxygen-world-map-<timestamp>.<extension>
+
+Соответствие расширения:
+- image/png → png;
+- image/jpeg → jpg;
+- image/webp → webp.
+
+Основной Worker:
+1. получает Release по тегу world-map;
+2. извлекает upload_url;
+3. создаёт FixedLengthStream ожидаемой длины;
+4. одновременно передаёт request.body в поток и отправляет поток в GitHub Release Assets API;
+5. проверяет результат GitHub и наличие browser_download_url;
+6. сохраняет browser_download_url и MIME-тип в app_settings;
+7. вычисляет mapVersion из имени файла без расширения;
+8. вызывает workflow_dispatch репозитория CounterBoard/Voxygen-map-assets;
+9. после успешного запуска pipeline выполняет очистку достаточно старых исходных image Assets.
+
+Сохранение исходного Asset и его публикация в map-assets — разные этапы. Ответ основного Worker с processing = queued означает, что исходник загружен и workflow поставлен в очередь, а не то, что manifest уже обновлён.
+
+Для очистки исходников действует retention window 48 часов. Недавние Assets сохраняются, чтобы queued workflow успел скачать нужный исходник. Ошибки удаления старых Assets логируются отдельно и не отменяют уже поставленную обработку.
+
+33.4. D1 и резервная выдача исходника
+
+Ключи app_settings:
+- world_map_github_url;
+- world_map_github_content_type.
+
+Старые ключи прежней системы хранения очищаются:
+- world_map_object_key;
+- vox_map_image;
+- jorick_map_image.
+
+getMapSettings():
+- использует cache в памяти изолята Worker с TTL 30 секунд;
+- при отсутствии URL возвращает 404;
+- для HEAD при отсутствии карты возвращает пустой 404;
+- скачивает исходник из GitHub Release с redirect: follow;
+- если upstream недоступен, перечитывает URL из D1 один раз, чтобы учесть обновление из другого Worker isolate;
+- возвращает Content-Type, Content-Length при наличии, ETag при наличии, X-Map-Version и X-Content-Type-Options: nosniff;
+- использует Cache-Control public, max-age=31536000, immutable только когда query-параметр v совпадает с текущей версией; без совпадения применяется max-age=300;
+- добавляет Server-Timing и CORS.
+
+Этот маршрут — legacy fallback, а не основной источник карты после появления manifest.
+
+33.5. Запуск workflow и безопасная загрузка исходника
+
+Основной Worker вызывает:
+POST https://api.github.com/repos/CounterBoard/Voxygen-map-assets/actions/workflows/publish-map.yml/dispatches
+
+Передаются:
+- ref = main;
+- inputs.image_url = browser_download_url загруженного Release Asset;
+- inputs.map_version = mapVersion.
+
+Токен MAP_PIPELINE_GITHUB_TOKEN используется только для GitHub Actions API и не передаётся в URL исходного изображения.
+
+В pipeline используется tools/download_release_asset.py. Его проверки:
+- URL должен быть HTTPS;
+- hostname должен быть github.com;
+- путь должен вести именно к CounterBoard/Voxygen-map-storage/releases/download/<tag>/<asset>;
+- запрещены query, fragment, userinfo, нестандартный порт и лишние сегменты пути;
+- redirect разрешён только на allowlist GitHub asset hosts;
+- redirect должен быть HTTPS;
+- дополнительная цепочка redirect запрещена;
+- GitHub API token не пересылается на asset host;
+- Content-Length, если есть, проверяется;
+- фактически скачанные байты ограничены 90 000 000;
+- пустой файл отклоняется;
+- частичный файл удаляется при ошибке.
+
+Allowlist download hosts в коде:
+- objects.githubusercontent.com;
+- release-assets.githubusercontent.com;
+- github-production-release-asset-2e65be.s3.amazonaws.com.
+
+После скачивания файл всё равно проходит проверку декодером Pillow при сборке. URL-проверка не заменяет проверку формата и размеров изображения.
+
+33.6. Генератор Deep Zoom
+
+Файл: tools/build_map.py.
+
+Константы:
+- TILE_SIZE = 512;
+- PREVIEW_MAX = 1200;
+- MAX_RASTER_DIMENSION = 30000.
+
+Порядок:
+1. проверяет количество аргументов командной строки;
+2. проверяет MAP_VERSION;
+3. разрешает в версии только латинские буквы, цифры, точку, подчёркивание и дефис;
+4. применяет ImageOps.exif_transpose();
+5. переводит исходное изображение в RGBA;
+6. проверяет минимальный и максимальный размер каждой стороны;
+7. требует квадратный растр;
+8. строит preview с максимальной стороной 1200 и фильтром LANCZOS;
+9. вычисляет maxLevel = ceil(log2(max(width, height)));
+10. строит уровни от 0 до maxLevel включительно;
+11. на каждом уровне уменьшает исходный растр в степени двойки;
+12. режет уровень на тайлы не более 512×512;
+13. сохраняет каждый тайл как lossless WebP с method=6;
+14. формирует manifest;
+15. записывает manifest во временный файл и заменяет им world-map/manifest.json после генерации тайлов.
+
+Для уровня:
+reduction = 2 ** (maxLevel - level)
+levelWidth = ceil(width / reduction)
+levelHeight = ceil(height / reduction)
+columns = ceil(levelWidth / 512)
+rows = ceil(levelHeight / 512)
+
+Имена тайлов:
+<level>/<x>_<y>.webp
+
+Индексы начинаются с нуля. Последние тайлы по правой и нижней границе могут быть меньше 512 пикселей. Генератор не добавляет padding до полного размера.
+
+Генератор использует неизменную геометрию мира, а не вычисляет её из разрешения картинки. Поэтому квадратность растра обязательна для равного масштаба X/Z, но конкретное разрешение не обязано равняться 6016×6016.
+
+33.7. Формат manifest и версионные ресурсы
+
+Путь manifest:
+GET /world-map/manifest.json
+
+Поля верхнего уровня:
+- schemaVersion;
+- mapVersion;
+- source;
+- futureSources;
+- generated.
+
+Для действующего source.type = deepzoom используются:
+- width;
+- height;
+- tileSize;
+- minLevel;
+- maxLevel;
+- format;
+- coordinateSystem;
+- tileUrlTemplate;
+- previewUrl.
+
+coordinateSystem:
+- type = minecraft-world-block-centers;
+- minX = -3008;
+- maxX = 3007;
+- minZ = -3008;
+- maxZ = 3007.
+
+URL ресурсов содержат версию:
+- /world-map/versions/<mapVersion>/preview.webp;
+- /world-map/versions/<mapVersion>/tiles/<level>/<x>_<y>.webp.
+
+Версия в пути делает содержимое конкретного preview/тайла неизменяемым. Manifest, наоборот, должен оставаться без кэша, чтобы клиент мог обнаружить новую публикацию.
+
+futureSources.urlGrid зарезервирован для 12×12 сетки и 144 URL. В текущем генераторе urls остаётся пустым. Клиентская ветка url-grid есть, но действующий pipeline создаёт только Deep Zoom.
+
+33.8. Загрузка manifest и preview в клиенте
+
+loadWorldMap():
+1. увеличивает mapLoadGenerationRef;
+2. запрашивает manifest с cache: no-store и дополнительным cache-busting query;
+3. игнорирует результат, если поколение загрузки уже устарело;
+4. проверяет mapVersion и допустимый source.type;
+5. для Deep Zoom проверяет положительные конечные width/height;
+6. проверяет coordinateGeometryMatchesManifest();
+7. получает previewUrl из source.previewUrl или manifest.previewUrl;
+8. разрешает относительный путь относительно MAP_ASSETS_BASE;
+9. декодирует preview;
+10. устанавливает preview как основное изображение-подложку и source с assetBase/mapVersion.
+
+Fallback:
+- только HTTP 404 на manifest приводит к проверке legacy /api/map;
+- невалидный manifest, HTTP 500, ошибка JSON или ошибка preview не обходятся legacy fallback;
+- legacy запрос выполняет HEAD, проверяет Content-Type и X-Map-Version, затем загружает изображение по GET URL с v=version.
+
+Такой порядок не позволяет молча заменить сломанную новую публикацию старым исходником, если manifest уже существует, но повреждён или несовместим.
+
+33.9. Выбор тайлов и обработка viewport
+
+VoxMap() поддерживает source.type deepzoom и url-grid.
+
+Для Deep Zoom:
+- viewport dimensions берутся из DOM;
+- текущая матрица карты задаёт x, y и scale;
+- видимая область переводится в нормализованные границы 0..1;
+- devicePixelRatio ограничивается 1..3;
+- targetPixels рассчитывается из размера viewport, DPR и масштаба;
+- идеальный уровень выбирается относительно maxLevel и размера исходного растра;
+- итоговый уровень округляется вверх и ограничивается minLevel/maxLevel;
+- координаты тайлов вычисляются по tileSize;
+- к видимой области добавляется запас в один тайл по краям;
+- placeholder level/x/y подставляются в tileUrlTemplate;
+- относительный URL разрешается относительно assetBase;
+- CSS-позиция и размер тайла рассчитываются в процентах от полного изображения уровня.
+
+Для url-grid:
+- используется rows/columns;
+- URL выбирается из urls[y * columns + x];
+- URL может быть абсолютным или относительным к assetBase;
+- непустые URL превращаются в прямоугольники сетки.
+
+Производительность:
+- pointer gesture напрямую меняет transform существующего DOM-слоя;
+- paintTransform вызывается через requestAnimationFrame;
+- список тайлов обновляется с debounce около 110 мс;
+- viewState синхронизируется с родителем после жеста или через короткую задержку;
+- при смене source старый список тайлов очищается;
+- при resize viewport пересчитываются границы и список тайлов;
+- маркеры используют обратный масштаб, чтобы сохранять визуальный размер при увеличении карты.
+
+Preview остаётся нижним слоем. Если отдельный тайл не загрузился, он не перекрывает всю карту и в соответствующей области остаётся preview. Отдельного интерфейсного сообщения о сбое конкретного тайла нет. Отдельный AbortController для уже начатых img-запросов не используется.
+
+33.10. HTTP-заголовки Worker карты
+
+Конфигурация:
+- wrangler.jsonc;
+- assets.directory = ./public;
+- binding = ASSETS;
+- run_worker_first = false;
+- workers_dev = true.
+
+Файл public/_headers:
+- /world-map/versions/* — CORS, разрешённые GET/HEAD/OPTIONS, nosniff, Cache-Control public max-age 31536000 immutable;
+- /world-map/manifest.json — CORS и Cache-Control no-store.
+
+src/index.js — fallback Worker для пути, не найденного среди статических ресурсов. Он возвращает 404 с текстовым ответом. Основная выдача существующих manifest/preview/tile идёт через Workers Static Assets, а не через ручной fetch-код index.js.
+
+33.11. Подтверждённые публикации и границы runtime-проверки
+
+В репозитории исходников карты Release tag world-map на момент аудита был доступен публично. Среди Release Assets присутствовал:
+- voxygen-world-map-1794411327393.png;
+- размер 56 670 406 байт;
+- GitHub asset id 735988411;
+- SHA-256 digest 4b2d19ca4d56d05ec2c2e7d4a62c7b28ce0192620b5463433ccea50db7d5ab67.
+
+Последний доступный успешный workflow Process and publish world map:
+- run id 43049895080;
+- дата 11 ноября 2026 года;
+- checkout commit pipeline 535d080478bebff27584c6ed897b963720699105;
+- генератор вывел 6001×6001;
+- создано 203 тайла;
+- уровни 0–13;
+- скачивание исходника, генерация, Wrangler deploy и завершение workflow прошли успешно.
+
+Важное ограничение: этот успешный deployment относится к commit pipeline от 11 ноября. Текущие изменения генератора координат и тестов были внесены позднее. Поэтому этот лог доказывает успешную публикацию той версии pipeline, но не доказывает, что последняя версия исходников map-assets уже развёрнута в Cloudflare production.
+
+Проверка текущего публичного manifest через доступный внешний просмотрщик не завершилась подтверждённым HTTP-ответом. Нельзя делать вывод о текущей доступности production manifest, preview и тайлов только по наличию кода или старого успешного workflow. Для полной runtime-проверки нужны прямые HTTP GET/HEAD к:
+- https://voxygen-map-assets.counterboard.workers.dev/world-map/manifest.json;
+- previewUrl из актуального manifest;
+- нескольким тайлам разных уровней;
+- https://voxygen.counterboard.workers.dev/api/health;
+- GET и HEAD /api/map.
+
+Эти runtime-проверки не заменены dry-run и не считаются выполненными.
+
+33.12. Тесты map-assets после аудита
+
+Добавлены проверки генератора:
+- фиксированная геометрия мира не зависит от raster dimensions;
+- сборка manifest для квадратного растра разрешения 2048×2048;
+- отказ для неквадратного изображения;
+- проверка mapVersion и preview;
+- проверка существования и декодируемости каждого WebP-тайла;
+- проверка ограничения каждого тайла 512×512;
+- проверка точного количества 30 тайлов для тестового растра 2048×2048;
+- отказ от небезопасной mapVersion до создания output directory.
+
+Добавлены проверки tools/download_release_asset.py:
+- строгая проверка исходного GitHub Release URL;
+- отказ для чужого host, HTTP, query, userinfo и лишнего сегмента пути;
+- разрешённый HTTPS redirect;
+- запрет redirect на неизвестный host;
+- запрет второй redirect;
+- проверка, что Authorization не передаётся на asset host;
+- проверка Content-Length;
+- проверка фактического streamed size;
+- отказ от пустого ответа;
+- удаление частичного файла после ошибки.
+
+Workflow validate-map-pipeline.yml:
+- запускается на push в main;
+- запускается на feature-ветке проверки координат;
+- запускается на pull request в main;
+- устанавливает Pillow и requests;
+- запускает python -m unittest discover -s tests -p 'test_*.py' -v.
+
+Workflow Process and publish world map остаётся отдельным workflow_dispatch. Его задача — не unit testing, а фактическая генерация и публикация статических ресурсов.
+
+======================================================================
+34. ГРАНИЦЫ ПРОВЕДЁННОГО АУДИТА И ОСТАВШИЕСЯ ПРОВЕРКИ
+======================================================================
+
+34.1. Что подтверждено чтением исходников
+
+По текущим исходникам проверены:
+- маршрутизация основного Worker и список API;
+- разделение frontend/backend/map-assets Workers;
+- конфигурации wrangler;
+- обработчики загрузки исходника карты и резервной выдачи;
+- механизм GitHub Release upload;
+- dispatch workflow;
+- генератор Deep Zoom;
+- manifest и контракт loader;
+- вычисление координат и масштаба;
+- клиентская загрузка preview;
+- вычисление списка тайлов;
+- cache headers;
+- текущие тесты и GitHub Actions workflows.
+
+34.2. Что подтверждено CI
+
+Основной репозиторий имеет workflow Validate Voxygen: npm test, npm run build, node --check bot/src/worker.js и Wrangler deploy --dry-run.
+
+Результат последнего подтверждённого основного CI перед этим аудитом:
+- run id 43526265087;
+- commit 66cb94086aa4a783e1e1885d590a685dfdd3a03b;
+- conclusion success.
+
+Это проверка исходного кода и сборки, но не deployment.
+
+Для map-assets после добавления тестов CI запускается на main. Результат последнего запуска нужно оценивать по run id и commit SHA, а не по наличию workflow. До получения success для последнего commit новые проверки нельзя считать прошедшими.
+
+34.3. Что нельзя подтвердить без production доступа
+
+Из репозитория нельзя прочитать значения secrets. Поэтому наличие и корректность следующих значений не подтверждены:
+- BOT_TOKEN;
+- INSPECTOR_CHAT_ID;
+- GITHUB_TOKEN;
+- MAP_PIPELINE_GITHUB_TOKEN;
+- BANKER_TELEGRAM_ID;
+- CLOUDFLARE_API_TOKEN;
+- CLOUDFLARE_ACCOUNT_ID;
+- MAP_SOURCE_GITHUB_TOKEN.
+
+Нельзя утверждать только по коду, что:
+- текущий Cloudflare Worker развернут из последнего main;
+- текущая production D1 прошла все миграции;
+- текущий production manifest совпадает с последним generator;
+- опубликованы все тайлы manifest;
+- CORS/cache headers production совпадают с файлом public/_headers;
+- GitHub token имеет все требуемые permissions;
+- production Telegram webhook действительно доставляет события;
+- Telegram Bot API принимает сообщения в каждом административном сценарии.
+
+34.4. Непокрытые автоматизированными тестами области
+
+Текущий набор тестов не является полноценным end-to-end тестированием всего приложения. В частности, не следует считать полностью протестированными:
+- все 53 семейства API-маршрутов и все их комбинации ролей;
+- полный D1 integration test на реальном Cloudflare D1;
+- реальные гонки нескольких одновременно выполняемых запросов в production;
+- доставку Telegram Bot API и повторную доставку webhook на стороне Telegram;
+- browser UI на реальном Telegram Android/iOS WebView;
+- touch/pinch/wheel поведение карты на разных экранах;
+- фактические HTTP cache semantics Cloudflare edge;
+- аварийное восстановление публикации при отмене/задержке GitHub Actions;
+- одновременную загрузку нескольких карт разными администраторами;
+- фактическую доступность каждого tile URL в production.
+
+Эти пункты требуют отдельных интеграционных, браузерных и runtime проверок. Отсутствие регрессионного теста не означает, что функция сломана; это означает, что её корректность пока подтверждена только статическим анализом или отдельными unit checks.
+
+34.5. Операционный порядок дальнейшей проверки
+
+Для завершения runtime-проверки карты следует:
+1. проверить актуальный manifest прямым GET;
+2. разобрать все URL и проверить доступность preview;
+3. проверить по одному тайлу низкого, среднего и максимального уровня;
+4. сравнить размеры и tileCount manifest с фактически опубликованными файлами;
+5. проверить Cache-Control, CORS и Content-Type на manifest, preview и tile;
+6. загрузить тестовую карту через UI только после согласования production изменения;
+7. проверить появление новой mapVersion и завершение публикации;
+8. убедиться, что legacy /api/map не используется при существующем корректном manifest;
+9. проверить поведение при HTTP 404, 500 и некорректном manifest в отдельном тестовом окружении.
+
+До отдельного согласования эти действия не включают production upload новой карты, изменение production D1 или deploy Cloudflare Worker.
