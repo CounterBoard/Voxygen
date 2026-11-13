@@ -619,8 +619,8 @@ async function saveUserSettings(request, env) {
   const existing = await env.DB.prepare(`SELECT default_theme,timezone,event_notifications,map_zoom_percent
     FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first();
   const activeGlobal = await readGlobalSettingOverrides(env, now);
-  const submittedTheme = body?.defaultTheme !== undefined;
-  const submittedZoom = body?.mapZoomPercent !== undefined;
+  const submittedTheme = body?.personalThemeChanged === true;
+  const submittedZoom = body?.personalMapZoomChanged === true;
   const themeGlobalMarker = submittedTheme && activeGlobal.theme ? Number(activeGlobal.theme.updatedAt) : 0;
   const zoomGlobalMarker = submittedZoom && activeGlobal.mapZoomPercent ? Number(activeGlobal.mapZoomPercent.updatedAt) : 0;
   const defaultTheme = normalizeVoxygenTheme(body?.defaultTheme ?? existing?.default_theme ?? 'vox');
