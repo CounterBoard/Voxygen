@@ -2443,7 +2443,8 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
           const isResidentReviewer = r.telegram_id != null && (t.resident_telegram_ids || []).some(id => String(id) === String(r.telegram_id));
           return <div key={r.id} className="atlas-review-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 12, animationDelay: `${Math.min(reviewIndex * 24, 144)}ms` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
-              <MinecraftText text={r.author || r.telegram_username || 'Пользователь'} linkUsernames style={{fontSize:13,fontWeight:600}}/>
+              <MinecraftText text={r.author || r.mc_nickname || 'Пользователь'} style={{fontSize:13,fontWeight:600}}/>
+              {r.telegram_username&&<MinecraftText text={`@${String(r.telegram_username).replace(/^@/,'')}`} linkUsernames style={{fontSize:11.5,fontWeight:650,marginLeft:3}}/>}
               {(r.role === 'inspector' || r.role === 'main_inspector') && <span style={{ fontSize: 10, color: 'var(--mint)', background: 'var(--mint-soft)', border: '1px solid var(--mint)', borderRadius: 999, padding: '2px 6px', fontWeight: 700 }}>Инспектор</span>}
               {isResidentReviewer && <span style={{ fontSize: 10, color: 'var(--purple)', border: '1px solid var(--purple)', borderRadius: 999, padding: '2px 6px', fontWeight: 700 }}>Житель</span>}
               {(isMyComment || isMainInspector) && <div style={{ marginLeft:'auto', display:'flex', gap:4 }}>
