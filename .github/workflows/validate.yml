@@ -3,11 +3,15 @@ name: Validate Voxygen
 on:
   push:
     branches:
-      - feature/automatic-deepzoom-map
-      - feature/coordinate-zoom-global-settings-reliable-updates
-  pull_request:
-    branches:
       - main
+      - ci/validate-all-pull-requests
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  workflow_dispatch:
 
 permissions:
   contents: read
