@@ -4392,62 +4392,90 @@ async function updateTerritoryManager(request, env) {
   const auth=await requireMainInspector(request,env); if(auth.error)return auth.error;
   await ensureWorldTables(env);
   let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
-  const territoryId=String(body?.territoryId||'').trim();
-  const currentTelegramId=Number(body?.currentTelegramId);
+  const territoryId=String(body?.territoryId||'').trim(),currentTelegramId=Number(body?.currentTelegramId);
   const wanted=normalizeUsername(body?.username||'').replace(/^@/,'');
   if(!territoryId||!Number.isSafeInteger(currentTelegramId)||currentTelegramId<=0)return json({ok:false,error:'territoryId и currentTelegramId обязательны'},400);
   const territory=await env.DB.prepare(`SELECT id,name,owner_telegram_id,is_government FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first();
   if(!territory)return json({ok:false,error:'City not found'},404);
   if(Number(territory.is_government||0)===1)return json({ok:false,error:'У государственной территории нет основателей/мэров'},400);
-  const managers=await getTerritoryManagerRows(env,territoryId);
-  const current=managers.find(m=>Number(m.telegram_id)===currentTelegramId);
-  if(!current)return json({ok:false,error:'Основатель/мэр не найден'},404);
-  const oldUsername=normalizeUsername(current.telegram_username||'');
+  const managers=await getTerritoryManagerRows(env,territoryId),currentManager=managers.find(m=>Number(m.telegram_id)===currentTelegramId);
+  if(!currentManager)return json({ok:false,error:'Основатель/мэр не найден'},404);
+  const oldUsername=normalizeUsername(currentManager.telegram_username||'');
   if(wanted.toLowerCase()===oldUsername.toLowerCase())return json({ok:true,changed:false,managers});
-
-  await hideRecruitmentIfContactLost(env,territoryId,currentTelegramId,oldUsername);
+  const ownerId=Number(territory.owner_telegram_id||0),now=Date.now();
+  let target=null;
 
   if(!wanted){
-    const ownerId=Number(territory.owner_telegram_id||0);
     if(ownerId===currentTelegramId){
       const next=managers.find(m=>Number(m.telegram_id)!==currentTelegramId);
       if(next){
-        const nextUser=await env.DB.prepare(`SELECT telegram_id,telegram_username,mc_nickname,status FROM users WHERE telegram_id=? AND status='verified' AND trim(COALESCE(mc_nickname,''))<>''`).bind(Number(next.telegram_id)).first();
+        const nextUser=await env.DB.prepare(`SELECT telegram_id,telegram_username,mc_nickname FROM users WHERE telegram_id=? AND status='verified' AND trim(COALESCE(mc_nickname,''))<>''`).bind(Number(next.telegram_id)).first();
         if(!nextUser)return json({ok:false,error:'Не удалось найти следующего подтверждённого основателя/мэра'},404);
-        await env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=? WHERE id=?`).bind(Number(next.telegram_id),nextUser.telegram_username||null,nextUser.mc_nickname,territoryId).run();
-        await env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territoryId,Number(next.telegram_id)).run();
+        await env.DB.batch([
+          env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=? WHERE id=? AND status='approved' AND owner_telegram_id=? AND EXISTS(SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=?)`).bind(Number(next.telegram_id),nextUser.telegram_username||null,nextUser.mc_nickname,territoryId,currentTelegramId,territoryId,Number(next.telegram_id)),
+          env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=? AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`).bind(territoryId,Number(next.telegram_id),territoryId,Number(next.telegram_id)),
+          env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=? AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`).bind(territoryId,currentTelegramId,territoryId,Number(next.telegram_id)),
+          env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`).bind(currentTelegramId,territoryId,now,territoryId,Number(next.telegram_id)),
+        ]);
+        const fresh=await env.DB.prepare(`SELECT owner_telegram_id FROM territories WHERE id=?`).bind(territoryId).first();
+        if(Number(fresh?.owner_telegram_id||0)!==Number(next.telegram_id))return json({ok:false,error:'Состав управляющих уже изменился. Обновите данные и повторите действие.'},409);
       }else{
-        await env.DB.prepare(`UPDATE territories SET owner_telegram_id=NULL,owner_telegram_username=NULL WHERE id=?`).bind(territoryId).run();
+        await env.DB.batch([
+          env.DB.prepare(`UPDATE territories SET owner_telegram_id=NULL,owner_telegram_username=NULL WHERE id=? AND status='approved' AND owner_telegram_id=?`).bind(territoryId,currentTelegramId),
+          env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=? AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id IS NULL)`).bind(territoryId,currentTelegramId,territoryId),
+          env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id IS NULL)`).bind(currentTelegramId,territoryId,now,territoryId),
+        ]);
+        const fresh=await env.DB.prepare(`SELECT owner_telegram_id FROM territories WHERE id=?`).bind(territoryId).first();
+        if(fresh?.owner_telegram_id!==null)return json({ok:false,error:'Состав управляющих уже изменился. Обновите данные и повторите действие.'},409);
       }
-}
-    await env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territoryId,currentTelegramId).run();
-    await env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at) VALUES(?,?,?)`).bind(currentTelegramId,territoryId,Date.now()).run();
-    try{await telegram(env,'sendMessage',{chat_id:currentTelegramId,text:`ℹ️ В городе «${escapeHtml(territory.name)}» вы больше не являетесь основателем/мэром.`,parse_mode:'HTML'})}catch{}
+    }else{
+      await env.DB.batch([
+        env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=?)`).bind(currentTelegramId,territoryId,now,territoryId,currentTelegramId),
+        env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=? AND EXISTS(SELECT 1 FROM city_memberships WHERE territory_id=? AND telegram_id=?)`).bind(territoryId,currentTelegramId,territoryId,currentTelegramId),
+      ]);
+      const [m,member]=await Promise.all([
+        env.DB.prepare(`SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territoryId,currentTelegramId).first(),
+        env.DB.prepare(`SELECT 1 FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(territoryId,currentTelegramId).first(),
+      ]);
+      if(m||!member)return json({ok:false,error:'Состав управляющих уже изменился. Обновите данные и повторите действие.'},409);
+    }
   }else{
-    const target=await env.DB.prepare(`SELECT telegram_id,telegram_username,mc_nickname FROM users WHERE status='verified' AND lower(replace(telegram_username,'@',''))=lower(?) LIMIT 1`).bind(wanted).first();
+    target=await env.DB.prepare(`SELECT telegram_id,telegram_username,mc_nickname FROM users WHERE status='verified' AND lower(replace(telegram_username,'@',''))=lower(?) LIMIT 1`).bind(wanted).first();
     if(!target)return json({ok:false,error:'Подтверждённый пользователь с таким Telegram username не найден'},404);
     if(Number(target.telegram_id)===currentTelegramId)return json({ok:true,changed:false,managers});
     if(managers.some(m=>Number(m.telegram_id)===Number(target.telegram_id)))return json({ok:false,error:'Этот пользователь уже является основателем/мэром'},409);
-    const ownerId=Number(territory.owner_telegram_id||0);
     if(ownerId===currentTelegramId){
-      await env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=? WHERE id=?`).bind(Number(target.telegram_id),target.telegram_username||wanted,territoryId).run();
-      await env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(territoryId,Number(target.telegram_id)).run();
-      await env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territoryId,Number(target.telegram_id)).run();
-      await env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territoryId,currentTelegramId).run();
-      await env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at) VALUES(?,?,?)`).bind(currentTelegramId,territoryId,Date.now()).run();
+      await env.DB.batch([
+        env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=? WHERE id=? AND status='approved' AND owner_telegram_id=?`).bind(Number(target.telegram_id),target.telegram_username||wanted,target.mc_nickname||'',territoryId,currentTelegramId),
+        env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=? AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`).bind(territoryId,Number(target.telegram_id),territoryId,Number(target.telegram_id)),
+        env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=? AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`).bind(territoryId,Number(target.telegram_id),territoryId,Number(target.telegram_id)),
+        env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=? AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`).bind(territoryId,currentTelegramId,territoryId,Number(target.telegram_id)),
+        env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`).bind(currentTelegramId,territoryId,now,territoryId,Number(target.telegram_id)),
+      ]);
+      const fresh=await env.DB.prepare(`SELECT owner_telegram_id FROM territories WHERE id=?`).bind(territoryId).first();
+      if(Number(fresh?.owner_telegram_id||0)!==Number(target.telegram_id))return json({ok:false,error:'Состав управляющих уже изменился. Обновите данные и повторите действие.'},409);
     }else{
-      await env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territoryId,currentTelegramId).run();
-      await env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at) VALUES(?,?,?)`).bind(currentTelegramId,territoryId,Date.now()).run();
-      await env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(territoryId,Number(target.telegram_id)).run();
-      await env.DB.prepare(`INSERT OR IGNORE INTO territory_managers(territory_id,telegram_id,granted_by,granted_at) VALUES(?,?,?,?)`).bind(territoryId,Number(target.telegram_id),Number(auth.user.id),Date.now()).run();
+      await env.DB.batch([
+        env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=?)`).bind(currentTelegramId,territoryId,now,territoryId,currentTelegramId),
+        env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=? AND EXISTS(SELECT 1 FROM city_memberships WHERE territory_id=? AND telegram_id=?)`).bind(territoryId,currentTelegramId,territoryId,currentTelegramId),
+        env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(territoryId,Number(target.telegram_id)),
+        env.DB.prepare(`INSERT OR IGNORE INTO territory_managers(territory_id,telegram_id,granted_by,granted_at) VALUES(?,?,?,?)`).bind(territoryId,Number(target.telegram_id),Number(auth.user.id),now),
+      ]);
+      const [m,member]=await Promise.all([
+        env.DB.prepare(`SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territoryId,Number(target.telegram_id)).first(),
+        env.DB.prepare(`SELECT 1 FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(territoryId,currentTelegramId).first(),
+      ]);
+      if(!m||!member)return json({ok:false,error:'Состав управляющих уже изменился. Обновите данные и повторите действие.'},409);
     }
-    try{await telegram(env,'sendMessage',{chat_id:Number(target.telegram_id),text:`👑 Вы назначены основателем/мэром города «${escapeHtml(territory.name)}» главным инспектором.`,parse_mode:'HTML'})}catch{}
-    try{await telegram(env,'sendMessage',{chat_id:currentTelegramId,text:`ℹ️ В городе «${escapeHtml(territory.name)}» вы больше не являетесь основателем/мэром.`,parse_mode:'HTML'})}catch{}
   }
-  const fresh=await getTerritoryManagerRows(env,territoryId);
+
+  await hideRecruitmentIfContactLost(env,territoryId,currentTelegramId,oldUsername).catch(error=>console.error('Recruitment cleanup after manager replacement:',territoryId,error));
+  if(target){try{await telegram(env,'sendMessage',{chat_id:Number(target.telegram_id),text:`👑 Вы назначены основателем/мэром города «${escapeHtml(territory.name)}» главным инспектором.`,parse_mode:'HTML'})}catch{}}
+  try{await telegram(env,'sendMessage',{chat_id:currentTelegramId,text:`ℹ️ В городе «${escapeHtml(territory.name)}» вы больше не являетесь основателем/мэром.`,parse_mode:'HTML'})}catch{}
+  const freshManagers=await getTerritoryManagerRows(env,territoryId);
   await notifyTerritoryManagers(env,territoryId,`ℹ️ В городе «${escapeHtml(territory.name)}» обновлён состав основателей/мэров.`,null);
   await evaluateAchievementsForTerritory(env,territoryId).catch(error=>console.error('Achievement evaluation after founder/manager update:',error));
-  return json({ok:true,changed:true,managers:fresh});
+  return json({ok:true,changed:true,managers:freshManagers});
 }
 
 async function saveRecruitment(request, env) {
