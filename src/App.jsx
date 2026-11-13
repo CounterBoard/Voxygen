@@ -965,6 +965,27 @@ function Dot({ c }) {
   return <span style={{ width: 7, height: 7, borderRadius: '50%', background: c, display: 'inline-block' }} />;
 }
 
+function Button({ variant = 'primary', size = 'md', disabled = false, className = '', style = {}, children, ...props }) {
+  const variants = {
+    primary: { background:'var(--purple)', color:'#fff', border:'1px solid transparent' },
+    secondary: { background:'var(--surface-2)', color:'var(--text)', border:'1px solid var(--border)' },
+    success: { background:'var(--mint-soft)', color:'var(--mint)', border:'1px solid var(--mint-strong)' },
+    destructive: { background:'var(--red-soft)', color:'var(--red)', border:'1px solid var(--red-border)' },
+    ghost: { background:'transparent', color:'var(--text-secondary)', border:'1px solid transparent' },
+  };
+  const sizes = {
+    sm: { minHeight:36, padding:'8px 12px', fontSize:'var(--type-body-compact)' },
+    md: { minHeight:44, padding:'10px 14px', fontSize:'var(--type-body)' },
+    lg: { minHeight:48, padding:'12px 16px', fontSize:'var(--type-body)' },
+  };
+  return <button {...props} disabled={disabled} className={`press ${className}`.trim()} style={{
+    display:'inline-flex', alignItems:'center', justifyContent:'center', gap:'var(--space-2)',
+    borderRadius:'var(--radius-control)', fontWeight:'var(--weight-semibold)', cursor:disabled?'not-allowed':'pointer',
+    opacity:disabled?0.55:1, transition:'background var(--motion-fast), border-color var(--motion-fast), opacity var(--motion-fast)',
+    ...sizes[size]||sizes.md, ...variants[variant]||variants.primary, ...style,
+  }}>{children}</button>;
+}
+
 function iconBtn(bg, color, square) {
   return {
     width: 40, height: 40, borderRadius: square ? 12 : '50%', background: bg, color,
@@ -1659,14 +1680,14 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><MapIcon size={16} color="var(--purple)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Карта мира</div></div>
       <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.5,marginBottom:10}}>Загрузите квадратную карту PNG, JPG или WebP любого разрешения. Размер и разрешение изображения не меняют фиксированную систему координат игрового мира. Размер файла — до 90 МБ; исходник хранится в GitHub Releases, а тайлы публикуются отдельно.</div>
       <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{display:'none'}} onChange={e=>saveMap(e.target.files?.[0])}/>
-      <button onClick={()=>fileRef.current?.click()} disabled={mapSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'11px',background:'var(--purple)',color:'#fff',fontWeight:700}}>{mapSaving?(mapProcessing?'Обработка карты…':'Загрузка карты…'):'Загрузить карту мира'}</button>
+      <Button onClick={()=>fileRef.current?.click()} disabled={mapSaving} style={{width:'100%'}}>{mapSaving?(mapProcessing?'Обработка карты…':'Загрузка карты…'):'Загрузить карту мира'}</Button>
       {mapSaving&&<div role="status" aria-live="polite" style={{marginTop:10}}><div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--text-muted)',marginBottom:5}}><span>{mapProcessing?'Генерация тайлов и публикация…':(mapProgress>=100?'Файл передан, запускаем обработку…':'Загрузка файла')}</span><span>{mapProcessing?'В работе':`${mapProgress}%`}</span></div><div style={{height:6,background:'var(--surface-3)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',width:`${mapProgress}%`,background:'var(--purple)',borderRadius:99,transition:'width 120ms linear'}}/></div></div>}
     </div>
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}><Users size={16} color="var(--purple)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Пользователи</div><span style={{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}}>{managedUsers.length}</span></div>
       <input value={newMcNickname} onChange={e=>setNewMcNickname(e.target.value)} placeholder="Никнейм в Minecraft" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',marginBottom:8}}/>
       <input value={newTelegramId} onChange={e=>setNewTelegramId(e.target.value.replace(/\D/g,''))} inputMode="numeric" placeholder="Telegram ID" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',marginBottom:8}}/>
-      <button onClick={addUser} disabled={userSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',background:'var(--purple)',color:'#fff',fontWeight:700}}>{userSaving?'Сохранение…':'Добавить пользователя'}</button>
+      <Button onClick={addUser} disabled={userSaving} style={{width:'100%'}}>{userSaving?'Сохранение…':'Добавить пользователя'}</Button>
       {usersLoading?null:managedUsers.length===0?<div style={{fontSize:12,color:'var(--text-muted)',marginTop:12}}>Подтверждённых пользователей пока нет.</div>:<div style={{marginTop:12}}>{managedUsers.map(u=>{
         const editing=editingUserId===u.id;
         return <div key={u.id} style={{padding:'12px 0',borderTop:'1px solid var(--border)'}}>
