@@ -2336,10 +2336,9 @@ async function sendResidentInviteOnce(env, invite, cityName) {
   if (delivered) {
     await env.DB.prepare(`UPDATE city_invites SET notification_sent_at=?,notification_claimed_at=NULL
       WHERE id=? AND status='pending' AND notification_claimed_at=?`).bind(now, invite.id, now).run();
-  } else {
-    await env.DB.prepare(`UPDATE city_invites SET notification_claimed_at=NULL
-      WHERE id=? AND status='pending' AND notification_claimed_at=?`).bind(invite.id, now).run();
   }
+  // On a failed delivery, keep the short lease. This prevents every incoming
+  // Telegram message from immediately retrying the same failed notification.
   return delivered;
 }
 
@@ -2439,7 +2438,11 @@ async function promoteResident(request, env) {
   if(String(targetId)===String(auth.user.id))return json({ok:false,error:'Нельзя повысить себя'},400);
   const member=await env.DB.prepare(`SELECT 1 FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(territoryId,targetId).first(); if(!member)return json({ok:false,error:'Житель не найден'},404);
   const managers=await getTerritoryManagerRows(env,territoryId); const voterCount=Math.max(0,managers.length-1);
-  if(voterCount===0){await applyManagerChange(env,{territoryId,targetId,action:'promote',initiatorId:Number(auth.user.id)});return json({ok:true,immediate:true});}
+  if(voterCount===0){
+    const applied=await applyManagerChange(env,{territoryId,targetId,action:'promote',initiatorId:Number(auth.user.id)});
+    if(!applied)return json({ok:false,error:'Не удалось изменить роль. Обновите данные и повторите действие.'},409);
+    return json({ok:true,immediate:true});
+  }
   await ensureManagerChangeTables(env);
   const pending=await env.DB.prepare(`SELECT id FROM manager_change_requests WHERE territory_id=? AND target_telegram_id=? AND action='promote' AND status='pending' AND expires_at>? LIMIT 1`).bind(territoryId,targetId,Date.now()).first(); if(pending)return json({ok:false,error:'Запрос уже находится на голосовании'},409);
   const id=crypto.randomUUID(),now=Date.now(),expires=now+24*60*60*1000,required=Math.floor(managers.length/2); await env.DB.prepare(`INSERT INTO manager_change_requests(id,territory_id,target_telegram_id,initiator_telegram_id,action,required_votes,voter_count,status,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(id,territoryId,targetId,Number(auth.user.id),'promote',required,voterCount,'pending',now,expires).run();
@@ -2503,19 +2506,19 @@ async function applyManagerChange(env,{territoryId,targetId,action,initiatorId=n
       : Number(initiatorId||0);
     if(!nextOwnerId||nextOwnerId===Number(targetId))return false;
     const [nextOwner,nextOwnerManager]=await Promise.all([
-      env.DB.prepare(`SELECT telegram_id,telegram_username FROM users WHERE telegram_id=?`).bind(nextOwnerId).first(),
+      env.DB.prepare(`SELECT telegram_id,telegram_username,mc_nickname FROM users WHERE telegram_id=?`).bind(nextOwnerId).first(),
       env.DB.prepare(`SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=? LIMIT 1`).bind(territoryId,nextOwnerId).first(),
     ]);
     if(!nextOwner||!nextOwnerManager)return false;
 
     await env.DB.batch([
-      env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?
+      env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=?
         WHERE id=? AND status='approved' AND owner_telegram_id=?
           AND EXISTS(SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=?)`)
-        .bind(nextOwnerId,nextOwner.telegram_username||null,territoryId,targetId,territoryId,nextOwnerId),
-      env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?
+        .bind(nextOwnerId,nextOwner.telegram_username||null,nextOwner.mc_nickname||'',territoryId,targetId,territoryId,nextOwnerId),
+      env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id IN (?,?)
         AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
-        .bind(territoryId,targetId,territoryId,nextOwnerId),
+        .bind(territoryId,targetId,nextOwnerId,territoryId,nextOwnerId),
       env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at)
         SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
         .bind(targetId,territoryId,now,territoryId,nextOwnerId),
@@ -3529,7 +3532,6 @@ async function repairOrphanedTerritoryOwnersForUser(env, telegramId, nickname) {
 
   // Approved applications can retain an owner_input even when the Telegram account
   // was not registered yet. Bind the owner later only when the identity is unique.
-  if(!username)return;
   const unclaimed=await env.DB.prepare(`
     SELECT id,owner_input FROM territories WHERE status='approved' AND owner_telegram_id IS NULL
       AND (lower(trim(owner_input))=lower(trim(?)) OR lower(replace(trim(owner_input),'@',''))=lower(?))
@@ -3843,17 +3845,23 @@ async function claimTerritoryOwner(request, env) {
   const matchesUsername=ownerInput.replace(/^@+/,'').toLowerCase()===username.toLowerCase()&&Boolean(username);
   if(!matchesNickname&&!matchesUsername)return json({ok:false,error:'Эта территория указана для другого владельца'},403);
 
-  const update=await env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?
-    WHERE id=? AND status='approved' AND owner_telegram_id IS NULL
-      AND (lower(trim(owner_input))=lower(trim(?)) OR lower(replace(trim(owner_input),'@',''))=lower(?))`)
-    .bind(Number(auth.user.id),user.telegram_username||auth.user.username||null,territoryId,ownerInput,username).run();
-  if(!update.meta?.changes){
+  const transition=await env.DB.batch([
+    env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=?
+      WHERE id=? AND status='approved' AND owner_telegram_id IS NULL
+        AND (lower(trim(owner_input))=lower(trim(?)) OR lower(replace(trim(owner_input),'@',''))=lower(?))`)
+      .bind(Number(auth.user.id),user.telegram_username||auth.user.username||null,user.mc_nickname,territoryId,ownerInput,username),
+    env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?
+      AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
+      .bind(territoryId,Number(auth.user.id),territoryId,Number(auth.user.id)),
+    env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?
+      AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
+      .bind(territoryId,Number(auth.user.id),territoryId,Number(auth.user.id)),
+  ]);
+  if(!transition[0]?.meta?.changes){
     const fresh=await env.DB.prepare(`SELECT owner_telegram_id FROM territories WHERE id=?`).bind(territoryId).first();
     if(Number(fresh?.owner_telegram_id||0)===Number(auth.user.id))return json({ok:true,changed:false});
     return json({ok:false,error:'Территорию уже успел занять другой пользователь. Обновите данные.'},409);
   }
-  await env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(territoryId,Number(auth.user.id)).run();
-  await env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territoryId,Number(auth.user.id)).run();
   await evaluateAchievementsForTerritory(env,territoryId).catch(error=>console.error('Achievement evaluation after founder claim:',error));
   return json({ok:true,changed:true});
 }
