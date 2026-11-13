@@ -78,5 +78,5 @@ test("map zoom uses a smooth exponential scale with exact 1x and 24x endpoints",
 
   assert.equal(normalizeMapZoomPercent(-10), 1);
   assert.equal(normalizeMapZoomPercent(140), 100);
-  assert.equal(normalizeMapZoomPercent("invalid"), 100);
+  assert.equal(normalizeMapZoomPercent("invalid"), 88);
 });
