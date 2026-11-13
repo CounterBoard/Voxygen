@@ -1957,11 +1957,13 @@ async function createCustomizationItem(request, env) {
     await cleanupCustomizationCategories(env).catch(error=>console.error('Customization category cleanup after item creation:',error));
     await syncGovernmentVisual(env,itemId,categories,governmentMarker).catch(error=>console.error('Government visual synchronization after item creation:',error));
     if(achievement.enabled){
-      const territories=await env.DB.prepare(`SELECT id FROM territories WHERE status='approved'`).all();
-      for(const t of territories.results||[]) {
-        try { await evaluateAchievementsForTerritory(env,t.id); }
-        catch(error) { console.error('Achievement evaluation after item creation:',String(t.id),error); }
-      }
+      try {
+        const territories=await env.DB.prepare(`SELECT id FROM territories WHERE status='approved'`).all();
+        for(const t of territories.results||[]) {
+          try { await evaluateAchievementsForTerritory(env,t.id); }
+          catch(error) { console.error('Achievement evaluation after item creation:',String(t.id),error); }
+        }
+      } catch(error) { console.error('Achievement territory scan after item creation failed:',error); }
     }
     return json({ok:true,item:{id,category_id:categoryIds[0],categories_text:categories.join(', '),name,price,image_data:imageData,color,sort_order:Number(maxRow?.max_order??-1)+1,achievement_enabled:achievement.enabled?1:0,government_marker:governmentMarker?1:0}});
   }catch(error){
@@ -2025,11 +2027,13 @@ async function updateCustomizationItem(request,env,itemId){
   await cleanupCustomizationCategories(env).catch(error=>console.error('Customization category cleanup after item update:',error));
   await syncGovernmentVisual(env,id,categories,governmentMarker).catch(error=>console.error('Government visual synchronization after item update:',error));
   if(achievement.enabled) {
-    const territories=await env.DB.prepare(`SELECT id FROM territories WHERE status='approved'`).all();
-    for(const t of territories.results||[]) {
-      try { await evaluateAchievementsForTerritory(env,t.id); }
-      catch(error) { console.error('Achievement evaluation after item update:',String(t.id),error); }
-    }
+    try {
+      const territories=await env.DB.prepare(`SELECT id FROM territories WHERE status='approved'`).all();
+      for(const t of territories.results||[]) {
+        try { await evaluateAchievementsForTerritory(env,t.id); }
+        catch(error) { console.error('Achievement evaluation after item update:',String(t.id),error); }
+      }
+    } catch(error) { console.error('Achievement territory scan after item update failed:',error); }
   }
   return json({ok:true,item:{id,name,price,image_data:imageData,category_id:categoryIds[0],categories_text:categories.join(', '),color,achievement_enabled:achievement.enabled?1:0}});
 }
@@ -2064,7 +2068,7 @@ async function deleteCustomizationItem(request,env,itemId){
     env.DB.prepare(`UPDATE customization_items SET active=0 WHERE id=?`).bind(id),
   ]);
   for(const row of affected.results||[])await reconcileTerritoryVisualEquipment(env,row.territory_id).catch(error=>console.error('Equipment reconciliation after visual deletion:',error));
-  await cleanupCustomizationCategories(env);
+  await cleanupCustomizationCategories(env).catch(error=>console.error('Customization category cleanup after item deletion:',error));
   return json({ok:true});
 }
 
