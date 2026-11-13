@@ -4647,7 +4647,9 @@ async function updateTerritoryManager(request, env) {
 }
 
 async function saveRecruitment(request, env) {
-  await ensureRecruitmentTable(env); const auth=await requireUser(request,env); if(auth.error)return auth.error; let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  const auth=await requireUser(request,env); if(auth.error)return auth.error;
+  await ensureRecruitmentTable(env);
+  let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim(),description=String(body?.description||'').trim(),enabled=!!body?.enabled; if(!territoryId||!description)return json({ok:false,error:'territoryId and description are required'},400);
   const territory=await env.DB.prepare(`SELECT id,name FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404);
   if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Только основатель/мэр может редактировать объявление'},403);
@@ -4664,7 +4666,9 @@ async function saveRecruitment(request, env) {
 }
 
 async function setRecruitmentContact(request, env) {
-  await ensureRecruitmentTable(env); const auth=await requireUser(request,env); if(auth.error)return auth.error; let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  const auth=await requireUser(request,env); if(auth.error)return auth.error;
+  await ensureRecruitmentTable(env);
+  let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim(),telegramId=Number(body?.telegramId); if(!territoryId||!Number.isSafeInteger(telegramId)||telegramId<=0)return json({ok:false,error:'territoryId и telegramId обязательны'},400); if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403); if(!(await isTerritoryManager(env,territoryId,telegramId)))return json({ok:false,error:'Пользователь не является основателем/мэром города'},400);
   const u=await env.DB.prepare(`SELECT telegram_username FROM users WHERE telegram_id=?`).bind(telegramId).first(); const username=normalizeUsername(u?.telegram_username)||''; if(!username)return json({ok:false,error:'У этого основателя/мэра нет username в Telegram'},400);
   const existing=await env.DB.prepare(`SELECT description,enabled FROM recruitment WHERE territory_id=?`).bind(territoryId).first(); if(!existing)return json({ok:false,error:'Сначала сохраните объявление о наборе'},400);
@@ -5210,14 +5214,14 @@ async function purgeExpiredEvents(env, at = Date.now()) {
 }
 
 async function getEvents(request, env) {
-  await ensureEventsTables(env);
-  const now = Date.now();
   const url = new URL(request.url);
   const manage = url.searchParams.get('manage') === '1';
   if (manage) {
     const auth = await requireMainInspector(request, env);
     if (auth.error) return auth.error;
   }
+  await ensureEventsTables(env);
+  const now = Date.now();
   const viewer = await getCurrentUser(request, env);
   await purgeExpiredEvents(env, now);
   const cutoff = now - 24 * 60 * 60 * 1000;
