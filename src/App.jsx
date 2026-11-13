@@ -1104,7 +1104,7 @@ function AddTerritoryModal({ onClose, onSubmit, isMainInspector = false }) {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div className="atlas-display" style={{ fontSize: 16, fontWeight: 700 }}>Добавить территорию</div>
-          <button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)', 'var(--text-muted)')}><X size={16} /></button>
+          <IconButton icon={X} label="Закрыть окно" onClick={requestClose} />
         </div>
 
         <Field label="Название территории" value={name} onChange={(e) => setName(e.target.value)} />
@@ -1986,7 +1986,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
     <div onClick={e=>e.stopPropagation()} className={'atlas-modal-shell'+(closing?' atlas-closing':'')} style={{width:'min(448px,100%)',maxHeight:'84vh',overflowY:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:22,padding:18,boxSizing:'border-box'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:16}}>
         <div className="atlas-display" style={{fontSize:19,fontWeight:700}}>Настройки</div>
-        <button onClick={requestClose} className="press" aria-label="Закрыть настройки" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button>
+        <IconButton icon={X} label="Закрыть настройки" onClick={requestClose} />
       </div>
       {loading?<div style={{padding:'24px 0',textAlign:'center',fontSize:13,color:'var(--text-muted)'}}>Загрузка настроек…</div>:!settings?<div style={{fontSize:12.5,color:'var(--red)',lineHeight:1.5}}>
         {error||'Настройки недоступны.'}
@@ -2076,7 +2076,7 @@ function GlobalSettingsPanel({ initData, onSettingsChanged, onClose, timezoneOff
   const secondaryStyle={minHeight:38,border:'1px solid var(--border)',borderRadius:9,padding:'0 11px',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:12};
   return <div className={'atlas-overlay'+(closing?' atlas-closing':'')} style={{position:'fixed',inset:0,zIndex:140,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center',padding:'18px 14px'}} onClick={requestClose}>
     <div onClick={e=>e.stopPropagation()} className={'atlas-modal-shell'+(closing?' atlas-closing':'')} style={{width:'min(448px,100%)',maxHeight:'88vh',overflowY:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:22,padding:18,boxSizing:'border-box'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:8}}><div className="atlas-display" style={{fontSize:19,fontWeight:800}}>Глобальные настройки</div><button onClick={requestClose} className="press" aria-label="Закрыть глобальные настройки" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:8}}><div className="atlas-display" style={{fontSize:19,fontWeight:800}}>Глобальные настройки</div><IconButton icon={X} label="Закрыть глобальные настройки" onClick={requestClose} /></div>
       <div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.45,marginBottom:14}}>Каждая настройка включается и снимается независимо. Глобальные значения временно заменяют личные настройки пользователей, пока те не выберут собственное значение или пока не закончится срок действия.</div>
       {loading?<div style={{padding:16,color:'var(--text-muted)',fontSize:12}}>Загрузка…</div>:<>
         <div style={sectionStyle}><div style={{fontSize:13,fontWeight:700,marginBottom:4}}>Тема</div><div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{status(themeRow)}</div>
@@ -3060,7 +3060,7 @@ function MainTabs({ tab, onChange }) {
 }
 
 
-function SimpleModal({title,children,onClose}){const {closing,requestClose}=useAnimatedClose(onClose,175);return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:100,background:'rgba(0,0,0,.78)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(448px,100%)',maxHeight:'76vh',overflowY:'auto',margin:'auto',background:'#12151D',border:'1px solid var(--border)',borderRadius:22,padding:18}}><div style={{display:'flex',alignItems:'flex-start',justifyContent:title?'space-between':'flex-end',marginBottom:title?14:10}}>{title&&<div className="atlas-display" style={{fontSize:18,fontWeight:700,lineHeight:1.2}}>{title}</div>}<button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>{children}</div></div>}
+function SimpleModal({title,children,onClose}){const {closing,requestClose}=useAnimatedClose(onClose,175);return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:100,background:'rgba(0,0,0,.78)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(448px,100%)',maxHeight:'76vh',overflowY:'auto',margin:'auto',background:'#12151D',border:'1px solid var(--border)',borderRadius:22,padding:18}}><div style={{display:'flex',alignItems:'flex-start',justifyContent:title?'space-between':'flex-end',marginBottom:title?14:10}}>{title&&<div className="atlas-display" style={{fontSize:18,fontWeight:700,lineHeight:1.2}}>{title}</div>}<IconButton icon={X} label="Закрыть окно" onClick={requestClose} /></div>{children}</div></div>}
 function normalizedTelegramUsername(value) {
   const username=String(value||'').trim().replace(/^@+/,'');
   return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username) ? username : '';
