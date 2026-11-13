@@ -1777,6 +1777,7 @@ POST /api/recruitment/contact
 
 - Список карты: App.jsx запрашивает GET /api/territories?view=summary и принимает объект {ok, territories, degradedAreas}; Worker возвращает именно этот объект. В summary режиме residents, managers, reviews и screenshots не загружаются полностью, чтобы сократить ответ; для выбранной территории App.jsx отдельно запрашивает GET /api/territories?detail={id}.
 - Детальная территория: detail-запрос возвращает массив territories с расширенными полями reviews, screenshots, residents, resident_rows, resident_telegram_ids, managers и manager_telegram_ids. App.jsx переносит эти поля в текущую запись территории.
+- Профильная кастомизация: GET /api/customization?scope=profile&territoryId=... допускает просмотр для управляющего или участника. Ответ содержит cityInventory и экипированные marker/background ID. Поле cityRole в текущем Worker выставляется в 'manager' при любом допустимом profileTerritoryId, в том числе если запросивший только участник; текущий App.jsx cityRole не использует.
 - Набор: App.jsx сохраняет настройки через POST /api/recruitment с territoryId, description, enabled и recruitmentUsername. Worker проверяет право управляющего, сохраняет описание/флаг и нормализует контакт к одному из управляющих. Передаваемый клиентом ownerNickname обработчиком не используется.
 - Казна: POST /api/treasury/deposit и POST /api/treasury/donate передают operationId, territoryId и amount. Worker применяет идемпотентный финансовый перевод; повтор запроса с тем же operationId не должен повторно списывать/зачислять средства. Ответы используют snake_case personal_balance; депозит также возвращает balance, isManager и replayed.
 - Ивенты: POST /api/events передаёт requestKey и поля события; Worker связывает ключ с Telegram ID и SHA-256 отпечатком payload. Повтор того же ключа с тем же содержимым возвращает ранее созданный id, а повтор с изменённым содержимым отклоняется HTTP 409. GET /api/events возвращает events, а вложенное reminder формируется из записи event_reminders.
@@ -2220,6 +2221,16 @@ Validate world-map pipeline проверяет синтаксис генерат
 - GET /api/territories, /api/vox-grid, /api/faq, /api/home-feature-button и GET /api/map могут запускать инициализацию/миграции или legacy cleanup.
 
 При этом GET /api/admin/diagnostics/d1 намеренно исключает ensure-функции и заявлен как read-only. Для эксплуатационной диагностики это важное различие: обычный GET некоторых разделов может менять исследуемое состояние, а диагностический endpoint — нет.
+
+
+
+30.15. Некорректное значение cityRole в ответе кастомизации
+
+В getCustomization() проверка profileTerritoryId допускает два случая: пользователь является управляющим территории либо состоит в city_memberships. После этой проверки ответ формирует cityRole: profileTerritoryId ? 'manager' : null. Поэтому обычный участник, которому разрешён просмотр инвентаря территории, также получает cityRole='manager'.
+
+Это не даёт участнику серверных полномочий: изменяющий endpoint updateCityCustomization() отдельно проверяет isTerritoryManager(). Текущий App.jsx не читает поле cityRole, поэтому прямое влияние на интерфейс не установлено. Тем не менее API-контракт семантически неверен и может ввести в заблуждение будущие или внешние клиенты.
+
+Приоритет: низкий. Исправление должно вычислять роль отдельно, например 'manager' только при isTerritoryManager(), 'resident' при членстве и null в остальных случаях; серверные проверки доступа при этом остаются обязательными.
 
 
 ======================================================================
