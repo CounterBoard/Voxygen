@@ -2159,6 +2159,8 @@ Validate world-map pipeline проверяет синтаксис генерат
 
 В маршрутизаторе worker.js присутствует ветвь GET /api/recruitment, которая вызывает getRecruitment(env). В полном файле worker.js нет определения getRecruitment и нет импорта этой функции. Следовательно, обращение к маршруту приводит к ReferenceError и общей обработке ошибки Worker с HTTP 500.
 
+Дополнительно выполнена сверка вызываемых имён функций в полном блоке диспетчеризации с определениями и импортами Worker: проверено 83 уникальных имени, и getRecruitment является единственным неразрешённым обработчиком в этом блоке.
+
 Функции saveRecruitment() и setRecruitmentContact() существуют и используются для записи объявления и изменения контактного управляющего.
 
 Текущий App.jsx не вызывает GET /api/recruitment. Он получает recruitment_description, recruitment_enabled и recruitment_contact_username в составе ответа GET /api/territories. Поэтому отсутствующий обработчик является дефектом backend endpoint, но не подтверждённой поломкой текущего пользовательского интерфейса.
