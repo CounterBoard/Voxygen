@@ -2613,6 +2613,12 @@ async function handleManagerVoteCallback(env, callbackQuery) {
 async function handleResidentInviteCallback(env, callbackQuery) {
   const [action, inviteId]=String(callbackQuery.data||'').split(':'); if(!inviteId||!['resident_accept','resident_reject'].includes(action))return json({ok:true}); await ensureWorldTables(env); const actorId=Number(callbackQuery.from?.id||0);
   const invite=await env.DB.prepare(`SELECT * FROM city_invites WHERE id=? AND target_telegram_id=? AND status='pending'`).bind(inviteId,actorId).first(); if(!invite){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Приглашение уже обработано',show_alert:true});return json({ok:true});}
+  const targetUser=await env.DB.prepare(`SELECT status FROM users WHERE telegram_id=? LIMIT 1`).bind(actorId).first();
+  if(targetUser?.status!=='verified'){
+    await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=? WHERE id=? AND status='pending'`).bind(Date.now(),inviteId).run();
+    await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Аккаунт больше не подтверждён. Приглашение отменено.',show_alert:true});
+    return json({ok:true});
+  }
   if(action==='resident_reject'){await env.DB.prepare(`UPDATE city_invites SET status='rejected',responded_at=? WHERE id=?`).bind(Date.now(),inviteId).run();await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Приглашение отклонено'});}
   else {
     if(await isTerritoryManager(env,invite.territory_id,actorId)){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Вы уже основатель/мэр этого города',show_alert:true});return json({ok:true});}
@@ -3482,25 +3488,55 @@ statements.push(env.DB.prepare(`DELETE FROM manager_change_votes WHERE voter_tel
 async function repairOrphanedTerritoryOwnersForUser(env, telegramId, nickname) {
   const tid=Number(telegramId||0),name=String(nickname||'').trim();
   if(!Number.isSafeInteger(tid)||tid<=0||!name)return;
-  const rows=await env.DB.prepare(`
+  const user=await env.DB.prepare(`SELECT telegram_username,mc_nickname,status FROM users WHERE telegram_id=? LIMIT 1`).bind(tid).first();
+  if(user?.status!=='verified')return;
+  const username=String(user.telegram_username||'').replace(/^@+/,'').trim();
+
+  const orphaned=await env.DB.prepare(`
     SELECT t.id,t.owner_telegram_id,t.owner_input
     FROM territories t
     LEFT JOIN users current_owner ON current_owner.telegram_id=t.owner_telegram_id AND current_owner.status='verified'
-    WHERE t.status='approved'
+    WHERE t.status='approved' AND t.owner_telegram_id IS NOT NULL
       AND lower(trim(COALESCE(t.owner_input,'')))=lower(trim(?))
-      AND t.owner_telegram_id IS NOT NULL
       AND current_owner.telegram_id IS NULL
   `).bind(name).all();
-  for(const row of rows.results||[]){
-    const matches=await env.DB.prepare(`SELECT telegram_id,telegram_username,mc_nickname FROM users WHERE status='verified' AND lower(trim(mc_nickname))=lower(trim(?))`).bind(name).all();
-    if((matches.results||[]).length!==1 || Number(matches.results[0].telegram_id)!==tid)continue;
-    const owner=matches.results[0];
+  for(const row of orphaned.results||[]){
+    const matches=await env.DB.prepare(`SELECT telegram_id FROM users WHERE status='verified' AND lower(trim(mc_nickname))=lower(trim(?))`).bind(name).all();
+    if((matches.results||[]).length!==1||Number(matches.results[0].telegram_id)!==tid)continue;
     const staleOwnerId=Number(row.owner_telegram_id);
-    await env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=? WHERE id=? AND owner_telegram_id=?`)
-      .bind(tid,owner.telegram_username||null,owner.mc_nickname||name,row.id,staleOwnerId).run();
-    await env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id IN (?,?)`).bind(row.id,staleOwnerId,tid).run();
-    await env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(row.id,staleOwnerId).run();
+    const update=await env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=? WHERE id=? AND status='approved' AND owner_telegram_id=?`)
+      .bind(tid,user.telegram_username||null,user.mc_nickname||name,row.id,staleOwnerId).run();
+    if(!update.meta?.changes)continue;
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id IN (?,?)`).bind(row.id,staleOwnerId,tid),
+      env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(row.id,staleOwnerId),
+      env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(row.id,tid),
+    ]);
     await reconcileTerritoryVisualEquipment(env,row.id).catch(error=>console.error('Equipment reconciliation after owner repair:',error));
+  }
+
+  // Approved applications can retain an owner_input even when the Telegram account
+  // was not registered yet. Bind the owner later only when the identity is unique.
+  if(!username)return;
+  const unclaimed=await env.DB.prepare(`
+    SELECT id,owner_input FROM territories WHERE status='approved' AND owner_telegram_id IS NULL
+      AND (lower(trim(owner_input))=lower(trim(?)) OR lower(replace(trim(owner_input),'@',''))=lower(?))
+  `).bind(name,username).all();
+  for(const row of unclaimed.results||[]){
+    const candidates=await env.DB.prepare(`
+      SELECT telegram_id FROM users WHERE status='verified'
+        AND (lower(trim(mc_nickname))=lower(trim(?)) OR lower(replace(trim(telegram_username),'@',''))=lower(?))
+    `).bind(String(row.owner_input||''),String(row.owner_input||'').replace(/^@+/,'')).all();
+    if((candidates.results||[]).length!==1||Number(candidates.results[0].telegram_id)!==tid)continue;
+    const update=await env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=?
+      WHERE id=? AND status='approved' AND owner_telegram_id IS NULL`)
+      .bind(tid,user.telegram_username||null,user.mc_nickname||name,row.id).run();
+    if(!update.meta?.changes)continue;
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(row.id,tid),
+      env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(row.id,tid),
+    ]);
+    await evaluateAchievementsForTerritory(env,row.id).catch(error=>console.error('Achievement evaluation after delayed owner binding:',error));
   }
 }
 
@@ -3638,6 +3674,7 @@ async function removeManagedUserRelations(env, telegramId) {
   await env.DB.prepare(`DELETE FROM city_memberships WHERE telegram_id=?`).bind(tid).run();
   try{await env.DB.prepare(`UPDATE manager_change_requests SET status='rejected',decided_at=? WHERE status='pending' AND (target_telegram_id=? OR initiator_telegram_id=?)`).bind(Date.now(),tid,tid).run()}catch{}
   try{await env.DB.prepare(`DELETE FROM manager_change_votes WHERE voter_telegram_id=?`).bind(tid).run()}catch{}
+  try{await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=? WHERE status='pending' AND (target_telegram_id=? OR invited_by=?)`).bind(Date.now(),tid,tid).run()}catch{}
   try{await env.DB.prepare(`DELETE FROM inspectors WHERE telegram_id=?`).bind(tid).run()}catch{}
   try{await env.DB.prepare(`DELETE FROM user_items WHERE telegram_id=?`).bind(tid).run()}catch{}
   try{await env.DB.prepare(`DELETE FROM user_currency WHERE telegram_id=?`).bind(tid).run()}catch{}
@@ -3771,18 +3808,42 @@ async function claimNickname(request, env) {
 }
 
 async function claimTerritoryOwner(request, env) {
-  const auth = await requireUser(request, env);
-  if (auth.error) return auth.error;
+  const auth=await requireUser(request,env);
+  if(auth.error)return auth.error;
+  await ensureWorldTables(env);
   let body;
-  try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
-  const territoryId = String(body?.territoryId || '').trim();
-  if (!territoryId) return json({ ok: false, error: 'territoryId is required' }, 400);
-  const territory = await env.DB.prepare(`SELECT id, owner_input, owner_telegram_id FROM territories WHERE id = ? AND status = 'approved'`).bind(territoryId).first();
-  if (!territory) return json({ ok: false, error: 'City not found' }, 404);
-  if (territory.owner_telegram_id && String(territory.owner_telegram_id) !== String(auth.user.id)) return json({ ok: false, error: 'City already has another founder/mayor' }, 403);
-  await env.DB.prepare(`UPDATE territories SET owner_telegram_id = ?, owner_telegram_username = ? WHERE id = ?`).bind(Number(auth.user.id), auth.user.username || null, territoryId).run();
-  await evaluateAchievementsForTerritory(env, territoryId).catch(error=>console.error('Achievement evaluation after founder claim:',error));
-  return json({ ok: true });
+  try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  const territoryId=String(body?.territoryId||'').trim();
+  if(!territoryId)return json({ok:false,error:'territoryId is required'},400);
+
+  const [territory,user]=await Promise.all([
+    env.DB.prepare(`SELECT id,owner_input,owner_telegram_id FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(),
+    env.DB.prepare(`SELECT telegram_username,mc_nickname,status FROM users WHERE telegram_id=? LIMIT 1`).bind(Number(auth.user.id)).first(),
+  ]);
+  if(!territory)return json({ok:false,error:'City not found'},404);
+  if(Number(territory.owner_telegram_id||0)===Number(auth.user.id))return json({ok:true,changed:false});
+  if(territory.owner_telegram_id)return json({ok:false,error:'City already has another founder/mayor'},403);
+  if(user?.status!=='verified'||!String(user.mc_nickname||'').trim())return json({ok:false,error:'Для назначения основателем нужен подтверждённый Minecraft-никнейм'},403);
+
+  const ownerInput=String(territory.owner_input||'').trim();
+  const username=String(user.telegram_username||auth.user.username||'').replace(/^@+/,'').trim();
+  const matchesNickname=ownerInput.toLowerCase()===String(user.mc_nickname).trim().toLowerCase();
+  const matchesUsername=ownerInput.replace(/^@+/,'').toLowerCase()===username.toLowerCase()&&Boolean(username);
+  if(!matchesNickname&&!matchesUsername)return json({ok:false,error:'Эта территория указана для другого владельца'},403);
+
+  const update=await env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?
+    WHERE id=? AND status='approved' AND owner_telegram_id IS NULL
+      AND (lower(trim(owner_input))=lower(trim(?)) OR lower(replace(trim(owner_input),'@',''))=lower(?))`)
+    .bind(Number(auth.user.id),user.telegram_username||auth.user.username||null,territoryId,ownerInput,username).run();
+  if(!update.meta?.changes){
+    const fresh=await env.DB.prepare(`SELECT owner_telegram_id FROM territories WHERE id=?`).bind(territoryId).first();
+    if(Number(fresh?.owner_telegram_id||0)===Number(auth.user.id))return json({ok:true,changed:false});
+    return json({ok:false,error:'Территорию уже успел занять другой пользователь. Обновите данные.'},409);
+  }
+  await env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(territoryId,Number(auth.user.id)).run();
+  await env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territoryId,Number(auth.user.id)).run();
+  await evaluateAchievementsForTerritory(env,territoryId).catch(error=>console.error('Achievement evaluation after founder claim:',error));
+  return json({ok:true,changed:true});
 }
 
 const DEFAULT_FAQ_TEXT = `Voxygen — карта городов и их жителей.
