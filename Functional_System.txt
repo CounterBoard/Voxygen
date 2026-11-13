@@ -1648,6 +1648,83 @@ GET  /api/recruitment
 POST /api/recruitment
 POST /api/recruitment/contact
 
+
+24.1. Маршруты, обработчики и уровни доступа
+
+Ниже приведено соответствие маршрутов конкретным функциям Worker. Указаны серверные проверки; наличие кнопки в интерфейсе не заменяет эти проверки.
+
+Системные и общедоступные чтения:
+- GET /api/health → health() — публичный health check.
+- GET / → встроенный ответ Worker — публичная информация о backend.
+- OPTIONS * → CORS preflight — без пользовательской авторизации.
+- GET /api/territories → getTerritories() — публичное чтение; при наличии корректного Init Data ответ дополнительно персонализируется.
+- GET /api/events → getEvents() — публичное чтение; параметр manage=1 требует главного инспектора.
+- GET /api/ratings → getRatings() — публичное чтение.
+- GET /api/comments → getComments() — публичное чтение.
+- GET /api/screenshots → getScreenshots() — публичная выдача только approved.
+- GET /api/screenshots/{id} → serveScreenshot() — публичная выдача только approved.
+- GET /api/map и HEAD /api/map → getMapSettings() — публичная выдача карты.
+- GET /api/faq → getFaq() — публичное чтение.
+- GET /api/home-feature-button → getHomeFeatureButton() — публичное чтение.
+- GET /api/recruitment → getRecruitment() — публичное чтение.
+- GET /api/vox-grid → getVoxGrid() — публичное чтение; ответ содержит canEdit, который становится true только для главного инспектора.
+- GET /api/customization/items/{id}/image → serveCustomizationItemImage() — публичная выдача изображения по ID предмета.
+
+Авторизованный пользователь:
+- POST /api/me → getMe() — requireUser().
+- POST /api/profile/claim → claimNickname() — requireUser().
+- POST /api/territories/claim-owner → claimTerritoryOwner() — в текущем коде только requireUser(); отсутствует сверка с owner_input и проверка verified-профиля, см. 30.4.
+- GET/POST /api/user-settings → getUserSettings()/saveUserSettings() — requireUser().
+- POST /api/events/reminder и DELETE /api/events/reminder → saveEventReminder() — requireUser().
+- POST /api/customization/purchase → purchaseCustomizationItem() — requireUser(); дополнительно проверяются предмет, баланс и доступ к счёту.
+- POST /api/treasury/donate → treasuryDonate() — requireUser(); членство в целевом городе не обязательно, но территория должна быть одобренной, негосударственной и иметь управляющих.
+- POST /api/ratings → saveRating() — requireVerifiedUser(); управляющий не может оценивать собственный город, для инспекторов используется отдельная таблица.
+- POST /api/comments → addComment() — requireVerifiedUser().
+- PATCH /api/comments и POST /api/comments/update → updateComment() — requireUser(); изменить отзыв может автор, если на него ещё не ответил управляющий.
+- DELETE /api/comments и POST /api/comments/delete → deleteComment() — requireUser(); удалить может автор или главный инспектор.
+- POST /api/screenshots → uploadScreenshot() — requireVerifiedUser(); обычная загрузка ожидает модерации, государственные территории и загрузки инспекторов могут получать approved сразу.
+
+Управляющий или участник территории:
+- POST /api/city/additional-info → saveCityAdditionalInfo() — requireUser() и isTerritoryManager(); только для одобренной негосударственной территории.
+- POST /api/comments/reply → replyToComment() — requireUser() и isTerritoryManager().
+- PATCH/DELETE /api/comments/reply → updateReply()/deleteReply() — requireUser() и isTerritoryManager().
+- DELETE /api/screenshots/{id} → deleteScreenshot() — requireUser(); главный инспектор либо управляющий соответствующей негосударственной территории. Для государственной территории удаление ограничено главным инспектором.
+- GET /api/treasury → getTreasury() — requireUser(); участник или управляющий соответствующей территории.
+- POST /api/treasury/deposit → treasuryDeposit() — requireUser(); участник или управляющий, списание с личного баланса.
+- POST /api/treasury/withdraw → treasuryWithdraw() — requireUser() и isTerritoryManager(); списание из казны возможно только управляющему/владельцу.
+- GET/POST /api/customization/city → getCityCustomizationData()/updateCityCustomization() — requireUser() и isTerritoryManager().
+- GET /api/city/management → getCityManagement() — requireUser(); участник или управляющий. Список ожидающих приглашений раскрывается только управляющему.
+- POST /api/city/invite и POST /api/city/invite/cancel → inviteResident()/cancelResidentInvite() — requireUser() и isTerritoryManager().
+- POST /api/city/remove-resident → removeResident() — requireUser() и isTerritoryManager().
+- POST /api/city/leave → leaveTerritory() — requireUser(); участник может выйти, управляющий не может использовать этот маршрут для выхода.
+- POST /api/city/promote-resident и POST /api/city/demote-manager → promoteResident()/demoteManager() — requireUser() и isTerritoryManager(); при нескольких управляющих применяется голосование.
+- POST /api/recruitment → saveRecruitment() — requireUser() и isTerritoryManager().
+- POST /api/recruitment/contact → setRecruitmentContact() — requireUser(); инициатор и выбранный контакт должны быть управляющими этой территории.
+- POST /api/request-inspector-rating → requestInspectorRating() — requireUser() и isTerritoryManager().
+
+Главный инспектор:
+- GET /api/admin/diagnostics/d1 → getD1Diagnostics() — requireMainInspector(); read-only.
+- GET/POST /api/admin/users → listManagedUsers()/addManagedUser() — requireMainInspector().
+- PATCH/DELETE /api/admin/users/{id} → updateManagedUser()/deleteManagedUser() — requireMainInspector().
+- POST /api/admin/users/update/{id} и POST /api/admin/users/delete/{id} — совместимые aliases тех же операций; requireMainInspector().
+- POST /api/inspectors/list, POST /api/inspectors, DELETE /api/inspectors/{id} → listInspectors()/addInspector()/removeInspector() — requireMainInspector().
+- POST /api/admin/territories/delete, /coords, /owner и /manager → deleteTerritory()/updateTerritoryCoords()/updateTerritoryOwner()/updateTerritoryManager() — requireMainInspector().
+- POST /api/admin/global-settings → saveAdminGlobalSetting(); GET /api/admin/global-settings → getAdminGlobalSettings() — requireMainInspector().
+- POST /api/map → saveMapSettings() — requireMainInspector().
+- POST /api/faq → saveFaq() — requireMainInspector().
+- POST /api/home-feature-button → saveHomeFeatureButton() — requireMainInspector().
+- POST /api/vox-grid и POST /api/vox-grid/reset → saveVoxCell()/resetVoxGrid() — requireMainInspector().
+- POST /api/achievements/recheck → recheckAchievements() — requireMainInspector().
+- POST /api/customization/items, POST /api/customization/items/visibility, POST /api/customization/items/reorder, POST /api/customization/tags/reorder, PATCH/DELETE /api/customization/items/{id} → операции каталога — requireMainInspector().
+
+Смешанные и специальные правила:
+- POST /api/territories → createTerritory() — проверяет Telegram Init Data; обычному пользователю нужен verified-профиль, главный инспектор может создать одобренную территорию напрямую.
+- POST/PATCH/DELETE /api/events → createEvent()/updateEvent()/deleteEvent() — requireUser() и проверки автора события, территории и полномочий; GET с manage=1 отдельно ограничен главным инспектором.
+- POST /api/admin/territories/rename → renameTerritory() — requireUser() и isTerritoryManager(); несмотря на сегмент admin в URL, не ограничен исключительно главным инспектором.
+- POST /api/screenshots/{id} → moderateScreenshot() — маршрут присутствует, но вызов не передаёт обязательный аргумент approve; HTTP-одобрение не работает, см. 30.5.
+- POST /api/webhook → webhook() — отдельной проверки пользовательской авторизации нет; подлинность Telegram update должна подтверждаться webhook secret, проверка которого в текущем Worker не обнаружена, см. 30.2.
+
+
 ======================================================================
 25. СТРУКТУРА И НАЗНАЧЕНИЕ ОСНОВНЫХ ТАБЛИЦ D1
 ======================================================================
