@@ -67,6 +67,6 @@ export function mapZoomPercentToScale(percent) {
 
 export function normalizeMapZoomPercent(value) {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return MAP_ZOOM_MAX_PERCENT;
+  if (!Number.isFinite(numeric)) return 88;
   return Math.round(Math.min(MAP_ZOOM_MAX_PERCENT, Math.max(MAP_ZOOM_MIN_PERCENT, numeric)));
 }
