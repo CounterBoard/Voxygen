@@ -733,6 +733,17 @@ async function ensureApprovalSessionsTable(env) {
       updated_at INTEGER NOT NULL
     )
   `).run();
+  // A chat can have only one active approval conversation. Keep the most recently
+  // updated session before enforcing this invariant for all future writes.
+  await env.DB.prepare(`DELETE FROM territory_approval_sessions AS older
+    WHERE EXISTS (
+      SELECT 1 FROM territory_approval_sessions AS newer
+      WHERE newer.inspector_chat_id=older.inspector_chat_id
+        AND (newer.updated_at>older.updated_at
+          OR (newer.updated_at=older.updated_at AND newer.territory_id>older.territory_id))
+    )`).run();
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_territory_approval_sessions_chat
+    ON territory_approval_sessions(inspector_chat_id)`).run();
 }
 
 const mapSettingsTableInitPromises = new WeakMap();
@@ -2970,6 +2981,10 @@ async function createTerritory(request, env) {
   const palette = ["#A855F7", "#22C55E", "#38BDF8", "#F59E0B", "#EF4444", "#EC4899", "#14B8A6", "#8B5CF6", "#F97316"];
   const accent = palette[Math.floor(Math.random() * palette.length)];
   const status = isMainInspector ? 'approved' : 'pending';
+  const inspectorChatId = String(env.INSPECTOR_CHAT_ID || "").trim();
+  if (!isMainInspector && !inspectorChatId) {
+    return json({ ok: false, error: "INSPECTOR_CHAT_ID is not configured" }, 500);
+  }
 
   try {
     await env.DB.prepare(`
@@ -2995,11 +3010,6 @@ async function createTerritory(request, env) {
     return json({ ok: true, message: "Territory created and approved", id, status: "approved", direct: true });
   }
 
-  const inspectorChatId = String(env.INSPECTOR_CHAT_ID || "").trim();
-  if (!inspectorChatId) {
-    return json({ ok: false, error: "INSPECTOR_CHAT_ID is not configured" }, 500);
-  }
-
   const text =
     `🏙 Новая заявка на территорию\n\n` +
     `<code>${escapeHtml(name)}</code>\n\n` +
@@ -3021,11 +3031,13 @@ async function createTerritory(request, env) {
     });
     if (!response.ok || !data.ok) {
       console.error("Telegram territory notification error:", data);
-      return json({ ok: false, error: "Telegram error", details: data }, 502);
+      await env.DB.prepare(`DELETE FROM territories WHERE id=? AND status='pending'`).bind(id).run().catch(cleanupError=>console.error('Pending territory cleanup failed:',cleanupError));
+      return json({ ok: false, error: "Telegram error" }, 502);
     }
   } catch (error) {
     console.error("Telegram notification error:", error);
-    return json({ ok: false, error: "Failed to send Telegram notification", details: String(error) }, 502);
+    await env.DB.prepare(`DELETE FROM territories WHERE id=? AND status='pending'`).bind(id).run().catch(cleanupError=>console.error('Pending territory cleanup failed:',cleanupError));
+    return json({ ok: false, error: "Failed to send Telegram notification" }, 502);
   }
 
   return json({ ok: true, message: "Territory request created", id, status: "pending", user: { id: user.id, username: username || null } });
@@ -4356,22 +4368,30 @@ async function renameTerritory(request, env) {
 }
 
 async function deleteTerritory(request, env) {
-  const auth = await requireMainInspector(request, env);
-  if (auth.error) return auth.error;
-
-  let body = {};
-  try { body = await request.json(); } catch {}
-
-  const territoryId = String(body?.territoryId || "").trim();
-  if (!territoryId) return json({ ok: false, error: "territoryId is required" }, 400);
+  const auth=await requireMainInspector(request,env);
+  if(auth.error)return auth.error;
+  let body={};
+  try{body=await request.json()}catch{}
+  const territoryId=String(body?.territoryId||'').trim();
+  if(!territoryId)return json({ok:false,error:'territoryId is required'},400);
 
   await ensureWorldTables(env);
-  await env.DB.prepare("DELETE FROM city_memberships WHERE territory_id = ?").bind(territoryId).run();
-  await env.DB.prepare("UPDATE city_invites SET status = 'cancelled', responded_at = ? WHERE territory_id = ? AND status = 'pending'").bind(Date.now(), territoryId).run();
-  await env.DB.prepare("DELETE FROM city_items WHERE territory_id = ?").bind(territoryId).run();
-  await env.DB.prepare("DELETE FROM city_customization WHERE territory_id = ?").bind(territoryId).run();
-  await env.DB.prepare("DELETE FROM territories WHERE id = ?").bind(territoryId).run();
-  return json({ ok: true });
+  await ensureApprovalSessionsTable(env);
+  const deleted=await env.DB.batch([
+    env.DB.prepare(`DELETE FROM manager_change_votes WHERE request_id IN
+      (SELECT id FROM manager_change_requests WHERE territory_id=?)`).bind(territoryId),
+    env.DB.prepare(`DELETE FROM manager_change_requests WHERE territory_id=?`).bind(territoryId),
+    env.DB.prepare(`DELETE FROM territory_approval_sessions WHERE territory_id=?`).bind(territoryId),
+    env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=?`).bind(territoryId),
+    env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=?`).bind(territoryId),
+    env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=?,notification_claimed_at=NULL
+      WHERE territory_id=? AND status='pending'`).bind(Date.now(),territoryId),
+    env.DB.prepare(`DELETE FROM city_items WHERE territory_id=?`).bind(territoryId),
+    env.DB.prepare(`DELETE FROM city_customization WHERE territory_id=?`).bind(territoryId),
+    env.DB.prepare(`DELETE FROM territories WHERE id=?`).bind(territoryId),
+  ]);
+  if(!deleted[deleted.length-1]?.meta?.changes)return json({ok:false,error:'City not found'},404);
+  return json({ok:true});
 }
 
 async function updateTerritoryCoords(request, env) {
@@ -4712,6 +4732,7 @@ async function startTerritoryApproval(env, chatId, territoryId) {
     await telegram(env, 'sendMessage', { chat_id: chatId, text: '⚠️ Заявка не найдена или уже обработана.' });
     return false;
   }
+  await env.DB.prepare(`DELETE FROM territory_approval_sessions WHERE inspector_chat_id=?`).bind(String(chatId)).run();
   await env.DB.prepare(`
     INSERT INTO territory_approval_sessions(territory_id,inspector_chat_id,step,city_name,owner,x,z,updated_at)
     VALUES(?,?,1,?,?,'','',?)
