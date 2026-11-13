@@ -1763,6 +1763,9 @@ POST /api/recruitment/contact
 
 Подтверждённые примеры:
 - GET /api/territories → getTerritories(): вызывает ensureRecruitmentTable() и ensureWorldTables(). Эти функции могут создавать/обновлять структуру D1 при первом обращении или после обновления версии схемы. В обычном режиме обработчик выполняет чтение связанных таблиц; необязательные компоненты при ошибках попадают в degradedAreas.
+- GET /api/vox-grid → getVoxGrid(): вызывает ensureWorldTables(), поэтому публичное чтение сетки также может запустить инициализацию/миграции D1.
+- GET /api/faq → getFaq(): вызывает ensureMapSettingsTable(); публичное чтение FAQ может создать таблицу app_settings.
+- GET /api/home-feature-button → getHomeFeatureButton(): требует requireUser(), вызывает ensureWorldTables() и ensureMapSettingsTable(); помимо авторизации может выполнять инициализацию таблиц.
 - GET /api/user-settings → getUserSettings(): вызывает инициализацию таблиц настроек и INSERT OR IGNORE для user_preferences. Для нового пользователя создаётся строка со значениями по умолчанию: тема vox, часовой пояс UTC+3, уведомления событий выключены, масштаб карты 88%.
 - GET /api/treasury → getTreasury(): после проверки авторизации и членства/управления создаёт отсутствующие строки city_treasury и user_currency с нулевым балансом.
 - GET /api/customization → getCustomization(): требует авторизацию, инициализирует world tables и создаёт отсутствующую строку user_currency. Обычный (не lite=1) ответ дополнительно вызывает cleanupCustomizationCategories(): удаляет категории без активных предметов и уплотняет sort_order. При выборе казны управляющего может создать отсутствующую строку city_treasury.
@@ -2215,7 +2218,7 @@ Validate world-map pipeline проверяет синтаксис генерат
 - GET /api/customization может удалять пустые категории и менять их sort_order.
 - GET /api/treasury и GET /api/customization могут создавать нулевые записи баланса.
 - GET /api/user-settings создаёт пользовательские настройки по умолчанию.
-- GET /api/territories и GET /api/map могут запускать инициализацию/миграции или legacy cleanup.
+- GET /api/territories, /api/vox-grid, /api/faq, /api/home-feature-button и GET /api/map могут запускать инициализацию/миграции или legacy cleanup.
 
 При этом GET /api/admin/diagnostics/d1 намеренно исключает ensure-функции и заявлен как read-only. Для эксплуатационной диагностики это важное различие: обычный GET некоторых разделов может менять исследуемое состояние, а диагностический endpoint — нет.
 
