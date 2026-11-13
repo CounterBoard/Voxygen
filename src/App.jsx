@@ -1988,11 +1988,11 @@ function GlobalSettingsPanel({ initData, timezoneOffset='UTC+3', onSettingsChang
     if (response.ok && data?.ok && data?.settings) onSettingsChanged?.(data.settings);
   }
 
-  async function requestOverride(key,value,options={}) {
+  async function requestOverrides(settings,options={}) {
     const response = await fetch(`${API_BASE}/api/admin/global-settings`, {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'X-Telegram-Init-Data':initData },
-      body: JSON.stringify({ initData, key, value, durationMinutes:options.permanent?null:options.durationMinutes, clear:options.clear===true }),
+      body: JSON.stringify({ initData, settings, keys:options.keys, durationMinutes:options.permanent?null:options.durationMinutes, clear:options.clear===true }),
     });
     const data = await response.json().catch(() => null);
     if (!response.ok || !data?.ok) throw new Error(apiErrorMessage(response,data,'Не удалось сохранить глобальные настройки.'));
@@ -2009,12 +2009,8 @@ function GlobalSettingsPanel({ initData, timezoneOffset='UTC+3', onSettingsChang
         durationMinutes=Math.ceil((expiresAt-Date.now())/60000);
         if (!Number.isSafeInteger(durationMinutes)||durationMinutes<1) throw new Error('Выберите будущие дату и время окончания действия.');
       }
-      const results=await Promise.all([
-        requestOverride('map_zoom',mapZoom,{permanent,durationMinutes}),
-        requestOverride('theme',theme,{permanent,durationMinutes}),
-      ]);
-      const latest=results[results.length-1];
-      setEntries(Array.isArray(latest.settings)?latest.settings.filter(row=>row.key==='map_zoom'||row.key==='theme'):[]);
+      const data=await requestOverrides([{key:'map_zoom',value:mapZoom},{key:'theme',value:theme}],{permanent,durationMinutes});
+      setEntries(Array.isArray(data.settings)?data.settings.filter(row=>row.key==='map_zoom'||row.key==='theme'):[]);
       await refreshEffectiveSettings();
       setNotice(permanent?'Глобальные настройки применены навсегда':'Глобальные настройки применены всем до выбранного времени');
     } catch (e) {
@@ -2029,12 +2025,8 @@ function GlobalSettingsPanel({ initData, timezoneOffset='UTC+3', onSettingsChang
   async function clear() {
     try {
       setBusy(true); setError(''); setNotice('');
-      const results=await Promise.all([
-        requestOverride('map_zoom',null,{clear:true}),
-        requestOverride('theme',null,{clear:true}),
-      ]);
-      const latest=results[results.length-1];
-      setEntries(Array.isArray(latest.settings)?latest.settings.filter(row=>row.key==='map_zoom'||row.key==='theme'):[]);
+      const data=await requestOverrides([],{clear:true,keys:['map_zoom','theme']});
+      setEntries(Array.isArray(data.settings)?data.settings.filter(row=>row.key==='map_zoom'||row.key==='theme'):[]);
       await refreshEffectiveSettings();
       setNotice('Глобальные настройки сняты. Личные значения пользователей восстановлены.');
     } catch(e) {
@@ -2110,7 +2102,7 @@ function ProfileScreen({ profile, profileLoadState, profileLoadError, claimNickn
   return <div className="atlas-page atlas-page--profile" style={{padding:'18px 16px 40px',minHeight:'60vh'}}>
     <div className="atlas-display atlas-page-title" style={{fontSize:22,fontWeight:700,marginBottom:4}}>Профиль</div>
     {profileLoadError&&<div role="status" style={{display:'flex',alignItems:'center',gap:10,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:12,padding:12,marginBottom:12,fontSize:12.5,lineHeight:1.45}}><span style={{flex:1,color:'var(--text-muted)'}}>{profileLoadError}{profileLoadState!=='error'?' Последние подтверждённые данные сохранены.':''}</span><button onClick={refreshProfile} className="press" style={{border:'1px solid var(--border)',borderRadius:10,background:'var(--surface)',color:'var(--text)',padding:'8px 10px',fontWeight:700,flexShrink:0}}>Повторить</button></div>}
-    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}><AvatarHead nickname={profile.status==='verified'?profile.nickname:null} skinUrl={profile.status==='verified'?profile.skinUrl:null} size={46}/><div><div style={{fontSize:15,fontWeight:600}}>{profileLoadState==='error'?'Профиль временно недоступен':<MinecraftText text={profile.nickname||'Ник не указан'}/>}</div>{isInspector?<div style={{fontSize:11.5,color:'var(--gold)',display:'flex',alignItems:'center',gap:4,fontWeight:700}}><ShieldCheck size={12}/>{isMainInspector?'Главный инспектор':'Инспектор'}</div>:profile.status==='verified'?<div style={{fontSize:11.5,color:'var(--emerald)'}}>Ник подтверждён</div>:profile.status==='pending'?<div style={{fontSize:11.5,color:'var(--gold)'}}>Ожидает подтверждения инспектора</div>:<div style={{fontSize:11.5,color:'var(--text-muted)'}}>Ник в Minecraft</div>}</div>{isMainInspector&&<button type="button" onClick={onOpenGlobalSettings} className="press" aria-label="Глобальные настройки" title="Глобальные настройки" style={{flexShrink:0,width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--mint-strong)',borderRadius:12,background:'var(--mint-soft)',color:'var(--mint)'}}><Settings size={18}/></button>}<button type="button" onClick={()=>setSettingsOpen(true)} className="press" aria-label="Настройки профиля" title="Настройки" style={{marginLeft:'auto',flexShrink:0,width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--border)',borderRadius:12,background:'var(--surface-2)',color:'var(--text-muted)'}}><Settings size={18}/></button></div><div style={{fontSize:11.5,color:'var(--text-muted)',marginBottom:10}}>Telegram: {tgUser?`@${tgUser.username||'—'} · id ${tgUser.id}`:'не определён'}</div>{!isInspector&&profileLoadState==='needs_nickname'&&profile.status!=='verified'&&<><div style={{display:'flex',gap:8}}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ваш ник в Minecraft" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13}}/><button onClick={submit} className="press" style={iconBtn('var(--purple)','#fff',true)}><Pencil size={15}/></button></div>{error&&<div style={{fontSize:12,color:'var(--red)',marginTop:8}}>{error}</div>}</>}</div>
+    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}><AvatarHead nickname={profile.status==='verified'?profile.nickname:null} skinUrl={profile.status==='verified'?profile.skinUrl:null} size={46}/><div><div style={{fontSize:15,fontWeight:600}}>{profileLoadState==='error'?'Профиль временно недоступен':<MinecraftText text={profile.nickname||'Ник не указан'}/>}</div>{isInspector?<div style={{fontSize:11.5,color:'var(--gold)',display:'flex',alignItems:'center',gap:4,fontWeight:700}}><ShieldCheck size={12}/>{isMainInspector?'Главный инспектор':'Инспектор'}</div>:profile.status==='verified'?<div style={{fontSize:11.5,color:'var(--emerald)'}}>Ник подтверждён</div>:profile.status==='pending'?<div style={{fontSize:11.5,color:'var(--gold)'}}>Ожидает подтверждения инспектора</div>:<div style={{fontSize:11.5,color:'var(--text-muted)'}}>Ник в Minecraft</div>}</div>{isMainInspector&&<button type="button" onClick={onOpenGlobalSettings} className="press" aria-label="Глобальные настройки" title="Глобальные настройки" style={{marginLeft:'auto',flexShrink:0,width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--mint-strong)',borderRadius:12,background:'var(--mint-soft)',color:'var(--mint)'}}><Settings size={18}/></button>}<button type="button" onClick={()=>setSettingsOpen(true)} className="press" aria-label="Настройки профиля" title="Настройки" style={{marginLeft:isMainInspector?0:'auto',flexShrink:0,width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--border)',borderRadius:12,background:'var(--surface-2)',color:'var(--text-muted)'}}><Settings size={18}/></button></div><div style={{fontSize:11.5,color:'var(--text-muted)',marginBottom:10}}>Telegram: {tgUser?`@${tgUser.username||'—'} · id ${tgUser.id}`:'не определён'}</div>{!isInspector&&profileLoadState==='needs_nickname'&&profile.status!=='verified'&&<><div style={{display:'flex',gap:8}}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ваш ник в Minecraft" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13}}/><button onClick={submit} className="press" style={iconBtn('var(--purple)','#fff',true)}><Pencil size={15}/></button></div>{error&&<div style={{fontSize:12,color:'var(--red)',marginTop:8}}>{error}</div>}</>}</div>
     <ProfileInventory initData={initData} role={role} tgUser={tgUser}/>
     {!isInspector&&userCitiesForTreasury.map(city=><TreasuryCard key={`treasury-${city.id}`} city={city} initData={initData} tgUser={tgUser}/>)}
     {!isInspector&&managerCities.map(city=><CityManagementProfile key={`manage-${city.id}`} territory={city} managerTerritories={managerCities} initData={initData} tgUser={tgUser} onChanged={onTerritoriesChanged}/>)}
