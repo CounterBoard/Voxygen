@@ -4256,7 +4256,7 @@ async function getComments(request, env, url) {
 
 async function uploadScreenshot(request, env) {
   const auth=await requireVerifiedUser(request,env);if(auth.error)return auth.error;await ensureWorldTables(env);const user=auth.user;let form;try{form=await request.formData()}catch(error){return json({ok:false,error:'Не удалось прочитать изображение',details:String(error)},400)}
-  const territoryId=String(form.get('territoryId')||'').trim(),file=form.get('photo');if(!territoryId||!(file instanceof File))return json({ok:false,error:'territoryId and photo are required'},400);if(!String(file.type||'').startsWith('image/'))return json({ok:false,error:'Only images are allowed'},400);
+  const territoryId=String(form.get('territoryId')||'').trim(),file=form.get('photo');if(!territoryId||!(file instanceof File))return json({ok:false,error:'territoryId and photo are required'},400);if(file.type!=='image/jpeg')return json({ok:false,error:'Скриншот должен быть подготовлен в формате JPEG'},400);if(file.size>10_000_000)return json({ok:false,error:'Файл слишком большой'},413);
   const territory=await env.DB.prepare(`SELECT id,name,owner_telegram_id,owner_telegram_username,is_government FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first();if(!territory)return json({ok:false,error:'City not found'},404);
   const role=await getRoleByTelegramId(env,user.id);
   const isGovernment=Number(territory.is_government||0)===1;
@@ -4325,6 +4325,7 @@ async function uploadScreenshot(request, env) {
   } catch(error) { console.error('Screenshot cache error:',error); }
   const authorNickname=String((await env.DB.prepare(`SELECT mc_nickname FROM users WHERE telegram_id=? LIMIT 1`).bind(Number(user.id)).first())?.mc_nickname||'').trim()||null;
   await env.DB.prepare(`INSERT INTO screenshots(id,territory_id,telegram_id,telegram_username,author_mc_nickname,file_id,file_unique_id,status,image_data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(screenshotId,territoryId,Number(user.id),username,authorNickname,photo.file_id,photo.file_unique_id||null,status,imageData,Date.now()).run();
+  if(status==='approved') await evaluateAchievementsForTerritory(env,territoryId).catch(error=>console.error('Achievement evaluation after direct screenshot approval:',error));
   return json({ok:true,screenshot:{id:screenshotId,status,url:`/api/screenshots/${screenshotId}`}});
 }
 async function getScreenshots(request, env, url) {
@@ -5172,11 +5173,14 @@ async function saveCityAdditionalInfo(request, env) {
 async function purgeExpiredEvents(env, at = Date.now()) {
   await ensureEventsTables(env);
   const cutoff = Number(at || Date.now()) - 24 * 60 * 60 * 1000;
-  // Remove user reminders first because legacy D1 tables do not declare ON DELETE CASCADE.
-  await env.DB.prepare(`DELETE FROM event_reminders WHERE event_id IN (SELECT id FROM events WHERE event_at<=?)`).bind(cutoff).run();
-  const result = await env.DB.prepare(`DELETE FROM events WHERE event_at<=?`).bind(cutoff).run();
-  await env.DB.prepare(`DELETE FROM event_create_requests WHERE created_at<?`).bind(Number(at || Date.now()) - 30 * 24 * 60 * 60 * 1000).run();
-  return Number(result?.meta?.changes || 0);
+  // Keep reminder/event/request cleanup atomic so a failed statement cannot leave
+  // expired events without their reminders (or remove reminders while retaining events).
+  const batch = await env.DB.batch([
+    env.DB.prepare(`DELETE FROM event_reminders WHERE event_id IN (SELECT id FROM events WHERE event_at<=?)`).bind(cutoff),
+    env.DB.prepare(`DELETE FROM events WHERE event_at<=?`).bind(cutoff),
+    env.DB.prepare(`DELETE FROM event_create_requests WHERE created_at<?`).bind(Number(at || Date.now()) - 30 * 24 * 60 * 60 * 1000),
+  ]);
+  return Number(batch?.[1]?.meta?.changes || 0);
 }
 
 async function getEvents(request, env) {
@@ -5365,18 +5369,21 @@ async function updateEvent(request, env) {
     eventTimezone: e.eventTimezone ?? current.event_timezone ?? 'UTC',
   };
   const now = Date.now();
-  const eventUpdate = env.DB.prepare(`UPDATE events SET title=?,territory_id=?,place=?,event_at=?,coords=?,description=?,image_data=?,page_url=?,event_timezone=?,updated_at=? WHERE id=?`)
+  const eventUpdate = env.DB.prepare(`UPDATE events SET title=?,territory_id=?,place=?,event_at=?,coords=?,description=?,image_data=?,page_url=?,event_timezone=?,updated_at=? WHERE id=? AND active=1`)
     .bind(value.title,value.territoryId,value.place,value.eventAt,value.coords,value.description,value.imageData,value.pageUrl,value.eventTimezone,now,id);
   if (e.eventAt !== undefined && Number(e.eventAt)!==Number(current.event_at)) {
     // Update the event and its reminder schedule atomically. Cron cannot observe a mixed state
     // with the new date but the previous remind_at (or vice versa).
     const reminderUpdate = env.DB.prepare(`UPDATE event_reminders SET remind_at=? - CASE WHEN lead_unit='hours' THEN lead_value*3600000 ELSE lead_value*60000 END,
       status=CASE WHEN (? - CASE WHEN lead_unit='hours' THEN lead_value*3600000 ELSE lead_value*60000 END)<=? THEN 'expired' ELSE 'pending' END,
-      attempts=0,next_attempt_at=0,claim_token=NULL,sent_at=NULL,updated_at=? WHERE event_id=? AND status IN ('pending','sending','sent','failed','expired')`)
-      .bind(value.eventAt,value.eventAt,now,now,id);
-    await env.DB.batch([eventUpdate,reminderUpdate]);
+      attempts=0,next_attempt_at=0,claim_token=NULL,sent_at=NULL,updated_at=? WHERE event_id=? AND status IN ('pending','sending','sent','failed','expired')
+      AND EXISTS(SELECT 1 FROM events WHERE id=? AND active=1)`)
+      .bind(value.eventAt,value.eventAt,now,now,id,id);
+    const batch = await env.DB.batch([eventUpdate,reminderUpdate]);
+    if (!Number(batch?.[0]?.meta?.changes || 0)) return json({ok:false,error:'Событие не найдено'},404);
   } else {
-    await eventUpdate.run();
+    const updated = await eventUpdate.run();
+    if (!Number(updated.meta?.changes || 0)) return json({ok:false,error:'Событие не найдено'},404);
   }
   return json({ ok: true, id, status: 'updated' });
 }
@@ -5395,9 +5402,11 @@ async function deleteEvent(request, env) {
     return json({ ok:false, error:'Удалить ивент может только его создатель или главный инспектор' },403);
   }
   const now=Date.now();
-  const result = await env.DB.prepare(`UPDATE events SET active=0,updated_at=? WHERE id=? AND active=1`).bind(now,id).run();
-  if (!result.meta?.changes) return json({ ok: false, error: 'Событие не найдено' }, 404);
-  await env.DB.prepare(`UPDATE event_reminders SET status='cancelled',claim_token=NULL,updated_at=? WHERE event_id=? AND status IN ('pending','sending')`).bind(now,id).run();
+  const batch = await env.DB.batch([
+    env.DB.prepare(`UPDATE events SET active=0,updated_at=? WHERE id=? AND active=1`).bind(now,id),
+    env.DB.prepare(`UPDATE event_reminders SET status='cancelled',claim_token=NULL,updated_at=? WHERE event_id=? AND status IN ('pending','sending')`).bind(now,id),
+  ]);
+  if (!Number(batch?.[0]?.meta?.changes || 0)) return json({ ok: false, error: 'Событие не найдено' }, 404);
   return json({ ok: true, id, status: 'deleted' });
 }
 
