@@ -1495,6 +1495,13 @@ Telegram передаёт Worker обновления:
 
 Worker использует BOT_TOKEN для вызовов Telegram Bot API.
 
+Дополнительно webhook требует secret header Telegram:
+X-Telegram-Bot-Api-Secret-Token
+
+Ожидаемое значение хранится только в Worker secret TELEGRAM_WEBHOOK_SECRET. Значение проверяется до разбора update и до любых действий с D1. При отсутствии или неверном секрете запрос отклоняется; конфигурация без секрета возвращает 503, неверный заголовок — 403. Сравнение выполняется посимвольно без раннего выхода по первому несовпадению.
+
+Telegram должен быть настроен через setWebhook с тем же secret_token и URL https://voxygen.counterboard.workers.dev/api/webhook. Кодовая проверка не активирует секрет на стороне Telegram и не создаёт Worker secret автоматически.
+
 23.2. Callback-сценарии
 
 В webhook обрабатываются, в частности:
@@ -1751,6 +1758,11 @@ GITHUB_OWNER
 GITHUB_REPO
 GITHUB_RELEASE_TAG
 
+Обязательные secrets:
+- TELEGRAM_WEBHOOK_SECRET — секрет Telegram setWebhook, используемый для проверки X-Telegram-Bot-Api-Secret-Token.
+
+Перед deployment необходимо установить secret в Cloudflare Worker и убедиться, что Telegram webhook зарегистрирован с тем же secret_token. Если secret отсутствует, webhook намеренно fail-closed и возвращает 503.
+
 Cron:
 * * * * *
 
@@ -1786,7 +1798,8 @@ ASSETS
 - INSPECTOR_CHAT_ID;
 - GITHUB_TOKEN;
 - MAP_PIPELINE_GITHUB_TOKEN;
-- BANKER_TELEGRAM_ID.
+- BANKER_TELEGRAM_ID;
+- TELEGRAM_WEBHOOK_SECRET.
 
 Ни один секрет не должен помещаться в исходный код, документацию или публичные workflow inputs.
 
@@ -2559,3 +2572,27 @@ Workflow Process and publish world map остаётся отдельным workf
 9. проверить поведение при HTTP 404, 500 и некорректном manifest в отдельном тестовом окружении.
 
 До отдельного согласования эти действия не включают production upload новой карты, изменение production D1 или deploy Cloudflare Worker.
+
+
+34.6. Защита Telegram webhook
+
+В ходе расширенного аудита обнаружено, что обработчик POST /api/webhook ранее принимал JSON update без проверки Telegram secret header. Это позволяло внешнему клиенту отправить поддельный callback_query и подставить Telegram ID, который backend сопоставляет с ролью. Проверка роли внутри callback не заменяет аутентификацию самого webhook.
+
+Исправление в bot/src/worker.js:
+- добавлена проверка TELEGRAM_WEBHOOK_SECRET;
+- читается X-Telegram-Bot-Api-Secret-Token;
+- допустимый secret соответствует Telegram charset A-Z, a-z, 0-9, underscore, hyphen, длина 1–256;
+- отсутствующий/некорректно настроенный Worker secret приводит к HTTP 503;
+- неверный или отсутствующий request header приводит к HTTP 403;
+- сравнение одинаковых по длине строк выполняется через накопление XOR-разницы, без раннего выхода по символам;
+- проверка выполняется до request.json(), до запросов D1 и до выполнения callback/message handlers;
+- секрет и его части не записываются в логи.
+
+Добавлен tests/webhook-security.test.js. Проверяются:
+1. fail-closed при отсутствии TELEGRAM_WEBHOOK_SECRET;
+2. отказ при отсутствии header;
+3. отказ при неправильном header;
+4. отказ при недопустимом формате настроенного секрета;
+5. успешный проход в webhook при правильном заголовке.
+
+Операционное условие: кодовая проверка сама по себе не устанавливает secret в Cloudflare и не вызывает Telegram setWebhook. До deployment нужно установить Worker secret TELEGRAM_WEBHOOK_SECRET и зарегистрировать Telegram webhook с идентичным secret_token. Production конфигурация и Telegram webhook в рамках этого аудита не менялись. Поэтому до установки обоих значений и deployment нельзя считать защиту активной в production.
