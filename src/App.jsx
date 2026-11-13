@@ -1020,6 +1020,18 @@ function SectionTitle({ icon, title, count }) {
   );
 }
 
+/** Reusable surface container; visual variants change tone, not layout or content hierarchy. */
+function SurfaceCard({ variant = 'default', padding = 16, radius = 16, className = '', style = {}, children, ...props }) {
+  const variants = {
+    default: { background:'var(--surface)', border:'1px solid var(--border)', boxShadow:'none' },
+    raised: { background:'var(--surface-2)', border:'1px solid var(--border)', boxShadow:'var(--shadow-sm)' },
+    nested: { background:'var(--surface-2)', border:'1px solid var(--border)', boxShadow:'none' },
+  };
+  return <div {...props} className={className} style={{
+    ...variants[variant] || variants.default, borderRadius:radius, padding, boxSizing:'border-box', ...style
+  }}>{children}</div>;
+}
+
 function Field({ label, ...props }) {
   return (
     <div style={{ marginBottom: 'var(--space-3)' }}>
