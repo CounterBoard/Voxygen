@@ -2465,6 +2465,12 @@ Workflow validate-map-pipeline.yml:
 - устанавливает Pillow и requests;
 - запускает python -m unittest discover -s tests -p 'test_*.py' -v.
 
+Последний подтверждённый map-assets CI:
+- run id 43529888822;
+- commit c4eb139af33fecb8b9f60095dbeebaf1d5c2ea07;
+- conclusion success;
+- 11 Python unit tests завершились успешно.
+
 Workflow Process and publish world map остаётся отдельным workflow_dispatch. Его задача — не unit testing, а фактическая генерация и публикация статических ресурсов.
 
 ======================================================================
@@ -2526,7 +2532,7 @@ Workflow Process and publish world map остаётся отдельным workf
 34.4. Непокрытые автоматизированными тестами области
 
 Текущий набор тестов не является полноценным end-to-end тестированием всего приложения. В частности, не следует считать полностью протестированными:
-- все 53 семейства API-маршрутов и все их комбинации ролей;
+- все зарегистрированные route patterns основного Worker (при статическом извлечении из маршрутизатора найдено 53 пути/паттерна) и все их комбинации ролей;
 - полный D1 integration test на реальном Cloudflare D1;
 - реальные гонки нескольких одновременно выполняемых запросов в production;
 - доставку Telegram Bot API и повторную доставку webhook на стороне Telegram;
