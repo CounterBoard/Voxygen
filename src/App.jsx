@@ -3222,22 +3222,30 @@ function CustomizationScreen({initData,tgUser,role,territories,profile}){
   const [form,setForm]=useState(makeVisualForm()),[saving,setSaving]=useState(false),[editingItem,setEditingItem]=useState(null),[rechecking,setRechecking]=useState(false),[recheckNotice,setRecheckNotice]=useState(''),[visibilityBusy,setVisibilityBusy]=useState(''),[purchaseToast,setPurchaseToast]=useState(null);
   const isMain=role==='main_inspector';
   const managerCities=(territories||[]).filter(t=>String(t.owner_telegram_id||'')===String(tgUser?.id||'')||(Array.isArray(t.manager_telegram_ids)&&t.manager_telegram_ids.map(String).includes(String(tgUser?.id||''))));
+  const managerCityKey=managerCities.map(t=>String(t.id)).sort().join('|');
   const accountOptions=['personal',...managerCities.map(t=>`treasury:${t.id}`)];
-  useEffect(()=>{if(!accountOptions.includes(accountScope))setAccountScope('personal')},[managerCities.length]);
+  const currentAccountScopeRef=useRef(accountScope),fullLoadVersionRef=useRef(0),balanceLoadVersionRef=useRef(0);
+  useEffect(()=>{currentAccountScopeRef.current=accountScope},[accountScope]);
+  useEffect(()=>{if(!accountOptions.includes(accountScope))setAccountScope('personal')},[managerCityKey,accountScope]);
   const canSwitchAccount=accountOptions.length>1&&!isMain;
 
   async function loadFull(){
+    const requestedScope=accountScope,requestVersion=++fullLoadVersionRef.current;
     try{setError('');setAccountLoading(true);
-      const r=await fetch(`${API_BASE}/api/customization?account=${encodeURIComponent(accountScope)}`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
-      const d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setData(d);
-    }catch(e){setError(safeCaughtError(e, 'Не удалось загрузить визуалы'))}finally{setAccountLoading(false)}
+      const r=await fetch(`${API_BASE}/api/customization?account=${encodeURIComponent(requestedScope)}`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
+      const d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));
+      if(requestVersion===fullLoadVersionRef.current&&currentAccountScopeRef.current===requestedScope)setData(d);
+    }catch(e){if(requestVersion===fullLoadVersionRef.current&&currentAccountScopeRef.current===requestedScope)setError(safeCaughtError(e, 'Не удалось загрузить визуалы'))}
+    finally{if(requestVersion===fullLoadVersionRef.current&&currentAccountScopeRef.current===requestedScope)setAccountLoading(false)}
   }
   async function loadAccountBalance(){
+    const requestedScope=accountScope,requestVersion=++balanceLoadVersionRef.current;
     try{setError('');setAccountLoading(true);
-      const r=await fetch(`${API_BASE}/api/customization?lite=1&account=${encodeURIComponent(accountScope)}`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
+      const r=await fetch(`${API_BASE}/api/customization?lite=1&account=${encodeURIComponent(requestedScope)}`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
       const d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));
-      setData(prev=>prev?{...prev,...d}:d);
-    }catch(e){setError(safeCaughtError(e, 'Не удалось загрузить счёт'))}finally{setAccountLoading(false)}
+      if(requestVersion===balanceLoadVersionRef.current&&currentAccountScopeRef.current===requestedScope)setData(prev=>prev?{...prev,...d}:d);
+    }catch(e){if(requestVersion===balanceLoadVersionRef.current&&currentAccountScopeRef.current===requestedScope)setError(safeCaughtError(e, 'Не удалось загрузить счёт'))}
+    finally{if(requestVersion===balanceLoadVersionRef.current&&currentAccountScopeRef.current===requestedScope)setAccountLoading(false)}
   }
   async function recheckAchievements(){
     if(!isMain||rechecking)return;
@@ -3249,9 +3257,8 @@ function CustomizationScreen({initData,tgUser,role,territories,profile}){
       await loadFull();
     }catch(e){setError(safeCaughtError(e,'Не удалось перепроверить достижения.'))}finally{setRechecking(false)}
   }
-  useEffect(()=>{loadFull()},[initData,territories?.length]);
-  useEffect(()=>{if(data)loadFull()},[accountScope]);
-  useEffect(()=>{const refresh=()=>{loadAccountBalance()};window.addEventListener('voxygen:currency-changed',refresh);return()=>window.removeEventListener('voxygen:currency-changed',refresh)},[accountScope]);
+  useEffect(()=>{if(accountOptions.includes(accountScope))loadFull()},[initData,managerCityKey,accountScope]);
+  useEffect(()=>{const refresh=()=>{if(accountOptions.includes(accountScope))loadAccountBalance()};window.addEventListener('voxygen:currency-changed',refresh);return()=>window.removeEventListener('voxygen:currency-changed',refresh)},[accountScope,managerCityKey]);
 
   async function create(){
     try{
