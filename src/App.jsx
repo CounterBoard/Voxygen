@@ -816,7 +816,7 @@ function ScoreBadge({ type, value, size = 'md' }) {
 
 function Segmented({ options, value, onChange }) {
   return (
-    <div style={{ background: 'var(--surface-2)', borderRadius: 999, padding: 3, display: 'flex', gap: 2 }}>
+    <div style={{ background: 'var(--surface-2)', borderRadius: 'var(--radius-pill)', padding: 'var(--space-1)', display: 'flex', gap: 'var(--space-1)' }}>
       {options.map((opt) => {
         const active = opt.value === value;
         return (
@@ -826,7 +826,7 @@ function Segmented({ options, value, onChange }) {
             className="press"
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              padding: '7px 14px', borderRadius: 999, fontSize: 13, fontWeight: 600,
+              padding: '7px 14px', borderRadius: 'var(--radius-pill)', fontSize: 'var(--type-body-compact)', fontWeight: 'var(--weight-semibold)',
               border: 'none', cursor: 'pointer',
               background: active ? 'var(--purple)' : 'transparent',
               color: active ? '#fff' : 'var(--text-muted)',
@@ -991,13 +991,13 @@ function SectionTitle({ icon, title, count }) {
 
 function Field({ label, ...props }) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 5 }}>{label}</div>
+    <div style={{ marginBottom: 'var(--space-3)' }}>
+      <div style={{ fontSize: 'var(--type-label)', color: 'var(--text-muted)', marginBottom: 'var(--space-1)' }}>{label}</div>
       <input
         {...props}
         style={{
-          width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10,
-          padding: '10px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+          width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+          padding: '10px 12px', color: 'var(--text)', fontSize: 'var(--type-body-compact)', outline: 'none', boxSizing: 'border-box',
         }}
       />
     </div>
@@ -1889,9 +1889,9 @@ function TreasuryCard({city,initData,tgUser}={}){
   </div>;
 }
 function SettingsToggle({ checked, onChange, disabled = false, label, description }) {
-  return <div style={{display:'flex',alignItems:'center',gap:12,padding:'11px 0',opacity:disabled?0.48:1}}>
+  return <div style={{display:'flex',alignItems:'center',gap:'var(--space-3)',padding:'11px 0',opacity:disabled?0.48:1}}>
     <div style={{flex:1,minWidth:0}}><div style={{fontSize:13.5,fontWeight:600,color:'var(--text)',lineHeight:1.3}}>{label}</div>{description&&<div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.4,marginTop:4}}>{description}</div>}</div>
-    <button type="button" role="switch" aria-checked={Boolean(checked)} disabled={disabled} onClick={()=>onChange(!checked)} className="press" style={{width:48,height:28,borderRadius:999,border:`1px solid ${checked?'var(--purple-border)':'var(--border)'}`,background:checked?'var(--purple-soft)':'var(--surface-2)',padding:3,display:'flex',alignItems:'center',justifyContent:checked?'flex-end':'flex-start',flexShrink:0,cursor:disabled?'default':'pointer'}}><span style={{width:20,height:20,borderRadius:'50%',background:checked?'var(--purple)':'var(--text-muted)',display:'block',transition:'all .16s'}}/></button>
+    <button type="button" role="switch" aria-checked={Boolean(checked)} disabled={disabled} onClick={()=>onChange(!checked)} className="press" style={{width:48,height:28,borderRadius:'var(--radius-pill)',border:`1px solid ${checked?'var(--purple-border)':'var(--border)'}`,background:checked?'var(--purple-soft)':'var(--surface-2)',padding:3,display:'flex',alignItems:'center',justifyContent:checked?'flex-end':'flex-start',flexShrink:0,cursor:disabled?'default':'pointer'}}><span style={{width:20,height:20,borderRadius:'50%',background:checked?'var(--purple)':'var(--text-muted)',display:'block',transition:'all var(--motion-tap) var(--ease-interactive)'}}/></button>
   </div>;
 }
 
