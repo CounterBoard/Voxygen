@@ -5814,10 +5814,13 @@ async function handleBankMessage(env, update, message) {
     } catch (error) { console.error(JSON.stringify({event:'bank_user_notification_failed',targetId,code:'BANK_USER_NOTIFICATION_FAILED'})); }
     return json({ ok: true, handled: 'bank_success' });
   } catch (error) {
-    await env.DB.prepare(`UPDATE bank_transactions SET status='failed',updated_at=?,note='Internal processing error' WHERE update_id=? AND status='processing'`).bind(Date.now(),updateId).run().catch(()=>{});
+    // Keep an uncommitted operation retryable. A committed transfer already has a
+    // terminal ledger status, so this update cannot mark it as failed.
+    await env.DB.prepare(`UPDATE bank_transactions SET updated_at=?,note='Internal processing error' WHERE update_id=? AND status='processing'`).bind(Date.now(),updateId).run().catch(()=>{});
     console.error(JSON.stringify({event:'bank_transaction_failed',updateId,code:'BANK_TRANSACTION_FAILED'}));
-    await reply('🏦 Не удалось завершить операцию из-за ошибки сервера. Проверьте журнал транзакций перед повторной отправкой.');
-    return json({ ok: true, handled: 'bank_failed' });
+    // Return a retryable webhook error; reprocessing is protected by the atomic
+    // balance+ledger batch and the unique Telegram update_id.
+    return json({ ok: false, error: 'Bank transaction processing failed' }, 500);
   }
 }
 
