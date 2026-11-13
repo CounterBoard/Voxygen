@@ -569,7 +569,7 @@ async function getUserSettings(request, env) {
   await ensureWorldTables(env);
   await ensureUserPreferenceTables(env);
   await ensureGlobalSettingsTable(env);
-  await env.DB.prepare(`INSERT OR IGNORE INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,map_zoom_percent,updated_at) VALUES(?,'vox','UTC+3',1,0,100,?)`).bind(uid, Date.now()).run();
+  await env.DB.prepare(`INSERT OR IGNORE INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,map_zoom_percent,updated_at) VALUES(?,'vox','UTC+3',1,0,88,?)`).bind(uid, Date.now()).run();
   const [settings, globalOverrides] = await Promise.all([
     env.DB.prepare(`SELECT default_theme,timezone,all_notifications,event_notifications,map_zoom_percent,map_zoom_global_updated_at,theme_global_updated_at FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first(),
     readGlobalSettingOverrides(env),
