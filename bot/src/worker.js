@@ -4978,7 +4978,29 @@ async function handleScreenshotCallback(env, callbackQuery) {
   return json({ ok: true });
 }
 
+function hasValidTelegramWebhookSecret(request, env) {
+  const expected = String(env.TELEGRAM_WEBHOOK_SECRET || '').trim();
+  const received = String(request.headers.get('X-Telegram-Bot-Api-Secret-Token') || '').trim();
+  if (!/^[A-Za-z0-9_-]{1,256}$/.test(expected) || !received || received.length !== expected.length) {
+    return false;
+  }
+  let difference = 0;
+  for (let index = 0; index < expected.length; index += 1) {
+    difference |= expected.charCodeAt(index) ^ received.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
 async function webhook(request, env) {
+  const configuredSecret = String(env.TELEGRAM_WEBHOOK_SECRET || '').trim();
+  if (!/^[A-Za-z0-9_-]{1,256}$/.test(configuredSecret)) {
+    console.error(JSON.stringify({ event: 'telegram_webhook_secret_missing', code: 'WEBHOOK_SECRET_NOT_CONFIGURED' }));
+    return json({ ok: false, code: 'WEBHOOK_SECRET_NOT_CONFIGURED', error: 'Telegram webhook secret is not configured' }, 503);
+  }
+  if (!hasValidTelegramWebhookSecret(request, env)) {
+    return json({ ok: false, code: 'INVALID_WEBHOOK_SECRET', error: 'Unauthorized webhook request' }, 403);
+  }
+
   let update;
   try { update = await request.json(); }
   catch { return json({ ok: false, error: "Invalid JSON" }, 400); }
