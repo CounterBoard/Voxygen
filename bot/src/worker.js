@@ -5685,11 +5685,11 @@ async function applyBankBalanceChange(env, { updateId, targetType, targetId, amo
   const successUpdate = env.DB.prepare(`UPDATE bank_transactions
     SET target_telegram_id=?,direction=?,status='success',
         balance_after=(SELECT balance FROM ${balanceTable} WHERE ${balanceWhere}),updated_at=?,note=?
-    WHERE update_id=? AND status='processing' AND changes()=1`).bind(ledgerTargetId,ledgerDirection,now,successNote,String(targetId),updateId);
+    WHERE update_id=? AND status='processing' AND changes()=1`).bind(ledgerTargetId,ledgerDirection,String(targetId),now,successNote,updateId);
   const rejectedUpdate = env.DB.prepare(`UPDATE bank_transactions
     SET target_telegram_id=?,direction=?,status='rejected',
         balance_after=(SELECT balance FROM ${balanceTable} WHERE ${balanceWhere}),updated_at=?,note=?
-    WHERE update_id=? AND status='processing' AND changes()=0`).bind(ledgerTargetId,ledgerDirection,now,rejectedNote,String(targetId),updateId);
+    WHERE update_id=? AND status='processing' AND changes()=0`).bind(ledgerTargetId,ledgerDirection,String(targetId),now,rejectedNote,updateId);
   const batch = await env.DB.batch([balanceUpdate,successUpdate,rejectedUpdate]);
   const row = await env.DB.prepare(`SELECT status,balance_after FROM bank_transactions WHERE update_id=? LIMIT 1`).bind(updateId).first();
   const processed = Number(batch?.[1]?.meta?.changes||0)>0 || Number(batch?.[2]?.meta?.changes||0)>0;
