@@ -483,22 +483,44 @@ async function saveAdminGlobalSetting(request, env) {
   if (auth.error) return auth.error;
   let body;
   try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
-  const key = String(body?.key || '').trim();
-  if (!['map_zoom','theme'].includes(key)) return json({ ok: false, error: 'Неизвестная глобальная настройка' }, 400);
+
+  const supportedKeys = new Set(['map_zoom', 'theme']);
   if (body?.clear === true) {
+    const keys = [...new Set((Array.isArray(body?.keys) ? body.keys : [body?.key]).map(value => String(value || '').trim()).filter(Boolean))];
+    if (!keys.length || keys.some(key => !supportedKeys.has(key))) {
+      return json({ ok: false, error: 'Неизвестная глобальная настройка' }, 400);
+    }
     await ensureGlobalSettingsTable(env);
-    await env.DB.prepare('DELETE FROM global_setting_overrides WHERE setting_key=?').bind(key).run();
+    await env.DB.batch(keys.map(key => env.DB.prepare('DELETE FROM global_setting_overrides WHERE setting_key=?').bind(key)));
     return getAdminGlobalSettings(new Request(request.url, { headers: { 'X-Telegram-Init-Data': String(request.headers.get('X-Telegram-Init-Data') || body?.initData || '') } }), env);
   }
-  let value;
-  if (key === 'map_zoom') {
-    const raw = Number(body?.value);
-    if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 1 || raw > 100) return json({ ok: false, error: 'Масштаб должен быть от 1 до 100%' }, 400);
-    value = String(normalizeMapZoomPercent(raw));
-  } else {
-    value = normalizeTheme(body?.value, '');
-    if (!value) return json({ ok: false, error: 'Неизвестная тема приложения' }, 400);
+
+  const inputSettings = Array.isArray(body?.settings)
+    ? body.settings
+    : [{ key: body?.key, value: body?.value }];
+  if (!inputSettings.length) return json({ ok: false, error: 'Не указаны глобальные настройки' }, 400);
+  const normalizedSettings = [];
+  const seenKeys = new Set();
+  for (const item of inputSettings) {
+    const key = String(item?.key || '').trim();
+    if (!supportedKeys.has(key) || seenKeys.has(key)) {
+      return json({ ok: false, error: 'Неизвестная или повторяющаяся глобальная настройка' }, 400);
+    }
+    seenKeys.add(key);
+    let value;
+    if (key === 'map_zoom') {
+      const raw = Number(item?.value);
+      if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 1 || raw > 100) {
+        return json({ ok: false, error: 'Масштаб должен быть от 1 до 100%' }, 400);
+      }
+      value = String(normalizeMapZoomPercent(raw));
+    } else {
+      value = normalizeTheme(item?.value, '');
+      if (!value) return json({ ok: false, error: 'Неизвестная тема приложения' }, 400);
+    }
+    normalizedSettings.push({ key, value });
   }
+
   const durationMinutes = body?.durationMinutes == null ? null : Number(body.durationMinutes);
   if (durationMinutes !== null && (!Number.isSafeInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 5256000)) {
     return json({ ok: false, error: 'Срок действия должен быть от 1 минуты до 10 лет или «Навсегда»' }, 400);
@@ -506,10 +528,10 @@ async function saveAdminGlobalSetting(request, env) {
   const now = Date.now();
   const expiresAt = durationMinutes === null ? null : now + durationMinutes * 60000;
   await ensureGlobalSettingsTable(env);
-  await env.DB.prepare(`INSERT INTO global_setting_overrides(setting_key,value,expires_at,updated_at,updated_by)
+  await env.DB.batch(normalizedSettings.map(({ key, value }) => env.DB.prepare(`INSERT INTO global_setting_overrides(setting_key,value,expires_at,updated_at,updated_by)
     VALUES(?,?,?,?,?) ON CONFLICT(setting_key) DO UPDATE SET value=excluded.value,
     expires_at=excluded.expires_at,updated_at=excluded.updated_at,updated_by=excluded.updated_by`)
-    .bind(key, String(value), expiresAt, now, Number(auth.user.id)).run();
+    .bind(key, value, expiresAt, now, Number(auth.user.id))));
   return getAdminGlobalSettings(new Request(request.url, { headers: { 'X-Telegram-Init-Data': String(request.headers.get('X-Telegram-Init-Data') || body?.initData || '') } }), env);
 }
 
