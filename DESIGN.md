@@ -247,6 +247,18 @@ Components should feel deliberate, compact, and easy to operate with one thumb. 
 - **Disabled:** reduce emphasis and prevent transforms; retain readable text and a visible disabled state.
 - **States:** hover (fine pointer only) may lift 1px; active uses a brief press response; focus-visible uses a 2px purple outline with 3px offset; disabled has no hover/press transform.
 
+### Iconography & Icon Buttons
+
+**Source:** [Lucide Icons](https://lucide.dev/icons/) is the canonical icon library for Voxygen. In React, use the pinned `lucide-react` package; do not mix in unrelated icon packs or emoji as substitutes for interface icons.
+
+- Use Lucide's consistent outline geometry; keep stroke weight consistent (normally 2).
+- Standard inline icons are typically 16–20px; larger sizes are reserved for prominent controls.
+- Icons inherit semantic text/action color (`currentColor`) rather than hard-coded palette values.
+- Icon-only actions must have a meaningful `aria-label`; a `title` may supplement it but does not replace accessible naming.
+- Preserve a 40–44px interactive hit area on touch devices even when the glyph is smaller.
+- Use shared `IconButton` variants (neutral, primary, success, danger, ghost) instead of ad hoc icon-button geometry. Variant color must follow the semantic separation rules above.
+- Decorative icons should be hidden from assistive technology; meaningful status icons need accompanying text or an accessible label.
+
 ### Cards / Containers
 - **Default Card:** deep surface, 1px quiet border, 16px padding, 16px radius.
 - **Raised Card:** raised surface, 1px quiet border, 12–16px padding, 16–20px radius, low/medium shadow depending on hierarchy.
