@@ -2655,6 +2655,24 @@ async function notifyPendingInvitesForUser(env, userId) {
   for (const invite of invites.results || []) await sendResidentInviteOnce(env, invite, invite.city_name);
 }
 
+
+async function deliverPendingInviteNotifications(env) {
+  await ensureWorldTables(env);
+  const rows=await env.DB.prepare(`
+    SELECT ci.*,t.name AS city_name
+    FROM city_invites ci
+    JOIN territories t ON t.id=ci.territory_id AND t.status='approved'
+    JOIN users u ON u.telegram_id=ci.target_telegram_id AND u.status='verified'
+    WHERE ci.status='pending' AND ci.notification_sent_at IS NULL
+    ORDER BY ci.created_at ASC LIMIT 50
+  `).all();
+  let delivered=0;
+  for(const invite of rows.results||[]){
+    if(await sendResidentInviteOnce(env,invite,invite.city_name))delivered++;
+  }
+  return {scanned:(rows.results||[]).length,delivered};
+}
+
 async function territoryCanUseVisual(env, territoryId, itemId, requiredTag) {
   const cityId=String(territoryId||'').trim(),visualId=String(itemId||'').trim();
   if(!cityId||!visualId)return false;
@@ -5953,6 +5971,13 @@ export default {
       if(finalized)console.log(JSON.stringify({event:'manager_change_requests_expired',count:finalized}));
     } catch (error) {
       console.error(JSON.stringify({event:'manager_change_expiry_failed',code:'MANAGER_CHANGE_EXPIRY_FAILED',message:String(error?.message||error).slice(0,180)}));
+      scheduledError=scheduledError||error;
+    }
+    try {
+      const result=await deliverPendingInviteNotifications(env);
+      if(result.delivered)console.log(JSON.stringify({event:'pending_invite_notifications_delivered',count:result.delivered,scanned:result.scanned}));
+    } catch (error) {
+      console.error(JSON.stringify({event:'pending_invite_notification_retry_failed',code:'INVITE_NOTIFICATION_RETRY_FAILED',message:String(error?.message||error).slice(0,180)}));
       scheduledError=scheduledError||error;
     }
     if(scheduledError)throw scheduledError;
