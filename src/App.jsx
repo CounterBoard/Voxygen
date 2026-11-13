@@ -2445,7 +2445,7 @@ function RecruitmentScreen({ territories, onSelect }) {
           <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',alignItems:'center',gap:10,minWidth:0,minHeight:48}}>
             <div style={{minWidth:0}}>
               <MinecraftText text={city.name} as="div" lang="ru" className="atlas-display" style={{fontSize:22,fontWeight:800,lineHeight:1.2,minWidth:0,whiteSpace:'normal',overflowWrap:'anywhere',wordBreak:'normal',hyphens:'auto',hyphenateCharacter:'–'}} />
-              <div style={{fontSize:12,color:'var(--text-muted)',marginTop:6,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}><span style={{color:'var(--text)'}}>Связь:</span> {contact(city)?<TelegramUsername username={contact(city)}/>: 'не указан'}</div>
+              <div style={{fontSize:12,color:'var(--text-muted)',marginTop:6,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}><span style={{color:'var(--text)'}}>Связь:</span> {contact(city)?<TelegramUsername username={contact(city)} style={{fontWeight:700}}/>: 'не указан'}</div>
             </div>
             <div style={{display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:6,flexShrink:0}}>
               <ScoreBadge type="curator" value={Number(city.curator||0)} size="recruitment" />
