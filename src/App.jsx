@@ -1969,7 +1969,7 @@ function GlobalSettingsPanel({ initData, onSettingsChanged, onClose, timezoneOff
       const data=await response.json().catch(()=>null);
       if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось применить глобальную настройку.'));
       setEntries(Array.isArray(data.settings)?data.settings:[]);await refreshEffectiveSettings();
-      setNotice((key==='map_zoom'?'Глобальный масштаб':'Глобальная тема')+(permanent?' применены навсегда':' применены до указанного времени'));
+      setNotice((key==='map_zoom'?'Глобальный масштаб':'Глобальная тема')+(permanent?' применён навсегда':' применён до указанного времени'));
     }catch(e){setError(safeCaughtError(e,'Не удалось применить глобальную настройку.'));}
     finally{setBusy(false);}
   }
@@ -2975,7 +2975,7 @@ function MainTabs({ tab, onChange }) {
 }
 
 
-function SimpleModal({title,children,onClose}){const {closing,requestClose}=useAnimatedClose(onClose,175);return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:100,background:'rgba(0,0,0,.78)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(448px,100%)',maxHeight:'76vh',overflowY:'auto',margin:'auto',background:'#12151D',border:'1px solid var(--border)',borderRadius:22,padding:18}}><div style={{display:'flex',alignItems:'flex-start',alignItems:'flex-start',justifyContent:title?'space-between':'flex-end',marginBottom:title?14:10}}>{title&&<div className="atlas-display" style={{fontSize:18,fontWeight:700,lineHeight:1.2}}>{title}</div>}<button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>{children}</div></div>}
+function SimpleModal({title,children,onClose}){const {closing,requestClose}=useAnimatedClose(onClose,175);return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:100,background:'rgba(0,0,0,.78)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(448px,100%)',maxHeight:'76vh',overflowY:'auto',margin:'auto',background:'#12151D',border:'1px solid var(--border)',borderRadius:22,padding:18}}><div style={{display:'flex',alignItems:'flex-start',justifyContent:title?'space-between':'flex-end',marginBottom:title?14:10}}>{title&&<div className="atlas-display" style={{fontSize:18,fontWeight:700,lineHeight:1.2}}>{title}</div>}<button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>{children}</div></div>}
 function normalizedTelegramUsername(value) {
   const username=String(value||'').trim().replace(/^@+/,'');
   return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username) ? username : '';
