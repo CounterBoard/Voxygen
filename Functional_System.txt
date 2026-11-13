@@ -1681,7 +1681,7 @@ POST /api/recruitment/contact
 - GET /api/screenshots/{id} → serveScreenshot() — публичная выдача только approved.
 - GET /api/map и HEAD /api/map → getMapSettings() — публичная выдача карты.
 - GET /api/faq → getFaq() — публичное чтение.
-- GET /api/home-feature-button → getHomeFeatureButton() — публичное чтение.
+- GET /api/home-feature-button → getHomeFeatureButton() — requireUser(); не является публичным endpoint. Для пользователей без роли главного инспектора скрытая конфигурация возвращается в нормализованном виде.
 - GET /api/recruitment → маршрутизатор вызывает getRecruitment(env), но функция не определена и не импортирована в worker.js; запрос завершается общей ошибкой 500. Текущий App.jsx не вызывает этот GET и получает поля recruitment из /api/territories.
 - GET /api/vox-grid → getVoxGrid() — публичное чтение; ответ содержит canEdit, который становится true только для главного инспектора.
 - GET /api/customization/items/{id}/image → serveCustomizationItemImage() — публичная выдача изображения по ID предмета.
@@ -1690,7 +1690,9 @@ POST /api/recruitment/contact
 - POST /api/me → getMe() — requireUser().
 - POST /api/profile/claim → claimNickname() — requireUser().
 - POST /api/territories/claim-owner → claimTerritoryOwner() — в текущем коде только requireUser(); отсутствует сверка с owner_input и проверка verified-профиля, см. 30.4.
-- GET/POST /api/user-settings → getUserSettings()/saveUserSettings() — requireUser().
+- GET /api/user-settings → getUserSettings() — requireUser(); POST /api/user-settings → saveUserSettings() — requireUser().
+- GET /api/customization → getCustomization() — requireUser(); параметр lite=1 возвращает компактный баланс, обычный ответ — каталог, инвентарь и данные профиля/территории.
+- GET /api/home-feature-button → getHomeFeatureButton() — requireUser().
 - POST /api/events/reminder и DELETE /api/events/reminder → saveEventReminder() — requireUser().
 - POST /api/customization/purchase → purchaseCustomizationItem() — requireUser(); дополнительно проверяются предмет, баланс и доступ к счёту.
 - POST /api/treasury/donate → treasuryDonate() — requireUser(); членство в целевом городе не обязательно, но территория должна быть одобренной, негосударственной и иметь управляющих.
@@ -1705,7 +1707,7 @@ POST /api/recruitment/contact
 - POST /api/comments/reply → replyToComment() — requireUser() и isTerritoryManager().
 - PATCH/DELETE /api/comments/reply → updateReply()/deleteReply() — requireUser() и isTerritoryManager().
 - DELETE /api/screenshots/{id} → deleteScreenshot() — requireUser(); главный инспектор либо управляющий соответствующей негосударственной территории. Для государственной территории удаление ограничено главным инспектором.
-- GET /api/treasury → getTreasury() — requireUser(); участник или управляющий соответствующей территории.
+- GET /api/treasury → getTreasury() — requireUser(); участник или управляющий соответствующей территории. GET требует territoryId и возвращает balance, personal_balance, isManager и cityName.
 - POST /api/treasury/deposit → treasuryDeposit() — requireUser(); участник или управляющий, списание с личного баланса.
 - POST /api/treasury/withdraw → treasuryWithdraw() — requireUser() и isTerritoryManager(); списание из казны возможно только управляющему/владельцу.
 - GET/POST /api/customization/city → getCityCustomizationData()/updateCityCustomization() — requireUser() и isTerritoryManager().
@@ -1752,6 +1754,34 @@ POST /api/recruitment/contact
 - GET /api/recruitment — обработчик getRecruitment отсутствует, а App.jsx использует данные recruitment из /api/territories.
 
 Это не доказывает, что маршруты не используются вообще: их могут вызывать внешние клиенты, старые версии приложения или другие процессы. До отдельной проверки потребителей их не следует удалять. Для claim-owner и HTTP-модерации при этом сохраняются замечания безопасности и корректности из раздела 30.
+
+
+
+24.3. Семантика GET-запросов и побочные эффекты
+
+Не все GET-маршруты являются строго read-only. В Worker часть чтений совмещена с ленивой инициализацией схемы, созданием отсутствующих записей и очисткой устаревших данных. Это важно при анализе повторных запросов и диагностике D1.
+
+Подтверждённые примеры:
+- GET /api/territories → getTerritories(): вызывает ensureRecruitmentTable() и ensureWorldTables(). Эти функции могут создавать/обновлять структуру D1 при первом обращении или после обновления версии схемы. В обычном режиме обработчик выполняет чтение связанных таблиц; необязательные компоненты при ошибках попадают в degradedAreas.
+- GET /api/user-settings → getUserSettings(): вызывает инициализацию таблиц настроек и INSERT OR IGNORE для user_preferences. Для нового пользователя создаётся строка со значениями по умолчанию: тема vox, часовой пояс UTC+3, уведомления событий выключены, масштаб карты 88%.
+- GET /api/treasury → getTreasury(): после проверки авторизации и членства/управления создаёт отсутствующие строки city_treasury и user_currency с нулевым балансом.
+- GET /api/customization → getCustomization(): требует авторизацию, инициализирует world tables и создаёт отсутствующую строку user_currency. Обычный (не lite=1) ответ дополнительно вызывает cleanupCustomizationCategories(): удаляет категории без активных предметов и уплотняет sort_order. При выборе казны управляющего может создать отсутствующую строку city_treasury.
+- GET /api/events → getEvents(): инициализирует таблицы событий и вызывает purgeExpiredEvents(). Удаляются события, завершившиеся более 24 часов назад, их напоминания, а также ключи идемпотентности создания событий старше 30 дней.
+- GET/HEAD /api/map → getMapSettings(): вызывает cleanupLegacyMapStorage(), который инициализирует app_settings и удаляет устаревшие ключи world_map_object_key, vox_map_image и jorick_map_image. Очистка кешируется на уровне экземпляра Worker.
+
+Таким образом, слово GET описывает HTTP-метод, но само по себе не гарантирует отсутствие изменений в D1. Из явно read-only маршрутов особенно выделяется GET /api/admin/diagnostics/d1: он намеренно не вызывает ensureWorldTables() и не запускает миграции или очистку.
+
+24.4. Ключевые контракты данных между App.jsx и Worker
+
+- Список карты: App.jsx запрашивает GET /api/territories?view=summary и принимает объект {ok, territories, degradedAreas}; Worker возвращает именно этот объект. В summary режиме residents, managers, reviews и screenshots не загружаются полностью, чтобы сократить ответ; для выбранной территории App.jsx отдельно запрашивает GET /api/territories?detail={id}.
+- Детальная территория: detail-запрос возвращает массив territories с расширенными полями reviews, screenshots, residents, resident_rows, resident_telegram_ids, managers и manager_telegram_ids. App.jsx переносит эти поля в текущую запись территории.
+- Набор: App.jsx сохраняет настройки через POST /api/recruitment с territoryId, description, enabled и recruitmentUsername. Worker проверяет право управляющего, сохраняет описание/флаг и нормализует контакт к одному из управляющих. Передаваемый клиентом ownerNickname обработчиком не используется.
+- Казна: POST /api/treasury/deposit и POST /api/treasury/donate передают operationId, territoryId и amount. Worker применяет идемпотентный финансовый перевод; повтор запроса с тем же operationId не должен повторно списывать/зачислять средства. Ответы используют snake_case personal_balance; депозит также возвращает balance, isManager и replayed.
+- Ивенты: POST /api/events передаёт requestKey и поля события; Worker связывает ключ с Telegram ID и SHA-256 отпечатком payload. Повтор того же ключа с тем же содержимым возвращает ранее созданный id, а повтор с изменённым содержимым отклоняется HTTP 409. GET /api/events возвращает events, а вложенное reminder формируется из записи event_reminders.
+- Настройки: GET /api/user-settings возвращает settings с timezone, mapZoomPercent, personalMapZoomPercent, globalOverrides и параметрами уведомлений. POST /api/user-settings сохраняет настройки и возвращает повторно сформированный объект settings.
+- Ошибки: App.jsx централизованно переводит ряд HTTP-статусов и технических сообщений в пользовательские тексты через apiErrorMessage()/safeCaughtError(). parseApiResponse() дополнительно требует успешный HTTP-статус и JSON с ok не равным false.
+
+Примечание: это описание фактического контракта текущих исходников, а не гарантия совместимости со старыми внешними клиентами.
 
 
 ======================================================================
@@ -2174,6 +2204,21 @@ Validate world-map pipeline проверяет синтаксис генерат
 Текущий App.jsx не вызывает GET /api/recruitment. Он получает recruitment_description, recruitment_enabled и recruitment_contact_username в составе ответа GET /api/territories. Поэтому отсутствующий обработчик является дефектом backend endpoint, но не подтверждённой поломкой текущего пользовательского интерфейса.
 
 Рекомендация: либо реализовать getRecruitment() с явно определённым публичным контрактом, либо удалить устаревшую ветвь маршрутизации после проверки внешних потребителей. До этого маршрут следует считать неработающим.
+
+
+30.14. Побочные эффекты GET-маршрутов
+
+В текущей реализации несколько GET-маршрутов меняют состояние D1. Это не следует автоматически считать уязвимостью: операции используются для lazy initialization и обслуживания данных. Однако API не является полностью семантически read-only.
+
+Наиболее заметные случаи:
+- GET /api/events может физически удалять просроченные события, напоминания и старые ключи идемпотентности.
+- GET /api/customization может удалять пустые категории и менять их sort_order.
+- GET /api/treasury и GET /api/customization могут создавать нулевые записи баланса.
+- GET /api/user-settings создаёт пользовательские настройки по умолчанию.
+- GET /api/territories и GET /api/map могут запускать инициализацию/миграции или legacy cleanup.
+
+При этом GET /api/admin/diagnostics/d1 намеренно исключает ensure-функции и заявлен как read-only. Для эксплуатационной диагностики это важное различие: обычный GET некоторых разделов может менять исследуемое состояние, а диагностический endpoint — нет.
+
 
 ======================================================================
 31. ЗАКЛЮЧЕНИЕ
