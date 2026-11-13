@@ -2530,7 +2530,7 @@ Workflow Process and publish world map остаётся отдельным workf
 
 Основной репозиторий имеет workflow Validate Voxygen: npm test, npm run build, node --check bot/src/worker.js и Wrangler deploy --dry-run.
 
-Результат основного CI для текущего кода и документации на момент этой редакции:
+Последний успешный CI для кода (после него в Functional_System.txt вносились только документационные изменения):
 - run id 43530788053;
 - commit cd8fdb614d5ec7845f17abe6275ada668500f01f;
 - conclusion success;
