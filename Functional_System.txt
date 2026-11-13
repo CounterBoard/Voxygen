@@ -2531,10 +2531,10 @@ Workflow Process and publish world map остаётся отдельным workf
 Основной репозиторий имеет workflow Validate Voxygen: npm test, npm run build, node --check bot/src/worker.js и Wrangler deploy --dry-run.
 
 Результат основного CI для текущего кода и документации на момент этой редакции:
-- run id 43530591050;
-- commit 3e9ea81c75cc6b9722d2d1a2682d537dfaf821b4;
+- run id 43530788053;
+- commit cd8fdb614d5ec7845f17abe6275ada668500f01f;
 - conclusion success;
-- npm test: 17 tests, 17 passed, 0 failed;
+- npm test: 87 tests, 87 passed, 0 failed;
 - npm run build: success;
 - node --check bot/src/worker.js: success;
 - Wrangler dry-run: success.
@@ -2569,7 +2569,7 @@ Workflow Process and publish world map остаётся отдельным workf
 34.4. Непокрытые автоматизированными тестами области
 
 Текущий набор тестов не является полноценным end-to-end тестированием всего приложения. В частности, не следует считать полностью протестированными:
-- все зарегистрированные route patterns основного Worker (при статическом извлечении из маршрутизатора найдено 53 пути/паттерна) и все их комбинации ролей;
+- все зарегистрированные route patterns основного Worker (при статическом извлечении найдено 53 пути/паттерна) и все комбинации авторизованных ролей; 70 защищённых method/path комбинаций отдельно проверяются на отказ для неавторизованного запроса;
 - полный D1 integration test на реальном Cloudflare D1;
 - реальные гонки нескольких одновременно выполняемых запросов в production;
 - доставку Telegram Bot API и повторную доставку webhook на стороне Telegram;
@@ -2662,3 +2662,31 @@ Webhook выделен отдельно: он не использует Telegram
 Wrangler dry-run до последнего исправления выдавал предупреждение о неизвестном поле observability.issue_detection в bot/wrangler.toml. Поле удалено, поскольку используемая версия Wrangler 4.162.0 не принимает его в данной конфигурации. В CI run 43530160911 и run 43530293540 предупреждение больше не появлялось. Само удаление не меняет бизнес-логику Worker.
 
 GitHub Actions также выводит предупреждение о том, что actions/checkout@v4 и actions/setup-node@v4 используют Node.js 20 runtime и будут принудительно переведены на Node.js 24. Это предупреждение инфраструктуры GitHub Actions, не ошибка сборки приложения.
+
+
+34.9. Матрица защиты API
+
+Добавлен tests/route-auth-matrix.test.js. В нём 70 комбинаций method/path для защищённых API:
+- POST/PATCH/DELETE для территорий, событий, комментариев, скриншотов, пользователей, инспекторов, настроек, карты, кастомизации, приглашений, экономики и набора;
+- GET для административных и пользовательских разделов;
+- GET /api/events?manage=1;
+- проверки выполняются с BOT_TOKEN, но без Telegram Init Data и без D1 binding.
+
+Для каждой комбинации ожидается HTTP 401 и JSON code AUTHENTICATION_REQUIRED. Поскольку тестовое окружение намеренно не содержит D1, результат 401 также подтверждает, что обработчик не обращается к защищённой таблице до отказа в авторизации.
+
+Первый запуск матрицы выявил три нарушения порядка:
+- saveRecruitment() и setRecruitmentContact() вызывали ensureRecruitmentTable() до requireUser();
+- getEvents() вызывал ensureEventsTables() до requireMainInspector() для manage=1.
+
+Исправлено:
+- saveRecruitment() и setRecruitmentContact() сначала вызывают requireUser(), затем инициализируют таблицу;
+- getEvents() сначала проверяет manage=1 и роль главного инспектора, затем инициализирует таблицы;
+- публичный GET /api/events без manage=1 остаётся публичным и продолжает инициализировать таблицы для чтения.
+
+После исправления:
+- run id 43530788053;
+- commit cd8fdb614d5ec7845f17abe6275ada668500f01f;
+- 87 tests passed, 0 failed;
+- npm build, Worker syntax check и Wrangler dry-run прошли.
+
+Матрица проверяет отказ неавторизованных запросов, но не заменяет полную матрицу положительных прав: доступ пользователя, подтверждённого пользователя, инспектора, менеджера территории и главного инспектора для каждого бизнес-сценария по-прежнему требует отдельных D1 integration tests. Публичные read-only маршруты в матрицу защищённых операций не включены.
