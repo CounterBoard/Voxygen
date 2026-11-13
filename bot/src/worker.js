@@ -301,6 +301,14 @@ async function ensureUserPreferenceTables(env) {
         try { await env.DB.prepare(`ALTER TABLE user_preferences ADD COLUMN map_zoom_percent INTEGER NOT NULL DEFAULT 100`).run(); }
         catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
       }
+      // A personal choice made while a global override is active opts this
+      // user out of that particular override, without affecting anyone else.
+      for (const column of ['map_zoom_global_updated_at','theme_global_updated_at']) {
+        if (!preferenceColumnNames.has(column)) {
+          try { await env.DB.prepare(`ALTER TABLE user_preferences ADD COLUMN ${column} INTEGER NOT NULL DEFAULT 0`).run(); }
+          catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
+        }
+      }
       await env.DB.prepare(`CREATE TABLE IF NOT EXISTS territory_notification_preferences (
         telegram_id INTEGER NOT NULL,
         territory_id TEXT NOT NULL,
@@ -563,7 +571,7 @@ async function getUserSettings(request, env) {
   await ensureGlobalSettingsTable(env);
   await env.DB.prepare(`INSERT OR IGNORE INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,map_zoom_percent,updated_at) VALUES(?,'vox','UTC+3',1,0,100,?)`).bind(uid, Date.now()).run();
   const [settings, globalOverrides] = await Promise.all([
-    env.DB.prepare(`SELECT default_theme,timezone,all_notifications,event_notifications,map_zoom_percent FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first(),
+    env.DB.prepare(`SELECT default_theme,timezone,all_notifications,event_notifications,map_zoom_percent,map_zoom_global_updated_at,theme_global_updated_at FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first(),
     readGlobalSettingOverrides(env),
   ]);
   const territories = await env.DB.prepare(`SELECT t.id,t.name,
@@ -575,12 +583,16 @@ async function getUserSettings(request, env) {
     ORDER BY t.name COLLATE NOCASE ASC`).bind(uid,uid,uid,uid,uid,uid,uid).all();
   const personalMapZoomPercent = normalizeMapZoomPercent(settings?.map_zoom_percent ?? 100);
   const personalTheme = normalizeVoxygenTheme(settings?.default_theme ?? 'vox');
+  const personalZoomOptedOut = Number(settings?.map_zoom_global_updated_at || 0) === Number(globalOverrides.mapZoomPercent?.updatedAt || -1);
+  const personalThemeOptedOut = Number(settings?.theme_global_updated_at || 0) === Number(globalOverrides.theme?.updatedAt || -1);
+  const effectiveZoom = globalOverrides.mapZoomPercent && !personalZoomOptedOut ? globalOverrides.mapZoomPercent.value : personalMapZoomPercent;
+  const effectiveTheme = globalOverrides.theme && !personalThemeOptedOut ? globalOverrides.theme.value : personalTheme;
   return json({ ok: true, settings: {
-    defaultTheme: globalOverrides.theme?.value ?? personalTheme,
-    theme: globalOverrides.theme?.value ?? personalTheme,
+    defaultTheme: effectiveTheme,
+    theme: effectiveTheme,
     personalTheme,
     personalMapZoomPercent,
-    mapZoomPercent: globalOverrides.mapZoomPercent?.value ?? personalMapZoomPercent,
+    mapZoomPercent: effectiveZoom,
     globalOverrides,
     timezone: normalizeUserTimezone(settings?.timezone || 'UTC+3'),
     // Kept in the response for older clients; the global notification switch is retired.
@@ -606,6 +618,11 @@ async function saveUserSettings(request, env) {
   // fields. Preserve newer personal settings when those fields are omitted.
   const existing = await env.DB.prepare(`SELECT default_theme,timezone,event_notifications,map_zoom_percent
     FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first();
+  const activeGlobal = await readGlobalSettingOverrides(env, now);
+  const submittedTheme = body?.defaultTheme !== undefined;
+  const submittedZoom = body?.mapZoomPercent !== undefined;
+  const themeGlobalMarker = submittedTheme && activeGlobal.theme ? Number(activeGlobal.theme.updatedAt) : 0;
+  const zoomGlobalMarker = submittedZoom && activeGlobal.mapZoomPercent ? Number(activeGlobal.mapZoomPercent.updatedAt) : 0;
   const defaultTheme = normalizeVoxygenTheme(body?.defaultTheme ?? existing?.default_theme ?? 'vox');
   const timezone = normalizeUserTimezone(body?.timezone ?? existing?.timezone ?? 'UTC+3');
   const mapZoomPercent = normalizeMapZoomPercent(body?.mapZoomPercent ?? existing?.map_zoom_percent ?? 100);
@@ -614,9 +631,12 @@ async function saveUserSettings(request, env) {
   const eventNotifications = body?.eventNotifications === undefined
     ? Number(existing?.event_notifications ?? 0)
     : body.eventNotifications === true ? 1 : 0;
-  await env.DB.prepare(`INSERT INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,map_zoom_percent,updated_at)
-    VALUES(?,?,?,?,?,?,?) ON CONFLICT(telegram_id) DO UPDATE SET default_theme=excluded.default_theme,timezone=excluded.timezone,all_notifications=excluded.all_notifications,event_notifications=excluded.event_notifications,map_zoom_percent=excluded.map_zoom_percent,updated_at=excluded.updated_at`)
-    .bind(uid, defaultTheme, timezone, allNotifications, eventNotifications, mapZoomPercent, now).run();
+  await env.DB.prepare(`INSERT INTO user_preferences(telegram_id,default_theme,timezone,all_notifications,event_notifications,map_zoom_percent,map_zoom_global_updated_at,theme_global_updated_at,updated_at)
+    VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(telegram_id) DO UPDATE SET default_theme=excluded.default_theme,timezone=excluded.timezone,all_notifications=excluded.all_notifications,event_notifications=excluded.event_notifications,map_zoom_percent=excluded.map_zoom_percent,
+    map_zoom_global_updated_at=CASE WHEN ? THEN excluded.map_zoom_global_updated_at ELSE user_preferences.map_zoom_global_updated_at END,
+    theme_global_updated_at=CASE WHEN ? THEN excluded.theme_global_updated_at ELSE user_preferences.theme_global_updated_at END,
+    updated_at=excluded.updated_at`)
+    .bind(uid, defaultTheme, timezone, allNotifications, eventNotifications, mapZoomPercent, zoomGlobalMarker, themeGlobalMarker, now, submittedZoom?1:0, submittedTheme?1:0).run();
   const allowedRows = await env.DB.prepare(`SELECT t.id FROM territories t WHERE t.status='approved' AND (t.owner_telegram_id=? OR EXISTS(SELECT 1 FROM territory_managers tm WHERE tm.territory_id=t.id AND tm.telegram_id=?) OR EXISTS(SELECT 1 FROM city_memberships cm WHERE cm.territory_id=t.id AND cm.telegram_id=?))`).bind(uid,uid,uid).all();
   const allowed = new Set((allowedRows.results || []).map(row => String(row.id)));
   for (const item of (Array.isArray(body?.territories) ? body.territories : [])) {
