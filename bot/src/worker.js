@@ -4586,70 +4586,67 @@ async function setRecruitmentContact(request, env) {
 
 
 async function finalizeTerritoryApproval(env, chatId, id, name, owner, x, z, isGovernment=false) {
-  const nx = Number(String(x).replace(",", "."));
-  const nz = Number(String(z).replace(",", "."));
-  if (!name || (!isGovernment && !owner) || !Number.isFinite(nx) || !Number.isFinite(nz) ||
-      !isValidWorldCoordinate(nx, nz)) {
-    await telegram(env, "sendMessage", {
-      chat_id: chatId,
-      text: "⚠️ В поле координат должно быть 2 числа. Допустимый диапазон: от −3008 до 3007.",
-    });
+  const nx=Number(String(x).replace(",",".")),nz=Number(String(z).replace(",","."));
+  if(!name||(!isGovernment&&!owner)||!Number.isFinite(nx)||!Number.isFinite(nz)||!isValidWorldCoordinate(nx,nz)){
+    try{await telegram(env,"sendMessage",{chat_id:chatId,text:"⚠️ В поле координат должно быть 2 числа. Допустимый диапазон: от −3008 до 3007."})}catch(error){console.error('Approval validation notice failed:',error)}
     return false;
   }
 
-  const palette = ["#A855F7", "#22C55E", "#38BDF8", "#F59E0B", "#EF4444", "#EC4899", "#14B8A6", "#8B5CF6", "#F97316"];
-  const accent = palette[Math.floor(Math.random() * palette.length)];
-
+  const palette=["#A855F7","#22C55E","#38BDF8","#F59E0B","#EF4444","#EC4899","#14B8A6","#8B5CF6","#F97316"];
+  const accent=palette[Math.floor(Math.random()*palette.length)];
   await ensureWorldTables(env);
-  const ownerUsername = normalizeUsername(owner).replace(/^@/, '');
-  const ownerUser = ownerUsername ? await env.DB.prepare(`SELECT telegram_id, telegram_username FROM users WHERE lower(replace(telegram_username, '@', '')) = lower(?) AND status = 'verified' LIMIT 1`).bind(ownerUsername).first() : null;
-  const result = await env.DB.prepare(`
+  const ownerUsername=normalizeUsername(owner).replace(/^@/,'');
+  const ownerUser=ownerUsername
+    ? await env.DB.prepare(`SELECT telegram_id,telegram_username FROM users WHERE lower(replace(telegram_username,'@',''))=lower(?) AND status='verified' LIMIT 1`).bind(ownerUsername).first()
+    : null;
+
+  const result=await env.DB.prepare(`
     UPDATE territories
-    SET name = ?, owner_input = ?, coords = ?, accent = ?, status = ?,
-        owner_telegram_id = ?,
-        owner_telegram_username = ?,
-        is_government = ?
-    WHERE id = ? AND status = 'pending'
+    SET name=?,owner_input=?,coords=?,accent=?,status='approved',
+        owner_telegram_id=?,owner_telegram_username=?,is_government=?
+    WHERE id=? AND status='pending'
   `).bind(
-    name.trim(), isGovernment ? 'Multi-Punk' : owner.trim(), `X ${nx} / Z ${nz}`, accent, 'approved',
-    isGovernment ? null : (ownerUser ? Number(ownerUser.telegram_id) : null), isGovernment ? null : (ownerUsername || null), isGovernment ? 1 : 0, id
+    name.trim(),isGovernment?'Multi-Punk':owner.trim(),`X ${nx} / Z ${nz}`,accent,
+    isGovernment?null:(ownerUser?Number(ownerUser.telegram_id):null),
+    isGovernment?null:(ownerUsername||null),isGovernment?1:0,id
   ).run();
 
-  if (!result.meta?.changes) {
-    await telegram(env, "sendMessage", {
-      chat_id: chatId,
-      text: "⚠️ Заявка не найдена или уже обработана.",
-    });
+  if(!result.meta?.changes){
+    try{await telegram(env,"sendMessage",{chat_id:chatId,text:"⚠️ Заявка не найдена или уже обработана."})}catch(error){console.error('Approval stale-session notice failed:',error)}
     return false;
   }
 
-
-  await telegram(env, "sendMessage", {
-    chat_id: chatId,
-    text:
-      `✅ Город добавлен на карту\n\n` +
-      `🏙 ${name.trim()}\n` +
-      `${isGovernment ? '🏛 Государственная территория' : `👤 ${normalizeUsername(owner) || owner.trim()}`}\n` +
-      `📍 ${formatCoordinatePair(nx, nz)}`,
-  });
-
-  if (isGovernment) {
-    const governmentVisuals=await env.DB.prepare(`
-      SELECT i.id,i.categories_text,c.name AS category_name
-      FROM customization_items i
-      LEFT JOIN customization_categories c ON c.id=i.category_id
-      WHERE i.active=1 AND i.government_marker=1
-      ORDER BY i.created_at DESC
-    `).all();
-    const marker=(governmentVisuals.results||[]).find(v=>visualHasTag(v,'метка'));
-    const cover=(governmentVisuals.results||[]).find(v=>visualHasTag(v,'обложка'));
-    if(marker) await env.DB.prepare(`INSERT INTO city_customization(territory_id,marker_item_id,updated_at) VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET marker_item_id=excluded.marker_item_id,updated_at=excluded.updated_at`).bind(id,marker.id,Date.now()).run();
-    if(cover) await env.DB.prepare(`INSERT INTO city_customization(territory_id,background_item_id,updated_at) VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET background_item_id=excluded.background_item_id,updated_at=excluded.updated_at`).bind(id,cover.id,Date.now()).run();
+  // Approval is already committed. Complete all local post-processing before
+  // attempting Telegram delivery, so a Telegram outage cannot strand the city.
+  if(isGovernment){
+    try{
+      const governmentVisuals=await env.DB.prepare(`
+        SELECT i.id,i.categories_text,c.name AS category_name
+        FROM customization_items i
+        LEFT JOIN customization_categories c ON c.id=i.category_id
+        WHERE i.active=1 AND i.government_marker=1
+        ORDER BY i.created_at DESC
+      `).all();
+      const marker=(governmentVisuals.results||[]).find(v=>visualHasTag(v,'метка'));
+      const cover=(governmentVisuals.results||[]).find(v=>visualHasTag(v,'обложка'));
+      if(marker)await env.DB.prepare(`INSERT INTO city_customization(territory_id,marker_item_id,updated_at)
+        VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET marker_item_id=excluded.marker_item_id,updated_at=excluded.updated_at`).bind(id,marker.id,Date.now()).run();
+      if(cover)await env.DB.prepare(`INSERT INTO city_customization(territory_id,background_item_id,updated_at)
+        VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET background_item_id=excluded.background_item_id,updated_at=excluded.updated_at`).bind(id,cover.id,Date.now()).run();
+    }catch(error){console.error(JSON.stringify({event:'government_territory_postprocess_failed',territoryId:String(id).slice(0,80),code:'GOVERNMENT_VISUAL_INIT_FAILED'}))}
   }
-  if (ownerUser?.telegram_id) {
-    await evaluateAchievementsForTerritory(env, id).catch(error=>console.error('Achievement evaluation after city approval:',error));
+  if(ownerUser?.telegram_id){
+    await evaluateAchievementsForTerritory(env,id).catch(error=>console.error('Achievement evaluation after city approval:',error));
   }
 
+  try{
+    await telegram(env,"sendMessage",{
+      chat_id:chatId,
+      text:`✅ Город добавлен на карту\n\n🏙 ${name.trim()}\n${isGovernment?'🏛 Государственная территория':`👤 ${normalizeUsername(owner)||owner.trim()}`}\n📍 ${formatCoordinatePair(nx,nz)}`,
+    });
+  }catch(error){
+    console.error(JSON.stringify({event:'territory_approval_notice_failed',territoryId:String(id).slice(0,80),code:'APPROVAL_TELEGRAM_NOTICE_FAILED'}));
+  }
   return true;
 }
 
