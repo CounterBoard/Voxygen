@@ -753,7 +753,7 @@ async function ensureMapSettingsTable(env) {
   return promise;
 }
 
-const WORLD_SCHEMA_VERSION = '2026-11-v27';
+const WORLD_SCHEMA_VERSION = '2026-11-v28';
 const worldTableInitPromises = new WeakMap();
 
 async function ensureWorldTables(env) {
@@ -1237,9 +1237,47 @@ async function initializeWorldTables(env) {
       invite_type TEXT NOT NULL DEFAULT 'join',
       status TEXT NOT NULL DEFAULT 'pending',
       created_at INTEGER NOT NULL,
-      responded_at INTEGER
+      responded_at INTEGER,
+      notification_sent_at INTEGER,
+      notification_claimed_at INTEGER
     )
   `).run();
+  const cityInviteCols = await env.DB.prepare(`PRAGMA table_info(city_invites)`).all();
+  const cityInviteColumnNames = new Set((cityInviteCols.results || []).map(row => row.name));
+  if (!cityInviteColumnNames.has('notification_sent_at')) {
+    try { await env.DB.prepare(`ALTER TABLE city_invites ADD COLUMN notification_sent_at INTEGER`).run(); }
+    catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
+  }
+  if (!cityInviteColumnNames.has('notification_claimed_at')) {
+    try { await env.DB.prepare(`ALTER TABLE city_invites ADD COLUMN notification_claimed_at INTEGER`).run(); }
+    catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
+  }
+  // Existing duplicate pending invitations are normalized before unique indexes are added.
+  await env.DB.prepare(`UPDATE city_invites AS duplicate
+    SET status='cancelled',responded_at=COALESCE(responded_at,?)
+    WHERE duplicate.status='pending' AND duplicate.target_telegram_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM city_invites AS keeper
+        WHERE keeper.status='pending' AND keeper.territory_id=duplicate.territory_id
+          AND keeper.target_telegram_id=duplicate.target_telegram_id
+          AND (keeper.created_at<duplicate.created_at OR (keeper.created_at=duplicate.created_at AND keeper.id<duplicate.id))
+      )`).bind(Date.now()).run();
+  await env.DB.prepare(`UPDATE city_invites AS duplicate
+    SET status='cancelled',responded_at=COALESCE(responded_at,?)
+    WHERE duplicate.status='pending' AND duplicate.target_telegram_id IS NULL
+      AND EXISTS (
+        SELECT 1 FROM city_invites AS keeper
+        WHERE keeper.status='pending' AND keeper.territory_id=duplicate.territory_id
+          AND keeper.target_telegram_id IS NULL
+          AND lower(keeper.target_nickname)=lower(duplicate.target_nickname)
+          AND (keeper.created_at<duplicate.created_at OR (keeper.created_at=duplicate.created_at AND keeper.id<duplicate.id))
+      )`).bind(Date.now()).run();
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_city_invites_pending_user_unique
+    ON city_invites(territory_id,target_telegram_id)
+    WHERE status='pending' AND target_telegram_id IS NOT NULL`).run();
+  await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_city_invites_pending_nickname_unique
+    ON city_invites(territory_id,lower(target_nickname))
+    WHERE status='pending' AND target_telegram_id IS NULL`).run();
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS customization_categories (
       id TEXT PRIMARY KEY,
@@ -2243,19 +2281,19 @@ async function inviteResident(request, env) {
 if(String(target.telegram_id)===String(auth.user.id)) return json({ok:false,error:'Нельзя пригласить самого себя'},400);
   const membership=await env.DB.prepare('SELECT territory_id FROM city_memberships WHERE telegram_id=? AND territory_id=?').bind(Number(target.telegram_id),territoryId).first();
   const inviteType='join';
-  await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=? WHERE target_telegram_id=? AND status='pending'`).bind(Date.now(),Number(target.telegram_id)).run();
+  await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=? WHERE territory_id=? AND target_telegram_id=? AND status='pending'`).bind(Date.now(),territoryId,Number(target.telegram_id)).run();
   const inviteId=crypto.randomUUID();
   await env.DB.prepare(`INSERT INTO city_invites (id,territory_id,target_telegram_id,target_nickname,invited_by,invite_type,status,created_at) VALUES (?,?,?,?,?,?,'pending',?)`).bind(inviteId,territoryId,Number(target.telegram_id),nickname,Number(auth.user.id),inviteType,Date.now()).run();
-  if(target.status==='verified') await sendResidentInvite(env,{id:inviteId,territory_id:territoryId,target_telegram_id:Number(target.telegram_id),target_nickname:nickname,invite_type:inviteType},territory.name);
+  if(target.status==='verified') await sendResidentInviteOnce(env,{id:inviteId,territory_id:territoryId,target_telegram_id:Number(target.telegram_id),target_nickname:nickname,invite_type:inviteType},territory.name);
   return json({ok:true,inviteId,inviteType,pendingNickname:target.status!=='verified'});
 }
 
 async function sendResidentInvite(env, invite, cityName) {
-  if (!invite.target_telegram_id) return;
+  if (!invite.target_telegram_id) return false;
   const title = invite.invite_type === 'transfer' ? '🔄 Приглашение сменить город' : '🏙 Приглашение в город';
   const text = `${title}\n\nВас приглашают в город «${escapeHtml(cityName)}».\n\nВыберите действие:`;
   try {
-    await telegram(env, 'sendMessage', {
+    const result = await telegram(env, 'sendMessage', {
       chat_id: invite.target_telegram_id,
       text,
       parse_mode: 'HTML',
@@ -2264,7 +2302,33 @@ async function sendResidentInvite(env, invite, cityName) {
         { text: '❌ Отказаться', callback_data: `resident_reject:${invite.id}` },
       ]] },
     });
-  } catch (error) { console.error('Resident invite notification error:', error); }
+    const delivered = Boolean(result.response.ok && result.data?.ok);
+    if (!delivered) console.error('Resident invite notification rejected:', invite.id, result.data?.error_code || result.response.status, result.data?.description || '');
+    return delivered;
+  } catch (error) {
+    console.error('Resident invite notification error:', invite.id, error);
+    return false;
+  }
+}
+
+async function sendResidentInviteOnce(env, invite, cityName) {
+  const now = Date.now();
+  const staleClaim = now - 5 * 60 * 1000;
+  const claim = await env.DB.prepare(`UPDATE city_invites
+    SET notification_claimed_at=?
+    WHERE id=? AND status='pending' AND notification_sent_at IS NULL
+      AND (notification_claimed_at IS NULL OR notification_claimed_at<?)`).bind(now, invite.id, staleClaim).run();
+  if (!claim.meta?.changes) return false;
+
+  const delivered = await sendResidentInvite(env, invite, cityName);
+  if (delivered) {
+    await env.DB.prepare(`UPDATE city_invites SET notification_sent_at=?,notification_claimed_at=NULL
+      WHERE id=? AND status='pending' AND notification_claimed_at=?`).bind(now, invite.id, now).run();
+  } else {
+    await env.DB.prepare(`UPDATE city_invites SET notification_claimed_at=NULL
+      WHERE id=? AND status='pending' AND notification_claimed_at=?`).bind(invite.id, now).run();
+  }
+  return delivered;
 }
 
 async function hideRecruitmentIfContactLost(env, territoryId, targetId, usernameHint='') {
@@ -2474,8 +2538,10 @@ async function notifyPendingInvitesForUser(env, userId) {
   if (!user?.mc_nickname) return;
   await env.DB.prepare(`UPDATE city_invites SET target_telegram_id = ? WHERE target_telegram_id IS NULL AND lower(target_nickname) = lower(?) AND status = 'pending'`).bind(Number(userId), user.mc_nickname).run();
   if (user.status !== 'verified') return;
-  const invites = await env.DB.prepare(`SELECT ci.*, t.name AS city_name FROM city_invites ci JOIN territories t ON t.id = ci.territory_id WHERE ci.target_telegram_id = ? AND ci.status = 'pending'`).bind(Number(userId)).all();
-  for (const invite of invites.results || []) await sendResidentInvite(env, invite, invite.city_name);
+  const invites = await env.DB.prepare(`SELECT ci.*, t.name AS city_name FROM city_invites ci JOIN territories t ON t.id = ci.territory_id
+    WHERE ci.target_telegram_id = ? AND ci.status = 'pending' AND ci.notification_sent_at IS NULL
+    ORDER BY ci.created_at ASC`).bind(Number(userId)).all();
+  for (const invite of invites.results || []) await sendResidentInviteOnce(env, invite, invite.city_name);
 }
 
 async function territoryCanUseVisual(env, territoryId, itemId, requiredTag) {
