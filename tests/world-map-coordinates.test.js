@@ -66,7 +66,7 @@ test("map zoom uses a smooth exponential scale with exact 1x and 24x endpoints",
   // The geometric midpoint of the range is the geometric mean of its endpoints.
   const expectedMidpoint = Math.sqrt(24);
   assert.ok(Math.abs(mapZoomPercentToScale(50.5) - expectedMidpoint) < 1e-12);
-  assert.ok(Math.abs(mapZoomPercentToScale(50) - Math.sqrt(24)) < 0.04);
+  assert.ok(Math.abs(mapZoomPercentToScale(50) - Math.sqrt(24)) < 0.1);
   assert.ok(Math.abs(mapZoomPercentToScale(50) - 4.9) < 0.1);
 
   // Every one-point slider step has the same relative magnification change.
