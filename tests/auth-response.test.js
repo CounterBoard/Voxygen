@@ -23,7 +23,7 @@ for (const route of [
     const response = await requestUnauthenticated(route[0]);
 
     assert.equal(response.status, 401);
-    assert.match(response.headers.get("content-type") || "", /application\\/json/i);
+    assert.match(response.headers.get("content-type") || "", /application\/json/i);
     assert.equal(response.headers.get("access-control-allow-origin"), "*");
     assert.ok(response.headers.get("x-request-id"));
 
