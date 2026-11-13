@@ -3519,14 +3519,21 @@ async function repairOrphanedTerritoryOwnersForUser(env, telegramId, nickname) {
     const matches=await env.DB.prepare(`SELECT telegram_id FROM users WHERE status='verified' AND lower(trim(mc_nickname))=lower(trim(?))`).bind(name).all();
     if((matches.results||[]).length!==1||Number(matches.results[0].telegram_id)!==tid)continue;
     const staleOwnerId=Number(row.owner_telegram_id);
-    const update=await env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=? WHERE id=? AND status='approved' AND owner_telegram_id=?`)
-      .bind(tid,user.telegram_username||null,user.mc_nickname||name,row.id,staleOwnerId).run();
-    if(!update.meta?.changes)continue;
-    await env.DB.batch([
-      env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id IN (?,?)`).bind(row.id,staleOwnerId,tid),
-      env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(row.id,staleOwnerId),
-      env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(row.id,tid),
+    const transition=await env.DB.batch([
+      env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=?
+        WHERE id=? AND status='approved' AND owner_telegram_id=?`)
+        .bind(tid,user.telegram_username||null,user.mc_nickname||name,row.id,staleOwnerId),
+      env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id IN (?,?)
+        AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
+        .bind(row.id,staleOwnerId,tid,row.id,tid),
+      env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?
+        AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
+        .bind(row.id,staleOwnerId,row.id,tid),
+      env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?
+        AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
+        .bind(row.id,tid,row.id,tid),
     ]);
+    if(!transition[0]?.meta?.changes)continue;
     await reconcileTerritoryVisualEquipment(env,row.id).catch(error=>console.error('Equipment reconciliation after owner repair:',error));
   }
 
@@ -3542,14 +3549,18 @@ async function repairOrphanedTerritoryOwnersForUser(env, telegramId, nickname) {
         AND (lower(trim(mc_nickname))=lower(trim(?)) OR lower(replace(trim(telegram_username),'@',''))=lower(?))
     `).bind(String(row.owner_input||''),String(row.owner_input||'').replace(/^@+/,'')).all();
     if((candidates.results||[]).length!==1||Number(candidates.results[0].telegram_id)!==tid)continue;
-    const update=await env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=?
-      WHERE id=? AND status='approved' AND owner_telegram_id IS NULL`)
-      .bind(tid,user.telegram_username||null,user.mc_nickname||name,row.id).run();
-    if(!update.meta?.changes)continue;
-    await env.DB.batch([
-      env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(row.id,tid),
-      env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(row.id,tid),
+    const transition=await env.DB.batch([
+      env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=?
+        WHERE id=? AND status='approved' AND owner_telegram_id IS NULL`)
+        .bind(tid,user.telegram_username||null,user.mc_nickname||name,row.id),
+      env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?
+        AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
+        .bind(row.id,tid,row.id,tid),
+      env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?
+        AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
+        .bind(row.id,tid,row.id,tid),
     ]);
+    if(!transition[0]?.meta?.changes)continue;
     await evaluateAchievementsForTerritory(env,row.id).catch(error=>console.error('Achievement evaluation after delayed owner binding:',error));
   }
 }
@@ -3688,7 +3699,8 @@ async function removeManagedUserRelations(env, telegramId) {
   await env.DB.prepare(`DELETE FROM city_memberships WHERE telegram_id=?`).bind(tid).run();
   try{await env.DB.prepare(`UPDATE manager_change_requests SET status='rejected',decided_at=? WHERE status='pending' AND (target_telegram_id=? OR initiator_telegram_id=?)`).bind(Date.now(),tid,tid).run()}catch{}
   try{await env.DB.prepare(`DELETE FROM manager_change_votes WHERE voter_telegram_id=?`).bind(tid).run()}catch{}
-  try{await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=? WHERE status='pending' AND (target_telegram_id=? OR invited_by=?)`).bind(Date.now(),tid,tid).run()}catch{}
+  await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=?,notification_claimed_at=NULL
+    WHERE status='pending' AND (target_telegram_id=? OR invited_by=?)`).bind(Date.now(),tid,tid).run();
   try{await env.DB.prepare(`DELETE FROM inspectors WHERE telegram_id=?`).bind(tid).run()}catch{}
   try{await env.DB.prepare(`DELETE FROM user_items WHERE telegram_id=?`).bind(tid).run()}catch{}
   try{await env.DB.prepare(`DELETE FROM user_currency WHERE telegram_id=?`).bind(tid).run()}catch{}
