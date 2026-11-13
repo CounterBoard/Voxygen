@@ -1911,8 +1911,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
         <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:6}}>Часовой пояс</div>
         <input value={settings.timezone||'UTC+3'} onChange={e=>patch({timezone:keepUtcPrefix(e.target.value)})} onBlur={()=>patch({timezone:normalizeTimezoneOffset(settings.timezone)})} placeholder="UTC+3" aria-label="Часовой пояс" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:11,padding:'11px 12px',color:'var(--text)',fontSize:14,marginBottom:16}}/>
         <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:7}}>Масштаб карты</div>
-        {settings.globalOverrides?.mapZoomPercent&&<div style={{fontSize:11.5,color:'var(--mint)',lineHeight:1.45,marginBottom:7}}>Сейчас для всех действует глобальный масштаб {settings.mapZoomPercent}%. Ваш личный выбор сохраняется и вернётся после окончания срока.</div>}
-        <input type="range" min="1" max="100" step="1" value={settings.personalMapZoomPercent??100} onChange={e=>patch({personalMapZoomPercent:normalizeMapZoomPercent(e.target.value)})} style={{width:'100%',accentColor:'var(--purple)',margin:'4px 0 2px'}}/>
+        <input type="range" className="slider-player" min="1" max="100" step="1" value={settings.personalMapZoomPercent??100} onChange={e=>patch({personalMapZoomPercent:normalizeMapZoomPercent(e.target.value)})} style={{'--slider-progress':`${((settings.personalMapZoomPercent??100)-1)/99*100}%`,width:'100%',margin:'4px 0 2px'}}/>
         <div style={{fontSize:12,color:'var(--text)',fontWeight:700,textAlign:'center',marginBottom:16}}>{settings.personalMapZoomPercent??100}%</div>
         <div style={{fontSize:15,fontWeight:750,marginBottom:4}}>Уведомления</div>
         <div style={{borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)',marginBottom:9}}>
@@ -2405,7 +2404,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
           return <div key={r.id} className="atlas-review-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 12, animationDelay: `${Math.min(reviewIndex * 24, 144)}ms` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
               <MinecraftText text={r.author || r.telegram_username || 'Пользователь'} style={{fontSize:13,fontWeight:600}}/>
-              {r.telegram_username&&<TelegramUsername username={r.telegram_username} interactive style={{fontSize:11.5}}/>}
+              
               {(r.role === 'inspector' || r.role === 'main_inspector') && <span style={{ fontSize: 10, color: 'var(--mint)', background: 'var(--mint-soft)', border: '1px solid var(--mint)', borderRadius: 999, padding: '2px 6px', fontWeight: 700 }}>Инспектор</span>}
               {isResidentReviewer && <span style={{ fontSize: 10, color: 'var(--purple)', border: '1px solid var(--purple)', borderRadius: 999, padding: '2px 6px', fontWeight: 700 }}>Житель</span>}
               {(isMyComment || isMainInspector) && <div style={{ marginLeft:'auto', display:'flex', gap:4 }}>
@@ -3018,7 +3017,7 @@ function TelegramUsername({username,interactive=false,style={}}) {
   if(!raw)return null;
   const normalized=normalizedTelegramUsername(raw);
   const label='@'+raw;
-  const appearance={...style,color:'var(--mint)',fontWeight:style.fontWeight??750,textDecoration:'none'};
+  const appearance={...style,color:'var(--mint)',textDecoration:'none'};
   if(!interactive||!normalized)return <span style={appearance}>{label}</span>;
   const href='https://t.me/'+normalized;
   return <a href={href} target="_blank" rel="noopener noreferrer" onClick={event=>{
@@ -3664,7 +3663,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         mapZoomPreferenceRef.current=nextZoom;
         setTimezoneOffset(normalizeTimezoneOffset(value.timezone));
         setMapZoomPercent(nextZoom);
-        if(zoomPreferenceChanged)setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));
+        if(zoomPreferenceChanged)setVoxView({x:0,y:0,scale:mapZoomPercentToScale(nextZoom)});
         setMapZoomReady(true);
         setTimezoneReady(true); setTimezoneLoadError('');
         if (expiryTimer !== null) window.clearTimeout(expiryTimer);
@@ -4025,7 +4024,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
       <div style={{ maxWidth: 448, margin: '0 auto', position: 'relative' }}>
         <div className="atlas-screen-transition" key={`${screen}-${selected?.id || 'none'}`}>
         {screen === 'profile' ? (
-          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapLoadGenerationRef.current+=1;mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);setTimezoneRetryToken(value=>value+1);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));const zoomChanged=mapZoomPreferenceRef.current===null||mapZoomPreferenceRef.current!==nextZoom;mapZoomPreferenceRef.current=nextZoom;setMapZoomPercent(nextZoom);if(zoomChanged)setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));setMapZoomReady(true);setTimezoneReady(true);setTimezoneLoadError('');}} onOpenGlobalSettings={()=>setGlobalSettingsOpen(true)} />
+          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapLoadGenerationRef.current+=1;mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);setTimezoneRetryToken(value=>value+1);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));const zoomChanged=mapZoomPreferenceRef.current===null||mapZoomPreferenceRef.current!==nextZoom;mapZoomPreferenceRef.current=nextZoom;setMapZoomPercent(nextZoom);if(zoomChanged)setVoxView({x:0,y:0,scale:mapZoomPercentToScale(nextZoom)});setMapZoomReady(true);setTimezoneReady(true);setTimezoneLoadError('');}} onOpenGlobalSettings={()=>setGlobalSettingsOpen(true)} />
         ) : screen === 'customization' ? (
           <CustomizationScreen initData={window.Telegram?.WebApp?.initData || ''} tgUser={tgUser} role={role} territories={territories} profile={profile} />
         ) : screen === 'events' ? (
@@ -4083,7 +4082,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         )}
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
-        {globalSettingsOpen&&role==='main_inspector'&&<GlobalSettingsPanel timezoneOffset={timezoneOffset} initData={window.Telegram?.WebApp?.initData||''} onSettingsChanged={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);const zoomChanged=mapZoomPreferenceRef.current===null||mapZoomPreferenceRef.current!==nextZoom;mapZoomPreferenceRef.current=nextZoom;setMapZoomPercent(nextZoom);if(zoomChanged)setVoxView(current=>({...((current&&typeof current==='object')?current:{x:0,y:0}),scale:mapZoomPercentToScale(nextZoom)}));setMapZoomReady(true);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));}} onClose={()=>setGlobalSettingsOpen(false)}/>}
+        {globalSettingsOpen&&role==='main_inspector'&&<GlobalSettingsPanel timezoneOffset={timezoneOffset} initData={window.Telegram?.WebApp?.initData||''} onSettingsChanged={settings=>{const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??100);const zoomChanged=mapZoomPreferenceRef.current===null||mapZoomPreferenceRef.current!==nextZoom;mapZoomPreferenceRef.current=nextZoom;setMapZoomPercent(nextZoom);if(zoomChanged)setVoxView({x:0,y:0,scale:mapZoomPercentToScale(nextZoom)});setMapZoomReady(true);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));}} onClose={()=>setGlobalSettingsOpen(false)}/>}
 
         {showAddTerritory && (
           <AddTerritoryModal onClose={() => setShowAddTerritory(false)} onSubmit={submitTerritoryRequest} isMainInspector={role==='main_inspector'} />
