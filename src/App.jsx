@@ -327,8 +327,55 @@ function FontsAndTheme() {
           --motion-standard:190ms;
           --motion-modal:245ms;
 
-          --radius-md:16px;
-          --radius-lg:20px;
+          /* Typography tokens: Manrope for hierarchy, Inter for reading and controls. */
+          --font-display:'Manrope',ui-sans-serif,system-ui,sans-serif;
+          --font-body:'Inter',ui-sans-serif,system-ui,sans-serif;
+          --font-technical:ui-monospace,SFMono-Regular,Menlo,monospace;
+          --weight-regular:400;
+          --weight-medium:500;
+          --weight-semibold:600;
+          --weight-bold:700;
+          --weight-extrabold:800;
+          --type-display:30px;
+          --type-headline:24px;
+          --type-title:18px;
+          --type-body:15px;
+          --type-body-compact:14px;
+          --type-label:12px;
+          --type-micro:12px;
+          --line-display:1.08;
+          --line-headline:1.14;
+          --line-title:1.2;
+          --line-body:1.55;
+          --line-body-compact:1.45;
+          --tracking-display:-.035em;
+          --tracking-headline:-.028em;
+          --tracking-title:-.018em;
+
+          /* Geometry tokens. Themes may change colors, never component geometry. */
+          --space-1:4px;
+          --space-2:8px;
+          --space-3:12px;
+          --space-4:16px;
+          --space-5:20px;
+          --space-6:24px;
+          --space-8:32px;
+          --radius-xs:8px;
+          --radius-sm:10px;
+          --radius-control:12px;
+          --radius-card:16px;
+          --radius-surface:20px;
+          --radius-modal:22px;
+          --radius-pill:999px;
+          --radius-md:var(--radius-card);
+          --radius-lg:var(--radius-surface);
+          --content-max:448px;
+          --touch-target:44px;
+
+          /* Warning is distinct from Mint's role/approval semantics. */
+          --warning:#FBBF24;
+          --warning-soft:rgba(251,191,36,.12);
+          --warning-border:rgba(251,191,36,.28);
         }
 
         *{ box-sizing:border-box; }
@@ -337,14 +384,14 @@ function FontsAndTheme() {
           margin:0;
           background:var(--bg);
           color:var(--text);
-          font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
+          font-family:var(--font-body);
           -webkit-font-smoothing:antialiased;
           text-rendering:optimizeLegibility;
         }
 
         .atlas-root{
           min-height:100vh;
-          font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
+          font-family:var(--font-body);
           background:
             radial-gradient(620px 360px at 100% -8%, rgba(139,92,246,.075), transparent 68%),
             radial-gradient(520px 320px at -10% 40%, rgba(65,255,167,.045), transparent 72%),
@@ -355,63 +402,63 @@ function FontsAndTheme() {
         /* Typography: one display face and one reading face, with clear hierarchy. */
         .atlas-root h1,.atlas-root h2,.atlas-root h3,
         .atlas-root .atlas-display{
-          font-family:'Manrope',ui-sans-serif,system-ui,sans-serif!important;
+          font-family:var(--font-display)!important;
           color:var(--text);
         }
         .atlas-display{ letter-spacing:-.028em; }
         .atlas-root h1{
-          font-size:30px;
-          line-height:1.08;
-          letter-spacing:-.035em;
-          font-weight:800;
+          font-size:var(--type-display);
+          line-height:var(--line-display);
+          letter-spacing:var(--tracking-display);
+          font-weight:var(--weight-extrabold);
           margin:0 0 20px;
         }
         .atlas-root h2{
-          font-size:24px;
-          line-height:1.14;
-          letter-spacing:-.028em;
-          font-weight:750;
+          font-size:var(--type-headline);
+          line-height:var(--line-headline);
+          letter-spacing:var(--tracking-headline);
+          font-weight:var(--weight-bold);
           margin:0 0 16px;
         }
         .atlas-root h3{
-          font-size:18px;
-          line-height:1.2;
-          letter-spacing:-.018em;
-          font-weight:700;
+          font-size:var(--type-title);
+          line-height:var(--line-title);
+          letter-spacing:var(--tracking-title);
+          font-weight:var(--weight-bold);
           margin:0 0 10px;
         }
         .atlas-root p{
           margin:0 0 14px;
-          font-size:15px;
-          line-height:1.55;
+          font-size:var(--type-body);
+          line-height:var(--line-body);
           color:var(--text-secondary);
         }
         .atlas-root small{
-          font-size:12px;
+          font-size:var(--type-micro);
           line-height:1.45;
         }
         .atlas-root button,
         .atlas-root input,
         .atlas-root textarea,
         .atlas-root select{
-          font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
+          font-family:var(--font-body);
         }
         .atlas-root button{
-          font-weight:650;
+          font-weight:var(--weight-semibold);
           line-height:1.2;
           text-align:center;
           vertical-align:middle;
           letter-spacing:-.01em;
         }
         .atlas-root input,.atlas-root textarea{
-          line-height:1.45;
-          font-size:14px;
+          line-height:var(--line-body-compact);
+          font-size:var(--type-body-compact);
         }
         .atlas-root label{
-          font-size:12px;
+          font-size:var(--type-label);
           line-height:1.35;
           color:var(--text-muted);
-          font-weight:600;
+          font-weight:var(--weight-semibold);
         }
         .atlas-root span{ line-height:1.35; }
 
@@ -618,7 +665,7 @@ function FontsAndTheme() {
         html{ scroll-behavior:smooth; }
         button,input,textarea,select{ -webkit-tap-highlight-color:transparent; }
         .atlas-root{ isolation:isolate; }
-        .atlas-root > div{ width:min(100%,448px); }
+        .atlas-root > div{ width:min(100%,var(--content-max)); }
 
         .atlas-root .atlas-display{ font-weight:700; }
         .atlas-root .atlas-display strong{ font-weight:800; }
@@ -710,7 +757,7 @@ function FontsAndTheme() {
         .atlas-fixed-toast.atlas-toast-exiting{animation:atlas-toast-out .17s ease-in both;}
         .atlas-fixed-toast--success{background:var(--mint-soft);border-color:var(--mint-strong);color:var(--mint);}
         .atlas-fixed-toast--error{background:var(--red-soft);border-color:var(--red-border);color:var(--red);box-shadow:0 10px 26px rgba(0,0,0,.20);}
-        .atlas-fixed-toast--warning{background:var(--gold-soft);border-color:var(--mint-strong);color:var(--gold);box-shadow:0 10px 26px rgba(0,0,0,.20);}
+        .atlas-fixed-toast--warning{background:var(--warning-soft);border-color:var(--warning-border);color:var(--warning);box-shadow:0 10px 26px rgba(0,0,0,.20);}
         .atlas-root input:not([type="range"]):focus,.atlas-root textarea:focus,.atlas-root select:focus{border-color:rgba(139,92,246,.82)!important;box-shadow:0 0 0 3px rgba(139,92,246,.13),0 6px 18px rgba(0,0,0,.12);outline:none;}
 
         /* More consistent control geometry. */
@@ -721,10 +768,13 @@ function FontsAndTheme() {
         .atlas-root hr{ border:0; border-top:1px solid var(--border); margin:16px 0; }
 
         @media (max-width:380px){
-          .atlas-root h1{font-size:27px;}
-          .atlas-root h2{font-size:22px;}
-          .atlas-root h3{font-size:17px;}
-          .atlas-root p{font-size:14px;}
+          :root{
+            --type-display:27px;
+            --type-headline:22px;
+            --type-title:17px;
+            --type-body:14px;
+          }
+          .atlas-root p{font-size:var(--type-body-compact);}
         }
         @media (prefers-reduced-motion:reduce){
           *,*::before,*::after{
@@ -808,7 +858,7 @@ function ShotThumb({ shot, big = false, onOpen }) {
         {shot.status === 'pending' && (
           <span style={{
             position: 'absolute', top: 5, right: 5, fontSize: 9, fontWeight: 700,
-            background: 'var(--gold-soft)', color: 'var(--gold)', padding: '2px 6px', borderRadius: 999,
+            background: 'var(--warning-soft)', color: 'var(--warning)', padding: '2px 6px', borderRadius: 999,
           }}>на проверке</span>
         )}
       </button>
@@ -1784,7 +1834,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
     <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:14,padding:12,marginBottom:14}}>
       <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>Жители</div>
       {!readOnly&&<div style={{display:'flex',gap:8,marginBottom:10}}><input value={residentNick} onChange={e=>setResidentNick(e.target.value)} placeholder="Ник Minecraft" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'9px 12px',color:'var(--text)',fontSize:13}}/><button onClick={addResident} className="press" style={iconBtn('var(--purple)','#fff',true)}><UserPlus size={15}/></button></div>}
-      <div style={{display:'flex',flexDirection:'column',gap:7}}>{members.map(m=><div key={m.telegram_id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderTop:'1px solid var(--border)'}}><AvatarHead nickname={m.mc_nickname} skinUrl={m.skin_url} size={32}/><div style={{flex:1,minWidth:0}}><MinecraftText as="div" text={m.mc_nickname||'Без ника'} style={{fontSize:12.5,fontWeight:700}}/><div style={{fontSize:10.5,color:'var(--text-muted)'}}>{m.telegram_username?`@${String(m.telegram_username).replace(/^@/,'')}`:'Username не указан'}</div></div>{!readOnly&&<><button onClick={()=>promoteResident(m.telegram_id)} className="press" title="Повысить до основателя/мэра" style={{border:'none',background:'var(--gold-soft)',color:'var(--gold)',borderRadius:8,padding:'6px 8px',fontSize:10.5}}><ChevronUp size={14}/></button><button onClick={()=>removeResident(m.telegram_id)} className="press" title="Удалить" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:8,padding:'6px 8px'}}><X size={13}/></button></>}</div>)}{invites.map(inv=><div key={inv.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderTop:'1px solid var(--border)'}}><div style={{width:32,height:32,borderRadius:'50%',background:'var(--gold-soft)',display:'flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto'}}><Clock size={14} color="var(--gold)"/></div><div style={{flex:1,minWidth:0}}><MinecraftText as="div" text={inv.target_nickname} style={{fontSize:12.5,fontWeight:700}}/><div style={{fontSize:10.5,color:'var(--gold)'}}>Ожидает ответа</div></div>{!readOnly&&<button onClick={()=>cancelInvite(inv.id)} className="press" style={{border:'none',background:'transparent',color:'var(--red)',padding:6}}><X size={14}/></button>}</div>)}{!members.length&&!invites.length&&<div style={{fontSize:12,color:'var(--text-muted)',paddingTop:4}}>Жителей и приглашений пока нет.</div>}</div>
+      <div style={{display:'flex',flexDirection:'column',gap:7}}>{members.map(m=><div key={m.telegram_id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderTop:'1px solid var(--border)'}}><AvatarHead nickname={m.mc_nickname} skinUrl={m.skin_url} size={32}/><div style={{flex:1,minWidth:0}}><MinecraftText as="div" text={m.mc_nickname||'Без ника'} style={{fontSize:12.5,fontWeight:700}}/><div style={{fontSize:10.5,color:'var(--text-muted)'}}>{m.telegram_username?`@${String(m.telegram_username).replace(/^@/,'')}`:'Username не указан'}</div></div>{!readOnly&&<><button onClick={()=>promoteResident(m.telegram_id)} className="press" title="Повысить до основателя/мэра" style={{border:'none',background:'var(--gold-soft)',color:'var(--gold)',borderRadius:8,padding:'6px 8px',fontSize:10.5}}><ChevronUp size={14}/></button><button onClick={()=>removeResident(m.telegram_id)} className="press" title="Удалить" style={{border:'none',background:'var(--red-soft)',color:'var(--red)',borderRadius:8,padding:'6px 8px'}}><X size={13}/></button></>}</div>)}{invites.map(inv=><div key={inv.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderTop:'1px solid var(--border)'}}><div style={{width:32,height:32,borderRadius:'50%',background:'var(--warning-soft)',display:'flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto'}}><Clock size={14} color="var(--warning)"/></div><div style={{flex:1,minWidth:0}}><MinecraftText as="div" text={inv.target_nickname} style={{fontSize:12.5,fontWeight:700}}/><div style={{fontSize:10.5,color:'var(--warning)'}}>Ожидает ответа</div></div>{!readOnly&&<button onClick={()=>cancelInvite(inv.id)} className="press" style={{border:'none',background:'transparent',color:'var(--red)',padding:6}}><X size={14}/></button>}</div>)}{!members.length&&!invites.length&&<div style={{fontSize:12,color:'var(--text-muted)',paddingTop:4}}>Жителей и приглашений пока нет.</div>}</div>
     </div>
     <div style={{fontSize:12,fontWeight:700,marginBottom:8}}>Оформление территории</div>
     <div style={{fontSize:11.5,color:'var(--text-muted)',marginBottom:7}}>Метка</div>
@@ -1833,14 +1883,14 @@ function TreasuryCard({city,initData,tgUser}={}){
       <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:14,padding:'11px 12px'}}><div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:6}}>В казне</div><div className="atlas-display" style={{fontSize:22,fontWeight:800,color:'var(--gem)',display:'flex',alignItems:'center',gap:6}}>{data?.balance??0}<GemHex/></div></div>
       <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:14,padding:'11px 12px'}}><div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:6}}>Ваш баланс</div><div className="atlas-display" style={{fontSize:22,fontWeight:800,color:'var(--gem)',display:'flex',alignItems:'center',gap:6}}>{data?.personal_balance??0}<GemHex/></div></div>
     </div>
-    <div style={{display:'flex',gap:8}}><input value={amount} onChange={e=>setAmount(e.target.value.replace(/\D/g,''))} inputMode="numeric" placeholder="Количество сц" style={{flex:1,minWidth:0,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:12,padding:'11px 12px',color:'var(--text)',fontSize:14}}/><button onClick={deposit} disabled={busy||!amount} className="press" style={{border:'none',borderRadius:12,padding:'10px 14px',background:'var(--purple)',color:'#fff',fontWeight:750,whiteSpace:'nowrap'}}>{busy?'…':'Пополнить казну'}</button></div>
+    <div style={{display:'flex',gap:8}}><input value={amount} onChange={e=>setAmount(e.target.value.replace(/\D/g,''))} inputMode="numeric" placeholder="Количество сц" style={{flex:1,minWidth:0,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:12,padding:'11px 12px',color:'var(--text)',fontSize:14}}/><button onClick={deposit} disabled={busy||!amount} className="press" style={{border:'none',borderRadius:12,padding:'10px 14px',background:'var(--purple)',color:'#fff',fontWeight:700,whiteSpace:'nowrap'}}>{busy?'…':'Пополнить казну'}</button></div>
     {error&&<div style={{fontSize:12,color:'var(--red)',marginTop:9}}>{error}</div>}
     {notice&&<FixedToast key={notice} message={notice}/>}
   </div>;
 }
 function SettingsToggle({ checked, onChange, disabled = false, label, description }) {
   return <div style={{display:'flex',alignItems:'center',gap:12,padding:'11px 0',opacity:disabled?0.48:1}}>
-    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13.5,fontWeight:650,color:'var(--text)',lineHeight:1.3}}>{label}</div>{description&&<div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.4,marginTop:4}}>{description}</div>}</div>
+    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13.5,fontWeight:600,color:'var(--text)',lineHeight:1.3}}>{label}</div>{description&&<div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.4,marginTop:4}}>{description}</div>}</div>
     <button type="button" role="switch" aria-checked={Boolean(checked)} disabled={disabled} onClick={()=>onChange(!checked)} className="press" style={{width:48,height:28,borderRadius:999,border:`1px solid ${checked?'var(--purple-border)':'var(--border)'}`,background:checked?'var(--purple-soft)':'var(--surface-2)',padding:3,display:'flex',alignItems:'center',justifyContent:checked?'flex-end':'flex-start',flexShrink:0,cursor:disabled?'default':'pointer'}}><span style={{width:20,height:20,borderRadius:'50%',background:checked?'var(--purple)':'var(--text-muted)',display:'block',transition:'all .16s'}}/></button>
   </div>;
 }
@@ -1900,29 +1950,29 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
   return <div className={'atlas-overlay'+(closing?' atlas-closing':'')} style={{position:'fixed',inset:0,zIndex:130,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center',padding:'18px 14px'}} onClick={requestClose}>
     <div onClick={e=>e.stopPropagation()} className={'atlas-modal-shell'+(closing?' atlas-closing':'')} style={{width:'min(448px,100%)',maxHeight:'84vh',overflowY:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:22,padding:18,boxSizing:'border-box'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:16}}>
-        <div className="atlas-display" style={{fontSize:19,fontWeight:750}}>Настройки</div>
+        <div className="atlas-display" style={{fontSize:19,fontWeight:700}}>Настройки</div>
         <button onClick={requestClose} className="press" aria-label="Закрыть настройки" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button>
       </div>
       {loading?<div style={{padding:'24px 0',textAlign:'center',fontSize:13,color:'var(--text-muted)'}}>Загрузка настроек…</div>:!settings?<div style={{fontSize:12.5,color:'var(--red)',lineHeight:1.5}}>
         {error||'Настройки недоступны.'}
         <button onClick={()=>setReloadToken(value=>value+1)} className="press" style={{display:'block',marginTop:10,padding:'8px 12px',borderRadius:10,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Повторить</button>
       </div>:<>
-        <div style={{fontSize:15,fontWeight:750,marginBottom:8}}>Основные</div>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:8}}>Основные</div>
         <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:7}}>Тема</div>
-        <div role="status" aria-label="Выбранная тема: Vox" style={{display:'flex',alignItems:'center',padding:'11px 12px',minHeight:20,borderRadius:11,border:'1px solid var(--purple-border)',background:'var(--purple-soft)',color:'var(--purple)',fontSize:13,fontWeight:750,marginBottom:14}}>Vox</div>
+        <div role="status" aria-label="Выбранная тема: Vox" style={{display:'flex',alignItems:'center',padding:'11px 12px',minHeight:20,borderRadius:11,border:'1px solid var(--purple-border)',background:'var(--purple-soft)',color:'var(--purple)',fontSize:13,fontWeight:700,marginBottom:14}}>Vox</div>
         <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:6}}>Часовой пояс</div>
         <input value={settings.timezone||'UTC+3'} onChange={e=>patch({timezone:keepUtcPrefix(e.target.value)})} onBlur={()=>patch({timezone:normalizeTimezoneOffset(settings.timezone)})} placeholder="UTC+3" aria-label="Часовой пояс" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:11,padding:'11px 12px',color:'var(--text)',fontSize:14,marginBottom:16}}/>
         <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:7}}>Масштаб карты</div>
         <input type="range" className="slider-player" min="1" max="100" step="1" value={settings.personalMapZoomPercent??88} onChange={e=>{setPersonalZoomChanged(true);patch({personalMapZoomPercent:normalizeMapZoomPercent(e.target.value)})}} style={{'--slider-progress':`${((settings.personalMapZoomPercent??88)-1)/99*100}%`,width:'100%',margin:'4px 0 2px'}}/>
         <div style={{fontSize:12,color:'var(--text)',fontWeight:700,textAlign:'center',marginBottom:16}}>{settings.personalMapZoomPercent??88}%</div>
-        <div style={{fontSize:15,fontWeight:750,marginBottom:4}}>Уведомления</div>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>Уведомления</div>
         <div style={{borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)',marginBottom:9}}>
           <SettingsToggle label="Уведомления о новых ивентах" description="Сообщение от бота при создании каждого нового ивента" checked={Boolean(settings.eventNotifications)} onChange={enabled=>patch({eventNotifications:enabled})}/>
         </div>
         {(settings.territories||[]).length>0&&<div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:4}}>Уведомления территорий</div>}
         {(settings.territories||[]).map(item=><div key={item.id} style={{borderBottom:'1px solid var(--border)'}}><SettingsToggle label={<span>Территория <MinecraftText text={item.name}/></span>} description={item.role==='manager'?'Основатель/мэр':'Житель'} checked={Boolean(item.enabled)} onChange={enabled=>changeTerritory(item.id,enabled)}/></div>)}
         {error&&<div role="alert" style={{fontSize:12,color:'var(--red)',marginTop:10}}>{error}</div>}
-        <button onClick={save} disabled={saving} className="press" style={{width:'100%',marginTop:16,padding:'12px',border:'none',borderRadius:12,background:'var(--purple)',color:'#fff',fontSize:14,fontWeight:750}}>{saving?'Сохранение…':'Сохранить настройки'}</button>
+        <button onClick={save} disabled={saving} className="press" style={{width:'100%',marginTop:16,padding:'12px',border:'none',borderRadius:12,background:'var(--purple)',color:'#fff',fontSize:14,fontWeight:700}}>{saving?'Сохранение…':'Сохранить настройки'}</button>
       </>}
     </div>
   </div>;
@@ -1994,15 +2044,15 @@ function GlobalSettingsPanel({ initData, onSettingsChanged, onClose, timezoneOff
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:8}}><div className="atlas-display" style={{fontSize:19,fontWeight:800}}>Глобальные настройки</div><button onClick={requestClose} className="press" aria-label="Закрыть глобальные настройки" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>
       <div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.45,marginBottom:14}}>Каждая настройка включается и снимается независимо. Глобальные значения временно заменяют личные настройки пользователей, пока те не выберут собственное значение или пока не закончится срок действия.</div>
       {loading?<div style={{padding:16,color:'var(--text-muted)',fontSize:12}}>Загрузка…</div>:<>
-        <div style={sectionStyle}><div style={{fontSize:13,fontWeight:750,marginBottom:4}}>Тема</div><div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{status(themeRow)}</div>
+        <div style={sectionStyle}><div style={{fontSize:13,fontWeight:700,marginBottom:4}}>Тема</div><div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{status(themeRow)}</div>
           <select value={theme} onChange={e=>setTheme(e.target.value)} style={{width:'100%',minHeight:40,boxSizing:'border-box',border:'1px solid var(--border)',borderRadius:9,background:'var(--surface)',color:'var(--text)',padding:'8px 10px',fontSize:13,marginBottom:9}}><option value="vox">Vox</option></select>
           <div style={{display:'flex',gap:7,flexWrap:'wrap'}}><button onClick={()=>apply('theme',false)} disabled={busy} className="press" style={{...actionStyle,flex:'1 1 130px'}}>Применить до даты</button><button onClick={()=>apply('theme',true)} disabled={busy} className="press" style={secondaryStyle}>Навсегда</button><button onClick={()=>clear('theme')} disabled={busy||!themeRow?.active} className="press" style={secondaryStyle}>Снять тему</button></div>
         </div>
-        <div style={sectionStyle}><div style={{fontSize:13,fontWeight:750,marginBottom:4}}>Масштаб карты</div><div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{status(zoomRow)}</div>
+        <div style={sectionStyle}><div style={{fontSize:13,fontWeight:700,marginBottom:4}}>Масштаб карты</div><div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{status(zoomRow)}</div>
           <input type="range" min="1" max="100" step="1" value={mapZoom} onChange={e=>setMapZoom(normalizeMapZoomPercent(e.target.value))} style={{width:'100%',accentColor:'var(--mint)'}}/><div style={{fontSize:12,color:'var(--text)',fontWeight:700,textAlign:'center',marginBottom:9}}>{mapZoom}%</div>
           <div style={{display:'flex',gap:7,flexWrap:'wrap'}}><button onClick={()=>apply('map_zoom',false)} disabled={busy} className="press" style={{...actionStyle,flex:'1 1 130px'}}>Применить до даты</button><button onClick={()=>apply('map_zoom',true)} disabled={busy} className="press" style={secondaryStyle}>Навсегда</button><button onClick={()=>clear('map_zoom')} disabled={busy||!zoomRow?.active} className="press" style={secondaryStyle}>Снять масштаб</button></div>
         </div>
-        <div style={{fontSize:12,fontWeight:750,marginBottom:3}}>Срок действия для применения до даты</div><div style={{fontSize:10.5,color:'var(--text-muted)',marginBottom:4}}>Время указано по часовому поясу вашего профиля: {normalizeTimezoneOffset(timezoneOffset)}</div><EventDateTimeFields parts={expiresAtParts} onChange={setExpiresAtParts} includeYear timezoneOffset={timezoneOffset}/>
+        <div style={{fontSize:12,fontWeight:700,marginBottom:3}}>Срок действия для применения до даты</div><div style={{fontSize:10.5,color:'var(--text-muted)',marginBottom:4}}>Время указано по часовому поясу вашего профиля: {normalizeTimezoneOffset(timezoneOffset)}</div><EventDateTimeFields parts={expiresAtParts} onChange={setExpiresAtParts} includeYear timezoneOffset={timezoneOffset}/>
       </>}
       {error&&<div role="alert" style={{fontSize:12,color:'var(--red)',marginTop:10}}>{error}</div>}{notice&&<div role="status" style={{fontSize:12,color:'var(--mint)',marginTop:10}}>{notice}</div>}
       <div style={{fontSize:10.5,color:'var(--text-muted)',lineHeight:1.4,marginTop:10}}>Тема: {status(themeRow)}. Масштаб: {status(zoomRow)}.</div>
@@ -2028,7 +2078,7 @@ function ProfileScreen({ profile, profileLoadState, profileLoadError, claimNickn
   return <div className="atlas-page atlas-page--profile" style={{padding:'18px 16px 40px',minHeight:'60vh'}}>
     <div className="atlas-display atlas-page-title" style={{fontSize:22,fontWeight:700,marginBottom:4}}>Профиль</div>
     {profileLoadError&&<div role="status" style={{display:'flex',alignItems:'center',gap:10,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:12,padding:12,marginBottom:12,fontSize:12.5,lineHeight:1.45}}><span style={{flex:1,color:'var(--text-muted)'}}>{profileLoadError}{profileLoadState!=='error'?' Последние подтверждённые данные сохранены.':''}</span><button onClick={refreshProfile} className="press" style={{border:'1px solid var(--border)',borderRadius:10,background:'var(--surface)',color:'var(--text)',padding:'8px 10px',fontWeight:700,flexShrink:0}}>Повторить</button></div>}
-    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}><AvatarHead nickname={profile.status==='verified'?profile.nickname:null} skinUrl={profile.status==='verified'?profile.skinUrl:null} size={46}/><div><div style={{fontSize:15,fontWeight:600}}>{profileLoadState==='error'?'Профиль временно недоступен':<MinecraftText text={profile.nickname||'Ник не указан'}/>}</div>{isInspector?<div style={{fontSize:11.5,color:'var(--gold)',display:'flex',alignItems:'center',gap:4,fontWeight:700}}><ShieldCheck size={12}/>{isMainInspector?'Главный инспектор':'Инспектор'}</div>:profile.status==='verified'?<div style={{fontSize:11.5,color:'var(--emerald)'}}>Ник подтверждён</div>:profile.status==='pending'?<div style={{fontSize:11.5,color:'var(--gold)'}}>Ожидает подтверждения инспектора</div>:<div style={{fontSize:11.5,color:'var(--text-muted)'}}>Ник в Minecraft</div>}</div><div style={{display:'flex',alignItems:'center',gap:6,marginLeft:'auto',flexShrink:0}}>
+    <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}><AvatarHead nickname={profile.status==='verified'?profile.nickname:null} skinUrl={profile.status==='verified'?profile.skinUrl:null} size={46}/><div><div style={{fontSize:15,fontWeight:600}}>{profileLoadState==='error'?'Профиль временно недоступен':<MinecraftText text={profile.nickname||'Ник не указан'}/>}</div>{isInspector?<div style={{fontSize:11.5,color:'var(--gold)',display:'flex',alignItems:'center',gap:4,fontWeight:700}}><ShieldCheck size={12}/>{isMainInspector?'Главный инспектор':'Инспектор'}</div>:profile.status==='verified'?<div style={{fontSize:11.5,color:'var(--emerald)'}}>Ник подтверждён</div>:profile.status==='pending'?<div style={{fontSize:11.5,color:'var(--warning)'}}>Ожидает подтверждения инспектора</div>:<div style={{fontSize:11.5,color:'var(--text-muted)'}}>Ник в Minecraft</div>}</div><div style={{display:'flex',alignItems:'center',gap:6,marginLeft:'auto',flexShrink:0}}>
         <button type="button" onClick={()=>setSettingsOpen(true)} className="press" aria-label="Настройки профиля" title="Настройки" style={{width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--border)',borderRadius:12,background:'var(--surface-2)',color:'var(--text-muted)'}}><Settings size={18}/></button>
         {isMainInspector&&<button type="button" onClick={()=>onOpenGlobalSettings?.()} className="press" aria-label="Глобальные настройки" title="Глобальные настройки" style={{width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--mint)',borderRadius:12,background:'var(--mint)',color:'#06120D'}}><Settings size={18}/></button>}
       </div></div><div style={{fontSize:11.5,color:'var(--text-muted)',marginBottom:10}}>Telegram: {tgUser?`@${tgUser.username||'—'} · id ${tgUser.id}`:'не определён'}</div>{!isInspector&&profileLoadState==='needs_nickname'&&profile.status!=='verified'&&<><div style={{display:'flex',gap:8}}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ваш ник в Minecraft" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13}}/><button onClick={submit} className="press" style={iconBtn('var(--purple)','#fff',true)}><Pencil size={15}/></button></div>{error&&<div style={{fontSize:12,color:'var(--red)',marginTop:8}}>{error}</div>}</>}</div>
@@ -2428,7 +2478,7 @@ function ReplyBox({ onSend }) {
 function ResidentsModal({ residents, members = [], pendingInvites = [], ownerName, isOwner, onClose, newResident, setNewResident, onAdd, onRemove, onCancelInvite }) {
   const displayMembers=members.length?members:residents.map((name,i)=>({mc_nickname:name,fallback:i}));
   const { closing, requestClose } = useAnimatedClose(onClose, 175);
-  return <div className={`atlas-overlay${closing ? ' atlas-closing' : ''}`} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.82)',zIndex:60,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing ? ' atlas-closing' : ''}`} style={{width:'100%',maxWidth:448,background:'var(--surface)',borderRadius:22,border:'1px solid var(--border)',padding:18,maxHeight:'70vh',overflowY:'auto'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Жители</div><button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div><div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:isOwner?14:0}}>{displayMembers.length===0?<div style={{fontSize:12.5,color:'var(--text-muted)'}}>Список жителей пуст.</div>:displayMembers.map(m=><div key={m.telegram_id||m.fallback||m.mc_nickname} style={{display:'flex',alignItems:'center',gap:10,background:'var(--surface-2)',borderRadius:12,padding:'9px 12px'}}><User size={15} color="var(--text-muted)"/><MinecraftText text={m.mc_nickname||'Неизвестно'} style={{fontSize:13.5,flex:1}}/>{isOwner&&m.telegram_id&&<button onClick={()=>onRemove(m)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><Trash2 size={14}/></button>}</div>)}</div>{isOwner&&pendingInvites.length>0&&<div style={{marginBottom:14}}><div style={{fontSize:12,fontWeight:700,color:'var(--gold)',marginBottom:7}}>Ожидают ответа</div>{pendingInvites.map(inv=><div key={inv.id} style={{display:'flex',alignItems:'center',gap:8,background:'var(--gold-soft)',borderRadius:12,padding:'9px 10px',marginBottom:7}}><Clock size={14} color="var(--gold)"/><MinecraftText text={inv.target_nickname} style={{flex:1,fontSize:12.5}}/><button onClick={()=>onCancelInvite(inv.id)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><X size={15}/></button></div>)}</div>}{isOwner&&<div style={{display:'flex',gap:8}}><input value={newResident} onChange={e=>setNewResident(e.target.value)} placeholder="Ник игрока" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'9px 12px',color:'var(--text)',fontSize:13}}/><button onClick={onAdd} className="press" style={iconBtn('var(--purple)','#fff',true)}><UserPlus size={15}/></button></div>}</div></div>;
+  return <div className={`atlas-overlay${closing ? ' atlas-closing' : ''}`} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.82)',zIndex:60,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing ? ' atlas-closing' : ''}`} style={{width:'100%',maxWidth:448,background:'var(--surface)',borderRadius:22,border:'1px solid var(--border)',padding:18,maxHeight:'70vh',overflowY:'auto'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Жители</div><button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div><div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:isOwner?14:0}}>{displayMembers.length===0?<div style={{fontSize:12.5,color:'var(--text-muted)'}}>Список жителей пуст.</div>:displayMembers.map(m=><div key={m.telegram_id||m.fallback||m.mc_nickname} style={{display:'flex',alignItems:'center',gap:10,background:'var(--surface-2)',borderRadius:12,padding:'9px 12px'}}><User size={15} color="var(--text-muted)"/><MinecraftText text={m.mc_nickname||'Неизвестно'} style={{fontSize:13.5,flex:1}}/>{isOwner&&m.telegram_id&&<button onClick={()=>onRemove(m)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><Trash2 size={14}/></button>}</div>)}</div>{isOwner&&pendingInvites.length>0&&<div style={{marginBottom:14}}><div style={{fontSize:12,fontWeight:700,color:'var(--warning)',marginBottom:7}}>Ожидают ответа</div>{pendingInvites.map(inv=><div key={inv.id} style={{display:'flex',alignItems:'center',gap:8,background:'var(--warning-soft)',borderRadius:12,padding:'9px 10px',marginBottom:7}}><Clock size={14} color="var(--warning)"/><MinecraftText text={inv.target_nickname} style={{flex:1,fontSize:12.5}}/><button onClick={()=>onCancelInvite(inv.id)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><X size={15}/></button></div>)}</div>}{isOwner&&<div style={{display:'flex',gap:8}}><input value={newResident} onChange={e=>setNewResident(e.target.value)} placeholder="Ник игрока" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'9px 12px',color:'var(--text)',fontSize:13}}/><button onClick={onAdd} className="press" style={iconBtn('var(--purple)','#fff',true)}><UserPlus size={15}/></button></div>}</div></div>;
 }
 
 function RecruitmentScreen({ territories, onSelect }) {
@@ -2730,7 +2780,7 @@ function EventWheelColumn({ label, value, options, onChange }) {
     const node=scrollerRef.current;if(node){syncRef.current=true;node.scrollTop=index*rowHeight;requestAnimationFrame(()=>{syncRef.current=false;});}
   }
   return <label style={{display:'block',minWidth:0,flex:1}}>
-    <span style={{display:'block',fontSize:10.5,color:'var(--text-muted)',fontWeight:750,textAlign:'center',marginBottom:5}}>{label}</span>
+    <span style={{display:'block',fontSize:10.5,color:'var(--text-muted)',fontWeight:700,textAlign:'center',marginBottom:5}}>{label}</span>
     <div style={{position:'relative',height:108,borderRadius:12,overflow:'hidden',background:'var(--surface-2)',border:'1px solid var(--border)'}}>
       <div aria-hidden="true" style={{position:'absolute',zIndex:1,left:4,right:4,top:36,height:36,borderRadius:9,border:'1px solid var(--purple-border)',background:'var(--purple-soft)',pointerEvents:'none'}}/>
       <div ref={scrollerRef} onScroll={handleScroll} onPointerDown={startInteraction} onPointerUp={endInteraction} onPointerCancel={endInteraction} onTouchStart={startInteraction} onTouchEnd={endInteraction} role="listbox" aria-label={label} aria-activedescendant={`${label}-${value}`} tabIndex={0} style={{position:'relative',height:108,overflowY:'auto',overscrollBehaviorY:'contain',scrollSnapType:'y mandatory',scrollbarWidth:'none',touchAction:'pan-y',boxSizing:'border-box'}}>
@@ -2839,27 +2889,27 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
       setForm({title:'',coords:'',description:'',imageData:null,requestKey:null,requestAttempted:false});setPlaceId('');setDateParts(defaultEventDateParts(eventInputTimezone));setDateEdited(false);if(fileRef.current)fileRef.current.value='';setNotice(data?.replayed?'Ивент уже был создан ранее. Повтор не создал копию.':'Ивент создан');await onPublished?.(data);
     }catch(e){setError(safeCaughtError(e,'Не удалось опубликовать ивент.'));}finally{setBusy(false);}
   }
-  const selectBtn=(active)=>({display:'flex',alignItems:'center',gap:7,minHeight:42,maxWidth:'100%',border:active?'1px solid var(--purple)':'1px solid var(--border)',borderRadius:11,padding:'8px 11px',background:active?'var(--purple-soft)':'var(--surface-2)',color:active?'var(--purple)':'var(--text)',fontSize:12.5,fontWeight:750,textAlign:'left'});
+  const selectBtn=(active)=>({display:'flex',alignItems:'center',gap:7,minHeight:42,maxWidth:'100%',border:active?'1px solid var(--purple)':'1px solid var(--border)',borderRadius:11,padding:'8px 11px',background:active?'var(--purple-soft)':'var(--surface-2)',color:active?'var(--purple)':'var(--text)',fontSize:12.5,fontWeight:700,textAlign:'left'});
   return <section style={{marginTop:embedded?12:18,marginBottom:embedded?0:28,padding:embedded?0:15,background:embedded?'transparent':'var(--surface)',border:embedded?'none':'1px solid var(--border)',borderRadius:embedded?0:17,boxShadow:embedded?'none':'var(--shadow-sm)'}}>
     {!embedded&&<div style={{display:'flex',alignItems:'center',gap:10,marginBottom:15}}><div style={{width:40,height:40,borderRadius:12,background:'var(--purple-soft)',color:'var(--purple)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Plus size={20}/></div><div className="atlas-display" style={{fontSize:17,fontWeight:800,lineHeight:1.2}}>Создать ивент</div></div>}
-    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750}}>Название</label>
+    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:700}}>Название</label>
     <input value={form.title} onChange={e=>patch('title',e.target.value)} maxLength={160} placeholder="Название ивента" style={inputStyle}/>
-    <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15,marginBottom:8}}>Место проведения</div>
+    <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:15,marginBottom:8}}>Место проведения</div>
     <div style={{display:'flex',flexWrap:'wrap',gap:7}}>
       <button type="button" aria-pressed={!selectedPlace} onClick={()=>choosePlace('')} className="press" style={selectBtn(!selectedPlace)}>{!selectedPlace?<Check size={14}/>:<MapPin size={14} color="var(--text-muted)"/>}Не указано</button>
       {selectable.map(city=>{const active=String(placeId)===String(city.id);return <button type="button" key={city.id} aria-pressed={active} onClick={()=>choosePlace(city.id)} className="press" style={selectBtn(active)}>{active?<Check size={14}/>:<MapPin size={14} color="var(--text-muted)"/>}<MinecraftText text={city.name} style={{minWidth:0}}/></button>;})}
     </div>
-    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15}}>Дата и время начала</label>
+    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:15}}>Дата и время начала</label>
     <EventDateTimeFields parts={dateParts} onChange={parts=>{if(busy)return;setDateParts(parts);setDateEdited(true);setForm(v=>({...v,requestKey:v.requestAttempted?null:v.requestKey,requestAttempted:false}));}}/>
-    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15}}>Координаты</label>
+    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:15}}>Координаты</label>
     <input value={formatEventCoords(form.coords)} onChange={e=>patch('coords',sanitizeEventCoords(e.target.value))} type="text" autoCapitalize="off" autoCorrect="off" placeholder="X / Z" style={inputStyle}/>
-    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15}}>Описание</label>
+    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:15}}>Описание</label>
     <textarea value={form.description} onChange={e=>patch('description',e.target.value.slice(0,542))} rows={4} maxLength={542} placeholder="Расскажите о событии" style={{...inputStyle,minHeight:104,resize:'none'}}/>
-    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:15}}>Обложка</label>
+    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:15}}>Обложка</label>
     <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseImage} style={{display:'none'}}/>
     <button type="button" onClick={()=>fileRef.current?.click()} className="press" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'100%',minHeight:46,marginTop:6,border:'1px solid var(--purple-border)',borderRadius:11,background:'var(--purple-soft)',color:'var(--purple)',fontWeight:800,fontSize:13}}><ImagePlus size={17}/>Выбрать файл</button>
     {fileRef.current?.files?.[0]?.name&&<div style={{fontSize:11.5,color:'var(--text-muted)',marginTop:6,overflowWrap:'anywhere'}}>{fileRef.current.files[0].name}</div>}
-    {form.imageData&&<div style={{marginTop:10}}><img src={form.imageData} alt="Предпросмотр обложки" style={{display:'block',width:'100%',maxHeight:180,objectFit:'cover',borderRadius:12}}/><button type="button" onClick={()=>{patch('imageData',null);if(fileRef.current)fileRef.current.value='';}} className="press" style={{minHeight:40,border:0,background:'transparent',color:'var(--red)',padding:'6px 0',fontWeight:750}}>Убрать обложку</button></div>}
+    {form.imageData&&<div style={{marginTop:10}}><img src={form.imageData} alt="Предпросмотр обложки" style={{display:'block',width:'100%',maxHeight:180,objectFit:'cover',borderRadius:12}}/><button type="button" onClick={()=>{patch('imageData',null);if(fileRef.current)fileRef.current.value='';}} className="press" style={{minHeight:40,border:0,background:'transparent',color:'var(--red)',padding:'6px 0',fontWeight:700}}>Убрать обложку</button></div>}
     <button onClick={publish} disabled={busy||imageBusy} className="press event-publish-button" style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:8,minHeight:47,marginTop:17,border:0,borderRadius:11,padding:'12px 14px',background:'var(--purple)',color:'#fff',fontWeight:800,fontSize:14,opacity:1,filter:'none'}}><CalendarDays size={17}/>{busy?'Публикация…':'Опубликовать ивент'}</button>
     {error&&<div role="alert" style={{marginTop:10,border:'1px solid var(--red-border)',background:'var(--red-soft)',borderRadius:10,padding:10,fontSize:12.5,color:'var(--red)'}}>{error}</div>}
     {notice&&<FixedToast key={notice} message={notice}/>}
@@ -2904,11 +2954,11 @@ function EventInlineEditor({ initData, event, territories = [], tgUser = null, i
   return <div style={{border:'1px solid var(--purple-border)',background:'var(--surface-2)',borderRadius:13,padding:12,marginBottom:10}}>
     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}><div style={{fontSize:13,fontWeight:800,flex:1,minWidth:0}}>Редактировать ивент</div><button type="button" onClick={removeEvent} disabled={busy} title="Удалить ивент" aria-label="Удалить ивент" className="press" style={{width:36,height:36,flex:'0 0 auto',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--red-border)',borderRadius:10,background:'var(--red-soft)',color:'var(--red)'}}><Trash2 size={15}/></button></div>
     <label style={{fontSize:12,color:'var(--text-muted)',fontWeight:700}}>Название</label><input value={form.title} onChange={e=>patch('title',e.target.value.slice(0,160))} maxLength={160} style={inputStyle}/>
-    <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:12,marginBottom:7}}>Место проведения</div>
+    <div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:12,marginBottom:7}}>Место проведения</div>
     <div style={{display:'flex',flexWrap:'wrap',gap:6}}><button type="button" onClick={()=>patch('territoryId','')} className="press" style={{...eventManagePlaceStyle(!form.territoryId),minHeight:40}}>Не указано</button>{selectable.map(city=><button key={city.id} type="button" onClick={()=>patch('territoryId',String(city.id))} className="press" style={{...eventManagePlaceStyle(String(form.territoryId)===String(city.id)),minHeight:40}}><MinecraftText text={city.name}/></button>)}</div>
-    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:13}}>Дата и время начала</label><EventDateTimeFields parts={form.dateParts} onChange={parts=>setForm(v=>({...v,dateParts:parts,dateChanged:true}))}/>
-    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:13}}>Координаты</label><input value={formatEventCoords(form.coords)} onChange={e=>patch('coords',sanitizeEventCoords(e.target.value))} type="text" autoCapitalize="off" autoCorrect="off" placeholder="X / Z" style={inputStyle}/>
-    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:750,marginTop:13}}>Описание</label><textarea value={form.description} onChange={e=>patch('description',e.target.value.slice(0,542))} rows={4} maxLength={542} placeholder="Расскажите о событии" style={{...inputStyle,resize:'none',minHeight:95}}/>
+    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:13}}>Дата и время начала</label><EventDateTimeFields parts={form.dateParts} onChange={parts=>setForm(v=>({...v,dateParts:parts,dateChanged:true}))}/>
+    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:13}}>Координаты</label><input value={formatEventCoords(form.coords)} onChange={e=>patch('coords',sanitizeEventCoords(e.target.value))} type="text" autoCapitalize="off" autoCorrect="off" placeholder="X / Z" style={inputStyle}/>
+    <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:13}}>Описание</label><textarea value={form.description} onChange={e=>patch('description',e.target.value.slice(0,542))} rows={4} maxLength={542} placeholder="Расскажите о событии" style={{...inputStyle,resize:'none',minHeight:95}}/>
     <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseImage} style={{display:'none'}}/><button type="button" onClick={()=>fileRef.current?.click()} className="press" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:7,width:'100%',minHeight:42,marginTop:10,border:'1px solid var(--purple-border)',borderRadius:10,background:'var(--purple-soft)',color:'var(--purple)',fontWeight:800}}><ImagePlus size={16}/>Изменить обложку</button>{form.imageData&&<div style={{marginTop:9}}><img src={form.imageData} alt="Обложка" style={{display:'block',width:'100%',maxHeight:150,objectFit:'cover',borderRadius:10}}/><button type="button" onClick={()=>patch('imageData',null)} className="press" style={{border:0,background:'transparent',color:'var(--red)',padding:'8px 0',fontWeight:700}}>Убрать обложку</button></div>}
     {error&&<div role="alert" style={{border:'1px solid var(--red-border)',background:'var(--red-soft)',borderRadius:10,padding:9,marginTop:10,fontSize:12,color:'var(--red)'}}>{error}</div>}
     <div style={{display:'flex',gap:8,marginTop:12}}><button onClick={save} disabled={busy||!form.title.trim()} className="press" style={{flex:1,border:0,borderRadius:10,minHeight:42,background:'var(--purple)',color:'#fff',fontWeight:800}}>Сохранить</button><button onClick={onCancel} disabled={busy} className="press" style={{border:'1px solid var(--border)',borderRadius:10,padding:'0 12px',background:'var(--surface)',color:'var(--text)',fontWeight:700}}>Отмена</button></div>
@@ -2929,7 +2979,7 @@ function EventManagementPanel({ initData, territories = [], timezoneOffset = 'UT
   async function remove(event){if(!window.confirm(`Удалить ивент «${event.title}»?`))return;try{setBusy(true);setError('');const r=await fetch(`${API_BASE}/api/events`,{method:'DELETE',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,id:event.id})}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(apiErrorMessage(r,d,'Не удалось удалить ивент.'));if(editingId===event.id)cancelEdit();setNotice('Ивент удалён');await load();}catch(e){setError(safeCaughtError(e,'Не удалось удалить ивент.'));}finally{setBusy(false);}}
   return <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:14,marginTop:16,marginBottom:20}}>
     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}><CalendarDays size={17} color="var(--purple)"/><div className="atlas-display" style={{fontSize:16,fontWeight:800}}>Управление ивентами</div><span style={{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}}>{events.length}</span></div>
-    {loading&&!events.length?null:!events.length?<div style={{fontSize:12,color:'var(--text-muted)'}}>Опубликованных ивентов нет.</div>:events.map(event=><div key={event.id} style={{display:'flex',alignItems:'center',gap:8,padding:'9px 0',borderBottom:'1px solid var(--border)'}}><div style={{flex:1,minWidth:0}}><MinecraftText text={event.title} as="div" style={{fontSize:13,fontWeight:750}}/><div style={{fontSize:11,color:'var(--text-muted)',marginTop:3}}>{eventDateLabel(event.event_at,timezoneOffset)}</div></div>{Number(event.event_at)>Date.now()&&<button onClick={()=>startEdit(event)} disabled={!timezoneReady} className="press" style={{border:'1px solid var(--purple-border)',borderRadius:9,background:'var(--purple-soft)',color:'var(--purple)',padding:8,minWidth:42,minHeight:42,opacity:timezoneReady?1:.55}} title="Изменить"><Pencil size={14}/></button>}<button onClick={()=>remove(event)} disabled={busy} className="press" style={{border:'1px solid var(--red-border)',borderRadius:9,background:'var(--red-soft)',color:'var(--red)',padding:8,minWidth:42,minHeight:42}} title="Удалить"><Trash2 size={14}/></button></div>)}
+    {loading&&!events.length?null:!events.length?<div style={{fontSize:12,color:'var(--text-muted)'}}>Опубликованных ивентов нет.</div>:events.map(event=><div key={event.id} style={{display:'flex',alignItems:'center',gap:8,padding:'9px 0',borderBottom:'1px solid var(--border)'}}><div style={{flex:1,minWidth:0}}><MinecraftText text={event.title} as="div" style={{fontSize:13,fontWeight:700}}/><div style={{fontSize:11,color:'var(--text-muted)',marginTop:3}}>{eventDateLabel(event.event_at,timezoneOffset)}</div></div>{Number(event.event_at)>Date.now()&&<button onClick={()=>startEdit(event)} disabled={!timezoneReady} className="press" style={{border:'1px solid var(--purple-border)',borderRadius:9,background:'var(--purple-soft)',color:'var(--purple)',padding:8,minWidth:42,minHeight:42,opacity:timezoneReady?1:.55}} title="Изменить"><Pencil size={14}/></button>}<button onClick={()=>remove(event)} disabled={busy} className="press" style={{border:'1px solid var(--red-border)',borderRadius:9,background:'var(--red-soft)',color:'var(--red)',padding:8,minWidth:42,minHeight:42}} title="Удалить"><Trash2 size={14}/></button></div>)}
     {form&&<div style={{borderTop:'1px solid var(--border)',marginTop:13,paddingTop:13}}><div style={{display:'flex',alignItems:'center',gap:8,marginBottom:9}}><div style={{fontSize:13,fontWeight:800,flex:1,minWidth:0}}>Редактировать ивент</div><button type="button" onClick={()=>{const event=events.find(item=>String(item.id)===String(editingId));if(event)remove(event);}} disabled={busy} title="Удалить ивент" aria-label="Удалить ивент" className="press" style={{width:36,height:36,flex:'0 0 auto',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--red-border)',borderRadius:10,background:'var(--red-soft)',color:'var(--red)'}}><Trash2 size={15}/></button></div><label style={{fontSize:12,color:'var(--text-muted)',fontWeight:700}}>Название</label><input value={form.title} onChange={e=>patch('title',e.target.value)} maxLength={160} style={inputStyle}/><label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:12}}>Место проведения</label><div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:7}}><button type="button" onClick={()=>{patch('territoryId','');patch('legacyPlace','Не указано')}} className="press" style={{...eventManagePlaceStyle(!form.territoryId),minHeight:40}}>Не указано</button>{territories.filter(t=>!Number(t.is_government||0)).map(t=><button key={t.id} type="button" onClick={()=>{patch('territoryId',String(t.id));patch('legacyPlace',t.name||'');}} className="press" style={{...eventManagePlaceStyle(String(form.territoryId)===String(t.id)),minHeight:40}}><MinecraftText text={t.name}/></button>)}</div><label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:12}}>Дата и время начала</label><EventDateTimeFields parts={form.dateParts} onChange={parts=>setForm(v=>({...v,dateParts:parts,dateChanged:true}))}/><label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:12}}>Координаты</label><input value={formatEventCoords(form.coords)} onChange={e=>patch('coords',sanitizeEventCoords(e.target.value))} type="text" autoCapitalize="off" autoCorrect="off" placeholder="X / Z" style={inputStyle}/><label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:12}}>Описание</label><textarea value={form.description} onChange={e=>patch('description',e.target.value.slice(0,542))} rows={4} maxLength={542} style={{...inputStyle,resize:'none'}}/><input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseImage} style={{display:'none'}}/><button type="button" onClick={()=>fileRef.current?.click()} className="press" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:7,width:'100%',minHeight:42,marginTop:10,border:'1px solid var(--purple-border)',borderRadius:10,background:'var(--purple-soft)',color:'var(--purple)',fontWeight:800}}><ImagePlus size={16}/>Выбрать файл обложки</button>{form.imageData&&<img src={form.imageData} alt="Обложка" style={{width:'100%',maxHeight:140,objectFit:'cover',borderRadius:10,marginTop:9}}/>}<div style={{display:'flex',gap:8,marginTop:12}}><button onClick={save} disabled={busy||!form.title.trim()} className="press" style={{flex:1,border:0,borderRadius:10,minHeight:43,background:'var(--purple)',color:'#fff',fontWeight:800}}>{busy?'Сохранение…':'Сохранить изменения'}</button><button onClick={cancelEdit} disabled={busy} className="press" style={{border:'1px solid var(--border)',borderRadius:10,padding:'0 12px',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Отмена</button></div></div>}
     {error&&<div role="alert" style={{fontSize:12,color:'var(--red)',marginTop:9}}>{error}</div>}{notice&&<div role="status" style={{fontSize:12,color:'var(--mint)',marginTop:9}}>{notice}</div>}
   </div>;
@@ -3055,7 +3105,7 @@ function HomeFeatureButtonModal({mode='view',config,onClose,initData,onSaved}){
     finally{setBusy(false);}
   }
   if(mode!=='edit')return <SimpleModal title={form.title||'Информация'} onClose={onClose}>
-    {form.subtitle&&<div style={{fontSize:12,color:'var(--text-muted)',fontWeight:650,marginBottom:10}}>{form.subtitle}</div>}
+    {form.subtitle&&<div style={{fontSize:12,color:'var(--text-muted)',fontWeight:600,marginBottom:10}}>{form.subtitle}</div>}
     <div style={{fontSize:13,color:'var(--text-muted)',lineHeight:1.6,whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{form.text||'Информация пока не добавлена.'}</div>
   </SimpleModal>;
   return <SimpleModal title="Настройка кнопки" onClose={onClose}>
@@ -3069,7 +3119,7 @@ function HomeFeatureButtonModal({mode='view',config,onClose,initData,onSaved}){
     <label style={{display:'block',fontSize:12,color:'var(--text-muted)',fontWeight:700,marginTop:12}}>Текст<textarea value={form.text||''} maxLength={6000} rows={6} onChange={e=>patch({text:e.target.value})} style={{...inputStyle,resize:'vertical',lineHeight:1.5}}/></label>
     <div style={{marginTop:8}}><SettingsToggle label="Скрыть кнопку для пользователей" description="Главный инспектор продолжит видеть кнопку и сможет редактировать её." checked={Boolean(form.hidden)} onChange={hidden=>patch({hidden})}/></div>
     {error&&<div role="alert" style={{fontSize:12,color:'var(--red)',marginTop:8}}>{error}</div>}
-    <button onClick={save} disabled={busy} className="press" style={{width:'100%',border:'none',borderRadius:11,padding:'12px',background:'var(--purple)',color:'#fff',fontWeight:750,marginTop:12}}>{busy?'Сохранение…':'Сохранить'}</button>
+    <button onClick={save} disabled={busy} className="press" style={{width:'100%',border:'none',borderRadius:11,padding:'12px',background:'var(--purple)',color:'#fff',fontWeight:700,marginTop:12}}>{busy?'Сохранение…':'Сохранить'}</button>
   </SimpleModal>;
 }
 const TRANSPARENT_COLOR = '#D0D0D0';
