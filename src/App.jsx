@@ -342,11 +342,12 @@ function FontsAndTheme() {
           --type-body:15px;
           --type-body-compact:14px;
           --type-label:12px;
-          --type-micro:11px;
+          --type-micro:12px;
           --line-display:1.08;
           --line-headline:1.14;
           --line-title:1.2;
           --line-body:1.55;
+          --line-body-compact:1.45;
           --tracking-display:-.035em;
           --tracking-headline:-.028em;
           --tracking-title:-.018em;
@@ -428,12 +429,12 @@ function FontsAndTheme() {
         }
         .atlas-root p{
           margin:0 0 14px;
-          font-size:15px;
-          line-height:1.55;
+          font-size:var(--type-body);
+          line-height:var(--line-body);
           color:var(--text-secondary);
         }
         .atlas-root small{
-          font-size:12px;
+          font-size:var(--type-micro);
           line-height:1.45;
         }
         .atlas-root button,
@@ -450,14 +451,14 @@ function FontsAndTheme() {
           letter-spacing:-.01em;
         }
         .atlas-root input,.atlas-root textarea{
-          line-height:1.45;
-          font-size:14px;
+          line-height:var(--line-body-compact);
+          font-size:var(--type-body-compact);
         }
         .atlas-root label{
-          font-size:12px;
+          font-size:var(--type-label);
           line-height:1.35;
           color:var(--text-muted);
-          font-weight:600;
+          font-weight:var(--weight-semibold);
         }
         .atlas-root span{ line-height:1.35; }
 
