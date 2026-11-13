@@ -279,7 +279,7 @@ async function ensureUserPreferenceTables(env) {
         timezone TEXT NOT NULL DEFAULT 'UTC+3',
         all_notifications INTEGER NOT NULL DEFAULT 1,
         event_notifications INTEGER NOT NULL DEFAULT 0,
-        map_zoom_percent INTEGER NOT NULL DEFAULT 100,
+        map_zoom_percent INTEGER NOT NULL DEFAULT 88,
         updated_at INTEGER NOT NULL DEFAULT 0
       )`).run();
       const preferenceColumns = await env.DB.prepare(`PRAGMA table_info(user_preferences)`).all();
@@ -298,7 +298,7 @@ async function ensureUserPreferenceTables(env) {
         catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
       }
       if (!preferenceColumnNames.has('map_zoom_percent')) {
-        try { await env.DB.prepare(`ALTER TABLE user_preferences ADD COLUMN map_zoom_percent INTEGER NOT NULL DEFAULT 100`).run(); }
+        try { await env.DB.prepare(`ALTER TABLE user_preferences ADD COLUMN map_zoom_percent INTEGER NOT NULL DEFAULT 88`).run(); }
         catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
       }
       // A personal choice made while a global override is active opts this
@@ -581,7 +581,7 @@ async function getUserSettings(request, env) {
     FROM territories t LEFT JOIN territory_notification_preferences p ON p.territory_id=t.id AND p.telegram_id=?
     WHERE t.status='approved' AND (t.owner_telegram_id=? OR EXISTS(SELECT 1 FROM territory_managers tm WHERE tm.territory_id=t.id AND tm.telegram_id=?) OR EXISTS(SELECT 1 FROM city_memberships cm WHERE cm.territory_id=t.id AND cm.telegram_id=?))
     ORDER BY t.name COLLATE NOCASE ASC`).bind(uid,uid,uid,uid,uid,uid,uid).all();
-  const personalMapZoomPercent = normalizeMapZoomPercent(settings?.map_zoom_percent ?? 100);
+  const personalMapZoomPercent = normalizeMapZoomPercent(settings?.map_zoom_percent ?? 88);
   const personalTheme = normalizeVoxygenTheme(settings?.default_theme ?? 'vox');
   const personalZoomOptedOut = Number(settings?.map_zoom_global_updated_at || 0) === Number(globalOverrides.mapZoomPercent?.updatedAt || -1);
   const personalThemeOptedOut = Number(settings?.theme_global_updated_at || 0) === Number(globalOverrides.theme?.updatedAt || -1);
@@ -625,7 +625,7 @@ async function saveUserSettings(request, env) {
   const zoomGlobalMarker = submittedZoom && activeGlobal.mapZoomPercent ? Number(activeGlobal.mapZoomPercent.updatedAt) : 0;
   const defaultTheme = normalizeVoxygenTheme(body?.defaultTheme ?? existing?.default_theme ?? 'vox');
   const timezone = normalizeUserTimezone(body?.timezone ?? existing?.timezone ?? 'UTC+3');
-  const mapZoomPercent = normalizeMapZoomPercent(body?.mapZoomPercent ?? existing?.map_zoom_percent ?? 100);
+  const mapZoomPercent = normalizeMapZoomPercent(body?.mapZoomPercent ?? existing?.map_zoom_percent ?? 88);
   // The former global switch is retired; preserve the column for DB compatibility.
   const allNotifications = 1;
   const eventNotifications = body?.eventNotifications === undefined
