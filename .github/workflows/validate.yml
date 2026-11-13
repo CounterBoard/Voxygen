@@ -5,6 +5,7 @@ on:
     branches:
       - feature/automatic-deepzoom-map
       - feature/coordinate-zoom-global-settings-reliable-updates
+      - main
   pull_request:
     branches:
       - main
