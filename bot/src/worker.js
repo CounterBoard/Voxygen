@@ -1497,7 +1497,7 @@ async function getVoxGrid(env) {
 
 async function resetVoxGrid(request, env) {
   const auth = await requireMainInspector(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
   await ensureWorldTables(env);
   await env.DB.prepare(`UPDATE vox_grid SET state='', updated_by=?, updated_at=?`).bind(Number(auth.user.id), Date.now()).run();
   return json({ ok: true });
@@ -1505,7 +1505,7 @@ async function resetVoxGrid(request, env) {
 
 async function saveVoxCell(request, env) {
   const auth = await requireMainInspector(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
   await ensureWorldTables(env);
   let body;
   try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
@@ -1704,7 +1704,7 @@ async function evaluateAchievementsForTerritory(env, territoryId) {
 
 async function recheckAchievements(request, env) {
   const auth = await requireMainInspector(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
   await ensureWorldTables(env);
   const rows = await env.DB.prepare(`SELECT id FROM territories WHERE status='approved' ORDER BY created_at ASC, id ASC`).all();
   let checked = 0, awarded = 0, skipped = 0, errors = 0;
@@ -1723,7 +1723,7 @@ async function recheckAchievements(request, env) {
 }
 
 async function getCustomization(request, env) {
-  const auth=await requireUser(request,env); if(auth.error)return auth;
+  const auth=await requireUser(request,env); if(auth.error)return auth.error;
   await ensureWorldTables(env);
   const userId=Number(auth.user.id);
   await env.DB.prepare(`INSERT OR IGNORE INTO user_currency (telegram_id,balance) VALUES (?,0)`).bind(userId).run();
@@ -1861,7 +1861,7 @@ async function upsertTags(env, categories, createdBy) {
 }
 
 async function createCustomizationItem(request, env) {
-  const auth=await requireMainInspector(request,env); if(auth.error)return auth;
+  const auth=await requireMainInspector(request,env); if(auth.error)return auth.error;
   await ensureWorldTables(env);
   let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const name=String(body?.name||'').trim();
@@ -1916,7 +1916,7 @@ async function createCustomizationItem(request, env) {
 }
 
 async function updateCustomizationItem(request,env,itemId){
-  const auth=await requireMainInspector(request,env);if(auth.error)return auth;
+  const auth=await requireMainInspector(request,env);if(auth.error)return auth.error;
   await ensureWorldTables(env);
   const id=String(itemId||'').trim();
   if(!id)return json({ok:false,error:'Визуал не найден'},404);
@@ -1975,7 +1975,7 @@ async function updateCustomizationItem(request,env,itemId){
 }
 
 async function setCustomizationItemVisibility(request, env) {
-  const auth=await requireMainInspector(request,env); if(auth.error)return auth;
+  const auth=await requireMainInspector(request,env); if(auth.error)return auth.error;
   await ensureWorldTables(env);
   let body; try { body=await request.json(); } catch { return json({ok:false,error:'Invalid JSON'},400); }
   const itemId=String(body?.itemId||'').trim();
@@ -1989,7 +1989,7 @@ async function setCustomizationItemVisibility(request, env) {
 }
 
 async function deleteCustomizationItem(request,env,itemId){
-  const auth=await requireMainInspector(request,env);if(auth.error)return auth;
+  const auth=await requireMainInspector(request,env);if(auth.error)return auth.error;
   await ensureWorldTables(env);
   const id=String(itemId||'').trim();
   const item=await env.DB.prepare('SELECT id FROM customization_items WHERE id=? AND active=1').bind(id).first();
@@ -2006,7 +2006,7 @@ async function deleteCustomizationItem(request,env,itemId){
 }
 
 async function reorderCustomizationItems(request,env){
-  const auth=await requireMainInspector(request,env);if(auth.error)return auth;
+  const auth=await requireMainInspector(request,env);if(auth.error)return auth.error;
   await ensureWorldTables(env);
   let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const ids=Array.isArray(body?.itemIds)?body.itemIds.map(String):[];
@@ -2015,7 +2015,7 @@ async function reorderCustomizationItems(request,env){
 }
 
 async function reorderCustomizationTags(request,env){
-  const auth=await requireMainInspector(request,env);if(auth.error)return auth;
+  const auth=await requireMainInspector(request,env);if(auth.error)return auth.error;
   await ensureWorldTables(env);
   let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const ids=Array.isArray(body?.tagIds)?body.tagIds.map(String):[];
@@ -2024,7 +2024,7 @@ async function reorderCustomizationTags(request,env){
 }
 
 async function purchaseCustomizationItem(request, env, ctx = null) {
-  const auth = await requireUser(request, env); if (auth.error) return auth;
+  const auth = await requireUser(request, env); if (auth.error) return auth.error;
   await ensureWorldTables(env);
   const userId=Number(auth.user.id); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const itemId=String(body?.itemId||'').trim(),requested=String(body?.accountScope||'personal').toLowerCase();
@@ -2088,7 +2088,7 @@ async function purchaseCustomizationItem(request, env, ctx = null) {
 }
 
 async function getTreasury(request, env) {
-  const auth=await requireUser(request,env); if(auth.error)return auth; await ensureWorldTables(env);
+  const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env);
   const userId=Number(auth.user.id),url=new URL(request.url),territoryId=String(url.searchParams.get('territoryId')||'').trim(); if(!territoryId)return json({ok:false,error:'territoryId is required'},400);
   const territory=await env.DB.prepare(`SELECT id,name,owner_telegram_id FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404);
   if(!(await isTerritoryManager(env,territoryId,userId)) && !(await env.DB.prepare(`SELECT 1 FROM city_memberships WHERE telegram_id=? AND territory_id=?`).bind(userId,territoryId).first()))return json({ok:false,error:'Только жители города имеют доступ к казне'},403);
@@ -2124,7 +2124,7 @@ async function executeIdempotentFinancialTransfer(env, { operationId, telegramId
 }
 
 async function treasuryDeposit(request, env) {
-  const auth=await requireUser(request,env); if(auth.error)return auth; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const userId=Number(auth.user.id),territoryId=String(body?.territoryId||'').trim(),amount=Math.floor(Number(body?.amount||0)); if(!territoryId||!Number.isSafeInteger(amount)||amount<=0)return json({ok:false,error:'Введите положительное количество самоцветов'},400);
   const territory=await env.DB.prepare(`SELECT id,name FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404);
   const allowed=await isTerritoryManager(env,territoryId,userId) || !!(await env.DB.prepare(`SELECT 1 FROM city_memberships WHERE telegram_id=? AND territory_id=?`).bind(userId,territoryId).first()); if(!allowed)return json({ok:false,error:'Только жители города могут пополнять казну'},403);
@@ -2139,7 +2139,7 @@ async function treasuryDeposit(request, env) {
   const [treasury,personal]=await Promise.all([env.DB.prepare(`SELECT balance FROM city_treasury WHERE territory_id=?`).bind(territoryId).first(),env.DB.prepare(`SELECT balance FROM user_currency WHERE telegram_id=?`).bind(userId).first()]); return json({ok:true,balance:Number(treasury?.balance||0),personal_balance:Number(personal?.balance||0),isManager:await isTerritoryManager(env,territoryId,userId),replayed:Boolean(transfer.replayed)});
 }
 async function treasuryDonate(request, env) {
-  const auth=await requireUser(request,env); if(auth.error)return auth; await ensureWorldTables(env);
+  const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env);
   let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const userId=Number(auth.user.id),territoryId=String(body?.territoryId||'').trim(),amount=Math.floor(Number(body?.amount||0));
   if(!territoryId||!Number.isSafeInteger(amount)||amount<=0)return json({ok:false,error:'Укажите положительное количество самоцветов'},400);
@@ -2165,7 +2165,7 @@ async function treasuryDonate(request, env) {
 }
 
 async function treasuryWithdraw(request, env) {
-  const auth=await requireUser(request,env); if(auth.error)return auth; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const userId=Number(auth.user.id),territoryId=String(body?.territoryId||'').trim(),amount=Math.floor(Number(body?.amount||0)); if(!territoryId||!Number.isSafeInteger(amount)||amount<=0)return json({ok:false,error:'Введите положительное количество самоцветов'},400);
   const territory=await env.DB.prepare(`SELECT id,name FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404); if(!(await isTerritoryManager(env,territoryId,userId)))return json({ok:false,error:'Только основатель/мэр может тратить средства казны'},403);
   await env.DB.prepare(`INSERT OR IGNORE INTO user_currency(telegram_id,balance) VALUES(?,0)`).bind(userId).run(); await env.DB.prepare(`INSERT OR IGNORE INTO city_treasury(territory_id,balance,updated_at) VALUES(?,?,?)`).bind(territoryId,0,Date.now()).run();
@@ -2180,7 +2180,7 @@ async function treasuryWithdraw(request, env) {
 }
 
 async function updateCityCustomization(request, env) {
-  const auth=await requireUser(request,env); if(auth.error)return auth; await ensureWorldTables(env);
+  const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env);
   let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim();
   const hasMarkerField=Object.prototype.hasOwnProperty.call(body,'markerItemId');
@@ -2227,7 +2227,7 @@ async function updateCityCustomization(request, env) {
 }
 async function inviteResident(request, env) {
   const auth = await requireUser(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
   await ensureWorldTables(env);
   let body; try { body = await request.json(); } catch { return json({ ok:false,error:'Invalid JSON' },400); }
   const territoryId=String(body?.territoryId||'').trim(), nickname=normalizeMcNickname(body?.nickname);
@@ -2280,7 +2280,7 @@ async function hideRecruitmentIfContactLost(env, territoryId, targetId, username
 }
 
 async function getCityManagement(request, env, url) {
-  const auth=await requireUser(request,env); if(auth.error)return auth; await ensureWorldTables(env);
+  const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env);
   const territoryId=String(url.searchParams.get('territoryId')||'').trim(); const territory=await env.DB.prepare(`SELECT id,name,owner_telegram_id FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404);
   const isManager=await isTerritoryManager(env,territoryId,auth.user.id);
   const isMember=!!(await env.DB.prepare(`SELECT 1 FROM city_memberships WHERE territory_id=? AND telegram_id=? LIMIT 1`).bind(territoryId,Number(auth.user.id)).first());
@@ -2295,13 +2295,13 @@ async function getCityManagement(request, env, url) {
 }
 
 async function cancelResidentInvite(request, env) {
-  const auth=await requireUser(request,env); if(auth.error)return auth; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const inviteId=String(body?.inviteId||'').trim(); const invite=await env.DB.prepare(`SELECT ci.id,ci.territory_id FROM city_invites ci WHERE ci.id=? AND ci.status='pending'`).bind(inviteId).first(); if(!invite)return json({ok:false,error:'Приглашение не найдено'},404);
   if(!(await isTerritoryManager(env,invite.territory_id,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403); await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=? WHERE id=?`).bind(Date.now(),inviteId).run(); return json({ok:true});
 }
 
 async function removeResident(request, env) {
-  const auth=await requireUser(request,env); if(auth.error)return auth; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim(),targetId=Number(body?.telegramId); if(!territoryId||!Number.isSafeInteger(targetId)||targetId<=0)return json({ok:false,error:'territoryId и telegramId обязательны'},400);
   if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403);
   const [territory, target] = await Promise.all([
@@ -2357,7 +2357,7 @@ async function leaveTerritory(request, env) {
 }
 
 async function promoteResident(request, env) {
-  const auth=await requireUser(request,env); if(auth.error)return auth; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim(),targetId=Number(body?.telegramId); if(!territoryId||!Number.isSafeInteger(targetId)||targetId<=0)return json({ok:false,error:'territoryId и telegramId обязательны'},400);
   if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403);
   if(String(targetId)===String(auth.user.id))return json({ok:false,error:'Нельзя повысить себя'},400);
@@ -2374,7 +2374,7 @@ async function promoteResident(request, env) {
 }
 
 async function demoteManager(request, env) {
-  const auth=await requireUser(request,env); if(auth.error)return auth; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim(),targetId=Number(body?.telegramId); if(!territoryId||!Number.isSafeInteger(targetId)||targetId<=0)return json({ok:false,error:'territoryId и telegramId обязательны'},400);
   if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403);
   const territory=await env.DB.prepare(`SELECT owner_telegram_id,name FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404);
@@ -2526,7 +2526,7 @@ async function reconcileTerritoryVisualEquipment(env, territoryId) {
 }
 
 async function getCityCustomizationData(request, env, url) {
-  const auth=await requireUser(request,env); if(auth.error)return auth; await ensureWorldTables(env);
+  const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env);
   const territoryId=String(url.searchParams.get('territoryId')||'').trim(); const territory=await env.DB.prepare(`SELECT id,owner_telegram_id FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404);
   if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403);
   const city=await env.DB.prepare('SELECT marker_item_id,background_item_id FROM city_customization WHERE territory_id=?').bind(territoryId).first();
@@ -3010,7 +3010,7 @@ function skinUrlFromTexture(textureId){
 
 async function getMe(request, env, ctx = null) {
   const auth = await requireUser(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
   const user = auth.user;
   await ensureWorldTables(env);
   const [role, profileRow] = await Promise.all([
@@ -3111,7 +3111,7 @@ async function syncUserDirectory(env) {
 
 async function listManagedUsers(request, env) {
   const auth = await requireMainInspector(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
   try{
     const verified=await env.DB.prepare(`SELECT telegram_id,mc_nickname FROM users WHERE status='verified' AND mc_nickname IS NOT NULL AND trim(mc_nickname)<>''`).all();
     for(const u of verified.results||[]) await repairOrphanedTerritoryOwnersForUser(env,Number(u.telegram_id),u.mc_nickname);
@@ -3136,7 +3136,7 @@ async function listManagedUsers(request, env) {
 
 async function addManagedUser(request, env) {
   const auth = await requireMainInspector(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
   await ensureWorldTables(env);
   let body; try { body=await request.json(); } catch { return json({ok:false,error:'Invalid JSON'},400); }
   const nickname=String(body?.mcNickname||'').trim();
@@ -3349,7 +3349,7 @@ async function repairOrphanedTerritoryOwnersForUser(env, telegramId, nickname) {
 
 async function updateManagedUser(request, env, userDirectoryId) {
   const auth = await requireMainInspector(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
   await ensureWorldTables(env);
   let body; try { body=await request.json(); } catch { return json({ok:false,error:'Invalid JSON'},400); }
   const nickname=String(body?.mcNickname||'').trim();
@@ -3498,7 +3498,7 @@ async function purgeLegacyRemovedUsers(env) {
   }
 }
 async function deleteManagedUser(request, env, userDirectoryId) {
-  const auth = await requireMainInspector(request, env); if (auth.error) return auth;
+  const auth = await requireMainInspector(request, env); if (auth.error) return auth.error;
   await ensureWorldTables(env);
   const existing=await env.DB.prepare(`SELECT id,telegram_id FROM user_directory WHERE id=? LIMIT 1`).bind(userDirectoryId).first();
   if(existing){
@@ -3515,7 +3515,7 @@ async function deleteManagedUser(request, env, userDirectoryId) {
 }
 async function listInspectors(request, env) {
   const auth = await requireMainInspector(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
 
   const rows = await env.DB.prepare(`
     SELECT telegram_id, telegram_username, added_by, created_at
@@ -3528,7 +3528,7 @@ async function listInspectors(request, env) {
 
 async function addInspector(request, env) {
   const auth = await requireMainInspector(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
   let body;
   try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
   let telegramId = Number(body?.telegramId);
@@ -3547,7 +3547,7 @@ async function addInspector(request, env) {
 
 async function removeInspector(request, env, url) {
   const auth = await requireMainInspector(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
 
   const telegramId = Number(url.pathname.split("/").pop());
   if (!Number.isSafeInteger(telegramId)) {
@@ -3562,7 +3562,7 @@ async function removeInspector(request, env, url) {
 
 async function claimNickname(request, env) {
   const auth = await requireUser(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
 
   let body;
   try { body = await request.json(); }
@@ -3615,7 +3615,7 @@ async function claimNickname(request, env) {
 
 async function claimTerritoryOwner(request, env) {
   const auth = await requireUser(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
   let body;
   try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
   const territoryId = String(body?.territoryId || '').trim();
@@ -3667,7 +3667,7 @@ async function getFaq(env) {
 
 async function saveFaq(request, env) {
   const auth = await requireMainInspector(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
   let body;
   try { body = await request.json(); }
   catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
@@ -3760,7 +3760,7 @@ async function saveHomeFeatureButton(request, env) {
 }
 
 async function requestInspectorRating(request, env) {
-  const auth=await requireUser(request,env); if(auth.error)return auth; let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  const auth=await requireUser(request,env); if(auth.error)return auth.error; let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim(); if(!territoryId)return json({ok:false,error:'territoryId is required'},400);
   const territory=await env.DB.prepare(`SELECT t.id,t.name,t.coords,t.owner_telegram_id,t.owner_telegram_username,t.owner_input,COALESCE(r.contact_username,t.owner_telegram_username) AS request_contact_username FROM territories t LEFT JOIN recruitment r ON r.territory_id=t.id WHERE t.id=? AND t.status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404); if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Только основатель/мэр может запросить оценку инспектора'},403);
   const rows=await env.DB.prepare('SELECT telegram_id FROM inspectors').all(),recipients=new Set(),mainChatId=String(env.INSPECTOR_CHAT_ID||'').trim(); if(mainChatId)recipients.add(mainChatId); for(const row of rows.results||[]){const id=String(row.telegram_id||'').trim();if(id)recipients.add(id);} if(!recipients.size)return json({ok:false,error:'Инспекторы не настроены'},500);
@@ -3798,7 +3798,7 @@ async function calculateTerritoryScores(env, territoryId) {
 }
 
 async function saveRating(request, env) {
-  const auth=await requireVerifiedUser(request,env);if(auth.error)return auth;
+  const auth=await requireVerifiedUser(request,env);if(auth.error)return auth.error;
   let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim(),keys=['integrity','comfort','atmosphere','detail'],scores=keys.map(key=>Number(body?.[key]));
   if(!territoryId||scores.some(v=>!Number.isFinite(v)||v<1||v>5||!Number.isInteger(v)))return json({ok:false,error:'Invalid rating'},400);
@@ -3852,7 +3852,7 @@ async function getRatings(request, env, url) {
 }
 
 async function addComment(request, env) {
-  const auth = await requireVerifiedUser(request, env); if (auth.error) return auth;
+  const auth = await requireVerifiedUser(request, env); if (auth.error) return auth.error;
   let body; try { body = await request.json(); } catch { return json({ ok:false,error:'Invalid JSON' },400); }
   const territoryId=String(body?.territoryId||'').trim(), text=String(body?.text||'').trim();
   if(!territoryId||!text)return json({ok:false,error:'territoryId and text are required'},400);
@@ -3878,7 +3878,7 @@ async function addComment(request, env) {
 }
 
 async function updateComment(request, env) {
-  const auth=await requireUser(request,env);if(auth.error)return auth;
+  const auth=await requireUser(request,env);if(auth.error)return auth.error;
   let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const id=String(body?.commentId||'').trim(),text=String(body?.text||'').trim();if(!id||!text)return json({ok:false,error:'commentId и text обязательны'},400);if(text.length>4000)return json({ok:false,error:'Comment is too long'},400);
   const c=await env.DB.prepare(`SELECT c.telegram_id,cr.comment_id AS replied_comment_id FROM comments c LEFT JOIN comment_replies cr ON cr.comment_id=c.id WHERE c.id=?`).bind(id).first();if(!c)return json({ok:false,error:'Комментарий не найден'},404);
@@ -3897,7 +3897,7 @@ async function updateComment(request, env) {
 }
 
 async function deleteComment(request, env) {
-  const auth=await requireUser(request,env);if(auth.error)return auth;
+  const auth=await requireUser(request,env);if(auth.error)return auth.error;
   let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const id=String(body?.commentId||'').trim();if(!id)return json({ok:false,error:'commentId обязателен'},400);
   const c=await env.DB.prepare(`SELECT telegram_id,territory_id FROM comments WHERE id=?`).bind(id).first();if(!c)return json({ok:false,error:'Комментарий не найден'},404);
@@ -3910,7 +3910,7 @@ async function deleteComment(request, env) {
 
 // No total quota is applied to manager replies; each review has one editable reply.
 async function replyToComment(request, env) {
-  const auth=await requireUser(request,env);if(auth.error)return auth;
+  const auth=await requireUser(request,env);if(auth.error)return auth.error;
   let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const commentId=String(body?.commentId||'').trim(),text=String(body?.text||'').trim();if(!commentId||!text)return json({ok:false,error:'commentId и text обязательны'},400);if(text.length>4000)return json({ok:false,error:'Reply is too long'},400);
   const c=await env.DB.prepare(`SELECT c.id,c.telegram_id,c.text AS comment_text,t.id AS territory_id,t.name AS territory_name,t.owner_telegram_id,t.owner_telegram_username FROM comments c JOIN territories t ON t.id=c.territory_id WHERE c.id=? AND t.status='approved'`).bind(commentId).first();
@@ -3929,7 +3929,7 @@ async function replyToComment(request, env) {
 }
 
 async function updateReply(request, env) {
-  const auth=await requireUser(request,env);if(auth.error)return auth;
+  const auth=await requireUser(request,env);if(auth.error)return auth.error;
   let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const commentId=String(body?.commentId||'').trim(),text=String(body?.text||'').trim();if(!commentId||!text)return json({ok:false,error:'commentId и text обязательны'},400);
   const row=await env.DB.prepare(`SELECT t.owner_telegram_id,t.id AS territory_id FROM comment_replies cr JOIN comments c ON c.id=cr.comment_id JOIN territories t ON t.id=c.territory_id WHERE cr.comment_id=?`).bind(commentId).first();
@@ -3938,7 +3938,7 @@ async function updateReply(request, env) {
 }
 
 async function deleteReply(request, env) {
-  const auth=await requireUser(request,env);if(auth.error)return auth;
+  const auth=await requireUser(request,env);if(auth.error)return auth.error;
   let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const commentId=String(body?.commentId||'').trim();if(!commentId)return json({ok:false,error:'commentId обязателен'},400);
   const row=await env.DB.prepare(`SELECT t.owner_telegram_id,t.id AS territory_id FROM comment_replies cr JOIN comments c ON c.id=cr.comment_id JOIN territories t ON t.id=c.territory_id WHERE cr.comment_id=?`).bind(commentId).first();
@@ -3953,7 +3953,7 @@ async function getComments(request, env, url) {
 }
 
 async function uploadScreenshot(request, env) {
-  const auth=await requireVerifiedUser(request,env);if(auth.error)return auth;await ensureWorldTables(env);const user=auth.user;let form;try{form=await request.formData()}catch(error){return json({ok:false,error:'Не удалось прочитать изображение',details:String(error)},400)}
+  const auth=await requireVerifiedUser(request,env);if(auth.error)return auth.error;await ensureWorldTables(env);const user=auth.user;let form;try{form=await request.formData()}catch(error){return json({ok:false,error:'Не удалось прочитать изображение',details:String(error)},400)}
   const territoryId=String(form.get('territoryId')||'').trim(),file=form.get('photo');if(!territoryId||!(file instanceof File))return json({ok:false,error:'territoryId and photo are required'},400);if(!String(file.type||'').startsWith('image/'))return json({ok:false,error:'Only images are allowed'},400);
   const territory=await env.DB.prepare(`SELECT id,name,owner_telegram_id,owner_telegram_username,is_government FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first();if(!territory)return json({ok:false,error:'City not found'},404);
   const role=await getRoleByTelegramId(env,user.id);
@@ -4049,7 +4049,7 @@ async function getScreenshots(request, env, url) {
 
 async function moderateScreenshot(request, env, screenshotId, approve) {
   const auth = await requireUser(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
 
   const screenshot = await env.DB.prepare(`
     SELECT s.*, t.owner_telegram_id, t.requested_by_id
@@ -4083,7 +4083,7 @@ async function moderateScreenshot(request, env, screenshotId, approve) {
 }
 
 async function deleteScreenshot(request, env, screenshotId) {
-  const auth=await requireUser(request,env);if(auth.error)return auth;
+  const auth=await requireUser(request,env);if(auth.error)return auth.error;
   const row=await env.DB.prepare(`SELECT s.id,s.territory_id,t.owner_telegram_id,t.is_government FROM screenshots s JOIN territories t ON t.id=s.territory_id WHERE s.id=? AND s.status='approved'`).bind(screenshotId).first();
   if(!row)return json({ok:false,error:'Screenshot not found'},404);
   const role=await getRoleByTelegramId(env,auth.user.id,auth.user.username);
@@ -4131,7 +4131,7 @@ async function serveScreenshot(request, env, screenshotId) {
 }
 
 async function renameTerritory(request, env) {
-  const auth=await requireUser(request,env);if(auth.error)return auth;let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  const auth=await requireUser(request,env);if(auth.error)return auth.error;let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim(),name=String(body?.name||'').trim();if(!territoryId||!name||name.length>80)return json({ok:false,error:'Название обязательно'},400);
   const territory=await env.DB.prepare(`SELECT owner_telegram_id FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first();if(!territory||!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403);
   await env.DB.prepare('UPDATE territories SET name=? WHERE id=?').bind(name,territoryId).run();return json({ok:true,name});
@@ -4139,7 +4139,7 @@ async function renameTerritory(request, env) {
 
 async function deleteTerritory(request, env) {
   const auth = await requireMainInspector(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
 
   let body = {};
   try { body = await request.json(); } catch {}
@@ -4158,7 +4158,7 @@ async function deleteTerritory(request, env) {
 
 async function updateTerritoryCoords(request, env) {
   const auth = await requireMainInspector(request, env);
-  if (auth.error) return auth;
+  if (auth.error) return auth.error;
 
   let body;
   try { body = await request.json(); }
@@ -4180,7 +4180,7 @@ async function updateTerritoryCoords(request, env) {
 }
 
 async function updateTerritoryOwner(request, env) {
-  const auth=await requireMainInspector(request,env); if(auth.error)return auth;
+  const auth=await requireMainInspector(request,env); if(auth.error)return auth.error;
   await ensureWorldTables(env);
   let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim();
@@ -4210,7 +4210,7 @@ async function updateTerritoryOwner(request, env) {
 }
 
 async function updateTerritoryManager(request, env) {
-  const auth=await requireMainInspector(request,env); if(auth.error)return auth;
+  const auth=await requireMainInspector(request,env); if(auth.error)return auth.error;
   await ensureWorldTables(env);
   let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim();
@@ -4272,7 +4272,7 @@ async function updateTerritoryManager(request, env) {
 }
 
 async function saveRecruitment(request, env) {
-  await ensureRecruitmentTable(env); const auth=await requireUser(request,env); if(auth.error)return auth; let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  await ensureRecruitmentTable(env); const auth=await requireUser(request,env); if(auth.error)return auth.error; let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim(),description=String(body?.description||'').trim(),enabled=!!body?.enabled; if(!territoryId||!description)return json({ok:false,error:'territoryId and description are required'},400);
   const territory=await env.DB.prepare(`SELECT id,name FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404);
   if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Только основатель/мэр может редактировать объявление'},403);
@@ -4289,7 +4289,7 @@ async function saveRecruitment(request, env) {
 }
 
 async function setRecruitmentContact(request, env) {
-  await ensureRecruitmentTable(env); const auth=await requireUser(request,env); if(auth.error)return auth; let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  await ensureRecruitmentTable(env); const auth=await requireUser(request,env); if(auth.error)return auth.error; let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim(),telegramId=Number(body?.telegramId); if(!territoryId||!Number.isSafeInteger(telegramId)||telegramId<=0)return json({ok:false,error:'territoryId и telegramId обязательны'},400); if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403); if(!(await isTerritoryManager(env,territoryId,telegramId)))return json({ok:false,error:'Пользователь не является основателем/мэром города'},400);
   const u=await env.DB.prepare(`SELECT telegram_username FROM users WHERE telegram_id=?`).bind(telegramId).first(); const username=normalizeUsername(u?.telegram_username)||''; if(!username)return json({ok:false,error:'У этого основателя/мэра нет username в Telegram'},400);
   const existing=await env.DB.prepare(`SELECT description,enabled FROM recruitment WHERE territory_id=?`).bind(territoryId).first(); if(!existing)return json({ok:false,error:'Сначала сохраните объявление о наборе'},400);
