@@ -1681,7 +1681,6 @@ POST /api/recruitment/contact
 - GET /api/screenshots/{id} → serveScreenshot() — публичная выдача только approved.
 - GET /api/map и HEAD /api/map → getMapSettings() — публичная выдача карты.
 - GET /api/faq → getFaq() — публичное чтение.
-- GET /api/home-feature-button → getHomeFeatureButton() — requireUser(); не является публичным endpoint. Для пользователей без роли главного инспектора скрытая конфигурация возвращается в нормализованном виде.
 - GET /api/recruitment → маршрутизатор вызывает getRecruitment(env), но функция не определена и не импортирована в worker.js; запрос завершается общей ошибкой 500. Текущий App.jsx не вызывает этот GET и получает поля recruitment из /api/territories.
 - GET /api/vox-grid → getVoxGrid() — публичное чтение; ответ содержит canEdit, который становится true только для главного инспектора.
 - GET /api/customization/items/{id}/image → serveCustomizationItemImage() — публичная выдача изображения по ID предмета.
