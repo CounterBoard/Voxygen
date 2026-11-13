@@ -1674,7 +1674,7 @@ POST /api/recruitment/contact
 - GET /api/map и HEAD /api/map → getMapSettings() — публичная выдача карты.
 - GET /api/faq → getFaq() — публичное чтение.
 - GET /api/home-feature-button → getHomeFeatureButton() — публичное чтение.
-- GET /api/recruitment → getRecruitment() — публичное чтение.
+- GET /api/recruitment → маршрутизатор вызывает getRecruitment(env), но функция не определена и не импортирована в worker.js; запрос завершается общей ошибкой 500. Текущий App.jsx не вызывает этот GET и получает поля recruitment из /api/territories.
 - GET /api/vox-grid → getVoxGrid() — публичное чтение; ответ содержит canEdit, который становится true только для главного инспектора.
 - GET /api/customization/items/{id}/image → serveCustomizationItemImage() — публичная выдача изображения по ID предмета.
 
@@ -1740,7 +1740,8 @@ POST /api/recruitment/contact
 - POST /api/territories/claim-owner;
 - GET/POST /api/vox-grid и POST /api/vox-grid/reset;
 - POST /api/treasury/withdraw;
-- POST /api/screenshots/{id} для HTTP-модерации.
+- POST /api/screenshots/{id} для HTTP-модерации;
+- GET /api/recruitment — обработчик getRecruitment отсутствует, а App.jsx использует данные recruitment из /api/territories.
 
 Это не доказывает, что маршруты не используются вообще: их могут вызывать внешние клиенты, старые версии приложения или другие процессы. До отдельной проверки потребителей их не следует удалять. Для claim-owner и HTTP-модерации при этом сохраняются замечания безопасности и корректности из раздела 30.
 
@@ -2152,6 +2153,17 @@ Validate world-map pipeline проверяет синтаксис генерат
 
 Выводы основаны на исходниках main и доступных конфигурационных файлах репозиториев. Production D1 не изменялась и не мигрировалась. Тесты и GitHub Actions в ходе этого аудита не запускались. Исходный код приложения не изменялся.
 
+
+
+30.13. Отсутствующий обработчик GET /api/recruitment
+
+В маршрутизаторе worker.js присутствует ветвь GET /api/recruitment, которая вызывает getRecruitment(env). В полном файле worker.js нет определения getRecruitment и нет импорта этой функции. Следовательно, обращение к маршруту приводит к ReferenceError и общей обработке ошибки Worker с HTTP 500.
+
+Функции saveRecruitment() и setRecruitmentContact() существуют и используются для записи объявления и изменения контактного управляющего.
+
+Текущий App.jsx не вызывает GET /api/recruitment. Он получает recruitment_description, recruitment_enabled и recruitment_contact_username в составе ответа GET /api/territories. Поэтому отсутствующий обработчик является дефектом backend endpoint, но не подтверждённой поломкой текущего пользовательского интерфейса.
+
+Рекомендация: либо реализовать getRecruitment() с явно определённым публичным контрактом, либо удалить устаревшую ветвь маршрутизации после проверки внешних потребителей. До этого маршрут следует считать неработающим.
 
 ======================================================================
 31. ЗАКЛЮЧЕНИЕ
