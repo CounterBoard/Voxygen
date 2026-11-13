@@ -1954,11 +1954,14 @@ async function createCustomizationItem(request, env) {
       Number(maxRow?.max_order??-1)+1,achievement.enabled?1:0,achievement.residents,achievement.gems,
       achievement.inspectorScore,achievement.playerScore,achievement.screenshots,achievement.comments,achievement.visuals,governmentMarker?1:0
     ).run();
-    await cleanupCustomizationCategories(env);
-    await syncGovernmentVisual(env,itemId,categories,governmentMarker);
+    await cleanupCustomizationCategories(env).catch(error=>console.error('Customization category cleanup after item creation:',error));
+    await syncGovernmentVisual(env,itemId,categories,governmentMarker).catch(error=>console.error('Government visual synchronization after item creation:',error));
     if(achievement.enabled){
       const territories=await env.DB.prepare(`SELECT id FROM territories WHERE status='approved'`).all();
-      for(const t of territories.results||[]) await evaluateAchievementsForTerritory(env,t.id);
+      for(const t of territories.results||[]) {
+        try { await evaluateAchievementsForTerritory(env,t.id); }
+        catch(error) { console.error('Achievement evaluation after item creation:',String(t.id),error); }
+      }
     }
     return json({ok:true,item:{id,category_id:categoryIds[0],categories_text:categories.join(', '),name,price,image_data:imageData,color,sort_order:Number(maxRow?.max_order??-1)+1,achievement_enabled:achievement.enabled?1:0,government_marker:governmentMarker?1:0}});
   }catch(error){
@@ -1985,6 +1988,8 @@ async function updateCustomizationItem(request,env,itemId){
   const price=Number(body?.price??current.price);
   const imageData=String(body?.imageData??current.image_data??'').trim();
   const color=String(body?.color??current.color??'white').trim().toLowerCase();
+  const allowedColors=new Set(['none','red','orange','yellow','green','turquoise','blue','purple','magenta','white','black']);
+  if(!allowedColors.has(color))return json({ok:false,error:'Некорректный цвет'},400);
   const enabled=body?.achievementEnabled===undefined?!!current.achievement_enabled:!!body.achievementEnabled;
   const governmentMarker=body?.governmentMarker===undefined?!!current.government_marker:!!body.governmentMarker;
   const isMarker=isMarkerTag(categories), isCover=isCoverTag(categories);
@@ -2017,11 +2022,14 @@ async function updateCustomizationItem(request,env,itemId){
     WHERE id=?
   `).bind(categoryIds[0],name,price,imageData,categories.join(', '),color,achievement.enabled?1:0,achievement.residents,
     achievement.gems,achievement.inspectorScore,achievement.playerScore,achievement.screenshots,achievement.comments,achievement.visuals,governmentMarker?1:0,id).run();
-  await cleanupCustomizationCategories(env);
-  await syncGovernmentVisual(env,id,categories,governmentMarker);
+  await cleanupCustomizationCategories(env).catch(error=>console.error('Customization category cleanup after item update:',error));
+  await syncGovernmentVisual(env,id,categories,governmentMarker).catch(error=>console.error('Government visual synchronization after item update:',error));
   if(achievement.enabled) {
     const territories=await env.DB.prepare(`SELECT id FROM territories WHERE status='approved'`).all();
-    for(const t of territories.results||[]) await evaluateAchievementsForTerritory(env,t.id);
+    for(const t of territories.results||[]) {
+      try { await evaluateAchievementsForTerritory(env,t.id); }
+      catch(error) { console.error('Achievement evaluation after item update:',String(t.id),error); }
+    }
   }
   return json({ok:true,item:{id,name,price,image_data:imageData,category_id:categoryIds[0],categories_text:categories.join(', '),color,achievement_enabled:achievement.enabled?1:0}});
 }
@@ -2047,11 +2055,14 @@ async function deleteCustomizationItem(request,env,itemId){
   const item=await env.DB.prepare('SELECT id FROM customization_items WHERE id=? AND active=1').bind(id).first();
   if(!item)return json({ok:false,error:'Визуал не найден'},404);
   const affected=await env.DB.prepare(`SELECT territory_id FROM city_customization WHERE marker_item_id=? OR background_item_id=?`).bind(id,id).all();
-  await env.DB.prepare(`UPDATE city_customization SET marker_item_id=NULL,updated_at=? WHERE marker_item_id=?`).bind(Date.now(),id).run();
-  await env.DB.prepare(`UPDATE city_customization SET background_item_id=NULL,updated_at=? WHERE background_item_id=?`).bind(Date.now(),id).run();
-  await env.DB.prepare(`DELETE FROM city_items WHERE item_id=?`).bind(id).run();
+  const deletedAt=Date.now();
   // Keep achievement_awards history: an achievement must never notify the founder twice.
-  await env.DB.prepare(`UPDATE customization_items SET active=0 WHERE id=?`).bind(id).run();
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE city_customization SET marker_item_id=NULL,updated_at=? WHERE marker_item_id=?`).bind(deletedAt,id),
+    env.DB.prepare(`UPDATE city_customization SET background_item_id=NULL,updated_at=? WHERE background_item_id=?`).bind(deletedAt,id),
+    env.DB.prepare(`DELETE FROM city_items WHERE item_id=?`).bind(id),
+    env.DB.prepare(`UPDATE customization_items SET active=0 WHERE id=?`).bind(id),
+  ]);
   for(const row of affected.results||[])await reconcileTerritoryVisualEquipment(env,row.territory_id).catch(error=>console.error('Equipment reconciliation after visual deletion:',error));
   await cleanupCustomizationCategories(env);
   return json({ok:true});
@@ -2092,16 +2103,23 @@ async function purchaseCustomizationItem(request, env, ctx = null) {
   const balance=accountCity?await env.DB.prepare('SELECT balance FROM city_treasury WHERE territory_id=?').bind(accountCity.id).first():await env.DB.prepare('SELECT balance FROM user_currency WHERE telegram_id=?').bind(userId).first();
   if(Number(balance?.balance||0)<Number(item.price))return json({ok:false,error:'Недостаточно самоцветов'},400);
   const acquiredAt=Date.now();
-  // Debit and inventory grant are one D1 transaction. The NOT EXISTS predicate
-  // makes simultaneous/retried purchases idempotent for the selected account.
+  const attributedCity=accountCity||managerCities[0]||((await env.DB.prepare(`SELECT t.id,t.name FROM city_memberships cm JOIN territories t ON t.id=cm.territory_id WHERE cm.telegram_id=? AND t.status='approved' ORDER BY t.created_at ASC LIMIT 1`).bind(userId).first())||null);
+  const spendLogId=crypto.randomUUID();
+  const spendLogStatement=env.DB.prepare(`INSERT INTO gem_spend_log(id,territory_id,telegram_id,item_id,amount,created_at)
+    SELECT ?,?,?,?,?,? WHERE changes()=1 AND ? IS NOT NULL AND ? > 0`)
+    .bind(spendLogId,attributedCity?.id||null,userId,itemId,Number(item.price),acquiredAt,attributedCity?.id||null,Number(item.price));
+  // Debit, inventory grant and achievement-spend journal are one D1 transaction.
+  // The NOT EXISTS predicate makes simultaneous/retried purchases idempotent for the selected account.
   const purchaseBatch=accountCity
     ?await env.DB.batch([
       env.DB.prepare(`UPDATE city_treasury SET balance=balance-?,updated_at=? WHERE territory_id=? AND balance>=? AND NOT EXISTS (SELECT 1 FROM city_items WHERE territory_id=? AND item_id=?)`).bind(Number(item.price),acquiredAt,accountCity.id,Number(item.price),accountCity.id,itemId),
-      env.DB.prepare(`INSERT INTO city_items (territory_id,item_id,acquired_at,source) SELECT ?,?,?,'treasury_purchase' WHERE changes()=1`).bind(accountCity.id,itemId,acquiredAt)
+      env.DB.prepare(`INSERT INTO city_items (territory_id,item_id,acquired_at,source) SELECT ?,?,?,'treasury_purchase' WHERE changes()=1`).bind(accountCity.id,itemId,acquiredAt),
+      spendLogStatement,
     ])
     :await env.DB.batch([
       env.DB.prepare(`UPDATE user_currency SET balance=balance-? WHERE telegram_id=? AND balance>=? AND NOT EXISTS (SELECT 1 FROM user_items WHERE telegram_id=? AND item_id=?)`).bind(Number(item.price),userId,Number(item.price),userId,itemId),
-      env.DB.prepare(`INSERT INTO user_items (telegram_id,item_id,acquired_at,source) SELECT ?,?,?,'purchase' WHERE changes()=1`).bind(userId,itemId,acquiredAt)
+      env.DB.prepare(`INSERT INTO user_items (telegram_id,item_id,acquired_at,source) SELECT ?,?,?,'purchase' WHERE changes()=1`).bind(userId,itemId,acquiredAt),
+      spendLogStatement,
     ]);
   if(!purchaseBatch?.[0]?.meta?.changes){
     const ownedNow=accountCity
@@ -2126,13 +2144,8 @@ async function purchaseCustomizationItem(request, env, ctx = null) {
   });
   if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(purchaseNotification);
   else await purchaseNotification;
-  const attributedCity=accountCity||managerCities[0]||((await env.DB.prepare(`SELECT t.id,t.name FROM city_memberships cm JOIN territories t ON t.id=cm.territory_id WHERE cm.telegram_id=? AND t.status='approved' ORDER BY t.created_at ASC LIMIT 1`).bind(userId).first())||null);
   if(attributedCity){
-    if(accountCity) await ensureFirstCityMarker(env,accountCity.id).catch(error=>console.error('City marker check after treasury visual purchase:',error));
-    if(Number(item.price)>0){
-      await ensureFirstCityMarker(env,attributedCity.id);
-      await env.DB.prepare(`INSERT INTO gem_spend_log(id,territory_id,telegram_id,item_id,amount,created_at) VALUES(?,?,?,?,?,?)`).bind(crypto.randomUUID(),attributedCity.id,userId,itemId,Number(item.price),acquiredAt).run();
-    }
+    await ensureFirstCityMarker(env,attributedCity.id).catch(error=>console.error('City marker check after visual purchase:',error));
     await evaluateAchievementsForTerritory(env,attributedCity.id).catch(error=>console.error('Achievement evaluation after visual purchase:',error));
   }
   const finalBalance=accountCity?await env.DB.prepare('SELECT balance FROM city_treasury WHERE territory_id=?').bind(accountCity.id).first():await env.DB.prepare('SELECT balance FROM user_currency WHERE telegram_id=?').bind(userId).first();
