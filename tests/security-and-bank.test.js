@@ -64,18 +64,18 @@ class FakeBankD1 {
   }
 
   prepare(sql) {
-    return {
+    const statement = {
       sql,
       binds: [],
-      bind: (...binds) => ({ sql, binds }),
+      bind(...binds) { this.binds = binds; return this; },
       first: async () => {
         if (sql.includes("SELECT status,balance_after FROM bank_transactions")) {
-          const updateId = arguments[0];
-          return this.transactions.get(Number(updateId)) || null;
+          return this.transactions.get(Number(statement.binds[0])) || null;
         }
         return null;
       },
     };
+    return statement;
   }
 
   async batch(statements) {
