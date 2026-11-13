@@ -93,7 +93,7 @@ async function telegram(env, method, payload) {
   return { response, data };
 }
 
-async function verifyInitData(initData, botToken) {
+async function verifyInitData(initData, botToken, now = Date.now()) {
   if (!initData || !botToken) return null;
   try {
     const params = new URLSearchParams(initData);
@@ -123,6 +123,9 @@ async function verifyInitData(initData, botToken) {
       .map((byte) => byte.toString(16).padStart(2, "0")).join("");
 
     if (calculatedHash !== receivedHash) return null;
+    const authDate = Number(params.get("auth_date"));
+    const nowSeconds = Math.floor(Number(now) / 1000);
+    if (!Number.isSafeInteger(authDate) || authDate <= 0 || authDate > nowSeconds + 60 || nowSeconds - authDate > 24 * 60 * 60) return null;
     const userJson = params.get("user");
     if (!userJson) return null;
     return JSON.parse(userJson);
@@ -4091,10 +4094,18 @@ async function saveRating(request, env) {
   const before=await calculateTerritoryScores(env,territoryId);
   if(isInspectorRole){
     const id=previous?.id || crypto.randomUUID();
-    await env.DB.prepare(`INSERT INTO inspector_ratings (id,territory_id,telegram_id,role,integrity,comfort,atmosphere,detail,created_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(territory_id,telegram_id) DO UPDATE SET role=excluded.role,integrity=excluded.integrity,comfort=excluded.comfort,atmosphere=excluded.atmosphere,detail=excluded.detail,created_at=excluded.created_at`).bind(id,territoryId,Number(auth.user.id),role,...scores,now).run();
+    const saved = await env.DB.prepare(`INSERT INTO inspector_ratings (id,territory_id,telegram_id,role,integrity,comfort,atmosphere,detail,created_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(territory_id,telegram_id) DO UPDATE SET role=excluded.role,integrity=excluded.integrity,comfort=excluded.comfort,atmosphere=excluded.atmosphere,detail=excluded.detail,created_at=excluded.created_at WHERE inspector_ratings.created_at<=?`).bind(id,territoryId,Number(auth.user.id),role,...scores,now,now-twentyHours).run();
+    if (!Number(saved.meta?.changes || 0)) {
+      const latest = await env.DB.prepare(`SELECT integrity,comfort,atmosphere,detail,created_at FROM inspector_ratings WHERE territory_id=? AND telegram_id=? LIMIT 1`).bind(territoryId,Number(auth.user.id)).first();
+      return json({ok:false,error:'Оценку можно обновлять только раз в 20 часов',retryAt:Number(latest?.created_at||now)+twentyHours,values:latest?{integrity:Number(latest.integrity),comfort:Number(latest.comfort),atmosphere:Number(latest.atmosphere),detail:Number(latest.detail)}:null},429);
+    }
   }else{
     const id=previous?.id || crypto.randomUUID();
-    await env.DB.prepare(`INSERT INTO ratings (id,territory_id,telegram_id,role,integrity,comfort,atmosphere,detail,created_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(territory_id,telegram_id) DO UPDATE SET role=excluded.role,integrity=excluded.integrity,comfort=excluded.comfort,atmosphere=excluded.atmosphere,detail=excluded.detail,created_at=excluded.created_at`).bind(id,territoryId,Number(auth.user.id),voteRole,...scores,now).run();
+    const saved = await env.DB.prepare(`INSERT INTO ratings (id,territory_id,telegram_id,role,integrity,comfort,atmosphere,detail,created_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(territory_id,telegram_id) DO UPDATE SET role=excluded.role,integrity=excluded.integrity,comfort=excluded.comfort,atmosphere=excluded.atmosphere,detail=excluded.detail,created_at=excluded.created_at WHERE ratings.created_at<=?`).bind(id,territoryId,Number(auth.user.id),voteRole,...scores,now,now-twentyHours).run();
+    if (!Number(saved.meta?.changes || 0)) {
+      const latest = await env.DB.prepare(`SELECT integrity,comfort,atmosphere,detail,created_at FROM ratings WHERE territory_id=? AND telegram_id=? LIMIT 1`).bind(territoryId,Number(auth.user.id)).first();
+      return json({ok:false,error:'Оценку можно обновлять только раз в 20 часов',retryAt:Number(latest?.created_at||now)+twentyHours,values:latest?{integrity:Number(latest.integrity),comfort:Number(latest.comfort),atmosphere:Number(latest.atmosphere),detail:Number(latest.detail)}:null},429);
+    }
   }
   const after=await calculateTerritoryScores(env,territoryId);
   const curatorChanged=Math.abs(after.curator-before.curator)>=0.01,communityChanged=Math.abs(after.community-before.community)>=0.01;
@@ -4108,6 +4119,7 @@ async function saveRating(request, env) {
   return json({ok:true,community:after.community,curator:after.curator,votes:after.votes,next_at:now+twentyHours,values:{integrity:scores[0],comfort:scores[1],atmosphere:scores[2],detail:scores[3]}});
 }
 async function getRatings(request, env, url) {
+  await ensureWorldTables(env);
   const territoryId = url.searchParams.get("territoryId");
   if (!territoryId) return json({ ok: false, error: "territoryId is required" }, 400);
 
@@ -4171,8 +4183,10 @@ async function deleteComment(request, env) {
   const c=await env.DB.prepare(`SELECT telegram_id,territory_id FROM comments WHERE id=?`).bind(id).first();if(!c)return json({ok:false,error:'Комментарий не найден'},404);
   const role=await getRoleByTelegramId(env,auth.user.id,auth.user.username);
   if(String(c.telegram_id)!==String(auth.user.id)&&role!=='main_inspector')return json({ok:false,error:'Недостаточно прав'},403);
-  await env.DB.prepare(`DELETE FROM comment_replies WHERE comment_id=?`).bind(id).run();
-  await env.DB.prepare(`DELETE FROM comments WHERE id=?`).bind(id).run();
+  await env.DB.batch([
+    env.DB.prepare(`DELETE FROM comment_replies WHERE comment_id=?`).bind(id),
+    env.DB.prepare(`DELETE FROM comments WHERE id=?`).bind(id),
+  ]);
   return json({ok:true});
 }
 
@@ -4184,10 +4198,16 @@ async function replyToComment(request, env) {
   const c=await env.DB.prepare(`SELECT c.id,c.telegram_id,c.text AS comment_text,t.id AS territory_id,t.name AS territory_name,t.owner_telegram_id,t.owner_telegram_username FROM comments c JOIN territories t ON t.id=c.territory_id WHERE c.id=? AND t.status='approved'`).bind(commentId).first();
   if(!c)return json({ok:false,error:'Комментарий не найден'},404);
   if(!(await isTerritoryManager(env,c.territory_id,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403);
-  const existing=await env.DB.prepare(`SELECT comment_id FROM comment_replies WHERE comment_id=?`).bind(commentId).first();
   const now=Date.now();
-  await env.DB.prepare(`INSERT INTO comment_replies(comment_id,telegram_id,text,created_at) VALUES(?,?,?,?) ON CONFLICT(comment_id) DO UPDATE SET telegram_id=excluded.telegram_id,text=excluded.text,created_at=excluded.created_at`).bind(commentId,Number(auth.user.id),text,now).run();
-  if(!existing&&String(c.telegram_id)!==String(auth.user.id)){
+  const inserted=await env.DB.prepare(`INSERT OR IGNORE INTO comment_replies(comment_id,telegram_id,text,created_at)
+    SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM comments WHERE id=?)`).bind(commentId,Number(auth.user.id),text,now,commentId).run();
+  const created=Number(inserted.meta?.changes||0)>0;
+  if(!created){
+    const updated=await env.DB.prepare(`UPDATE comment_replies SET telegram_id=?,text=?,created_at=?
+      WHERE comment_id=? AND EXISTS(SELECT 1 FROM comments WHERE id=?)`).bind(Number(auth.user.id),text,now,commentId,commentId).run();
+    if(!Number(updated.meta?.changes||0))return json({ok:false,error:'Комментарий не найден'},404);
+  }
+  if(created&&String(c.telegram_id)!==String(auth.user.id)){
     try{
       const founderName=normalizeUsername(auth.user.username)||`id${auth.user.id}`;
       await telegram(env,'sendMessage',{chat_id:Number(c.telegram_id),text:`💬 На ваш комментарий ответил основатель/мэр\n\n🏙 ${escapeHtml(c.territory_name)}\n👤 ${escapeHtml(founderName)}\n\nВаш комментарий:\n${escapeHtml(c.comment_text)}\n\nОтвет:\n${escapeHtml(text)}`,parse_mode:'HTML'});
@@ -4199,7 +4219,7 @@ async function replyToComment(request, env) {
 async function updateReply(request, env) {
   const auth=await requireUser(request,env);if(auth.error)return auth.error;
   let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
-  const commentId=String(body?.commentId||'').trim(),text=String(body?.text||'').trim();if(!commentId||!text)return json({ok:false,error:'commentId и text обязательны'},400);
+  const commentId=String(body?.commentId||'').trim(),text=String(body?.text||'').trim();if(!commentId||!text)return json({ok:false,error:'commentId и text обязательны'},400);if(text.length>4000)return json({ok:false,error:'Reply is too long'},400);
   const row=await env.DB.prepare(`SELECT t.owner_telegram_id,t.id AS territory_id FROM comment_replies cr JOIN comments c ON c.id=cr.comment_id JOIN territories t ON t.id=c.territory_id WHERE cr.comment_id=?`).bind(commentId).first();
   if(!row)return json({ok:false,error:'Ответ не найден'},404);if(!(await isTerritoryManager(env,row.territory_id,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403);
   await env.DB.prepare(`UPDATE comment_replies SET text=?,created_at=? WHERE comment_id=?`).bind(text,Date.now(),commentId).run();return json({ok:true,reply:text});
@@ -4215,6 +4235,7 @@ async function deleteReply(request, env) {
 }
 
 async function getComments(request, env, url) {
+  await ensureWorldTables(env);
   const territoryId=url.searchParams.get('territoryId');if(!territoryId)return json({ok:false,error:'territoryId is required'},400);
   const rows=await env.DB.prepare(`SELECT c.id,c.telegram_id,c.telegram_username,COALESCE(c.author_mc_nickname,u.mc_nickname) AS mc_nickname,c.text,c.role,c.created_at,cr.text AS reply_text FROM comments c LEFT JOIN users u ON u.telegram_id=c.telegram_id LEFT JOIN comment_replies cr ON cr.comment_id=c.id WHERE c.territory_id=? ORDER BY CASE WHEN c.role IN ('inspector','main_inspector') THEN 0 ELSE 1 END,c.created_at DESC`).bind(territoryId).all();
   return json({ok:true,comments:(rows.results||[]).map(row=>({...row,reply:row.reply_text||null}))});
@@ -4294,6 +4315,7 @@ async function uploadScreenshot(request, env) {
   return json({ok:true,screenshot:{id:screenshotId,status,url:`/api/screenshots/${screenshotId}`}});
 }
 async function getScreenshots(request, env, url) {
+  await ensureWorldTables(env);
   const territoryId = url.searchParams.get("territoryId");
   if (!territoryId) return json({ ok: false, error: "territoryId is required" }, 400);
 
@@ -4318,6 +4340,13 @@ async function getScreenshots(request, env, url) {
 async function moderateScreenshot(request, env, screenshotId, approve) {
   const auth = await requireUser(request, env);
   if (auth.error) return auth.error;
+  if (typeof approve !== 'boolean') {
+    let body; try { body = await request.json(); } catch { return json({ok:false,error:'Invalid JSON'},400); }
+    if (typeof body?.approve === 'boolean') approve = body.approve;
+    else if (body?.status === 'approved') approve = true;
+    else if (body?.status === 'rejected') approve = false;
+    else return json({ok:false,error:'Укажите approve: true или false'},400);
+  }
 
   const screenshot = await env.DB.prepare(`
     SELECT s.*, t.owner_telegram_id, t.requested_by_id
@@ -4327,6 +4356,7 @@ async function moderateScreenshot(request, env, screenshotId, approve) {
   `).bind(screenshotId).first();
 
   if (!screenshot) return json({ ok: false, error: "Screenshot not found" }, 404);
+  if (screenshot.status !== 'pending') return json({ok:false,error:'Скриншот уже обработан'},409);
 
   const role = await getRoleByTelegramId(env, auth.user.id);
   const isFounder = await isTerritoryManager(env,screenshot.territory_id,auth.user.id);
@@ -4335,16 +4365,17 @@ async function moderateScreenshot(request, env, screenshotId, approve) {
     return json({ ok: false, error: "Forbidden" }, 403);
   }
 
-  await env.DB.prepare(`
+  const changed = await env.DB.prepare(`
     UPDATE screenshots
     SET status = ?, moderated_by = ?, moderated_at = ?
-    WHERE id = ?
+    WHERE id = ? AND status = 'pending'
   `).bind(
     approve ? "approved" : "rejected",
     Number(auth.user.id),
     Date.now(),
     screenshotId
   ).run();
+  if (!Number(changed.meta?.changes || 0)) return json({ok:false,error:'Скриншот уже обработан'},409);
 
   if(approve) await evaluateAchievementsForTerritory(env, screenshot.territory_id).catch(error=>console.error('Achievement evaluation after screenshot:',error));
   return json({ ok: true, status: approve ? "approved" : "rejected" });
@@ -4899,11 +4930,19 @@ async function handleScreenshotCallback(env, callbackQuery) {
   }
 
   const approved = action === "screenshot_ok";
-  await env.DB.prepare(`
+  const changed = await env.DB.prepare(`
     UPDATE screenshots
     SET status = ?, moderated_by = ?, moderated_at = ?
-    WHERE id = ?
+    WHERE id = ? AND status = 'pending'
   `).bind(approved ? "approved" : "rejected", Number(actorId), Date.now(), screenshotId).run();
+  if (!Number(changed.meta?.changes || 0)) {
+    await telegram(env, "answerCallbackQuery", {
+      callback_query_id: callbackQuery.id,
+      text: "Этот скриншот уже обработан",
+      show_alert: true,
+    });
+    return json({ ok: true, alreadyProcessed: true });
+  }
 
   await telegram(env, "answerCallbackQuery", {
     callback_query_id: callbackQuery.id,
@@ -5630,6 +5669,33 @@ async function resolveBankTerritoryTarget(env, query) {
   return { matches };
 }
 
+async function applyBankBalanceChange(env, { updateId, targetType, targetId, amount, direction, ledgerDirection, now, successNote, rejectedNote }) {
+  const treasury = targetType === 'treasury';
+  const debit = direction === 'debit';
+  const balanceUpdate = treasury
+    ? (debit
+      ? env.DB.prepare(`UPDATE city_treasury SET balance=balance-?,updated_at=? WHERE territory_id=? AND balance>=? AND EXISTS(SELECT 1 FROM bank_transactions WHERE update_id=? AND status='processing')`).bind(amount,now,String(targetId),amount,updateId)
+      : env.DB.prepare(`UPDATE city_treasury SET balance=balance+?,updated_at=? WHERE territory_id=? AND EXISTS(SELECT 1 FROM bank_transactions WHERE update_id=? AND status='processing')`).bind(amount,now,String(targetId),updateId))
+    : (debit
+      ? env.DB.prepare(`UPDATE user_currency SET balance=balance-? WHERE telegram_id=? AND balance>=? AND EXISTS(SELECT 1 FROM bank_transactions WHERE update_id=? AND status='processing')`).bind(amount,Number(targetId),amount,updateId)
+      : env.DB.prepare(`UPDATE user_currency SET balance=balance+? WHERE telegram_id=? AND EXISTS(SELECT 1 FROM bank_transactions WHERE update_id=? AND status='processing')`).bind(amount,Number(targetId),updateId));
+  const balanceTable = treasury ? 'city_treasury' : 'user_currency';
+  const balanceWhere = treasury ? 'territory_id=?' : 'telegram_id=?';
+  const ledgerTargetId = treasury ? null : Number(targetId);
+  const successUpdate = env.DB.prepare(`UPDATE bank_transactions
+    SET target_telegram_id=?,direction=?,status='success',
+        balance_after=(SELECT balance FROM ${balanceTable} WHERE ${balanceWhere}),updated_at=?,note=?
+    WHERE update_id=? AND status='processing' AND changes()=1`).bind(ledgerTargetId,ledgerDirection,now,successNote,String(targetId),updateId);
+  const rejectedUpdate = env.DB.prepare(`UPDATE bank_transactions
+    SET target_telegram_id=?,direction=?,status='rejected',
+        balance_after=(SELECT balance FROM ${balanceTable} WHERE ${balanceWhere}),updated_at=?,note=?
+    WHERE update_id=? AND status='processing' AND changes()=0`).bind(ledgerTargetId,ledgerDirection,now,rejectedNote,String(targetId),updateId);
+  const batch = await env.DB.batch([balanceUpdate,successUpdate,rejectedUpdate]);
+  const row = await env.DB.prepare(`SELECT status,balance_after FROM bank_transactions WHERE update_id=? LIMIT 1`).bind(updateId).first();
+  const processed = Number(batch?.[1]?.meta?.changes||0)>0 || Number(batch?.[2]?.meta?.changes||0)>0;
+  return {status:String(row?.status||''),balanceAfter:Number(row?.balance_after||0),replayed:!processed};
+}
+
 async function handleBankMessage(env, update, message) {
   const bankerId = String(env.BANKER_TELEGRAM_ID || '').trim();
   if (!bankerId || !/^\d+$/.test(bankerId) || String(message.from?.id || '') !== bankerId) return null;
@@ -5644,7 +5710,12 @@ async function handleBankMessage(env, update, message) {
   const now = Date.now(), transactionId = crypto.randomUUID();
   const inserted = await env.DB.prepare(`INSERT OR IGNORE INTO bank_transactions(id,update_id,chat_id,message_id,actor_telegram_id,target_query,amount,direction,status,created_at,updated_at)
     VALUES(?,?,?,?,?,?,?,?, 'processing',?,?)`).bind(transactionId,updateId,chatId,messageId,Number(message.from.id),command.target,command.amount,command.direction,now,now).run();
-  if (!inserted.meta?.changes) return json({ ok: true, handled: 'bank_duplicate' });
+  if (!inserted.meta?.changes) {
+    const existing = await env.DB.prepare(`SELECT status FROM bank_transactions WHERE update_id=? LIMIT 1`).bind(updateId).first();
+    // A previous Worker may have stopped after reserving the update. Reprocessing is safe:
+    // balance changes and the final ledger status are committed together below.
+    if (String(existing?.status||'') !== 'processing') return json({ ok: true, handled: 'bank_duplicate' });
+  }
   const reply = async text => { try { await telegram(env,'sendMessage',{chat_id:chatId,text,reply_to_message_id:messageId}); } catch (error) { console.error('Bank receipt reply failed:',error); } };
   try {
     // Resolve territory commands in both directions before trying to resolve a player.
@@ -5658,23 +5729,23 @@ async function handleBankMessage(env, update, message) {
     if (cityResult.matches.length === 1) {
       const city = cityResult.matches[0];
       await env.DB.prepare(`INSERT OR IGNORE INTO city_treasury(territory_id,balance,updated_at) VALUES(?,?,?)`).bind(city.id,0,Date.now()).run();
-      let changed;
-      if (command.direction === 'debit') {
-        changed = await env.DB.prepare(`UPDATE city_treasury SET balance=balance-?,updated_at=? WHERE territory_id=? AND balance>=?`).bind(command.amount,Date.now(),city.id,command.amount).run();
-        if (!changed.meta?.changes) {
-          await env.DB.prepare(`UPDATE bank_transactions SET direction='treasury_debit',status='rejected',updated_at=?,note='Недостаточно средств в казне' WHERE update_id=?`).bind(Date.now(),updateId).run();
-          await reply(`🏦 Операция не выполнена: в казне территории «${stripMinecraftFormatting(city.name)}» недостаточно средств.`);
-          return json({ ok: true, handled: 'bank_treasury_insufficient_funds' });
-        }
-      } else {
-        changed = await env.DB.prepare(`UPDATE city_treasury SET balance=balance+?,updated_at=? WHERE territory_id=?`).bind(command.amount,Date.now(),city.id).run();
-        if (!changed.meta?.changes) throw new Error('Treasury balance update did not change a row');
-}
-      const treasury = await env.DB.prepare(`SELECT balance FROM city_treasury WHERE territory_id=?`).bind(city.id).first();
-      const balanceAfter = Number(treasury?.balance||0);
-      const direction = command.direction === 'debit' ? 'treasury_debit' : 'treasury_credit';
+      const ledgerDirection = command.direction === 'debit' ? 'treasury_debit' : 'treasury_credit';
+      const transfer = await applyBankBalanceChange(env,{
+        updateId,targetType:'treasury',targetId:city.id,amount:command.amount,direction:command.direction,
+        ledgerDirection,now:Date.now(),successNote:command.direction==='debit'?'Banker treasury debit':'Banker treasury credit',
+        rejectedNote:'Недостаточно средств в казне',
+      });
+      if (transfer.replayed) {
+        await reply('🏦 Эта операция уже обрабатывается или была завершена ранее.');
+        return json({ok:true,handled:'bank_duplicate'});
+      }
+      if (transfer.status !== 'success') {
+        await reply(`🏦 Операция не выполнена: в казне территории «${stripMinecraftFormatting(city.name)}» недостаточно средств.`);
+        return json({ ok: true, handled: 'bank_treasury_insufficient_funds' });
+      }
+      const balanceAfter = transfer.balanceAfter;
+      const direction = ledgerDirection;
       const actionText = command.direction === 'debit' ? 'снято с казны' : 'зачислено в казну';
-      await env.DB.prepare(`UPDATE bank_transactions SET direction=?,status='success',balance_after=?,updated_at=?,note=? WHERE update_id=?`).bind(direction,balanceAfter,Date.now(),command.direction === 'debit' ? 'Banker treasury debit' : 'Banker treasury credit',updateId).run();
       await reply(`🏦 Казна территории «${stripMinecraftFormatting(city.name)}»: ${actionText} ${command.amount} сц. Новый баланс: ${balanceAfter} сц.`);
       const notice = command.direction === 'debit'
         ? `🏦 <b>Уведомление банка</b>\n\nС казны территории «${escapeHtml(stripMinecraftFormatting(city.name))}» снято <b>${command.amount}</b> сц. Новый баланс: <b>${balanceAfter}</b> сц.`
@@ -5690,20 +5761,21 @@ async function handleBankMessage(env, update, message) {
     }
     const targetId = resolved.telegramId;
     await env.DB.prepare(`INSERT OR IGNORE INTO user_currency(telegram_id,balance) VALUES(?,0)`).bind(targetId).run();
-    let result;
-    if (command.direction === 'debit') {
-      result = await env.DB.prepare(`UPDATE user_currency SET balance=balance-? WHERE telegram_id=? AND balance>=?`).bind(command.amount,targetId,command.amount).run();
-      if (!result.meta?.changes) {
-        await env.DB.prepare(`UPDATE bank_transactions SET target_telegram_id=?,status='rejected',updated_at=?,note='Недостаточно самоцветов' WHERE update_id=?`).bind(targetId,Date.now(),updateId).run();
-        await reply('🏦 Операция не выполнена: на балансе игрока недостаточно сц.');
-        return json({ ok: true, handled: 'bank_insufficient_funds' });
-      }
-    } else {
-      result = await env.DB.prepare(`UPDATE user_currency SET balance=balance+? WHERE telegram_id=?`).bind(command.amount,targetId).run();
-      if (!result.meta?.changes) throw new Error('Balance update did not change a row');
+    const transfer = await applyBankBalanceChange(env,{
+      updateId,targetType:'user',targetId,amount:command.amount,direction:command.direction,
+      ledgerDirection:command.direction,now:Date.now(),
+      successNote:command.direction==='debit'?'Banker player debit':'Banker player credit',
+      rejectedNote:'Недостаточно самоцветов',
+    });
+    if (transfer.replayed) {
+      await reply('🏦 Эта операция уже обрабатывается или была завершена ранее.');
+      return json({ok:true,handled:'bank_duplicate'});
     }
-    const balance = await env.DB.prepare(`SELECT balance FROM user_currency WHERE telegram_id=?`).bind(targetId).first();
-    await env.DB.prepare(`UPDATE bank_transactions SET target_telegram_id=?,status='success',balance_after=?,updated_at=? WHERE update_id=?`).bind(targetId,Number(balance?.balance || 0),Date.now(),updateId).run();
+    if (transfer.status !== 'success') {
+      await reply('🏦 Операция не выполнена: на балансе игрока недостаточно сц.');
+      return json({ ok: true, handled: 'bank_insufficient_funds' });
+    }
+    const balance = {balance:transfer.balanceAfter};
     const verb = command.direction === 'debit' ? 'списано' : 'зачислено';
     await reply(`🏦 Готово: ${verb} ${command.amount} сц. Игрок: ${command.target}. Баланс: ${Number(balance?.balance || 0)} сц.`);
     try {
@@ -5713,7 +5785,7 @@ async function handleBankMessage(env, update, message) {
     } catch (error) { console.error(JSON.stringify({event:'bank_user_notification_failed',targetId,code:'BANK_USER_NOTIFICATION_FAILED'})); }
     return json({ ok: true, handled: 'bank_success' });
   } catch (error) {
-    await env.DB.prepare(`UPDATE bank_transactions SET status='failed',updated_at=?,note='Internal processing error' WHERE update_id=?`).bind(Date.now(),updateId).run().catch(()=>{});
+    await env.DB.prepare(`UPDATE bank_transactions SET status='failed',updated_at=?,note='Internal processing error' WHERE update_id=? AND status='processing'`).bind(Date.now(),updateId).run().catch(()=>{});
     console.error(JSON.stringify({event:'bank_transaction_failed',updateId,code:'BANK_TRANSACTION_FAILED'}));
     await reply('🏦 Не удалось завершить операцию из-за ошибки сервера. Проверьте журнал транзакций перед повторной отправкой.');
     return json({ ok: true, handled: 'bank_failed' });
@@ -6329,3 +6401,5 @@ export default {
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   },
 };
+
+export { verifyInitData, parseBankCommand, applyBankBalanceChange };
