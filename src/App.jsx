@@ -986,11 +986,25 @@ function Button({ variant = 'primary', size = 'md', disabled = false, className 
   }}>{children}</button>;
 }
 
-function iconBtn(bg, color, square) {
-  return {
-    width: 40, height: 40, borderRadius: square ? 12 : '50%', background: bg, color,
-    border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+/** Accessible icon-only action. Keep the Lucide glyph at 16–20px while preserving a 40px touch target. */
+function IconButton({ icon: Icon, label, title = label, size = 40, radius = 12, variant = 'neutral', onClick, disabled = false, style = {}, ...props }) {
+  const variants = {
+    neutral: { background:'var(--surface-2)', color:'var(--text-muted)', border:'1px solid var(--border)' },
+    primary: { background:'var(--purple-soft)', color:'var(--purple)', border:'1px solid var(--purple-border)' },
+    success: { background:'var(--mint-soft)', color:'var(--mint)', border:'1px solid var(--mint-border)' },
+    danger: { background:'var(--red-soft)', color:'var(--red)', border:'1px solid var(--red-border)' },
+    ghost: { background:'transparent', color:'var(--text-muted)', border:'1px solid transparent' },
   };
+  return <button type="button" {...props} onClick={onClick} disabled={disabled} title={title} aria-label={label}
+    className="press" style={{ width:size, height:size, minWidth:size, minHeight:size, padding:0, borderRadius:radius,
+      display:'inline-flex', alignItems:'center', justifyContent:'center', flexShrink:0, cursor:disabled?'not-allowed':'pointer',
+      opacity:disabled?.5:1, ...variants[variant]||variants.neutral, ...style }}>
+    {Icon && <Icon size={18} strokeWidth={2} aria-hidden="true" />}
+  </button>;
+}
+function iconBtn(bg, color, square) {
+  return { width:40, height:40, borderRadius:square?12:'50%', background:bg, color, border:'none', cursor:'pointer',
+    display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 };
 }
 
 function reactBtn(active) {
@@ -2499,7 +2513,7 @@ function ReplyBox({ onSend }) {
 function ResidentsModal({ residents, members = [], pendingInvites = [], ownerName, isOwner, onClose, newResident, setNewResident, onAdd, onRemove, onCancelInvite }) {
   const displayMembers=members.length?members:residents.map((name,i)=>({mc_nickname:name,fallback:i}));
   const { closing, requestClose } = useAnimatedClose(onClose, 175);
-  return <div className={`atlas-overlay${closing ? ' atlas-closing' : ''}`} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.82)',zIndex:60,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing ? ' atlas-closing' : ''}`} style={{width:'100%',maxWidth:448,background:'var(--surface)',borderRadius:22,border:'1px solid var(--border)',padding:18,maxHeight:'70vh',overflowY:'auto'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Жители</div><button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div><div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:isOwner?14:0}}>{displayMembers.length===0?<div style={{fontSize:12.5,color:'var(--text-muted)'}}>Список жителей пуст.</div>:displayMembers.map(m=><div key={m.telegram_id||m.fallback||m.mc_nickname} style={{display:'flex',alignItems:'center',gap:10,background:'var(--surface-2)',borderRadius:12,padding:'9px 12px'}}><User size={15} color="var(--text-muted)"/><MinecraftText text={m.mc_nickname||'Неизвестно'} style={{fontSize:13.5,flex:1}}/>{isOwner&&m.telegram_id&&<button onClick={()=>onRemove(m)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><Trash2 size={14}/></button>}</div>)}</div>{isOwner&&pendingInvites.length>0&&<div style={{marginBottom:14}}><div style={{fontSize:12,fontWeight:700,color:'var(--warning)',marginBottom:7}}>Ожидают ответа</div>{pendingInvites.map(inv=><div key={inv.id} style={{display:'flex',alignItems:'center',gap:8,background:'var(--warning-soft)',borderRadius:12,padding:'9px 10px',marginBottom:7}}><Clock size={14} color="var(--warning)"/><MinecraftText text={inv.target_nickname} style={{flex:1,fontSize:12.5}}/><button onClick={()=>onCancelInvite(inv.id)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><X size={15}/></button></div>)}</div>}{isOwner&&<div style={{display:'flex',gap:8}}><input value={newResident} onChange={e=>setNewResident(e.target.value)} placeholder="Ник игрока" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'9px 12px',color:'var(--text)',fontSize:13}}/><button onClick={onAdd} className="press" style={iconBtn('var(--purple)','#fff',true)}><UserPlus size={15}/></button></div>}</div></div>;
+  return <div className={`atlas-overlay${closing ? ' atlas-closing' : ''}`} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.82)',zIndex:60,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing ? ' atlas-closing' : ''}`} style={{width:'100%',maxWidth:448,background:'var(--surface)',borderRadius:22,border:'1px solid var(--border)',padding:18,maxHeight:'70vh',overflowY:'auto'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Жители</div><IconButton icon={X} label="Закрыть окно" onClick={requestClose} /></div><div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:isOwner?14:0}}>{displayMembers.length===0?<div style={{fontSize:12.5,color:'var(--text-muted)'}}>Список жителей пуст.</div>:displayMembers.map(m=><div key={m.telegram_id||m.fallback||m.mc_nickname} style={{display:'flex',alignItems:'center',gap:10,background:'var(--surface-2)',borderRadius:12,padding:'9px 12px'}}><User size={15} color="var(--text-muted)"/><MinecraftText text={m.mc_nickname||'Неизвестно'} style={{fontSize:13.5,flex:1}}/>{isOwner&&m.telegram_id&&<button onClick={()=>onRemove(m)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><Trash2 size={14}/></button>}</div>)}</div>{isOwner&&pendingInvites.length>0&&<div style={{marginBottom:14}}><div style={{fontSize:12,fontWeight:700,color:'var(--warning)',marginBottom:7}}>Ожидают ответа</div>{pendingInvites.map(inv=><div key={inv.id} style={{display:'flex',alignItems:'center',gap:8,background:'var(--warning-soft)',borderRadius:12,padding:'9px 10px',marginBottom:7}}><Clock size={14} color="var(--warning)"/><MinecraftText text={inv.target_nickname} style={{flex:1,fontSize:12.5}}/><button onClick={()=>onCancelInvite(inv.id)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><X size={15}/></button></div>)}</div>}{isOwner&&<div style={{display:'flex',gap:8}}><input value={newResident} onChange={e=>setNewResident(e.target.value)} placeholder="Ник игрока" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'9px 12px',color:'var(--text)',fontSize:13}}/><button onClick={onAdd} className="press" style={iconBtn('var(--purple)','#fff',true)}><UserPlus size={15}/></button></div>}</div></div>;
 }
 
 function RecruitmentScreen({ territories, onSelect }) {
