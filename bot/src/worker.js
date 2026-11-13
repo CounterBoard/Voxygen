@@ -2274,6 +2274,7 @@ async function inviteResident(request, env) {
   if(!territory||!(await isTerritoryManager(env,territoryId,auth.user.id))) return json({ok:false,error:'Только основатель/мэр может приглашать жителей'},403);
   const target=await env.DB.prepare(`SELECT telegram_id,status FROM users WHERE lower(mc_nickname)=lower(?) LIMIT 1`).bind(nickname).first();
   if(!target) {
+    await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=? WHERE territory_id=? AND target_telegram_id IS NULL AND lower(target_nickname)=lower(?) AND status='pending'`).bind(Date.now(),territoryId,nickname).run();
     const inviteId=crypto.randomUUID();
     await env.DB.prepare(`INSERT INTO city_invites (id,territory_id,target_telegram_id,target_nickname,invited_by,invite_type,status,created_at) VALUES (?,?,NULL,?,?, 'join','pending',?)`).bind(inviteId,territoryId,nickname,Number(auth.user.id),Date.now()).run();
     return json({ok:true,pendingNickname:true,inviteId,message:'Приглашение сохранено. Оно будет отправлено после подтверждения этого никнейма.'});
@@ -2281,7 +2282,7 @@ async function inviteResident(request, env) {
 if(String(target.telegram_id)===String(auth.user.id)) return json({ok:false,error:'Нельзя пригласить самого себя'},400);
   const membership=await env.DB.prepare('SELECT territory_id FROM city_memberships WHERE telegram_id=? AND territory_id=?').bind(Number(target.telegram_id),territoryId).first();
   const inviteType='join';
-  await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=? WHERE territory_id=? AND target_telegram_id=? AND status='pending'`).bind(Date.now(),territoryId,Number(target.telegram_id)).run();
+  await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=? WHERE territory_id=? AND status='pending' AND (target_telegram_id=? OR (target_telegram_id IS NULL AND lower(target_nickname)=lower(?)))`).bind(Date.now(),territoryId,Number(target.telegram_id),nickname).run();
   const inviteId=crypto.randomUUID();
   await env.DB.prepare(`INSERT INTO city_invites (id,territory_id,target_telegram_id,target_nickname,invited_by,invite_type,status,created_at) VALUES (?,?,?,?,?,?,'pending',?)`).bind(inviteId,territoryId,Number(target.telegram_id),nickname,Number(auth.user.id),inviteType,Date.now()).run();
   if(target.status==='verified') await sendResidentInviteOnce(env,{id:inviteId,territory_id:territoryId,target_telegram_id:Number(target.telegram_id),target_nickname:nickname,invite_type:inviteType},territory.name);
@@ -2492,21 +2493,53 @@ async function applyManagerChange(env,{territoryId,targetId,action,initiatorId=n
 }
 
 async function finalizeManagerChangeRequest(env,requestId) {
-  const req=await env.DB.prepare(`SELECT * FROM manager_change_requests WHERE id=?`).bind(requestId).first(); if(!req||req.status!=='pending')return null;
+  const req=await env.DB.prepare(`SELECT * FROM manager_change_requests WHERE id=?`).bind(requestId).first();
+  if(!req||req.status!=='pending')return null;
   const votes=await env.DB.prepare(`SELECT SUM(CASE WHEN approve=1 THEN 1 ELSE 0 END) AS yes,COUNT(*) AS total FROM manager_change_votes WHERE request_id=?`).bind(requestId).first();
   const yes=Number(votes?.yes||0),total=Number(votes?.total||0),expired=Date.now()>=Number(req.expires_at||0);
-  const approvedTotal = yes + 1; // initiator's requested change counts as the initiating vote
-  const requiredTotal = Math.floor((Number(req.voter_count||0) + 1) / 2) + 1;
+  const approvedTotal=yes+1; // initiator's requested change counts as the initiating vote
+  const requiredTotal=Math.floor((Number(req.voter_count||0)+1)/2)+1;
   let status=null;
   if(approvedTotal>=requiredTotal)status='approved';
-  else if(expired || total>=Number(req.voter_count||0))status='rejected';
+  else if(expired||total>=Number(req.voter_count||0))status='rejected';
   if(!status)return null;
-  await env.DB.prepare(`UPDATE manager_change_requests SET status=?,decided_at=? WHERE id=? AND status='pending'`).bind(status,Date.now(),requestId).run();
-  if(status==='approved') await applyManagerChange(env,{territoryId:req.territory_id,targetId:Number(req.target_telegram_id),action:req.action,initiatorId:Number(req.initiator_telegram_id)});
-  const target=await env.DB.prepare(`SELECT mc_nickname FROM users WHERE telegram_id=?`).bind(Number(req.target_telegram_id)).first(); const city=await env.DB.prepare(`SELECT name FROM territories WHERE id=?`).bind(req.territory_id).first();
+
+  // Apply the role change before recording approval. A failed application must never
+  // leave a request marked approved while the territory still has its old permissions.
+  if(status==='approved'){
+    const applied=await applyManagerChange(env,{
+      territoryId:req.territory_id,
+      targetId:Number(req.target_telegram_id),
+      action:req.action,
+      initiatorId:Number(req.initiator_telegram_id),
+    });
+    if(!applied)status='rejected';
+  }
+
+  const decision=await env.DB.prepare(`UPDATE manager_change_requests SET status=?,decided_at=?
+    WHERE id=? AND status='pending'`).bind(status,Date.now(),requestId).run();
+  // Another callback/cron execution won the finalization race; do not duplicate notices.
+  if(!decision.meta?.changes)return null;
+
+  const target=await env.DB.prepare(`SELECT mc_nickname FROM users WHERE telegram_id=?`).bind(Number(req.target_telegram_id)).first();
+  const city=await env.DB.prepare(`SELECT name FROM territories WHERE id=?`).bind(req.territory_id).first();
   const resultText=status==='approved'?'✅ Решение одобрено':'❌ Решение отклонено';
   try{await telegram(env,'sendMessage',{chat_id:Number(req.initiator_telegram_id),text:`${resultText}\n\n🏙 ${escapeHtml(city?.name||'Город')}\n👤 ${escapeHtml(target?.mc_nickname||`id${req.target_telegram_id}`)}`,parse_mode:'HTML'})}catch{}
   return {status,yes,total};
+}
+
+async function expireManagerChangeRequests(env, at=Date.now()) {
+  await ensureManagerChangeTables(env);
+  const now=Number(at||Date.now());
+  const rows=await env.DB.prepare(`SELECT id FROM manager_change_requests
+    WHERE status='pending' AND expires_at<=?
+    ORDER BY expires_at ASC LIMIT 100`).bind(now).all();
+  let finalized=0;
+  for(const row of rows.results||[]){
+    const result=await finalizeManagerChangeRequest(env,row.id);
+    if(result)finalized++;
+  }
+  return finalized;
 }
 
 async function handleManagerVoteCallback(env, callbackQuery) {
@@ -5706,6 +5739,13 @@ export default {
       if(deleted)console.log(JSON.stringify({event:'expired_events_purged',count:deleted}));
     } catch (error) {
       console.error(JSON.stringify({event:'expired_events_purge_failed',code:'EVENT_PURGE_FAILED',message:String(error?.message||error).slice(0,180)}));
+      scheduledError=scheduledError||error;
+    }
+    try {
+      const finalized=await expireManagerChangeRequests(env,now);
+      if(finalized)console.log(JSON.stringify({event:'manager_change_requests_expired',count:finalized}));
+    } catch (error) {
+      console.error(JSON.stringify({event:'manager_change_expiry_failed',code:'MANAGER_CHANGE_EXPIRY_FAILED',message:String(error?.message||error).slice(0,180)}));
       scheduledError=scheduledError||error;
     }
     if(scheduledError)throw scheduledError;
