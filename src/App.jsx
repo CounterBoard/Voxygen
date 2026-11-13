@@ -1929,7 +1929,7 @@ function TreasuryCard({city,initData,tgUser}={}){
     <div style={{display:'flex',gap:8}}><input value={amount} onChange={e=>setAmount(e.target.value.replace(/\D/g,''))} inputMode="numeric" placeholder="Количество сц" style={{flex:1,minWidth:0,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:12,padding:'11px 12px',color:'var(--text)',fontSize:14}}/><button onClick={deposit} disabled={busy||!amount} className="press" style={{border:'none',borderRadius:12,padding:'10px 14px',background:'var(--purple)',color:'#fff',fontWeight:700,whiteSpace:'nowrap'}}>{busy?'…':'Пополнить казну'}</button></div>
     {error&&<div style={{fontSize:12,color:'var(--red)',marginTop:9}}>{error}</div>}
     {notice&&<FixedToast key={notice} message={notice}/>}
-  </div>;
+  </SurfaceCard>;
 }
 function SettingsToggle({ checked, onChange, disabled = false, label, description }) {
   return <div style={{display:'flex',alignItems:'center',gap:'var(--space-3)',padding:'11px 0',opacity:disabled?0.48:1}}>
