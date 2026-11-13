@@ -954,8 +954,8 @@ function Lightbox({ shots = [], index = 0, mode, onClose, onApprove, onReject, o
       <MinecraftText text={shot.author || shot.mc_nickname || shot.telegram_username || ''} style={{position:'fixed',bottom:'calc(38px + env(safe-area-inset-bottom))',left:'50%',transform:'translateX(-50%)',zIndex:8,maxWidth:'80vw',fontSize:12,color:'var(--text-muted)',textAlign:'center',pointerEvents:'none',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}/>
       {safeShots.length>1&&<div onClick={e=>e.stopPropagation()} style={{position:'fixed',bottom:'calc(14px + env(safe-area-inset-bottom))',left:'50%',transform:'translateX(-50%)',display:'flex',alignItems:'center',gap:5,zIndex:8,pointerEvents:'auto'}}>{safeShots.map((_,i)=><span key={i} style={{width:i===safeIndex?14:6,height:6,borderRadius:999,background:i===safeIndex?'var(--purple)':'var(--surface-2)',border:'1px solid var(--border)'}} />)}</div>}
       {mode==='moderate'&&<div style={{position:'absolute',left:12,right:12,bottom:14,display:'flex',gap:10}} onClick={e=>e.stopPropagation()}>
-        <button onClick={onApprove} className="press" style={{flex:1,padding:'12px 0',borderRadius:12,border:'none',background:'var(--emerald)',color:'#06120D',fontWeight:700,fontSize:14}}>Одобрить</button>
-        <button onClick={onReject} className="press" style={{flex:1,padding:'12px 0',borderRadius:12,border:'none',background:'var(--red-soft)',color:'var(--red)',fontWeight:700,fontSize:14}}>Отклонить</button>
+        <Button variant="success" size="lg" onClick={onApprove} style={{flex:1}}>Одобрить</Button>
+        <Button variant="destructive" size="lg" onClick={onReject} style={{flex:1}}>Отклонить</Button>
       </div>}
     </div>
   );
@@ -1707,7 +1707,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
       {faqLoading&&<div role="status" style={{fontSize:12,color:'var(--text-muted)',marginBottom:8}}>Загрузка сохранённого текста…</div>}
       {faqLoadError&&<div role="alert" style={{fontSize:12,color:'var(--red)',lineHeight:1.45,marginBottom:8}}>{faqLoadError}<button type="button" onClick={loadFaq} className="press" style={{display:'block',marginTop:8,padding:'8px 11px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Повторить загрузку</button></div>}
       <textarea value={faqText} onChange={e=>setFaqText(e.target.value)} disabled={faqLoading||Boolean(faqLoadError)} placeholder={faqLoading?'Загрузка…':faqLoadError?'Загрузка не удалась. Повторите запрос.':''} rows={9} style={{width:'100%',boxSizing:'border-box',resize:'none',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,lineHeight:1.5,marginBottom:8,opacity:faqLoading||faqLoadError?0.65:1}}/>
-      <button onClick={saveFaq} disabled={faqSaving||faqLoading||Boolean(faqLoadError)} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',background:'var(--purple)',color:'#fff',fontWeight:700,opacity:faqSaving||faqLoading||faqLoadError?0.55:1}}>{faqSaving?'Сохранение…':'Сохранить ЧиВо'}</button>
+      <Button onClick={saveFaq} disabled={faqSaving||faqLoading||Boolean(faqLoadError)} style={{width:'100%'}}>{faqSaving?'Сохранение…':'Сохранить ЧиВо'}</Button>
     </div>
 
     {managerModalCity&&<MainInspectorManagersModal city={managerModalCity} initData={initData} onClose={()=>setManagerModalCity(null)} onSaved={(message)=>{setNotice(message);onTerritoriesChanged?.()}} />}
