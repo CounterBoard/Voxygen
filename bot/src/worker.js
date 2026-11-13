@@ -5267,6 +5267,7 @@ async function notifyUsersOfNewEvent(env, event) {
 async function createEvent(request, env) {
   const auth = await requireUser(request, env);
   if (auth.error) return auth.error;
+  await ensureWorldTables(env);
   let body; try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
   const parsed = validateEventBody(body);
   if (parsed.error) return json({ ok: false, error: parsed.error }, 400);
@@ -5335,6 +5336,7 @@ async function createEvent(request, env) {
 async function updateEvent(request, env) {
   const auth = await requireUser(request, env);
   if (auth.error) return auth.error;
+  await ensureWorldTables(env);
   let body; try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
   const id = String(body?.id || '').trim();
   if (!id) return json({ ok: false, error: 'Событие не найдено' }, 400);
@@ -5391,6 +5393,7 @@ async function updateEvent(request, env) {
 async function deleteEvent(request, env) {
   const auth = await requireUser(request, env);
   if (auth.error) return auth.error;
+  await ensureWorldTables(env);
   let body; try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
   const id = String(body?.id || '').trim();
   if (!id) return json({ ok: false, error: 'Событие не найдено' }, 400);
