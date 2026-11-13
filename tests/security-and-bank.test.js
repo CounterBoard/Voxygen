@@ -9,11 +9,12 @@ const BOT_TOKEN = "voxygen-test-token";
 const encoder = new TextEncoder();
 
 async function signedInitData(authDate, user = { id: 123456, first_name: "Test" }) {
-  const params = new URLSearchParams({
-    auth_date: String(authDate),
+  const values = {
     query_id: "AA-test-query",
     user: JSON.stringify(user),
-  });
+  };
+  if (authDate !== undefined) values.auth_date = String(authDate);
+  const params = new URLSearchParams(values);
   const dataCheckString = [...params.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => `${key}=${value}`)
