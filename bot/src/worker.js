@@ -4350,18 +4350,40 @@ async function updateTerritoryOwner(request, env) {
   if(!target||target.status!=='verified')return json({ok:false,error:'Подтверждённый пользователь с таким Telegram ID не найден'},404);
   if(!String(target.mc_nickname||'').trim())return json({ok:false,error:'У пользователя не указан Minecraft-никнейм'},409);
   const oldOwner=Number(territory.owner_telegram_id||0);
-  if(oldOwner && oldOwner!==targetId) await hideRecruitmentIfContactLost(env,territoryId,oldOwner);
-  await env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=? WHERE id=?`).bind(targetId,target.telegram_username||null,target.mc_nickname||null,territoryId).run();
-  if(oldOwner && oldOwner!==targetId) await env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at) VALUES(?,?,?)`).bind(oldOwner,territoryId,Date.now()).run();
-  await env.DB.prepare(`DELETE FROM city_memberships WHERE telegram_id=? AND territory_id=?`).bind(targetId,territoryId).run();
-  await env.DB.prepare(`DELETE FROM territory_managers WHERE telegram_id=? AND territory_id=?`).bind(targetId,territoryId).run();
-  if(oldOwner && oldOwner!==targetId) await env.DB.prepare(`DELETE FROM territory_managers WHERE telegram_id=? AND territory_id=?`).bind(oldOwner,territoryId).run();
-  // Pick the newly assigned founder's first eligible inventory marker immediately when possible.
-  // Map visibility does not depend on having such a cosmetic; the frontend has a neutral fallback.
+  if(oldOwner===targetId)return json({ok:true,changed:false,owner:{telegram_id:targetId,telegram_username:target.telegram_username||null,mc_nickname:target.mc_nickname||null}});
+
+  const expectedOwner=territory.owner_telegram_id??null;
+  const now=Date.now();
+  const statements=[
+    env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=?
+      WHERE id=? AND status='approved' AND owner_telegram_id IS ?`)
+      .bind(targetId,target.telegram_username||null,target.mc_nickname,territoryId,expectedOwner),
+  ];
+  if(oldOwner){
+    statements.push(env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at)
+      SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
+      .bind(oldOwner,territoryId,now,territoryId,targetId));
+    statements.push(env.DB.prepare(`DELETE FROM territory_managers WHERE telegram_id=? AND territory_id=?
+      AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
+      .bind(oldOwner,territoryId,territoryId,targetId));
+  }
+  statements.push(
+    env.DB.prepare(`DELETE FROM city_memberships WHERE telegram_id=? AND territory_id=?
+      AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
+      .bind(targetId,territoryId,territoryId,targetId),
+    env.DB.prepare(`DELETE FROM territory_managers WHERE telegram_id=? AND territory_id=?
+      AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
+      .bind(targetId,territoryId,territoryId,targetId),
+  );
+  await env.DB.batch(statements);
+  const fresh=await env.DB.prepare(`SELECT owner_telegram_id FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first();
+  if(Number(fresh?.owner_telegram_id||0)!==targetId)return json({ok:false,error:'Владелец территории уже был изменён. Обновите данные и повторите действие.'},409);
+
+  if(oldOwner) await hideRecruitmentIfContactLost(env,territoryId,oldOwner).catch(error=>console.error('Recruitment cleanup after owner replacement:',error));
   try { await ensureFirstCityMarker(env, territoryId); }
   catch (error) { console.error(JSON.stringify({ event: 'owner_assigned_marker_init_failed', territoryId: String(territoryId).slice(0, 80), code: 'OWNER_MARKER_INIT_FAILED' })); }
   try{await telegram(env,'sendMessage',{chat_id:targetId,text:`👑 Вы назначены основателем/мэром города «${escapeHtml(territory.name)}» главным инспектором.`,parse_mode:'HTML'})}catch{}
-  if(oldOwner && oldOwner!==targetId){try{await telegram(env,'sendMessage',{chat_id:oldOwner,text:`ℹ️ В городе «${escapeHtml(territory.name)}» изменён основной основатель/мэр. Вы остались жителем города.`,parse_mode:'HTML'})}catch{}}
+  if(oldOwner){try{await telegram(env,'sendMessage',{chat_id:oldOwner,text:`ℹ️ В городе «${escapeHtml(territory.name)}» изменён основной основатель/мэр. Вы остались жителем города.`,parse_mode:'HTML'})}catch{}}
   await evaluateAchievementsForTerritory(env, territoryId).catch(error=>console.error('Achievement evaluation after main inspector assigned founder:',error));
   return json({ok:true,owner:{telegram_id:targetId,telegram_username:target.telegram_username||null,mc_nickname:target.mc_nickname||null}});
 }
