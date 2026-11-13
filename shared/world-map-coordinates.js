@@ -53,7 +53,7 @@ export function mapZoomPercentToScale(percent) {
   const numeric = Number(percent);
   const normalized = Number.isFinite(numeric)
     ? Math.min(MAP_ZOOM_MAX_PERCENT, Math.max(MAP_ZOOM_MIN_PERCENT, numeric))
-    : MAP_ZOOM_MAX_PERCENT;
+    : 88;
 
   // Interpolate exponentially between the exact endpoints. Equal slider steps
   // therefore produce equal relative zoom changes instead of a large linear
