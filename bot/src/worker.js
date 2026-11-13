@@ -435,20 +435,24 @@ async function ensureGlobalSettingsTable(env) {
   return promise;
 }
 
-function normalizeTheme() {
-  return 'vox';
+const SUPPORTED_THEME_IDS = Object.freeze(['vox']);
+function normalizeTheme(value='vox', fallback='vox') {
+  const id=String(value??'vox').trim().toLowerCase();
+  return SUPPORTED_THEME_IDS.includes(id)?id:fallback;
 }
 
 async function readGlobalSettingOverrides(env, at = Date.now()) {
   await ensureGlobalSettingsTable(env);
   const rows = await env.DB.prepare(`SELECT setting_key,value,expires_at,updated_at,updated_by
     FROM global_setting_overrides`).all();
-  const result = { mapZoomPercent: null };
+  const result = { mapZoomPercent: null, theme: null };
   for (const row of rows.results || []) {
     const expiresAt = row.expires_at == null ? null : Number(row.expires_at);
     if (expiresAt !== null && (!Number.isFinite(expiresAt) || expiresAt <= at)) continue;
     if (row.setting_key === 'map_zoom') {
       result.mapZoomPercent = { value: normalizeMapZoomPercent(row.value), expiresAt, updatedAt: Number(row.updated_at || 0) };
+    } else if (row.setting_key === 'theme') {
+      result.theme = { value: normalizeTheme(row.value), expiresAt, updatedAt: Number(row.updated_at || 0) };
     }
   }
   return result;
@@ -463,9 +467,9 @@ async function getAdminGlobalSettings(request, env) {
   const now = Date.now();
   return json({
     ok: true,
-    settings: (rows.results || []).filter(row => row.setting_key === 'map_zoom').map(row => ({
+    settings: (rows.results || []).filter(row => row.setting_key === 'map_zoom' || row.setting_key === 'theme').map(row => ({
       key: row.setting_key,
-      value: normalizeMapZoomPercent(row.value),
+      value: row.setting_key === 'map_zoom' ? normalizeMapZoomPercent(row.value) : normalizeTheme(row.value),
       expiresAt: row.expires_at == null ? null : Number(row.expires_at),
       active: row.expires_at == null || Number(row.expires_at) > now,
       updatedAt: Number(row.updated_at || 0),
@@ -480,15 +484,21 @@ async function saveAdminGlobalSetting(request, env) {
   let body;
   try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
   const key = String(body?.key || '').trim();
-  if (key !== 'map_zoom') return json({ ok: false, error: 'Неизвестная глобальная настройка' }, 400);
+  if (!['map_zoom','theme'].includes(key)) return json({ ok: false, error: 'Неизвестная глобальная настройка' }, 400);
   if (body?.clear === true) {
     await ensureGlobalSettingsTable(env);
     await env.DB.prepare('DELETE FROM global_setting_overrides WHERE setting_key=?').bind(key).run();
     return getAdminGlobalSettings(new Request(request.url, { headers: { 'X-Telegram-Init-Data': String(request.headers.get('X-Telegram-Init-Data') || body?.initData || '') } }), env);
   }
-  const raw = Number(body?.value);
-  if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 1 || raw > 100) return json({ ok: false, error: 'Масштаб должен быть от 1 до 100%' }, 400);
-  const value = String(normalizeMapZoomPercent(raw));
+  let value;
+  if (key === 'map_zoom') {
+    const raw = Number(body?.value);
+    if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 1 || raw > 100) return json({ ok: false, error: 'Масштаб должен быть от 1 до 100%' }, 400);
+    value = String(normalizeMapZoomPercent(raw));
+  } else {
+    value = normalizeTheme(body?.value, '');
+    if (!value) return json({ ok: false, error: 'Неизвестная тема приложения' }, 400);
+  }
   const durationMinutes = body?.durationMinutes == null ? null : Number(body.durationMinutes);
   if (durationMinutes !== null && (!Number.isSafeInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 5256000)) {
     return json({ ok: false, error: 'Срок действия должен быть от 1 минуты до 10 лет или «Навсегда»' }, 400);
@@ -524,8 +534,9 @@ async function getUserSettings(request, env) {
     ORDER BY t.name COLLATE NOCASE ASC`).bind(uid,uid,uid,uid,uid,uid,uid).all();
   const personalMapZoomPercent = normalizeMapZoomPercent(settings?.map_zoom_percent ?? 100);
   return json({ ok: true, settings: {
-    defaultTheme: 'vox',
-    theme: 'vox',
+    defaultTheme: globalOverrides.theme?.value ?? normalizeTheme(settings?.default_theme),
+    theme: globalOverrides.theme?.value ?? normalizeTheme(settings?.default_theme),
+    personalTheme: normalizeTheme(settings?.default_theme),
     personalMapZoomPercent,
     mapZoomPercent: globalOverrides.mapZoomPercent?.value ?? personalMapZoomPercent,
     globalOverrides,
@@ -553,7 +564,7 @@ async function saveUserSettings(request, env) {
   // fields. Preserve newer personal settings when those fields are omitted.
   const existing = await env.DB.prepare(`SELECT default_theme,timezone,event_notifications,map_zoom_percent
     FROM user_preferences WHERE telegram_id=? LIMIT 1`).bind(uid).first();
-  const defaultTheme = 'vox';
+  const defaultTheme = normalizeTheme(body?.defaultTheme ?? existing?.default_theme ?? 'vox');
   const timezone = normalizeUserTimezone(body?.timezone ?? existing?.timezone ?? 'UTC+3');
   const mapZoomPercent = normalizeMapZoomPercent(body?.mapZoomPercent ?? existing?.map_zoom_percent ?? 100);
   // The former global switch is retired; preserve the column for DB compatibility.
