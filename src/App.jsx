@@ -1248,6 +1248,13 @@ function VoxMap({ image, source = null, territories, onSelect, resetSignal = 0, 
       if (tileRefreshTimerRef.current !== null) window.clearTimeout(tileRefreshTimerRef.current);
     };
   }, []);
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => scheduleTileRefresh());
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (lastResetRef.current !== resetSignal) {
