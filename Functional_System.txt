@@ -3720,7 +3720,7 @@ CI после исправления whitespace-normalization в новых те
 
 В WORLD_SCHEMA_VERSION 2026-11-v34 добавлены ещё два ограничения:
 - territory_managers.granted_by: INSERT и изменение granted_by запрещены, если ID лица, выдавшего полномочия, находится под account deletion lock. Ранее guards проверяли только сам Telegram ID менеджера, но не автора назначения.
-- bank_transactions: INSERT блокируется, если locked actor_telegram_id или target_telegram_id. UPDATE намеренно не блокируется: уже начатая банковская операция должна иметь возможность завершиться статусом rejected после отказа условного изменения баланса, сохранив корректное состояние ledger.
+- bank_transactions: INSERT блокируется, если на момент резервирования известен locked actor_telegram_id или target_telegram_id. В штатном Telegram bank handler target_telegram_id определяется после первоначальной записи ledger, поэтому для целевого пользователя решающим остаётся account-lock predicate в атомарном изменении баланса; при отказе ledger может быть обновлён до rejected. UPDATE намеренно не блокируется, чтобы уже начатая операция могла корректно завершиться и не зависнуть в processing.
 
 Это дополняет прежнюю атомарную защиту user_currency и financial_operations. Исторические банковские записи не удаляются при удалении аккаунта.
 
