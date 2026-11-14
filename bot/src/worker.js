@@ -3813,27 +3813,29 @@ async function transferTerritoryOwnerAfterAccountRemoval(env,territoryId,oldTele
     WHERE tm.territory_id=territories.id AND tm.telegram_id<>?
       AND trim(COALESCE(u.mc_nickname,''))<>''
     ORDER BY tm.granted_at ASC,tm.telegram_id ASC LIMIT 1`;
-  const statements=[
-    env.DB.prepare(`UPDATE territories SET
-      owner_telegram_id=(${eligibleManager}),
-      owner_telegram_username=(SELECT u.telegram_username FROM territory_managers tm
-        JOIN users u ON u.telegram_id=tm.telegram_id AND u.status='verified'
-        WHERE tm.territory_id=territories.id AND tm.telegram_id<>?
-          AND trim(COALESCE(u.mc_nickname,''))<>''
-        ORDER BY tm.granted_at ASC,tm.telegram_id ASC LIMIT 1),
-      owner_input=(SELECT u.mc_nickname FROM territory_managers tm
-        JOIN users u ON u.telegram_id=tm.telegram_id AND u.status='verified'
-        WHERE tm.territory_id=territories.id AND tm.telegram_id<>?
-          AND trim(COALESCE(u.mc_nickname,''))<>''
-        ORDER BY tm.granted_at ASC,tm.telegram_id ASC LIMIT 1)
-      WHERE id=? AND status='approved' AND owner_telegram_id=?`)
-      .bind(oldTid,oldTid,oldTid,territoryId,oldTid),
-    env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=?
-      AND telegram_id IN (SELECT owner_telegram_id FROM territories
-        WHERE id=? AND owner_telegram_id IS NOT NULL AND owner_telegram_id<>?)`)
-      .bind(territoryId,territoryId,oldTid),
-  ];
-  await env.DB.batch(statements);
+  const transfer=await env.DB.prepare(`UPDATE territories SET
+    owner_telegram_id=(${eligibleManager}),
+    owner_telegram_username=(SELECT u.telegram_username FROM territory_managers tm
+      JOIN users u ON u.telegram_id=tm.telegram_id AND u.status='verified'
+      WHERE tm.territory_id=territories.id AND tm.telegram_id<>?
+        AND trim(COALESCE(u.mc_nickname,''))<>''
+      ORDER BY tm.granted_at ASC,tm.telegram_id ASC LIMIT 1),
+    owner_input=(SELECT u.mc_nickname FROM territory_managers tm
+      JOIN users u ON u.telegram_id=tm.telegram_id AND u.status='verified'
+      WHERE tm.territory_id=territories.id AND tm.telegram_id<>?
+        AND trim(COALESCE(u.mc_nickname,''))<>''
+      ORDER BY tm.granted_at ASC,tm.telegram_id ASC LIMIT 1)
+    WHERE id=? AND status='approved' AND owner_telegram_id=?`)
+    .bind(oldTid,oldTid,oldTid,territoryId,oldTid).run();
+  if(!transfer.meta?.changes)return;
+  const current=await env.DB.prepare(`SELECT owner_telegram_id FROM territories
+    WHERE id=? AND status='approved' AND owner_telegram_id IS NOT NULL AND owner_telegram_id<>?`)
+    .bind(territoryId,oldTid).first();
+  if(current?.owner_telegram_id){
+    await env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?
+      AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
+      .bind(territoryId,Number(current.owner_telegram_id),territoryId,Number(current.owner_telegram_id)).run();
+  }
 }
 
 async function removeManagedUserRelations(env, telegramId) {
