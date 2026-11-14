@@ -3452,6 +3452,7 @@ async function rekeyManagedUserId(env,{oldId,newId,username,nickname,xuid,skinTe
   if(oldTid===newTid)return;
   if(!Number.isSafeInteger(oldTid)||!Number.isSafeInteger(newTid)||oldTid<=0||newTid<=0) throw new Error('Некорректный Telegram ID');
   await ensureRecruitmentTable(env);
+  await ensureManagerChangeTables(env);
 
   const oldUser=await env.DB.prepare(`SELECT telegram_id,telegram_username,mc_nickname,status,created_at,xuid,skin_texture_id FROM users WHERE telegram_id=? LIMIT 1`).bind(oldTid).first();
   if(!oldUser) throw new Error('Пользователь с текущим Telegram ID не найден');
@@ -3521,7 +3522,12 @@ async function rekeyManagedUserId(env,{oldId,newId,username,nickname,xuid,skinTe
   statements.push(env.DB.prepare(`DELETE FROM user_currency WHERE telegram_id=?`).bind(newTid));
   statements.push(env.DB.prepare(`DELETE FROM inspectors WHERE telegram_id=?`).bind(newTid));
 statements.push(env.DB.prepare(`DELETE FROM manager_change_votes WHERE voter_telegram_id=?`).bind(newTid));
-  statements.push(env.DB.prepare(`UPDATE manager_change_requests SET status='rejected',decided_at=? WHERE status='pending' AND (target_telegram_id=? OR initiator_telegram_id=?)`).bind(now,newTid,newTid));
+  // Cancel destination workflows and source workflows already being finalized.
+  // Pending source requests remain transferable to the new identity below.
+  statements.push(env.DB.prepare(`UPDATE manager_change_requests SET status='rejected',decided_at=?,finalizing_at=NULL
+    WHERE status IN ('pending','finalizing') AND (target_telegram_id=? OR initiator_telegram_id=?)`).bind(now,newTid,newTid));
+  statements.push(env.DB.prepare(`UPDATE manager_change_requests SET status='rejected',decided_at=?,finalizing_at=NULL
+    WHERE status='finalizing' AND (target_telegram_id=? OR initiator_telegram_id=?)`).bind(now,oldTid,oldTid));
   statements.push(env.DB.prepare(`DELETE FROM city_invites WHERE target_telegram_id=? OR invited_by=?`).bind(newTid,newTid));
 
   if(targetDirectory?.id){
