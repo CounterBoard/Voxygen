@@ -3291,7 +3291,7 @@ applyBankBalanceChange() и parseBankCommand().
 34.30 ИСПРАВЛЕНИЕ КРИТИЧЕСКИХ ОШИБОК ОЧИСТКИ УЧЁТНОЙ ЗАПИСИ
 
 Изменение:
-- В removeManagedUserRelations() удаление строк из inspectors, user_items и user_currency больше не обёрнуто в пустой catch.
+- В обязательную очистку вынесены manager_change_requests (pending/finalizing переводятся в rejected с очисткой claim), manager_change_votes, inspectors, user_items и user_currency. Ни один из этих SQL шагов больше не обёрнут в пустой catch.
 - Ошибка любого из этих запросов теперь передаётся вызывающему коду. deleteManagedUser() не дойдёт до удаления users/user_directory и не вернёт ok:true при неудачной обязательной очистке.
 - purgeLegacyRemovedUsers() уже имеет внешний try/catch на весь цикл пользователя: при сбое строка users со статусом removed остаётся доступной для следующего повторного запуска.
 - Ошибки reconcileTerritoryVisualEquipment() после удаления также больше не подавляются. Это не даёт объявить lifecycle завершённым, если экипировка затронутой территории не приведена в согласованное состояние.
@@ -3306,7 +3306,7 @@ applyBankBalanceChange() и parseBankCommand().
 - Исправление не превращает весь lifecycle в транзакцию и не устраняет конкурентную гонку передачи владельца.
 - Нужны fault-injection тесты для каждого критического SQL шага и повторного запуска на частично очищенном аккаунте.
 - Отдельно требуется решить атомарный claim финализации manager_change_requests; нельзя считать эту гонку устранённой данным изменением.
-- Добавлен `tests/account-cleanup.test.js`: проверяется распространение ошибки каждого из трёх обязательных DELETE и успешное выполнение в заданном порядке.
+- `tests/account-cleanup.test.js` проверяет распространение ошибки каждого из пяти обязательных SQL шагов и их последовательность.
 - Production Worker/D1 не развёртывались и не проверялись.
 
 
