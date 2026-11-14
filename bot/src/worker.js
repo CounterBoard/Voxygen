@@ -4020,6 +4020,21 @@ async function claimNickname(request, env) {
   }
 }
 
+function buildFounderClaimStatement(env,territoryId,telegramId,fallbackUsername) {
+  const tid=Number(telegramId);
+  const fallback=String(fallbackUsername||'').replace(/^@+/,'').trim();
+  return env.DB.prepare(`UPDATE territories SET
+      owner_telegram_id=?,
+      owner_telegram_username=(SELECT COALESCE(NULLIF(trim(u.telegram_username),''),?) FROM users u WHERE u.telegram_id=?),
+      owner_input=(SELECT u.mc_nickname FROM users u WHERE u.telegram_id=?)
+    WHERE id=? AND status='approved' AND owner_telegram_id IS NULL
+      AND EXISTS(SELECT 1 FROM users u WHERE u.telegram_id=? AND u.status='verified'
+        AND trim(COALESCE(u.mc_nickname,''))<>''
+        AND (lower(trim(owner_input))=lower(trim(u.mc_nickname))
+          OR lower(replace(trim(owner_input),'@',''))=lower(replace(trim(COALESCE(NULLIF(u.telegram_username,''),?)),'@',''))))`)
+    .bind(tid,fallback,tid,tid,String(territoryId||'').trim(),tid,fallback);
+}
+
 async function claimTerritoryOwner(request, env) {
   const auth=await requireUser(request,env);
   if(auth.error)return auth.error;
@@ -4045,10 +4060,7 @@ async function claimTerritoryOwner(request, env) {
   if(!matchesNickname&&!matchesUsername)return json({ok:false,error:'Эта территория указана для другого владельца'},403);
 
   const transition=await env.DB.batch([
-    env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=?
-      WHERE id=? AND status='approved' AND owner_telegram_id IS NULL
-        AND (lower(trim(owner_input))=lower(trim(?)) OR lower(replace(trim(owner_input),'@',''))=lower(?))`)
-      .bind(Number(auth.user.id),user.telegram_username||auth.user.username||null,user.mc_nickname,territoryId,ownerInput,username),
+    buildFounderClaimStatement(env,territoryId,Number(auth.user.id),user.telegram_username||auth.user.username||''),
     env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?
       AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
       .bind(territoryId,Number(auth.user.id),territoryId,Number(auth.user.id)),
@@ -6610,4 +6622,4 @@ export default {
   },
 };
 
-export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor };
+export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement };
