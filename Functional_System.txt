@@ -2974,3 +2974,31 @@ D) updateTerritoryOwner() / updateTerritoryManager() защищены main inspe
 семантикой, но здесь не проверена integration test. Последовательное
 удаление аккаунта и request finalization race остаются обозначенными
 техническими рисками, а не закрытыми пунктами.
+
+
+======================================================================
+34.21. FINANCIAL TRANSFER IDEMPOTENCY — REGRESSION TESTS
+======================================================================
+
+executeIdempotentFinancialTransfer() вынесена в export для unit testing
+(без изменения её production behavior). tests/security-and-bank.test.js
+дополнен контролируемым FakeFinancialD1.
+
+Новые тесты:
+- повтор успешного treasury_deposit с тем же operationId возвращает replay
+  и не списывает личный баланс второй раз;
+- debit и credit проверяются отдельно: personal balance уменьшается ровно
+  на amount, treasury balance увеличивается на amount;
+- повтор operationId с другим Telegram ID/payload возвращает 409 conflict
+  и не запускает новую финансовую операцию.
+
+CI подтверждение:
+- run 43602430756;
+- commit 39dc88876bbf83967439b1ea127f5c06dcde5547;
+- 93/93 Node tests passed;
+- frontend build, Worker syntax check и Wrangler dry-run bundle — success.
+
+Граница теста: FakeFinancialD1 моделирует последовательность changes() внутри
+batch и operation record, но не Cloudflare D1 locks, транзакционные rollback,
+уникальные индексы, реальную конкуренцию двух запросов или сетевые повторы.
+Для production-grade доказательства остаётся D1 integration/concurrency test.
