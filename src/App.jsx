@@ -753,7 +753,6 @@ function Segmented({ options, value, onChange }) {
             key={opt.value}
             onClick={() => onChange(opt.value)}
             className={`press atlas-segmented__option${active ? ' is-active' : ''}`}
-            type="button"
             aria-pressed={active}
           >
             {opt.icon}{opt.label}
