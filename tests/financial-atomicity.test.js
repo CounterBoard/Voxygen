@@ -56,3 +56,16 @@ test("banker transfers refuse locked accounts without attempting currency insert
   assert.match(apply, /UPDATE user_currency SET balance=balance\+\?.*NOT EXISTS\(SELECT 1 FROM account_deletion_locks WHERE telegram_id=\?\)/);
   assert.match(apply, /UPDATE bank_transactions[\s\S]*status='rejected'[\s\S]*changes\(\)=0/);
 });
+
+
+test("treasury transfer entry points and idempotent batch fail closed for deletion-locked users", () => {
+  const source = readFileSync(new URL("../bot/src/worker.js", import.meta.url), "utf8").replace(/\\s+/g, " ");
+  for (const name of ["treasuryDeposit", "treasuryDonate", "treasuryWithdraw", "getCustomization"]) {
+    const body = bodyOf(name).replace(/\\s+/g, " ");
+    assert.ok(body.includes("INSERT OR IGNORE INTO user_currency") && body.includes("NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)"), name+" must guard balance initialization");
+  }
+  const transfer = bodyOf("executeIdempotentFinancialTransfer");
+  assert.match(transfer, /try\\s*\\{\\s*batchResult=await env\\.DB\\.batch/);
+  assert.match(transfer, /SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=\\?/);
+  assert.match(transfer, /Аккаунт находится в процессе удаления/);
+});
