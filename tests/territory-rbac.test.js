@@ -27,7 +27,8 @@ class AuthorizationD1 {
           }
           if (sql.includes("FROM territory_managers")) {
             const [territoryId, telegramId] = values;
-            const row = managers.find((item) =>
+            const territory = territories.find((item) => item.id === territoryId && item.status === "approved");
+            const row = territory && managers.find((item) =>
               item.territory_id === territoryId &&
               Number(item.telegram_id) === Number(telegramId));
             return row ? { 1: 1 } : null;
