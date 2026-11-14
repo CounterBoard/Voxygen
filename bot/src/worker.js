@@ -220,7 +220,7 @@ async function isTerritoryManager(env, territoryId, telegramId) {
   if(!tid||!uid)return false;
   const owner=await env.DB.prepare(`SELECT 1 FROM territories WHERE id=? AND status='approved' AND owner_telegram_id=? LIMIT 1`).bind(tid,uid).first();
   if(owner)return true;
-  const manager=await env.DB.prepare(`SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=? LIMIT 1`).bind(tid,uid).first();
+  const manager=await env.DB.prepare(`SELECT 1 FROM territory_managers tm JOIN territories t ON t.id=tm.territory_id AND t.status='approved' WHERE tm.territory_id=? AND tm.telegram_id=? LIMIT 1`).bind(tid,uid).first();
   return !!manager;
 }
 
