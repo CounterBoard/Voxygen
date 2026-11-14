@@ -10,10 +10,12 @@ class CleanupD1 {
 
   prepare(sql) {
     return {
+      all: async () => ({ results: [{ name: "finalizing_at" }] }),
       bind: (...values) => ({
         run: async () => {
+          if (sql.startsWith("CREATE TABLE")) return { success: true, meta: { changes: 0 } };
           this.executed.push({ sql, values });
-          if (sql.includes(this.failSql || "\u0000")) {
+          if (this.failSql && sql.includes(this.failSql)) {
             throw new Error(`simulated D1 failure: ${this.failSql}`);
           }
           return { success: true, meta: { changes: 1 } };
@@ -23,14 +25,22 @@ class CleanupD1 {
   }
 }
 
-for (const table of ["inspectors", "user_items", "user_currency"]) {
-  test(`required account cleanup propagates a DELETE failure in ${table}`, async () => {
-    const db = new CleanupD1(`DELETE FROM ${table}`);
+const requiredStatements = [
+  ["manager_change_requests", "UPDATE manager_change_requests"],
+  ["manager_change_votes", "DELETE FROM manager_change_votes"],
+  ["inspectors", "DELETE FROM inspectors"],
+  ["user_items", "DELETE FROM user_items"],
+  ["user_currency", "DELETE FROM user_currency"],
+];
+
+for (const [table, statement] of requiredStatements) {
+  test(`required account cleanup propagates a failure in ${table}`, async () => {
+    const db = new CleanupD1(statement);
     await assert.rejects(
       completeRequiredAccountCleanup({ DB: db }, 12345),
-      new RegExp(`simulated D1 failure: DELETE FROM ${table}`),
+      new RegExp(`simulated D1 failure: ${statement.replace(/[.*+?^${}()|[\]\\]/g, "\\new RegExp(`simulated D1 failure: DELETE FROM ${table}`),")}`),
     );
-    assert.equal(db.executed.length, ["inspectors", "user_items", "user_currency"].indexOf(table) + 1);
+    assert.equal(db.executed.length, requiredStatements.findIndex(([name]) => name === table) + 1);
   });
 }
 
@@ -39,7 +49,7 @@ test("required account cleanup removes all personal tables in order", async () =
   await completeRequiredAccountCleanup({ DB: db }, 12345);
   assert.deepEqual(
     db.executed.map((entry) => entry.sql.match(/DELETE FROM ([a-z_]+)/)?.[1]),
-    ["inspectors", "user_items", "user_currency"],
+    ["UPDATE", "DELETE", "DELETE", "DELETE", "DELETE"],
   );
-  assert.ok(db.executed.every((entry) => entry.values[0] === 12345));
+  assert.ok(db.executed.every((entry) => entry.values.includes(12345)));
 });
