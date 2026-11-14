@@ -1445,6 +1445,14 @@ async function initializeWorldTables(env) {
   // The account directory is also protected: list synchronization and administrative flows must not recreate it during deletion.
   await ensureUserDirectoryTable(env);
 
+  // Ensure the role table exists before installing its deletion-lock triggers.
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS inspectors (
+    telegram_id INTEGER PRIMARY KEY,
+    telegram_username TEXT,
+    added_by INTEGER,
+    created_at INTEGER NOT NULL
+  )`).run();
+
   // Durable account-removal barrier: relational writes cannot resurrect an account while cleanup is running.
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS account_deletion_locks (
     telegram_id INTEGER PRIMARY KEY,
