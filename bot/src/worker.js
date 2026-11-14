@@ -3771,6 +3771,10 @@ async function updateManagedUser(request, env, userDirectoryId) {
 
 async function completeRequiredAccountCleanup(env,telegramId,affectedVisualCities=[]) {
   const tid=Number(telegramId);
+  await ensureManagerChangeTables(env);
+  await env.DB.prepare(`UPDATE manager_change_requests SET status='rejected',decided_at=?,finalizing_at=NULL
+    WHERE status IN ('pending','finalizing') AND (target_telegram_id=? OR initiator_telegram_id=?)`).bind(Date.now(),tid,tid).run();
+  await env.DB.prepare(`DELETE FROM manager_change_votes WHERE voter_telegram_id=?`).bind(tid).run();
   await env.DB.prepare(`DELETE FROM inspectors WHERE telegram_id=?`).bind(tid).run();
   await env.DB.prepare(`DELETE FROM user_items WHERE telegram_id=?`).bind(tid).run();
   await env.DB.prepare(`DELETE FROM user_currency WHERE telegram_id=?`).bind(tid).run();
@@ -3806,8 +3810,6 @@ async function removeManagedUserRelations(env, telegramId) {
   for(const row of managerCities.results||[])await hideRecruitmentIfContactLost(env,row.territory_id,tid,oldUsername);
   await env.DB.prepare(`DELETE FROM territory_managers WHERE telegram_id=?`).bind(tid).run();
   await env.DB.prepare(`DELETE FROM city_memberships WHERE telegram_id=?`).bind(tid).run();
-  try{await env.DB.prepare(`UPDATE manager_change_requests SET status='rejected',decided_at=? WHERE status='pending' AND (target_telegram_id=? OR initiator_telegram_id=?)`).bind(Date.now(),tid,tid).run()}catch{}
-  try{await env.DB.prepare(`DELETE FROM manager_change_votes WHERE voter_telegram_id=?`).bind(tid).run()}catch{}
   await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=?,notification_claimed_at=NULL
     WHERE status='pending' AND (target_telegram_id=? OR invited_by=?)`).bind(Date.now(),tid,tid).run();
   // Required cleanup and equipment reconciliation must succeed before account rows are deleted.
