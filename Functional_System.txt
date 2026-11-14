@@ -3689,3 +3689,40 @@ addInspector теперь вызывает ensureWorldTables, выполняет
 
 CI после исправления whitespace-normalization в новых тестах прошёл успешно на commit f9883fa366afdcaf18706f74cf572ddbc72cef67. Более поздние изменения таблицы inspectors и схемы проходят собственные запуски CI отдельно; их результат проверяется по последнему commit. Это не доказывает успешное выполнение миграции на production D1. Production Worker/D1 не развёртывались.
 
+34.55 АКТИВНЫЕ ПРИГЛАШЕНИЯ, ГОЛОСОВАНИЯ, НАСТРОЙКИ И СОБЫТИЯ ПРИ ACCOUNT DELETION LOCK
+
+Проведён следующий проход по таблицам, содержащим Telegram ID, и разделены активное состояние и сохраняемая история.
+
+В WORLD_SCHEMA_VERSION 2026-11-v33 добавлены SQL guards:
+- city_invites: запрещены новые приглашения, если заблокирован адресат или приглашающий; изменение target_telegram_id/invited_by также защищено. Обновление статуса для штатной отмены приглашений при удалении остаётся разрешённым.
+- territories.requested_by_id: новый запрос территории и изменение автора заявки не могут использовать locked ID.
+- manager_change_requests: блокируются новые запросы с locked target/initiator и изменение этих идентификаторов; смена статуса на rejected при cleanup разрешена.
+- manager_change_votes: заблокированы новые/обновляемые голоса locked пользователя.
+- ratings, comments, screenshots, inspector_ratings и comment_replies: блокируется создание новых исторических записей от locked ID. Уже существующая история намеренно сохраняется.
+- user_preferences и territory_notification_preferences: INSERT/UPDATE защищены lazy triggers, устанавливаемыми при инициализации таблиц.
+- events, event_reminders и event_create_requests: добавлены guards при инициализации event tables; напоминания и idempotency requests locked аккаунта не могут создаваться или изменяться.
+
+Процедура removeManagedUserRelations теперь гарантированно инициализирует таблицы настроек и событий до очистки и удаляет активные персональные записи из user_preferences, territory_notification_preferences, event_reminders и event_create_requests. Голоса и manager-change requests очищаются/отклоняются существующей обязательной очисткой; приглашения отменяются. Пользовательские отзывы, комментарии, скриншоты и ответы остаются историей, но новые записи во время удаления запрещены.
+
+Пути записи дополнительно обработаны:
+- inviteResident и resident invite callback возвращают контролируемый отказ при lock;
+- promoteResident/demoteManager проверяют обе стороны операции, а manager vote callback отвечает инспектору штатным сообщением;
+- финализация manager-change переводит запрос в rejected, если применение пересекается с deletion lock, не оставляя finalizing;
+- createEvent атомарно объединяет INSERT события и финализацию event_create_requests в одном D1 batch; lock-trigger abort откатывает оба изменения;
+- saveEventReminder возвращает HTTP 409 для locked аккаунта;
+- deliverEventReminders исключает locked ID из выборки и атомарных claim/update условий, чтобы фоновая задача не пыталась отправлять напоминание удаляемому аккаунту;
+- syncUserDirectory и legacy purge гарантируют инициализацию world schema до использования account_deletion_locks.
+
+Проверки source-level; конкурентный D1 runtime и фактическую отправку Telegram уведомлений не моделируют. Production Worker/D1 не развёртывались.
+
+
+34.56 ЗАЩИТА АТРИБУЦИИ УПРАВЛЕНИЯ И БАНКОВСКОГО LEDGER
+
+В WORLD_SCHEMA_VERSION 2026-11-v34 добавлены ещё два ограничения:
+- territory_managers.granted_by: INSERT и изменение granted_by запрещены, если ID лица, выдавшего полномочия, находится под account deletion lock. Ранее guards проверяли только сам Telegram ID менеджера, но не автора назначения.
+- bank_transactions: INSERT блокируется, если locked actor_telegram_id или target_telegram_id. UPDATE намеренно не блокируется: уже начатая банковская операция должна иметь возможность завершиться статусом rejected после отказа условного изменения баланса, сохранив корректное состояние ledger.
+
+Это дополняет прежнюю атомарную защиту user_currency и financial_operations. Исторические банковские записи не удаляются при удалении аккаунта.
+
+Тесты account-deletion-lock.test.js расширены проверками триггеров атрибуции/ledger, event publishing/reminders, manager workflow, invitation callbacks и очистки персональных настроек. Статус CI по последнему commit проверяется отдельно; production D1 migration и конкурентное исполнение не проверялись.
+
