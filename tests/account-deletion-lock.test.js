@@ -30,7 +30,7 @@ test("managed and legacy deletion hold the barrier across relation cleanup", asy
 });
 
 test("deletion lock also blocks personal balance, inventory and ledger mutations", async () => {
-  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\s+/g, " ");
   for (const trigger of [
     "guard_user_currency_deletion_lock_insert",
     "guard_user_currency_deletion_lock_update",
@@ -52,13 +52,13 @@ test("deletion lock also blocks personal balance, inventory and ledger mutations
 
 
 test("inspector personal inventory grants use a non-throwing atomic deletion-lock predicate", async () => {
-  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\s+/g, " ");
   assert.ok(source.includes("INSERT OR IGNORE INTO user_items(telegram_id,item_id,acquired_at,source) SELECT ?,?,?, 'main_inspector' WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)"), "admin grant must reject locked accounts inside INSERT");
   assert.ok(source.includes("не выдан: аккаунт находится в процессе удаления"), "admin should report a clean rejection instead of surfacing a trigger exception");
 });
 
 test("managed Telegram ID rekey rejects either side of an active deletion lock", async () => {
-  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\s+/g, " ");
   const rekey = source.slice(source.indexOf("async function rekeyManagedUserId"), source.indexOf("function buildOrphanedOwnerRepairStatement"));
   assert.ok(rekey.includes("SELECT telegram_id FROM account_deletion_locks WHERE telegram_id IN (?,?)"));
   assert.ok(rekey.includes(".bind(oldTid,newTid)"));
@@ -69,7 +69,7 @@ test("managed Telegram ID rekey rejects either side of an active deletion lock",
 
 
 test("registration, pre-registration claims and profile edits reject deletion-locked accounts atomically", async () => {
-  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\s+/g, " ");
   const managed = source.slice(source.indexOf("async function addManagedUser"), source.indexOf("function buildStaleDestinationOwnerTransferStatements"));
   assert.ok(managed.includes("SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1"));
   assert.ok(managed.includes("await env.DB.batch(statements)"), "verified user and directory changes must share one atomic batch");
@@ -85,7 +85,7 @@ test("registration, pre-registration claims and profile edits reject deletion-lo
 });
 
 test("directory rebuild and Telegram nickname moderation cannot resurrect locked accounts", async () => {
-  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\s+/g, " ");
   const directorySync = source.slice(source.indexOf("async function syncUserDirectory"), source.indexOf("async function listManagedUsers"));
   assert.ok(directorySync.includes("NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=u.telegram_id)"), "directory sync must skip locked users");
   const moderation = source.slice(source.indexOf("async function handleNicknameCallback"), source.indexOf("async function startTerritoryApproval"));
@@ -95,7 +95,7 @@ test("directory rebuild and Telegram nickname moderation cannot resurrect locked
 
 
 test("account directory and inspector grants remain blocked until deletion lock release", async () => {
-  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\s+/g, " ");
   for (const trigger of [
     "guard_user_directory_deletion_lock_insert",
     "guard_user_directory_deletion_lock_update",
