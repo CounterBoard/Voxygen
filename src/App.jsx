@@ -284,118 +284,69 @@ function FontsAndTheme() {
         rel="stylesheet"
       />
       <style>{`
-        :root{
-          /* Voxygen visual system: dark neutral foundation + Mint + Purple + cyan GEM semantics */
-          --bg:#0A0B10;
-          --surface:#12151D;
-          --surface-2:#171B24;
-          --surface-3:#1D2230;
-
-          --text:#F7F8FC;
-          --text-secondary:#B5BBCB;
-          --text-muted:#7F879A;
-          --text-dim:#636B7E;
-
-          --purple:#8B5CF6;
-          --purple-soft:rgba(139,92,246,.14);
-          --purple-strong:rgba(139,92,246,.30);
-          --purple-border:rgba(139,92,246,.28);
-
-          --mint:#41FFA7;
-          --mint-soft:rgba(65,255,167,.11);
-          --mint-strong:rgba(65,255,167,.28);
-
-          /* Kept deliberately blue because gem balances already use it. */
-          --gem:#38BDF8;
-
-          /* Semantic states stay inside the Voxygen palette. */
-          --gold:var(--mint);
-          --gold-soft:var(--mint-soft);
-          --emerald:var(--mint);
-          --red:#FF5D73;
-          --red-soft:rgba(255,93,115,.12);
-          --red-border:rgba(255,93,115,.28);
-
-          --border:rgba(181,187,203,.12);
-          --shadow-sm:0 8px 22px rgba(0,0,0,.18);
-          --shadow-md:0 16px 42px rgba(0,0,0,.28);
-          --shadow-lg:0 26px 70px rgba(0,0,0,.38);
-          --glow-purple:0 14px 34px rgba(139,92,246,.17);
-          --glow-mint:0 14px 34px rgba(65,255,167,.12);
-          --ease-standard:cubic-bezier(.22,.72,.22,1);
-          --ease-interactive:cubic-bezier(.2,.85,.25,1);
-          --motion-tap:160ms;
-          --motion-standard:190ms;
-          --motion-modal:245ms;
-
-          --radius-md:16px;
-          --radius-lg:20px;
-        }
+        /* Theme values are owned by src/theme/theme-tokens.css. */
 
         *{ box-sizing:border-box; }
         html,body,#root{ min-height:100%; }
         body{
           margin:0;
-          background:var(--bg);
-          color:var(--text);
-          font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
+          background:var(--theme-color-canvas, #0A0B10);
+          color:var(--theme-color-text-primary, #F7F8FC);
+          font-family:ui-sans-serif,system-ui,sans-serif;
           -webkit-font-smoothing:antialiased;
           text-rendering:optimizeLegibility;
         }
 
         .atlas-root{
           min-height:100vh;
-          font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
-          background:
-            radial-gradient(620px 360px at 100% -8%, rgba(139,92,246,.075), transparent 68%),
-            radial-gradient(520px 320px at -10% 40%, rgba(65,255,167,.045), transparent 72%),
-            linear-gradient(180deg,#0B0C11 0%,#090A0F 100%);
-          color:var(--text);
+          font-family:var(--theme-font-body);
+          background:var(--theme-app-background);
+          color:var(--theme-color-text-primary);
         }
 
         /* Typography: one display face and one reading face, with clear hierarchy. */
         .atlas-root h1,.atlas-root h2,.atlas-root h3,
         .atlas-root .atlas-display{
-          font-family:'Manrope',ui-sans-serif,system-ui,sans-serif!important;
-          color:var(--text);
+          font-family:var(--theme-font-display)!important;
+          color:var(--theme-color-text-primary);
         }
         .atlas-display{ letter-spacing:-.028em; }
         .atlas-root h1{
-          font-size:30px;
-          line-height:1.08;
+          font-size:var(--theme-type-display-size);
+          line-height:var(--theme-type-display-line-height);
           letter-spacing:-.035em;
-          font-weight:800;
-          margin:0 0 20px;
+          font-weight:var(--theme-type-display-weight);
+          margin:0 0 var(--theme-space-5);
         }
         .atlas-root h2{
-          font-size:24px;
+          font-size:var(--theme-type-headline-size);
           line-height:1.14;
           letter-spacing:-.028em;
-          font-weight:750;
-          margin:0 0 16px;
+          font-weight:var(--theme-type-headline-weight);
+          margin:0 0 var(--theme-space-4);
         }
         .atlas-root h3{
-          font-size:18px;
+          font-size:var(--theme-type-title-size);
           line-height:1.2;
           letter-spacing:-.018em;
-          font-weight:700;
-          margin:0 0 10px;
+          font-weight:var(--theme-type-title-weight);
+          margin:0 0 var(--theme-space-3);
         }
         .atlas-root p{
           margin:0 0 14px;
-          font-size:15px;
-          line-height:1.55;
+          font-size:var(--theme-type-body-size);
+          line-height:var(--theme-type-body-line-height);
           color:var(--text-secondary);
         }
         .atlas-root small{
-          font-size:12px;
+          font-size:var(--theme-type-label-size);
           line-height:1.45;
         }
         .atlas-root button,
         .atlas-root input,
         .atlas-root textarea,
         .atlas-root select{
-          font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
+          font-family:var(--theme-font-body);
         }
         .atlas-root button{
           font-weight:650;
@@ -421,8 +372,8 @@ function FontsAndTheme() {
         input::placeholder,textarea::placeholder{ color:var(--text-dim); }
         input:focus,textarea:focus,select:focus{
           outline:none;
-          border-color:rgba(65,255,167,.46)!important;
-          box-shadow:0 0 0 3px rgba(65,255,167,.08), 0 6px 24px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.025);
+          border-color:var(--theme-color-action-primary)!important;
+          box-shadow:0 0 0 3px var(--theme-color-action-primary-soft),var(--theme-shadow-low);
         }
 
         .atlas-root input[type="range"].slider-gold,
@@ -441,8 +392,8 @@ function FontsAndTheme() {
         .atlas-root input[type="range"].slider-gold::-webkit-slider-runnable-track,
         .atlas-root input[type="range"].slider-inspector::-webkit-slider-runnable-track,
         .atlas-root input[type="range"].slider-player::-webkit-slider-runnable-track{
-          height:4px;
-          border-radius:999px;
+          height:var(--theme-slider-track-height);
+          border-radius:var(--theme-radius-pill);
           background:linear-gradient(to right,var(--slider-fill) 0 var(--slider-progress),var(--surface-3) var(--slider-progress) 100%);
           border:0;
         }
@@ -451,36 +402,36 @@ function FontsAndTheme() {
         .atlas-root input[type="range"].slider-player::-webkit-slider-thumb{
           -webkit-appearance:none;
           appearance:none;
-          width:18px;
-          height:18px;
-          margin-top:-7px;
-          border-radius:50%;
-          border:2px solid #0A0B10;
+          width:var(--theme-slider-thumb-size);
+          height:var(--theme-slider-thumb-size);
+          margin-top:calc((var(--theme-slider-track-height) - var(--theme-slider-thumb-size)) / 2);
+          border-radius:var(--theme-radius-pill);
+          border:2px solid var(--theme-color-canvas);
           background:var(--slider-fill);
           box-shadow:0 1px 4px rgba(0,0,0,.35);
         }
         .atlas-root input[type="range"].slider-gold::-moz-range-track,
         .atlas-root input[type="range"].slider-inspector::-moz-range-track,
         .atlas-root input[type="range"].slider-player::-moz-range-track{
-          height:4px;
-          border-radius:999px;
+          height:var(--theme-slider-track-height);
+          border-radius:var(--theme-radius-pill);
           background:var(--surface-3);
           border:0;
         }
         .atlas-root input[type="range"].slider-gold::-moz-range-progress,
         .atlas-root input[type="range"].slider-inspector::-moz-range-progress,
         .atlas-root input[type="range"].slider-player::-moz-range-progress{
-          height:4px;
-          border-radius:999px;
+          height:var(--theme-slider-track-height);
+          border-radius:var(--theme-radius-pill);
           background:var(--slider-fill);
         }
         .atlas-root input[type="range"].slider-gold::-moz-range-thumb,
         .atlas-root input[type="range"].slider-inspector::-moz-range-thumb,
         .atlas-root input[type="range"].slider-player::-moz-range-thumb{
-          width:18px;
-          height:18px;
-          border-radius:50%;
-          border:2px solid #0A0B10;
+          width:var(--theme-slider-thumb-size);
+          height:var(--theme-slider-thumb-size);
+          border-radius:var(--theme-radius-pill);
+          border:2px solid var(--theme-color-canvas);
           background:var(--slider-fill);
           box-shadow:0 1px 4px rgba(0,0,0,.35);
         }
@@ -611,8 +562,8 @@ function FontsAndTheme() {
         /* Navigation and sticky controls */
         .atlas-nav-glow{
           box-shadow:0 -16px 42px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.035);
-          backdrop-filter:blur(18px) saturate(1.05);
-          -webkit-backdrop-filter:blur(18px) saturate(1.05);
+          backdrop-filter:blur(var(--theme-backdrop-blur)) saturate(1.05);
+          -webkit-backdrop-filter:blur(var(--theme-backdrop-blur)) saturate(1.05);
         }
 
         :root{ color-scheme:dark; }
@@ -653,7 +604,7 @@ function FontsAndTheme() {
         .atlas-overlay{animation:atlas-overlay-in .20s ease-out both;background-color:rgba(0,0,0,.78);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
         .atlas-overlay.atlas-closing{animation:atlas-overlay-out .17s ease-in both;pointer-events:none;}
         .atlas-lightbox-content{animation:atlas-viewer-content-in .22s ease-out both;}
-        .atlas-modal-shell{animation:atlas-modal-in var(--motion-modal) var(--ease-standard) both;isolation:isolate;box-shadow:var(--shadow-lg),0 0 0 1px rgba(255,255,255,.035),0 24px 54px rgba(0,0,0,.32);transform-origin:top center;}
+        .atlas-modal-shell{animation:atlas-modal-in var(--motion-modal) var(--ease-standard) both;isolation:isolate;box-shadow:var(--theme-shadow-high),0 0 0 1px var(--theme-color-border);transform-origin:top center;}
         .atlas-modal-shell.atlas-closing{animation:atlas-modal-out .17s ease-in both;pointer-events:none;}
         .atlas-bottom-sheet{transform-origin:bottom center;animation:atlas-sheet-in var(--motion-modal) var(--ease-standard) both;}
         .atlas-pop{animation:atlas-soft-pop .22s cubic-bezier(.2,.75,.25,1) both;}
@@ -715,10 +666,10 @@ function FontsAndTheme() {
         .atlas-root input:not([type="range"]):focus,.atlas-root textarea:focus,.atlas-root select:focus{border-color:rgba(139,92,246,.82)!important;box-shadow:0 0 0 3px rgba(139,92,246,.13),0 6px 18px rgba(0,0,0,.12);outline:none;}
 
         /* More consistent control geometry. */
-        .atlas-root input,.atlas-root textarea,.atlas-root select{ border-radius:14px!important; }
-        .atlas-root ::selection{ background:rgba(65,255,167,.20); color:var(--text); }
+        .atlas-root input,.atlas-root textarea,.atlas-root select{ border-radius:var(--theme-radius-control)!important; }
+        .atlas-root ::selection{ background:var(--theme-color-action-primary-soft); color:var(--theme-color-text-primary); }
         .atlas-root ::-webkit-scrollbar{ width:0;height:0; }
-        .atlas-root a{ color:var(--mint); text-decoration:none; }
+        .atlas-root a{ color:var(--theme-color-action-primary); text-decoration:none; }
         .atlas-root hr{ border:0; border-top:1px solid var(--border); margin:16px 0; }
 
         @media (max-width:380px){
