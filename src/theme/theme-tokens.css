@@ -58,6 +58,7 @@
   --theme-type-body-line-height: 1.55;
   --theme-type-label-size: 12px;
   --theme-type-label-weight: 600;
+  --theme-type-control-size: 13px;
   --theme-type-technical-size: 12px;
 
   /* Geometry and spacing: intentionally themeable. */
@@ -77,6 +78,7 @@
   --theme-radius-pill: 999px;
   --theme-control-height: 44px;
   --theme-control-height-compact: 36px;
+  --theme-icon-button-size: 40px;
   --theme-slider-track-height: 4px;
   --theme-slider-thumb-size: 18px;
   --theme-content-max-width: 448px;
