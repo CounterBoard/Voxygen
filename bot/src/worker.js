@@ -2647,6 +2647,8 @@ async function promoteResident(request, env) {
 async function demoteManager(request, env) {
   const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim(),targetId=Number(body?.telegramId); if(!territoryId||!Number.isSafeInteger(targetId)||targetId<=0)return json({ok:false,error:'territoryId и telegramId обязательны'},400);
+  const accountLocks=await env.DB.prepare(`SELECT telegram_id FROM account_deletion_locks WHERE telegram_id IN (?,?)`).bind(Number(auth.user.id),targetId).all();
+  if((accountLocks.results||[]).length)return json({ok:false,error:'Один из аккаунтов находится в процессе удаления'},409);
   if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403);
   const territory=await env.DB.prepare(`SELECT owner_telegram_id,name FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404);
   if(!(await isTerritoryManager(env,territoryId,targetId)))return json({ok:false,error:'Основатель/мэр не найден'},404);
