@@ -2875,3 +2875,102 @@ tests/territory-rbac.test.js дополнена manager P на pending-терр�
 допустимый, пустой/нечисловой actor — недопустимый. Это unit-проверка
 правила допуска; она не симулирует callback Telegram, конкурентные вызовы
 или реальный D1.
+
+
+======================================================================
+34.20. OWNER HANDOFF / MANAGER REPLACEMENT / ACCOUNT LIFECYCLE AUDIT
+======================================================================
+
+Code review выполнен по bot/src/worker.js: applyManagerChange(),
+updateTerritoryOwner(), updateTerritoryManager(), rekeyManagedUserId(),
+removeManagedUserRelations(), deleteManagedUser(), purgeLegacyRemovedUsers()
+и manager vote finalization/callback.
+
+Проверенные положительные инварианты:
+
+1) Назначение владельца главным инспектором (updateTerritoryOwner):
+- endpoint требует requireMainInspector;
+- территория должна быть approved и не government;
+- назначаемый пользователь должен существовать со status='verified' и
+  непустым mc_nickname;
+- UPDATE использует compare-and-set: прежний owner_telegram_id сравнивается
+  с прочитанным значением (IS ?), поэтому устаревший параллельный запрос
+  не должен перезаписать новый owner;
+- прежний owner переводится в city_memberships, его manager grant удаляется;
+- у нового owner удаляются membership и manager grant этой территории;
+- дополнительные statements зависят от факта установки нового owner;
+- после batch выполняется повторное чтение owner и проверка результата;
+- уведомления и marker initialization выполняются после подтверждения смены.
+Ограничение: это code review SQL/handler, а не конкурентный тест на Cloudflare D1.
+
+2) Передача основателя через updateTerritoryManager:
+- endpoint доступен только main inspector;
+- target ищется среди verified users по Telegram username;
+- при замене владельца owner UPDATE содержит старого owner в WHERE;
+- бывший владелец становится resident, новый owner очищается от duplicate
+  manager/membership;
+- замена обычного manager сохраняет инициатора как resident и назначает target
+  manager; если target уже manager, операция возвращает конфликт;
+- снятие username у owner передаёт owner роль другому manager (если есть),
+  иначе снимает owner и переводит его в resident;
+- postcondition проверяет фактического owner/manager/member после batch.
+
+3) Демотирование owner голосованием:
+- applyManagerChange() не удаляет owner напрямую как обычного manager;
+- при demote owner выбирает successor: инициатор, если это другой manager,
+  либо первый manager по granted_at/telegram_id при self-demote;
+- successor обязан существовать в users и territory_managers;
+- batch меняет owner, удаляет старые manager grants и возвращает прежнего owner
+  в residents; postcondition проверяет owner/member/manager;
+- обычный manager переводится в resident, owner остаётся отдельной ветвью.
+Vote callback ограничен manager той же approved территории; инициатор и
+кандидат не голосуют. Quorum и voter_count описаны в 34.19.
+
+4) Перенос Telegram ID (rekeyManagedUserId):
+- проверяются положительные safe integer IDs, наличие source account и
+  отсутствие активного verified/pending target account;
+- stale/deleted target ID очищается от active relations перед переносом;
+- активные membership, manager grants, currency, items, owner references,
+  requests/votes и пользовательские записи переносятся в D1.batch;
+- rating/comment/reply history с конфликтами сохраняется через NOT EXISTS/
+  COALESCE правила;
+- batch содержит identity и активные relations, поэтому основная смена ID
+  атомарна на уровне D1 batch; skin sync выполняется отдельно и не откатывает
+  уже перенесённые права/identity.
+Ограничение: полноценный тест на уникальные constraints и D1 batch rollback
+не реализован.
+
+ОТКРЫТЫЕ РИСКИ / НЕ ПОДТВЕРЖДЕНО:
+
+A) deleteManagedUser()/purgeLegacyRemovedUsers() и removeManagedUserRelations()
+выполняют часть очистки последовательно, а не единым batch. При D1 failure
+посередине возможна частичная очистка: пользователь останется в users, часть
+отношений уже удалена/передана. Повторный запуск в основном идемпотентен,
+но атомарность удаления не гарантирована. Это отмечено как follow-up:
+перевести критические owner succession + relation cleanup в транзакционно
+согласованный batch, где возможно; отделить best-effort уведомления/visual
+reconcile; добавить failure-injection mock tests.
+
+B) applyManagerChange() выполняет D1.batch role transition до CAS-обновления
+manager_change_requests.status. Повторные finalize вызовы способны одновременно
+попытаться применить один и тот же переход. Операции в основном идемпотентны
+(INSERT OR IGNORE и conditional DELETE/UPDATE), но отсутствует отдельный
+atomic claim/finalization lock на request. Требуется конкурентный test и
+при необходимости защитный claim/status transition.
+
+C) owner/admin handoff, manager replacement, deletion и account rekey
+проверены статически, но не выполнены на production D1. Нельзя считать
+проверенными реальными конкурентными запросами, внешними Telegram callbacks,
+rollback/constraint поведением Cloudflare D1.
+
+D) updateTerritoryOwner() / updateTerritoryManager() защищены main inspector,
+однако их положительные/отрицательные API tests с signed Telegram Init Data,
+двумя территориями, race fixtures и проверкой неизменности D1 при 403/409
+пока не представлены в CI.
+
+ИТОГ: код содержит явные проверки статуса approved, verified target,
+территориального scope и compare-and-set для основных owner transfers.
+Реальная атомарность отдельных D1.batch подтверждается платформенной
+семантикой, но здесь не проверена integration test. Последовательное
+удаление аккаунта и request finalization race остаются обозначенными
+техническими рисками, а не закрытыми пунктами.
