@@ -160,7 +160,7 @@ test("event publishing, reminders and manager workflows reject deletion races", 
   assert.ok(reminders.includes("account_deletion_locks WHERE telegram_id=? LIMIT 1"));
   assert.ok(reminders.includes("NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=r.telegram_id)"));
   const reminderDelivery = source.slice(source.indexOf("async function deliverEventReminders"), source.indexOf("function normalizeVisualCommandText"));
-  const reminderUpdates = [...reminderDelivery.matchAll(/UPDATE event_reminders SET[\\s\\S]*?\\.run\\(\\)/g)];
+  const reminderUpdates = [...reminderDelivery.matchAll(/UPDATE event_reminders SET[\s\S]*?\.run\(\)/g)];
   assert.ok(reminderUpdates.length > 0 && reminderUpdates.every(match => match[0].includes("account_deletion_locks")), "every reminder scheduler update must be race-safe for locked accounts");
   const promotion = source.slice(source.indexOf("async function promoteResident"), source.indexOf("async function demoteManager"));
   const demotion = source.slice(source.indexOf("async function demoteManager"), source.indexOf("async function applyManagerChange"));
