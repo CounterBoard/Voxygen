@@ -2623,9 +2623,11 @@ async function promoteResident(request, env) {
   const member=await env.DB.prepare(`SELECT 1 FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(territoryId,targetId).first(); if(!member)return json({ok:false,error:'Житель не найден'},404);
   const managers=await getTerritoryManagerRows(env,territoryId); const voterCount=Math.max(0,managers.length-1);
   if(voterCount===0){
-    const applied=await applyManagerChange(env,{territoryId,targetId,action:'promote',initiatorId:Number(auth.user.id)});
-    if(!applied)return json({ok:false,error:'Не удалось изменить роль. Обновите данные и повторите действие.'},409);
-    return json({ok:true,immediate:true});
+    try{
+      const applied=await applyManagerChange(env,{territoryId,targetId,action:'promote',initiatorId:Number(auth.user.id)});
+      if(!applied)return json({ok:false,error:'Не удалось изменить роль. Обновите данные и повторите действие.'},409);
+      return json({ok:true,immediate:true});
+    }catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Один из аккаунтов находится в процессе удаления'},409);throw error;}
   }
   await ensureManagerChangeTables(env);
   const pending=await env.DB.prepare(`SELECT id FROM manager_change_requests WHERE territory_id=? AND target_telegram_id=? AND action='promote' AND status IN ('pending','finalizing') AND expires_at>? LIMIT 1`).bind(territoryId,targetId,Date.now()).first(); if(pending)return json({ok:false,error:'Запрос уже находится на голосовании'},409);
@@ -2806,13 +2808,18 @@ async function finalizeManagerChangeRequest(env,requestId) {
   }
 
   if(status==='approved'){
-    const applied=await applyManagerChange(env,{
-      territoryId:claimedReq.territory_id,
-      targetId:Number(claimedReq.target_telegram_id),
-      action:claimedReq.action,
-      initiatorId:Number(claimedReq.initiator_telegram_id),
-    });
-    if(!applied)status='rejected';
+    try{
+      const applied=await applyManagerChange(env,{
+        territoryId:claimedReq.territory_id,
+        targetId:Number(claimedReq.target_telegram_id),
+        action:claimedReq.action,
+        initiatorId:Number(claimedReq.initiator_telegram_id),
+      });
+      if(!applied)status='rejected';
+    }catch(error){
+      if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))status='rejected';
+      else throw error;
+    }
   }
 
   const decision=await env.DB.prepare(`UPDATE manager_change_requests SET status=?,decided_at=?,finalizing_at=NULL
@@ -2875,6 +2882,8 @@ async function handleManagerVoteCallback(env, callbackQuery) {
 
 async function handleResidentInviteCallback(env, callbackQuery) {
   const [action, inviteId]=String(callbackQuery.data||'').split(':'); if(!inviteId||!['resident_accept','resident_reject'].includes(action))return json({ok:true}); await ensureWorldTables(env); const actorId=Number(callbackQuery.from?.id||0);
+  const deletionLock=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1`).bind(actorId).first();
+  if(deletionLock){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Аккаунт находится в процессе удаления',show_alert:true});return json({ok:true,ignored:true,reason:'account_deletion_in_progress'});}
   const invite=await env.DB.prepare(`SELECT * FROM city_invites WHERE id=? AND target_telegram_id=? AND status='pending'`).bind(inviteId,actorId).first(); if(!invite){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Приглашение уже обработано',show_alert:true});return json({ok:true});}
   const targetUser=await env.DB.prepare(`SELECT status FROM users WHERE telegram_id=? LIMIT 1`).bind(actorId).first();
   if(targetUser?.status!=='verified'){
@@ -2894,6 +2903,8 @@ async function handleResidentInviteCallback(env, callbackQuery) {
 
 async function notifyPendingInvitesForUser(env, userId) {
   await ensureWorldTables(env);
+  const deletionLock=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1`).bind(Number(userId)).first();
+  if(deletionLock)return;
   const user = await env.DB.prepare('SELECT telegram_id, mc_nickname, status FROM users WHERE telegram_id = ?').bind(Number(userId)).first();
   if (!user?.mc_nickname) return;
   await env.DB.prepare(`UPDATE city_invites SET target_telegram_id = ? WHERE target_telegram_id IS NULL AND lower(target_nickname) = lower(?) AND status = 'pending'`).bind(Number(userId), user.mc_nickname).run();
@@ -2913,6 +2924,7 @@ async function deliverPendingInviteNotifications(env) {
     JOIN territories t ON t.id=ci.territory_id AND t.status='approved'
     JOIN users u ON u.telegram_id=ci.target_telegram_id AND u.status='verified'
     WHERE ci.status='pending' AND ci.notification_sent_at IS NULL
+      AND NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=ci.target_telegram_id)
     ORDER BY ci.created_at ASC LIMIT 50
   `).all();
   let delivered=0;
