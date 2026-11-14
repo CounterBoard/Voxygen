@@ -1935,6 +1935,7 @@ async function createCustomizationItem(request, env) {
   if(!allowedColors.has(color))return json({ok:false,error:'Некорректный цвет'},400);
   if(!imageData.startsWith('data:image/'))return json({ok:false,error:'Загрузите изображение визуала'},400);
   if(governmentMarker&&!isMarker&&!isCover)return json({ok:false,error:'Для государственной метки или обложки визуал должен иметь тег «Метка» или «Обложка»'},400);
+  if(governmentMarker&&achievement.enabled)return json({ok:false,error:'Государственный визуал нельзя выдавать как достижение'},400);
   if(isCover){const dim=imageDimensions(imageData);if(!dim||!isEightToThree(dim.width,dim.height))return json({ok:false,error:'Для визуала с тегом «Обложка» изображение должно иметь соотношение 8:3'},400);}
   if(imageData.length>1_000_000)return json({ok:false,error:'Изображение слишком большое'},413);
   if(achievement.enabled && ![achievement.residents,achievement.gems,achievement.inspectorScore,achievement.playerScore,achievement.screenshots,achievement.comments,achievement.visuals].some(v=>v!==null)){
@@ -1997,6 +1998,7 @@ async function updateCustomizationItem(request,env,itemId){
   const governmentMarker=body?.governmentMarker===undefined?!!current.government_marker:!!body.governmentMarker;
   const isMarker=isMarkerTag(categories), isCover=isCoverTag(categories);
   if(governmentMarker&&!isMarker&&!isCover)return json({ok:false,error:'Для государственной метки или обложки визуал должен иметь тег «Метка» или «Обложка»'},400);
+  if(governmentMarker&&enabled)return json({ok:false,error:'Государственный визуал нельзя выдавать как достижение'},400);
   const achievement=achievementPayload({...body,achievementEnabled:enabled,
     achievementResidents:body?.achievementResidents??current.achievement_residents,
     achievementGems:body?.achievementGems??current.achievement_gems,
@@ -2027,6 +2029,13 @@ async function updateCustomizationItem(request,env,itemId){
     achievement.gems,achievement.inspectorScore,achievement.playerScore,achievement.screenshots,achievement.comments,achievement.visuals,governmentMarker?1:0,id).run();
   await cleanupCustomizationCategories(env).catch(error=>console.error('Customization category cleanup after item update:',error));
   await syncGovernmentVisual(env,id,categories,governmentMarker).catch(error=>console.error('Government visual synchronization after item update:',error));
+  // Reconcile ordinary territories too: changing a visual into a government-only
+  // visual must not leave it equipped outside government territories.
+  const equippedTerritories=await env.DB.prepare(`SELECT territory_id FROM city_customization WHERE marker_item_id=? OR background_item_id=?`).bind(id,id).all();
+  for(const row of equippedTerritories.results||[]) {
+    try { await reconcileTerritoryVisualEquipment(env,row.territory_id); }
+    catch(error) { console.error('Equipment reconciliation after visual update:',error); }
+  }
   if(achievement.enabled) {
     try {
       const territories=await env.DB.prepare(`SELECT id FROM territories WHERE status='approved'`).all();
@@ -2702,8 +2711,11 @@ async function deliverPendingInviteNotifications(env) {
 async function territoryCanUseVisual(env, territoryId, itemId, requiredTag) {
   const cityId=String(territoryId||'').trim(),visualId=String(itemId||'').trim();
   if(!cityId||!visualId)return false;
-  const visual=await env.DB.prepare(`SELECT i.id,i.active,i.categories_text,c.name AS category_name FROM customization_items i LEFT JOIN customization_categories c ON c.id=i.category_id WHERE i.id=? LIMIT 1`).bind(visualId).first();
-  if(!visual||Number(visual.active||0)!==1||!visualHasTag(visual,requiredTag))return false;
+  const [territory,visual]=await Promise.all([
+    env.DB.prepare(`SELECT is_government,status FROM territories WHERE id=? LIMIT 1`).bind(cityId).first(),
+    env.DB.prepare(`SELECT i.id,i.active,i.government_marker,i.categories_text,c.name AS category_name FROM customization_items i LEFT JOIN customization_categories c ON c.id=i.category_id WHERE i.id=? LIMIT 1`).bind(visualId).first()
+  ]);
+  if(!territory||territory.status!=='approved'||!visual||Number(visual.active||0)!==1||Number(visual.government_marker||0)!==Number(territory.is_government||0)||!visualHasTag(visual,requiredTag))return false;
   const row=await env.DB.prepare(`
     SELECT 1 FROM city_items WHERE territory_id=? AND item_id=?
     UNION SELECT 1 FROM user_items ui WHERE ui.item_id=? AND ui.telegram_id IN (
