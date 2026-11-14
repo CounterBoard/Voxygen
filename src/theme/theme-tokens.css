@@ -119,6 +119,14 @@
   --purple-border: var(--theme-color-action-primary-border);
   --mint: var(--theme-color-status-success);
   --mint-soft: var(--theme-color-status-success-soft);
+  --emerald: var(--theme-color-status-success);
+  --gold: var(--theme-color-status-warning);
+  --gold-soft: var(--theme-color-status-warning-soft);
+  --success: var(--theme-color-status-success);
+  --success-soft: var(--theme-color-status-success-soft);
+  --warning: var(--theme-color-status-warning);
+  --warning-soft: var(--theme-color-status-warning-soft);
+  --danger: var(--theme-color-status-danger);
   --gem: var(--content-color-gem);
   --red: var(--theme-color-status-danger);
   --red-soft: var(--theme-color-status-danger-soft);
