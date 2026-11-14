@@ -43,6 +43,8 @@ test('Vox token pack exposes the shared visual contract and legacy aliases', () 
     '--theme-space-4',
     '--theme-radius-control',
     '--theme-control-height',
+    '--theme-icon-button-size',
+    '--theme-type-control-size',
     '--theme-slider-track-height',
     '--theme-shadow-high',
     '--theme-backdrop-blur',
