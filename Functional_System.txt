@@ -3315,6 +3315,7 @@ applyBankBalanceChange() и parseBankCommand().
 Исправление:
 - В manager_change_requests добавлено поле finalizing_at. ensureManagerChangeTables() создаёт его для новых таблиц и добавляет через ALTER TABLE для уже существующих.
 - finalizeManagerChangeRequest() сначала атомарно переводит запрос pending -> finalizing условным UPDATE. Только worker, получивший meta.changes, выполняет применение роли.
+- Проверки дубликатов заявок promote/demote учитывают и pending, и finalizing, поэтому во время короткой финализации нельзя создать параллельный запрос на ту же цель/действие.
 - Голос записывается через INSERT ... SELECT ... WHERE EXISTS(... status='pending'). Callback, который прочитал pending до claim, но дошёл до INSERT после claim, уже не сможет добавить или изменить голос. Callback при status=finalizing сообщает, что решение обрабатывается, а не утверждает, что голосование уже завершено.
 - После claim количество голосов пересчитывается: решение принимается по замороженному набору голосов.
 - После claim запрос перечитывается по id + status='finalizing' + finalizing_at: это закрывает окно, в котором rekey или удаление аккаунта могли изменить/отменить строку между начальным SELECT и захватом. Итоговый UPDATE разрешён только для finalizing и того же значения finalizing_at; уведомление инициатору отправляет только победивший финализатор.
