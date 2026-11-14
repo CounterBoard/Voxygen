@@ -35,3 +35,10 @@ CREATE TABLE IF NOT EXISTS recruitment (
 );
 
 -- Existing installations are upgraded automatically by bot/src/worker.js.
+
+CREATE TABLE IF NOT EXISTS inspectors (
+  telegram_id INTEGER PRIMARY KEY,
+  telegram_username TEXT,
+  added_by INTEGER,
+  created_at INTEGER NOT NULL
+);
