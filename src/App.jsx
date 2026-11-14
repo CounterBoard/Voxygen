@@ -290,9 +290,6 @@ function FontsAndTheme() {
         html,body,#root{ min-height:100%; }
         body{
           margin:0;
-          background:var(--theme-color-canvas, #0A0B10);
-          color:var(--theme-color-text-primary, #F7F8FC);
-          font-family:ui-sans-serif,system-ui,sans-serif;
           -webkit-font-smoothing:antialiased;
           text-rendering:optimizeLegibility;
         }
@@ -570,7 +567,7 @@ function FontsAndTheme() {
         html{ scroll-behavior:smooth; }
         button,input,textarea,select{ -webkit-tap-highlight-color:transparent; }
         .atlas-root{ isolation:isolate; }
-        .atlas-root > div{ width:min(100%,448px); }
+        .atlas-root > div{ width:min(100%,var(--theme-content-max-width)); }
 
         .atlas-root .atlas-display{ font-weight:700; }
         .atlas-root .atlas-display strong{ font-weight:800; }
