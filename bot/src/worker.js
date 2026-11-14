@@ -1054,11 +1054,6 @@ async function saveMapSettings(request, env, requestId = null) {
     const uploadedType = SUPPORTED_MAP_TYPES.has(String(asset.content_type || '').toLowerCase())
       ? String(asset.content_type).toLowerCase()
       : contentType;
-    await env.DB.batch([
-      env.DB.prepare(`INSERT INTO app_settings(key,value,updated_at) VALUES('world_map_github_url',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at`).bind(asset.browser_download_url, Date.now()),
-      env.DB.prepare(`INSERT INTO app_settings(key,value,updated_at) VALUES('world_map_github_content_type',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at`).bind(uploadedType, Date.now()),
-      env.DB.prepare(`DELETE FROM app_settings WHERE key IN ('world_map_object_key','vox_map_image','jorick_map_image')`),
-    ]);
 
     const mapVersion = assetName.replace(/\.[^.]+$/, '');
     stage = 'dispatch_map_pipeline';
@@ -1089,6 +1084,13 @@ async function saveMapSettings(request, env, requestId = null) {
         : `Не удалось запустить обработку карты в GitHub Actions (HTTP ${dispatchResponse.status}).`;
       return json({ ok: false, error: reason }, 502);
     }
+
+    stage = 'd1_save_github_asset_url';
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO app_settings(key,value,updated_at) VALUES('world_map_github_url',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at`).bind(asset.browser_download_url, Date.now()),
+      env.DB.prepare(`INSERT INTO app_settings(key,value,updated_at) VALUES('world_map_github_content_type',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at`).bind(uploadedType, Date.now()),
+      env.DB.prepare(`DELETE FROM app_settings WHERE key IN ('world_map_object_key','vox_map_image','jorick_map_image')`),
+    ]);
 
     stage = 'github_old_asset_cleanup';
     // This repository is dedicated to the world map: keep the new and recent
