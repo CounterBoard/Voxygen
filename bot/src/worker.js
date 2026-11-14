@@ -6479,4 +6479,4 @@ export default {
   },
 };
 
-export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter };
+export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual };
