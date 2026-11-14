@@ -3719,7 +3719,7 @@ statements.push(env.DB.prepare(`DELETE FROM manager_change_votes WHERE voter_tel
     await env.DB.batch(statements);
   } catch(error) {
     const detail=String(error?.message||error);
-    if(/deletion.?lock|account_deletion_locks|удалени/i.test(detail)){
+    if(/deletion.?lock|account_deletion_locks|account deletion in progress|удалени/i.test(detail)){
       throw new Error('Нельзя изменить Telegram ID: один из аккаунтов находится в процессе удаления');
     }
     throw new Error(`Не удалось безопасно перенести Telegram ID: ${detail}`);
