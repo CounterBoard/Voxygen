@@ -3762,3 +3762,15 @@ WORLD_SCHEMA_VERSION повышен до 2026-11-v35. При миграции с
 
 Это закрывает окно, в котором новое nickname-only приглашение могло появиться после отмены старых приглашений, но до снятия account deletion lock. Добавлен regression test, проверяющий связку user_directory и lock. Приглашения на никнеймы, не принадлежащие существующим/удаляемым аккаунтам, по-прежнему разрешены.
 
+34.60 TELEGRAM WEBHOOK INGRESS ДЛЯ УДАЛЯЕМЫХ АККАУНТОВ
+
+Закрыт ещё один общий вход, который не зависел от конкретного callback handler. До этого webhook пытался синхронизировать Telegram username в users, затем запускал callback/message обработчики. SQL triggers блокировали опасные записи, но некоторые действия могли завершаться общим callback error или ошибкой webhook.
+
+Теперь сразу после проверки webhook secret и разбора update:
+- определяется Telegram actor для callback_query, message или edited_message;
+- инициализируется world schema и проверяется account_deletion_locks;
+- locked actor получает callback alert или короткое сообщение в Telegram;
+- update завершается как ignored до INSERT/UPDATE users, notifyPendingInvitesForUser, handleBankMessage и остальных callback/command обработчиков.
+
+Это единая ingress-защита для пользовательских webhook действий поверх SQL triggers. Она не мешает административному HTTP endpoint завершить удаление и не меняет обработку update от незаблокированных пользователей. Добавлен source-level test, проверяющий, что lock gate расположен до первой записи users и вызова bank handler.
+
