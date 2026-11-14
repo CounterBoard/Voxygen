@@ -3689,6 +3689,8 @@ async function rekeyManagedUserId(env,{oldId,newId,username,nickname,xuid,skinTe
   }
   await ensureRecruitmentTable(env);
   await ensureManagerChangeTables(env);
+  await ensureUserPreferenceTables(env);
+  await ensureEventsTables(env);
 
   const oldUser=await env.DB.prepare(`SELECT telegram_id,telegram_username,mc_nickname,status,created_at,xuid,skin_texture_id FROM users WHERE telegram_id=? LIMIT 1`).bind(oldTid).first();
   if(!oldUser) throw new Error('Пользователь с текущим Telegram ID не найден');
@@ -3744,6 +3746,10 @@ async function rekeyManagedUserId(env,{oldId,newId,username,nickname,xuid,skinTe
   statements.push(env.DB.prepare(`DELETE FROM territory_managers WHERE telegram_id=?`).bind(newTid));
   statements.push(env.DB.prepare(`DELETE FROM user_items WHERE telegram_id=?`).bind(newTid));
   statements.push(env.DB.prepare(`DELETE FROM user_currency WHERE telegram_id=?`).bind(newTid));
+  statements.push(env.DB.prepare(`DELETE FROM user_preferences WHERE telegram_id=?`).bind(newTid));
+  statements.push(env.DB.prepare(`DELETE FROM territory_notification_preferences WHERE telegram_id=?`).bind(newTid));
+  statements.push(env.DB.prepare(`DELETE FROM event_reminders WHERE telegram_id=?`).bind(newTid));
+  statements.push(env.DB.prepare(`DELETE FROM event_create_requests WHERE telegram_id=?`).bind(newTid));
   statements.push(env.DB.prepare(`DELETE FROM inspectors WHERE telegram_id=?`).bind(newTid));
 statements.push(env.DB.prepare(`DELETE FROM manager_change_votes WHERE voter_telegram_id=?`).bind(newTid));
   // Cancel destination workflows and source workflows already being finalized.
@@ -3773,6 +3779,11 @@ statements.push(env.DB.prepare(`DELETE FROM manager_change_votes WHERE voter_tel
   statements.push(env.DB.prepare(`UPDATE territory_managers SET granted_by=? WHERE granted_by=?`).bind(newTid,oldTid));
   statements.push(env.DB.prepare(`UPDATE user_items SET telegram_id=? WHERE telegram_id=?`).bind(newTid,oldTid));
   statements.push(env.DB.prepare(`UPDATE user_currency SET telegram_id=? WHERE telegram_id=?`).bind(newTid,oldTid));
+  statements.push(env.DB.prepare(`UPDATE user_preferences SET telegram_id=? WHERE telegram_id=?`).bind(newTid,oldTid));
+  statements.push(env.DB.prepare(`UPDATE territory_notification_preferences SET telegram_id=? WHERE telegram_id=?`).bind(newTid,oldTid));
+  statements.push(env.DB.prepare(`UPDATE event_reminders SET telegram_id=? WHERE telegram_id=?`).bind(newTid,oldTid));
+  statements.push(env.DB.prepare(`UPDATE event_create_requests SET telegram_id=? WHERE telegram_id=?`).bind(newTid,oldTid));
+  statements.push(env.DB.prepare(`UPDATE events SET created_by=? WHERE created_by=?`).bind(newTid,oldTid));
 
   // Ratings are one row per city+Telegram ID. Preserve an old deleted user's
   // historical rating when the destination ID already has one; move the source
