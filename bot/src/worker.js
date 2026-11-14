@@ -5460,6 +5460,19 @@ async function webhook(request, env) {
   catch { return json({ ok: false, error: "Invalid JSON" }, 400); }
 
   const callbackQuery = update?.callback_query;
+  const incomingActor=callbackQuery?.from||update?.message?.from||update?.edited_message?.from;
+  const incomingActorId=Number(incomingActor?.id||0);
+  if(Number.isSafeInteger(incomingActorId)&&incomingActorId>0){
+    await ensureWorldTables(env);
+    const deletionLock=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1`).bind(incomingActorId).first();
+    if(deletionLock){
+      try{
+        if(callbackQuery?.id)await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Аккаунт находится в процессе удаления',show_alert:true});
+        else {const chatId=Number(update?.message?.chat?.id||update?.edited_message?.chat?.id||incomingActorId);await telegram(env,'sendMessage',{chat_id:chatId,text:'Аккаунт находится в процессе удаления. Дождитесь завершения операции.'});}
+      }catch(error){console.error('Deletion-lock webhook notice failed:',error);}
+      return json({ok:true,ignored:true,reason:'account_deletion_in_progress'});
+    }
+  }
   if (callbackQuery?.data) {
     const actorId = String(callbackQuery.from?.id || "");
     if (actorId) {
