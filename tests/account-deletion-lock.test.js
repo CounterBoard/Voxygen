@@ -56,3 +56,13 @@ test("inspector personal inventory grants use a non-throwing atomic deletion-loc
   assert.ok(source.includes("INSERT OR IGNORE INTO user_items(telegram_id,item_id,acquired_at,source) SELECT ?,?,?, 'main_inspector' WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)"), "admin grant must reject locked accounts inside INSERT");
   assert.ok(source.includes("не выдан: аккаунт находится в процессе удаления"), "admin should report a clean rejection instead of surfacing a trigger exception");
 });
+
+test("managed Telegram ID rekey rejects either side of an active deletion lock", async () => {
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  const rekey = source.slice(source.indexOf("async function rekeyManagedUserId"), source.indexOf("function buildOrphanedOwnerRepairStatement"));
+  assert.ok(rekey.includes("SELECT telegram_id FROM account_deletion_locks WHERE telegram_id IN (?,?)"));
+  assert.ok(rekey.includes(".bind(oldTid,newTid)"));
+  assert.ok(rekey.includes("Нельзя изменить Telegram ID: один из аккаунтов находится в процессе удаления"));
+  assert.ok(rekey.indexOf("deletionLocks") < rekey.indexOf("await env.DB.batch(statements)"));
+  assert.ok(rekey.includes("await env.DB.batch(statements)"), "all identity and relation mutations must remain one atomic batch");
+});
