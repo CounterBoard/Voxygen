@@ -148,6 +148,7 @@ test("deletion lock guards active invitations, manager workflows, preferences an
     assert.ok(cleanup.includes("DELETE FROM "+table+" WHERE telegram_id=?"), "account cleanup must remove active personal state from "+table);
   }
   assert.ok(cleanup.indexOf("await ensureUserPreferenceTables(env)")>=0 && cleanup.indexOf("await ensureEventsTables(env)")>=0);
+  assert.ok(cleanup.includes("lower(target_nickname)=lower(?)"), "pending nickname-only invites must be cancelled when their registered target is deleted");
 });
 
 
