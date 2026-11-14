@@ -3455,10 +3455,11 @@ async function ensureUserDirectoryTable(env) {
 async function syncUserDirectory(env) {
   await ensureUserDirectoryTable(env);
   const users = await env.DB.prepare(`
-    SELECT telegram_id, telegram_username, mc_nickname
-    FROM users
-    WHERE status='verified'
-    ORDER BY created_at ASC
+    SELECT u.telegram_id, u.telegram_username, u.mc_nickname
+    FROM users u
+    WHERE u.status='verified'
+      AND NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=u.telegram_id)
+    ORDER BY u.created_at ASC
   `).all();
   for (const u of users.results || []) {
     const existing = await env.DB.prepare(`SELECT id,auto_linked FROM user_directory WHERE telegram_id=? LIMIT 1`).bind(Number(u.telegram_id)).first();
@@ -3508,6 +3509,8 @@ async function addManagedUser(request, env) {
   const telegramId=Number(body?.telegramId);
   if(!nickname||!Number.isSafeInteger(telegramId)||telegramId<=0)return json({ok:false,error:'Укажите Minecraft никнейм и корректный Telegram ID'},400);
 
+  const deletionLock=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1`).bind(telegramId).first();
+  if(deletionLock)return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
   const existingUser=await env.DB.prepare(`SELECT telegram_id,telegram_username,mc_nickname,status,xuid,skin_texture_id FROM users WHERE telegram_id=? LIMIT 1`).bind(telegramId).first();
   const resolvedUsername=await getTelegramUsernameById(env,telegramId);
   const username=resolvedUsername||normalizeUsername(existingUser?.telegram_username||'')||null;
@@ -3516,20 +3519,19 @@ async function addManagedUser(request, env) {
   try{ skin=await syncGeyserSkinForUser(env,telegramId,nickname,existingUser?.xuid||null,existingUser?.skin_texture_id||null,true); }catch(error){ console.error('Geyser skin sync after addManagedUser:',error); }
   const xuid=skin?.xuid||existingUser?.xuid||null, textureId=skin?.skin_texture_id||existingUser?.skin_texture_id||null;
 
-  if(existingUser){
-    await env.DB.prepare(`UPDATE users SET telegram_username=?,mc_nickname=?,status='verified',xuid=?,skin_texture_id=? WHERE telegram_id=?`).bind(username,nickname,xuid,textureId,telegramId).run();
-  }else{
-    await env.DB.prepare(`INSERT INTO users (telegram_id,telegram_username,mc_nickname,status,created_at,xuid,skin_texture_id) VALUES (?,?,?,?,?,?,?)`).bind(telegramId,username,nickname,'verified',Date.now(),xuid,textureId).run();
-  }
-
   const existing=await env.DB.prepare(`SELECT id FROM user_directory WHERE telegram_id=? LIMIT 1`).bind(telegramId).first();
-  const directoryId=existing?.id||crypto.randomUUID();
-  if(existing){
-    await env.DB.prepare(`UPDATE user_directory SET telegram_username=?,mc_nickname=?,auto_linked=0,hidden=0,updated_at=? WHERE id=?`).bind(username,nickname,Date.now(),directoryId).run();
-  }else{
-    await env.DB.prepare(`INSERT INTO user_directory (id,telegram_id,telegram_username,mc_nickname,auto_linked,hidden,created_at,updated_at) VALUES (?,?,?,?,0,0,?,?)`).bind(directoryId,telegramId,username,nickname,Date.now(),Date.now()).run();
+  const directoryId=existing?.id||crypto.randomUUID(),now=Date.now();
+  const statements=[existing
+    ? env.DB.prepare(`UPDATE users SET telegram_username=?,mc_nickname=?,status='verified',xuid=?,skin_texture_id=? WHERE telegram_id=?`).bind(username,nickname,xuid,textureId,telegramId)
+    : env.DB.prepare(`INSERT INTO users (telegram_id,telegram_username,mc_nickname,status,created_at,xuid,skin_texture_id) VALUES (?,?,?,?,?,?,?)`).bind(telegramId,username,nickname,'verified',now,xuid,textureId)];
+  statements.push(existing
+    ? env.DB.prepare(`UPDATE user_directory SET telegram_username=?,mc_nickname=?,auto_linked=0,hidden=0,updated_at=? WHERE id=?`).bind(username,nickname,now,directoryId)
+    : env.DB.prepare(`INSERT INTO user_directory (id,telegram_id,telegram_username,mc_nickname,auto_linked,hidden,created_at,updated_at) VALUES (?,?,?,?,0,0,?,?)`).bind(directoryId,telegramId,username,nickname,now,now));
+  statements.push(env.DB.prepare(`DELETE FROM pre_registered_users WHERE (telegram_username IS NOT NULL AND lower(telegram_username)=lower(?)) OR (mc_nickname=? AND hidden=0)`).bind(username||'',nickname));
+  try{await env.DB.batch(statements)}catch(error){
+    if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
+    throw error;
   }
-  await env.DB.prepare(`DELETE FROM pre_registered_users WHERE telegram_username IS NOT NULL AND lower(telegram_username)=lower(?) OR (mc_nickname=? AND hidden=0)`).bind(username||'',nickname).run();
   return json({ok:true,user:{id:directoryId,telegram_id:telegramId,telegram_username:username,mc_nickname:nickname,skin_texture_id:textureId,skin_url:skinUrlFromTexture(textureId,nickname)}});
 }
 
@@ -3844,13 +3846,19 @@ async function updateManagedUser(request, env, userDirectoryId) {
     const username=resolvedUsername||normalizeUsername(pre.telegram_username)||null;
     const existingUser=await env.DB.prepare(`SELECT telegram_id,status FROM users WHERE telegram_id=? LIMIT 1`).bind(requestedTelegramId).first();
     if(existingUser && ['verified','pending'].includes(String(existingUser.status||''))) return json({ok:false,error:'Этот Telegram ID уже принадлежит другому активному пользователю'},409);
-    let skin=null;try{skin=await syncGeyserSkinForUser(env,requestedTelegramId,nickname,null,null,true)}catch(error){console.error('Geyser pre-registration claim error:',error)}
-    const xuid=skin?.xuid||pre.xuid||null,textureId=skin?.skin_texture_id||pre.skin_texture_id||null;
-    if(existingUser){await env.DB.prepare(`DELETE FROM users WHERE telegram_id=?`).bind(requestedTelegramId).run();}
-    await env.DB.prepare(`INSERT INTO users (telegram_id,telegram_username,mc_nickname,status,created_at,xuid,skin_texture_id) VALUES (?,?,?,?,?,?,?)`).bind(requestedTelegramId,username,nickname,'verified',Date.now(),xuid,textureId).run();
-    const directoryId=crypto.randomUUID();
-    await env.DB.prepare(`INSERT INTO user_directory (id,telegram_id,telegram_username,mc_nickname,auto_linked,hidden,created_at,updated_at) VALUES (?,?,?,?,0,0,?,?)`).bind(directoryId,requestedTelegramId,username,nickname,Date.now(),Date.now()).run();
-    await env.DB.prepare(`UPDATE pre_registered_users SET hidden=1,updated_at=? WHERE id=?`).bind(Date.now(),userDirectoryId).run();
+    const deletionLock=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1`).bind(requestedTelegramId).first();
+    if(deletionLock)return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
+    const xuid=pre.xuid||null,textureId=pre.skin_texture_id||null;
+    const directoryId=crypto.randomUUID(),now=Date.now();
+    const statements=[];
+    if(existingUser)statements.push(env.DB.prepare(`DELETE FROM users WHERE telegram_id=?`).bind(requestedTelegramId));
+    statements.push(env.DB.prepare(`INSERT INTO users (telegram_id,telegram_username,mc_nickname,status,created_at,xuid,skin_texture_id) VALUES (?,?,?,?,?,?,?)`).bind(requestedTelegramId,username,nickname,'verified',now,xuid,textureId));
+    statements.push(env.DB.prepare(`INSERT INTO user_directory (id,telegram_id,telegram_username,mc_nickname,auto_linked,hidden,created_at,updated_at) VALUES (?,?,?,?,0,0,?,?)`).bind(directoryId,requestedTelegramId,username,nickname,now,now));
+    statements.push(env.DB.prepare(`UPDATE pre_registered_users SET hidden=1,updated_at=? WHERE id=?`).bind(now,userDirectoryId));
+    try{await env.DB.batch(statements)}catch(error){
+      if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
+      throw error;
+    }
     return json({ok:true,user:{id:directoryId,telegram_id:requestedTelegramId,telegram_username:username,mc_nickname:nickname,skin_texture_id:textureId,skin_url:skinUrlFromTexture(textureId,nickname)}});
   }
 
@@ -3876,18 +3884,23 @@ async function updateManagedUser(request, env, userDirectoryId) {
   // Nickname-only edit: no Telegram lookup is required, so a temporary
   // username/API issue cannot make the save appear to do nothing.
   if(targetId===currentId){
+    const deletionLock=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1`).bind(currentId).first();
+    if(deletionLock)return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
     let nextXuid=oldUser.xuid||null,nextTexture=oldUser.skin_texture_id||null;
     // Keep the profile, directory entry and every territory owned by this stable
     // Telegram ID synchronized. Ownership is keyed by Telegram ID, never by nickname.
     const renameNow=Date.now();
-    await env.DB.batch([
+    try{await env.DB.batch([
       env.DB.prepare(`UPDATE users SET mc_nickname=?,status='verified' WHERE telegram_id=?`).bind(nickname,currentId),
       env.DB.prepare(`UPDATE user_directory SET mc_nickname=?,auto_linked=0,hidden=0,updated_at=? WHERE id=?`).bind(nickname,renameNow,userDirectoryId),
       env.DB.prepare(`UPDATE territories SET owner_input=? WHERE owner_telegram_id=?`).bind(nickname,currentId),
       // The owner is stored in territories.owner_telegram_id; remove duplicate
       // manager rows for the same owner so management lists stay consistent.
       env.DB.prepare(`DELETE FROM territory_managers WHERE telegram_id=? AND territory_id IN (SELECT id FROM territories WHERE owner_telegram_id=?)`).bind(currentId,currentId)
-    ]);
+    ])}catch(error){
+      if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
+      throw error;
+    }
     // Repair legacy rows left behind by earlier ID changes, now that the new
     // nickname is saved. This does not claim a city when the nickname is ambiguous.
     try{await repairOrphanedTerritoryOwnersForUser(env,currentId,nickname)}catch(error){console.error('Territory owner repair after nickname edit:',error)}
@@ -4101,6 +4114,9 @@ async function claimNickname(request, env) {
 
   try {
     await ensureWorldTables(env);
+    const telegramId=Number(auth.user.id);
+    const deletionLock=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1`).bind(telegramId).first();
+    if(deletionLock)return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
     await env.DB.prepare(`
       INSERT INTO users (telegram_id, telegram_username, mc_nickname, status, created_at)
       VALUES (?, ?, ?, 'pending', ?)
@@ -4110,7 +4126,7 @@ async function claimNickname(request, env) {
         status = 'pending',
         xuid = NULL,
         skin_texture_id = NULL
-    `).bind(Number(auth.user.id), auth.user.username || null, nickname, Date.now()).run();
+    `).bind(telegramId, auth.user.username || null, nickname, Date.now()).run();
 
     const inspectorChatId = String(env.INSPECTOR_CHAT_ID || "").trim();
     if (!inspectorChatId) return json({ ok: false, error: "INSPECTOR_CHAT_ID is not configured" }, 500);
@@ -5056,9 +5072,18 @@ async function handleNicknameCallback(env, callbackQuery, approved) {
   const telegramId = Number(parts[1]);
   if (!Number.isSafeInteger(telegramId) || telegramId <= 0) return json({ ok: false, error: "Invalid Telegram ID" }, 400);
   const status = approved ? "verified" : "rejected";
-  const result = await env.DB.prepare(
-    "UPDATE users SET status = ? WHERE telegram_id = ? AND status = 'pending'"
-  ).bind(status, telegramId).run();
+  let result;
+  try{
+    result=await env.DB.prepare(
+      "UPDATE users SET status = ? WHERE telegram_id = ? AND status = 'pending'"
+    ).bind(status, telegramId).run();
+  }catch(error){
+    if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error))){
+      await telegram(env,"answerCallbackQuery",{callback_query_id:callbackQuery.id,text:"Аккаунт находится в процессе удаления",show_alert:true});
+      return json({ok:true,ignored:true,reason:"account_deletion_in_progress"});
+    }
+    throw error;
+  }
 
   const currentUser = await env.DB.prepare(
     "SELECT mc_nickname, status FROM users WHERE telegram_id = ?"
