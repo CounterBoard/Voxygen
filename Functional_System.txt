@@ -3678,3 +3678,14 @@ addInspector теперь вызывает ensureWorldTables, выполняет
 
 Регрессионные тесты обновлены: проверяют новые четыре триггера, guarded inspector INSERT, версию v32 и строгий порядок users → user_directory → deletion lock для managed delete и legacy purge. Проверки source-level; реальная конкуренция D1 не моделируется. Production Worker/D1 не развёртывались.
 
+34.54 БАЗОВАЯ СХЕМА И БЕЗОПАСНАЯ УСТАНОВКА INSPECTOR GUARDS
+
+Дополнительная проверка миграции выявила, что таблица inspectors используется административными маршрутами, но не объявлялась в bot/schema.sql и не создавалась явно в initializeWorldTables. Установка новых триггеров на отсутствующую таблицу могла бы остановить миграцию v32 на базе, где таблица ещё не была создана внешним способом.
+
+Исправлено:
+- initializeWorldTables создаёт inspectors с полями telegram_id (PRIMARY KEY), telegram_username, added_by и created_at до установки deletion-lock triggers;
+- bot/schema.sql теперь содержит ту же таблицу как часть базовой D1 схемы;
+- source-level regression test проверяет bootstrap таблицы до использования её триггеров.
+
+CI после исправления whitespace-normalization в новых тестах прошёл успешно на commit f9883fa366afdcaf18706f74cf572ddbc72cef67. Более поздние изменения таблицы inspectors и схемы проходят собственные запуски CI отдельно; их результат проверяется по последнему commit. Это не доказывает успешное выполнение миграции на production D1. Production Worker/D1 не развёртывались.
+
