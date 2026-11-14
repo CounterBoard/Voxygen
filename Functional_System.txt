@@ -3535,3 +3535,15 @@ applyBankBalanceChange() и parseBankCommand().
 Регрессионный тест tests/manager-assignment-account-guard.test.js проверяет наличие обязательного SQL guard в реализации endpoint.
 
 Ограничения: тест статический и не моделирует конкурентные D1-транзакции. Он не заменяет общий deletion lock из раздела 34.38. Production Worker/D1 не развёртывались и не изменялись.
+
+
+34.42 SQL-LEVEL GUARD ПРИ ПЕРЕДАЧЕ ВЛАДЕНИЯ В UPDATE TERRITORY MANAGER
+
+При смене manager через updateTerritoryManager() обе ветки передачи ownership (назначение следующего manager и назначение username-цели) теперь дополнительно проверяют целевой users-row непосредственно в UPDATE territories:
+- telegram_id совпадает с новым owner;
+- status='verified';
+- mc_nickname не пустой.
+
+Это дополняет предварительный SELECT и защищает от ситуации, когда аккаунт становится pending/removed либо теряет nickname между чтением и записью owner_telegram_id. Ветка назначения нового manager также имеет SQL guard на INSERT territory_managers (раздел 34.41).
+
+Тест tests/manager-assignment-account-guard.test.js фиксирует наличие обоих guards. Проверка статическая; реальная конкурентная D1-гонка не воспроизводилась. Общий deletion lock остаётся открытой задачей (34.38). Production Worker/D1 не развёртывались.
