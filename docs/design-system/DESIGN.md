@@ -151,9 +151,12 @@ migration for saved user preferences and active global overrides.
 
 ## 9. Current implementation boundary
 
-The first foundation change centralizes the theme catalog, introduces the
-Vox token pack, and connects the frontend and backend to the same allowlist.
-It does not yet migrate every existing component to tokens, add a theme
+The foundation centralizes the theme catalog, introduces the Vox token
+pack, and connects the frontend and backend to the same allowlist. The first
+migration slice now routes the global app background, typography scale,
+slider geometry, focus treatment, content width, and shared surface styling
+through theme tokens. Many component-level inline styles and legacy
+style-string selectors remain to be migrated. It does not yet add a theme
 picker, download remote theme packs, or introduce third-party theme
 execution.
 
