@@ -3133,3 +3133,42 @@ Comments/replies:
 - конкурентная moderation callback + HTTP action;
 - actual image response/cache/CORS на Cloudflare edge;
 - signed Init Data + D1 fixture для всей positive/negative role matrix.
+
+
+======================================================================
+34.26. TREASURY / ECONOMY / VISUAL PURCHASES — INPUT AND BALANCE AUDIT
+======================================================================
+
+Проверены purchaseCustomizationItem(), getTreasury(), treasuryDeposit(),
+treasuryDonate(), treasuryWithdraw(), executeIdempotentFinancialTransfer(),
+applyBankBalanceChange() и parseBankCommand().
+
+Подтверждено по коду:
+- личная покупка списывает user_currency и выдаёт user_items в одном D1.batch;
+  покупка за казну списывает city_treasury и выдаёт city_items в том же batch;
+  журнал gem_spend_log зависит от успешного debit/grant;
+- условие balance>=amount защищает от отрицательного баланса при debit;
+  NOT EXISTS + PK inventory предотвращают повторную покупку одного item;
+- treasury deposit/donate/withdraw используют financial_operations и
+  operationId; debit, credit и итоговый статус связаны batch-операциями;
+  reuse operationId с другим payload отклоняется (409);
+- treasury доступна только участникам approved территории; расход казны —
+  только текущим manager; government territory запрещена для donate;
+- banker webhook сверяет Telegram sender с BANKER_TELEGRAM_ID, резервирует
+  update_id уникальным ledger-записыванием, проверяет сумму и баланс;
+  неоднозначное имя территории отклоняется, повтор update_id не списывает дважды.
+
+Исправлено в commit cd9185b:
+- deposit/donate/withdraw больше не округляют дробную сумму через Math.floor;
+  дробные, NaN/Infinity и небезопасные значения отклоняются Number.isSafeInteger;
+- покупка дополнительно проверяет сохранённую цену товара на safe integer и
+  неотрицательность до сравнения баланса/списания. Защитный guard закрывает
+  риск некорректной (в том числе отрицательной) цены из старых/повреждённых
+  данных; штатное создание/редактирование товара уже валидирует price>=0.
+
+Ограничения:
+- D1.batch semantics и changes() проверены mock-тестами, но не реальной
+  конкурентной D1 транзакцией; банковские сценарии также не гонялись на
+  production Telegram/Cloudflare runtime;
+- для суммы 0 в покупке допустим бесплатный визуал (price=0); отрицательная
+  цена не допускается.
