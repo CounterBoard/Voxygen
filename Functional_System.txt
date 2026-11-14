@@ -3066,3 +3066,35 @@ claimTerritoryOwner() проверен отдельно:
 Это static review, без race/failure injection на настоящем D1. Отдельно
 не проверены реальные username normalization и крайние случаи owner_input
 на UI/API fixtures.
+
+
+======================================================================
+34.24. EVENTS / REMINDERS — CREATOR RIGHTS AND RETRY SAFETY REVIEW
+======================================================================
+
+Code review createEvent(), updateEvent(), deleteEvent(), saveEventReminder():
+
+- Create: authenticated Telegram user; selected territory must be approved.
+  Non-main-inspector may use only territory where member/manager; government
+  territory is blocked. Venue name is server-derived from selected territory.
+- Create retry: requestKey scoped by Telegram ID; payload fingerprint
+  (SHA-256) rejects same key with different body; candidate event ID is
+  reserved once; INSERT OR IGNORE and notification only for first insert
+  prevent duplicate event/notification on retry.
+- Update: only creator or main inspector; inactive/missing and past events
+  rejected. New territory must be approved and, for non-main-inspector,
+  membership/manager rights checked when moving to a different territory.
+  Date + reminder reschedule are batched; reminder status/claim reset is
+  synchronized with event date update.
+- Delete: only creator or main inspector; soft delete active=0 and cancellation
+  of pending/sending reminders are batched.
+- Reminder: own Telegram ID is used for insert/update/delete; event must be
+  active and event/reminder time future; upsert resets attempts/claim state.
+
+Residual:
+- create reservation and event INSERT/status completion are multiple DB calls,
+  not one encompassing transaction. requestKey supports retry recovery and
+  duplicate insert protection, but a real concurrent/failure-injection D1 test
+  remains absent.
+- Unit coverage does not yet execute these handlers with signed Telegram Init
+  Data + D1; conclusions are static review only.
