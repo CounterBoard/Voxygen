@@ -3755,7 +3755,7 @@ removeManagedUserRelations теперь получает oldNickname из users,
 
 Обнаружен дополнительный крайний случай: city_invites может хранить приглашение только по target_nickname, пока пользователь ещё не привязал Telegram ID. В этот момент target_telegram_id равен NULL, поэтому обычная проверка lock по Telegram ID не видит, что никнейм уже принадлежит удаляемому аккаунту.
 
-WORLD_SCHEMA_VERSION повышен до 2026-11-v35. При миграции старые city_invites INSERT/identity UPDATE triggers удаляются и создаются заново с nickname-aware проверками:
+WORLD_SCHEMA_VERSION повышен до 2026-11-v36. Добавлены новые versioned city_invites INSERT/identity UPDATE triggers с nickname-aware проверками; прежние ID-only triggers остаются как дополнительный барьер. Это сделано аддитивно, без DROP TRIGGER, чтобы миграция не создавала окно между параллельными Worker isolates:
 - новый invite отклоняется, если target_nickname совпадает с mc_nickname пользователя, чей Telegram ID заблокирован;
 - проверяется как users, так и user_directory, чтобы защита сохранялась после удаления users, пока каталог ещё не очищен;
 - UPDATE target_nickname также проверяет старое и новое значение, наряду с target_telegram_id и invited_by.
