@@ -3774,3 +3774,15 @@ WORLD_SCHEMA_VERSION повышен до 2026-11-v36. Добавлены нов�
 
 Это единая ingress-защита для пользовательских webhook действий поверх SQL triggers. Она не мешает административному HTTP endpoint завершить удаление и не меняет обработку update от незаблокированных пользователей. Добавлен source-level test, проверяющий, что lock gate расположен до первой записи users и вызова bank handler.
 
+34.61 GEM SPEND JOURNAL И ПЕРЕНОС ИДЕНТИЧНОСТИ
+
+В очередной сверке всех таблиц с telegram_id обнаружена gem_spend_log — журнал списания самоцветов, который уже переносился в rekeyManagedUserId, но не имел собственного deletion-lock trigger.
+
+WORLD_SCHEMA_VERSION повышен до 2026-11-v37. Добавлены:
+- BEFORE INSERT guard для gem_spend_log.telegram_id;
+- BEFORE UPDATE OF telegram_id guard, который защищает перенос журнала со старого ID на новый.
+
+Покупка визуала уже выполняется атомарным D1 batch: списание user_currency или city_treasury, выдача user_items/city_items и запись gem_spend_log. Новый trigger обеспечивает дополнительную защиту журнала и не меняет правило сохранения истории. При rekey source ledger переносится вместе с идентичностью, target ledger сохраняется как историческая запись; если lock появляется после preflight, trigger откатывает весь batch.
+
+Добавлены source-level проверки обоих gem_spend_log triggers и обновлён schema-version assertion.
+
