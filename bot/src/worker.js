@@ -5923,8 +5923,9 @@ async function handleVisualInventoryCommand(env, message, rawText) {
     await telegram(env,'sendMessage',{chat_id:Number(message.chat.id),text:`${changed.meta?.changes?'✅':'ℹ️'} Визуал «${dbName}» ${changed.meta?.changes?'отнят':'не найден в личном инвентаре'} у пользователя «${target.name}».`});
     return json({ok:true,handled:'visual_inventory_removed',target:'user'});
   }
-  const inserted=await env.DB.prepare(`INSERT OR IGNORE INTO user_items(telegram_id,item_id,acquired_at,source) VALUES(?,?,?,'main_inspector')`).bind(Number(target.id),item.id,now).run();
-  await telegram(env,'sendMessage',{chat_id:Number(message.chat.id),text:`${inserted.meta?.changes?'✅':'ℹ️'} Визуал «${dbName}» ${inserted.meta?.changes?'выдан':'уже есть'} пользователю «${target.name}».`});
+  const inserted=await env.DB.prepare(`INSERT OR IGNORE INTO user_items(telegram_id,item_id,acquired_at,source) SELECT ?,?,?, 'main_inspector' WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(Number(target.id),item.id,now,Number(target.id)).run();
+  const inventoryMessage=inserted.meta?.changes?'выдан':(await env.DB.prepare(`SELECT 1 FROM account_deletion_locks WHERE telegram_id=?`).bind(Number(target.id)).first())?'не выдан: аккаунт находится в процессе удаления':'уже есть';
+  await telegram(env,'sendMessage',{chat_id:Number(message.chat.id),text:`${inserted.meta?.changes?'✅':'ℹ️'} Визуал «${dbName}» ${inventoryMessage} пользователю «${target.name}».`});
   return json({ok:true,handled:'visual_inventory_granted',target:'user'});
 }
 
