@@ -47,7 +47,7 @@ test("deletion lock also blocks personal balance, inventory and ledger mutations
   assert.ok(source.includes("guard_territory_managers_deletion_lock_update_all_v31"));
   assert.ok(source.includes("BEFORE UPDATE ON city_memberships WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)"));
   assert.ok(source.includes("BEFORE UPDATE ON territory_managers WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)"));
-  assert.ok(source.includes("2026-11-v31"),"schema version must advance for the new triggers");
+  assert.ok(source.includes("2026-11-v32"),"schema version must advance for the new triggers");
 });
 
 
