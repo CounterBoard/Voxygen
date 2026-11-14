@@ -39,4 +39,4 @@ jobs:
         run: node --check bot/src/worker.js
 
       - name: Bundle backend Worker (dry run)
-        run: npx --yes wrangler@latest deploy --dry-run --config bot/wrangler.toml
+        run: npx --yes wrangler@4.162.0 deploy --dry-run --config bot/wrangler.toml
