@@ -3806,6 +3806,36 @@ async function completeRequiredAccountCleanup(env,telegramId,affectedVisualCitie
   for(const row of affectedVisualCities||[]) await reconcileTerritoryVisualEquipment(env,row.territory_id);
 }
 
+async function transferTerritoryOwnerAfterAccountRemoval(env,territoryId,oldTelegramId) {
+  const oldTid=Number(oldTelegramId);
+  const eligibleManager=`SELECT tm.telegram_id FROM territory_managers tm
+    JOIN users u ON u.telegram_id=tm.telegram_id AND u.status='verified'
+    WHERE tm.territory_id=territories.id AND tm.telegram_id<>?
+      AND trim(COALESCE(u.mc_nickname,''))<>''
+    ORDER BY tm.granted_at ASC,tm.telegram_id ASC LIMIT 1`;
+  const statements=[
+    env.DB.prepare(`UPDATE territories SET
+      owner_telegram_id=(${eligibleManager}),
+      owner_telegram_username=(SELECT u.telegram_username FROM territory_managers tm
+        JOIN users u ON u.telegram_id=tm.telegram_id AND u.status='verified'
+        WHERE tm.territory_id=territories.id AND tm.telegram_id<>?
+          AND trim(COALESCE(u.mc_nickname,''))<>''
+        ORDER BY tm.granted_at ASC,tm.telegram_id ASC LIMIT 1),
+      owner_input=(SELECT u.mc_nickname FROM territory_managers tm
+        JOIN users u ON u.telegram_id=tm.telegram_id AND u.status='verified'
+        WHERE tm.territory_id=territories.id AND tm.telegram_id<>?
+          AND trim(COALESCE(u.mc_nickname,''))<>''
+        ORDER BY tm.granted_at ASC,tm.telegram_id ASC LIMIT 1)
+      WHERE id=? AND status='approved' AND owner_telegram_id=?`)
+      .bind(oldTid,oldTid,oldTid,territoryId,oldTid),
+    env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=?
+      AND telegram_id IN (SELECT owner_telegram_id FROM territories
+        WHERE id=? AND owner_telegram_id IS NOT NULL AND owner_telegram_id<>?)`)
+      .bind(territoryId,territoryId,oldTid),
+  ];
+  await env.DB.batch(statements);
+}
+
 async function removeManagedUserRelations(env, telegramId) {
   const tid=Number(telegramId); if(!Number.isSafeInteger(tid)||tid<=0)return;
   const affectedVisualCities=await env.DB.prepare(`
@@ -3824,12 +3854,7 @@ async function removeManagedUserRelations(env, telegramId) {
   const owned=await env.DB.prepare(`SELECT id,name FROM territories WHERE owner_telegram_id=? AND status='approved'`).bind(tid).all();
   for(const territory of owned.results||[]){
     await hideRecruitmentIfContactLost(env,territory.id,tid,oldUsername);
-    const next=await env.DB.prepare(`SELECT tm.telegram_id,u.telegram_username,u.mc_nickname FROM territory_managers tm JOIN users u ON u.telegram_id=tm.telegram_id AND u.status='verified' WHERE tm.territory_id=? AND tm.telegram_id<>? AND trim(COALESCE(u.mc_nickname,''))<>'' ORDER BY tm.granted_at ASC,tm.telegram_id ASC LIMIT 1`).bind(territory.id,tid).first();
-    if(next?.telegram_id){
-      await env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=? WHERE id=?`).bind(Number(next.telegram_id),next.telegram_username||null,next.mc_nickname||null,territory.id).run();
-      await env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territory.id,Number(next.telegram_id)).run();
-    }else await env.DB.prepare(`UPDATE territories SET owner_telegram_id=NULL,owner_telegram_username=NULL WHERE id=?`).bind(territory.id).run();
-    await env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territory.id,tid).run();
+    await transferTerritoryOwnerAfterAccountRemoval(env,territory.id,tid);
   }
   const managerCities=await env.DB.prepare(`SELECT territory_id FROM territory_managers WHERE telegram_id=?`).bind(tid).all();
   for(const row of managerCities.results||[])await hideRecruitmentIfContactLost(env,row.territory_id,tid,oldUsername);
@@ -6555,4 +6580,4 @@ export default {
   },
 };
 
-export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote };
+export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval };
