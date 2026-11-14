@@ -2530,9 +2530,11 @@ Workflow Process and publish world map остаётся отдельным workf
 
 Основной репозиторий имеет workflow Validate Voxygen: npm test, npm run build, node --check bot/src/worker.js и Wrangler deploy --dry-run.
 
-Последний успешный CI для кода (после него в Functional_System.txt вносились только документационные изменения):
-- run id 43530788053;
-- commit cd8fdb614d5ec7845f17abe6275ada668500f01f;
+Последний успешный CI основного репозитория:
+- run id 43571378158;
+- commit 3ea097cfe8df8fd1ddb52390562048e28c8a9185;
+- npm test: 87 tests, 87 passed, 0 failed;
+- npm build, Worker syntax check и Wrangler 4.162.0 dry-run прошли.
 - conclusion success;
 - npm test: 87 tests, 87 passed, 0 failed;
 - npm run build: success;
@@ -2717,8 +2719,8 @@ Manifest нельзя кешировать надолго, поскольку о
 - проверяет CORS, nosniff и immutable cache для versioned assets.
 
 Последний map-assets CI:
-- run id 43571282712;
-- commit 2d27f688f143297861bd4db65836329dbd13596a;
+- run id 43571388934;
+- commit afecbbef83dc84b7ad950034cee9e17ba4883740;
 - 15 Python tests passed.
 
 Проверка _headers unit test подтверждает содержимое конфигурации, но не фактические response headers Cloudflare edge. Production CORS/cache по-прежнему требуют HTTP runtime probe.
@@ -2727,4 +2729,4 @@ Manifest нельзя кешировать надолго, поскольку о
 - D1 сохранение URL/content type перенесено после успешного GitHub workflow_dispatch;
 - при неуспешном dispatch новый URL не записывается;
 - commit 0d5d567908193145b9c3ce246cb53e887f52754e;
-- CI ожидает подтверждения.
+- CI run 43571346363 завершился success.
