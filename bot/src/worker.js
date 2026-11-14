@@ -2635,7 +2635,12 @@ async function expireManagerChangeRequests(env, at=Date.now()) {
   return finalized;
 }
 
-function isEligibleManagerChangeVoter(actorId, request) {\n  const actor=Number(actorId||0);\n  return Number.isSafeInteger(actor)&&actor>0&&actor!==Number(request?.initiator_telegram_id)&&actor!==Number(request?.target_telegram_id);\n}\n\nasync function handleManagerVoteCallback(env, callbackQuery) {
+function isEligibleManagerChangeVoter(actorId, request) {
+  const actor=Number(actorId||0);
+  return Number.isSafeInteger(actor)&&actor>0&&actor!==Number(request?.initiator_telegram_id)&&actor!==Number(request?.target_telegram_id);
+}
+
+async function handleManagerVoteCallback(env, callbackQuery) {
   const parts=String(callbackQuery.data||'').split(':'),decision=parts[1],requestId=parts.slice(2).join(':');
   const actorId=Number(callbackQuery.from?.id||0); if(!['yes','no'].includes(decision)||!requestId)return json({ok:true}); await ensureManagerChangeTables(env);
   const req=await env.DB.prepare(`SELECT * FROM manager_change_requests WHERE id=?`).bind(requestId).first(); if(!req){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Голосование не найдено',show_alert:true});return json({ok:true});}
