@@ -3574,6 +3574,13 @@ async function rekeyManagedUserId(env,{oldId,newId,username,nickname,xuid,skinTe
   const oldTid=Number(oldId),newTid=Number(newId);
   if(oldTid===newTid)return;
   if(!Number.isSafeInteger(oldTid)||!Number.isSafeInteger(newTid)||oldTid<=0||newTid<=0) throw new Error('Некорректный Telegram ID');
+  // Never merge an identity into or out of an account whose deletion cleanup
+  // is in progress. The trigger barrier remains authoritative for races after
+  // this read; the D1 batch is atomic and will roll back if a lock appears later.
+  const deletionLocks=await env.DB.prepare(`SELECT telegram_id FROM account_deletion_locks WHERE telegram_id IN (?,?)`).bind(oldTid,newTid).all();
+  if((deletionLocks.results||[]).length){
+    throw new Error('Нельзя изменить Telegram ID: один из аккаунтов находится в процессе удаления');
+  }
   await ensureRecruitmentTable(env);
   await ensureManagerChangeTables(env);
 
@@ -3711,7 +3718,11 @@ statements.push(env.DB.prepare(`DELETE FROM manager_change_votes WHERE voter_tel
   try {
     await env.DB.batch(statements);
   } catch(error) {
-    throw new Error(`Не удалось безопасно перенести Telegram ID: ${error?.message||error}`);
+    const detail=String(error?.message||error);
+    if(/deletion.?lock|account_deletion_locks|удалени/i.test(detail)){
+      throw new Error('Нельзя изменить Telegram ID: один из аккаунтов находится в процессе удаления');
+    }
+    throw new Error(`Не удалось безопасно перенести Telegram ID: ${detail}`);
   }
   for(const row of targetVisualCities.results||[]){
     await reconcileTerritoryVisualEquipment(env,row.territory_id).catch(error=>console.error('Equipment reconciliation after Telegram ID rekey:',error));
