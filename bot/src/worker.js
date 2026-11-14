@@ -1838,7 +1838,7 @@ async function getCustomization(request, env) {
   const auth=await requireUser(request,env); if(auth.error)return auth.error;
   await ensureWorldTables(env);
   const userId=Number(auth.user.id);
-  await env.DB.prepare(`INSERT OR IGNORE INTO user_currency (telegram_id,balance) VALUES (?,0)`).bind(userId).run();
+  await env.DB.prepare(`INSERT OR IGNORE INTO user_currency (telegram_id,balance) SELECT ?,0 WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(userId,userId).run();
   const managerCities=await getTreasuryManagerCities(env,userId);
   const url=new URL(request.url);
   if(String(url.searchParams.get('lite')||'')==='1'){
@@ -2249,12 +2249,19 @@ async function executeIdempotentFinancialTransfer(env, { operationId, telegramId
     return {status:String(existing.status||'processing'),operationId:id,replayed:true};
   }
   const now=Date.now();
-  const batchResult=await env.DB.batch([
+  let batchResult;
+  try {
+    batchResult=await env.DB.batch([
     env.DB.prepare(`INSERT OR IGNORE INTO financial_operations(operation_id,telegram_id,operation_type,target_id,amount,status,created_at,updated_at) VALUES(?,?,?,?,?,'processing',?,?)`).bind(id,Number(telegramId),operationType,String(targetId),Number(amount),now,now),
     debitStatement,
     creditStatement,
     env.DB.prepare(`UPDATE financial_operations SET status=CASE WHEN changes()=1 THEN 'completed' ELSE 'rejected' END,updated_at=? WHERE operation_id=? AND status='processing'`).bind(Date.now(),id)
-  ]);
+    ]);
+  } catch (error) {
+    const locked=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=?`).bind(Number(telegramId)).first().catch(()=>null);
+    if(locked)return {error:'Аккаунт находится в процессе удаления',status:409,operationId:id};
+    throw error;
+  }
   const saved=await env.DB.prepare(`SELECT operation_id,telegram_id,operation_type,target_id,amount,status FROM financial_operations WHERE operation_id=? LIMIT 1`).bind(id).first();
   if(!saved)return {error:'Не удалось проверить результат операции',status:500,operationId:id};
   if(Number(saved.telegram_id)!==Number(telegramId)||saved.operation_type!==operationType||String(saved.target_id)!==String(targetId)||Number(saved.amount)!==Number(amount))return {error:'ID операции уже использован для другого действия',status:409,replayed:true};
