@@ -47,7 +47,7 @@ test("deletion lock also blocks personal balance, inventory and ledger mutations
   assert.ok(source.includes("guard_territory_managers_deletion_lock_update_all_v31"));
   assert.ok(source.includes("BEFORE UPDATE ON city_memberships WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)"));
   assert.ok(source.includes("BEFORE UPDATE ON territory_managers WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)"));
-  assert.ok(source.includes("2026-11-v36"),"schema version must advance for the new triggers");
+  assert.ok(source.includes("2026-11-v37"),"schema version must advance for the new triggers");
 });
 
 
@@ -102,7 +102,7 @@ test("account directory and inspector grants remain blocked until deletion lock 
     "guard_inspectors_deletion_lock_insert",
     "guard_inspectors_deletion_lock_update",
   ]) assert.ok(source.includes("CREATE TRIGGER IF NOT EXISTS "+trigger), "missing account-role/directory guard: "+trigger);
-  assert.ok(source.includes("2026-11-v36"), "schema version must advance for directory and inspector triggers");
+  assert.ok(source.includes("2026-11-v37"), "schema version must advance for directory and inspector triggers");
   assert.ok(source.includes("CREATE TABLE IF NOT EXISTS inspectors ( telegram_id INTEGER PRIMARY KEY, telegram_username TEXT, added_by INTEGER, created_at INTEGER NOT NULL )"), "inspector table must exist before its triggers are installed");
   const addInspector = source.slice(source.indexOf("async function addInspector"), source.indexOf("async function removeInspector"));
   assert.ok(addInspector.includes("INSERT INTO inspectors (telegram_id, telegram_username, added_by, created_at) SELECT ?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)"));
@@ -142,6 +142,8 @@ test("deletion lock guards active invitations, manager workflows, preferences an
     "guard_territory_manager_granter_deletion_lock_insert",
     "guard_territory_manager_granter_deletion_lock_update",
     "guard_bank_transactions_deletion_lock_insert",
+    "guard_gem_spend_log_deletion_lock_insert",
+    "guard_gem_spend_log_deletion_lock_update",
   ]) assert.ok(source.includes("CREATE TRIGGER IF NOT EXISTS "+trigger), "missing user-data deletion guard: "+trigger);
   const cleanup = source.slice(source.indexOf("async function removeManagedUserRelations"), source.indexOf("async function purgeLegacyRemovedUsers"));
   for (const table of ["user_preferences","territory_notification_preferences","event_reminders","event_create_requests"]) {
