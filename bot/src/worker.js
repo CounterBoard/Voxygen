@@ -2099,7 +2099,7 @@ async function purchaseCustomizationItem(request, env, ctx = null) {
   const managerCities=await getTreasuryManagerCities(env,userId); const territoryId=requested.startsWith('treasury:')?requested.slice(9):'';
   const accountCity=managerCities.find(c=>String(c.id)===territoryId)||null; const accountScope=accountCity?`treasury:${accountCity.id}`:'personal';
   if(accountCity) await env.DB.prepare(`INSERT OR IGNORE INTO city_treasury(territory_id,balance,updated_at) VALUES(?,?,?)`).bind(accountCity.id,0,Date.now()).run();
-  const item=await env.DB.prepare('SELECT id,name,price,government_marker,hidden_from_users FROM customization_items WHERE id=? AND active=1').bind(itemId).first(); if(!item)return json({ok:false,error:'Товар не найден'},404); if(Number(item.government_marker||0)===1)return json({ok:false,error:'Этот визуал недоступен для покупки'},403); const buyerRole=await getRoleByTelegramId(env,Number(auth.user.id),auth.user.username||''); if(Number(item.hidden_from_users||0)===1 && buyerRole!=='main_inspector')return json({ok:false,error:'Этот визуал недоступен для покупки'},403);
+  const item=await env.DB.prepare('SELECT id,name,price,government_marker,hidden_from_users FROM customization_items WHERE id=? AND active=1').bind(itemId).first(); if(!item)return json({ok:false,error:'Товар не найден'},404); if(!Number.isSafeInteger(Number(item.price))||Number(item.price)<0)return json({ok:false,error:'У товара некорректная цена'},500); if(Number(item.government_marker||0)===1)return json({ok:false,error:'Этот визуал недоступен для покупки'},403); const buyerRole=await getRoleByTelegramId(env,Number(auth.user.id),auth.user.username||''); if(Number(item.hidden_from_users||0)===1 && buyerRole!=='main_inspector')return json({ok:false,error:'Этот визуал недоступен для покупки'},403);
   const already=accountCity
     ? await env.DB.prepare('SELECT item_id FROM city_items WHERE territory_id=? AND item_id=?').bind(accountCity.id,itemId).first()
     : await env.DB.prepare('SELECT item_id FROM user_items WHERE telegram_id=? AND item_id=?').bind(userId,itemId).first();
@@ -2195,7 +2195,7 @@ async function executeIdempotentFinancialTransfer(env, { operationId, telegramId
 
 async function treasuryDeposit(request, env) {
   const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
-  const userId=Number(auth.user.id),territoryId=String(body?.territoryId||'').trim(),amount=Math.floor(Number(body?.amount||0)); if(!territoryId||!Number.isSafeInteger(amount)||amount<=0)return json({ok:false,error:'Введите положительное количество самоцветов'},400);
+  const userId=Number(auth.user.id),territoryId=String(body?.territoryId||'').trim(),amount=Number(body?.amount); if(!territoryId||!Number.isSafeInteger(amount)||amount<=0)return json({ok:false,error:'Введите положительное количество самоцветов'},400);
   const territory=await env.DB.prepare(`SELECT id,name FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404);
   const allowed=await isTerritoryManager(env,territoryId,userId) || !!(await env.DB.prepare(`SELECT 1 FROM city_memberships WHERE telegram_id=? AND territory_id=?`).bind(userId,territoryId).first()); if(!allowed)return json({ok:false,error:'Только жители города могут пополнять казну'},403);
   await env.DB.prepare(`INSERT OR IGNORE INTO user_currency(telegram_id,balance) VALUES(?,0)`).bind(userId).run(); await env.DB.prepare(`INSERT OR IGNORE INTO city_treasury(territory_id,balance,updated_at) VALUES(?,?,?)`).bind(territoryId,0,Date.now()).run();
@@ -2211,7 +2211,7 @@ async function treasuryDeposit(request, env) {
 async function treasuryDonate(request, env) {
   const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env);
   let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
-  const userId=Number(auth.user.id),territoryId=String(body?.territoryId||'').trim(),amount=Math.floor(Number(body?.amount||0));
+  const userId=Number(auth.user.id),territoryId=String(body?.territoryId||'').trim(),amount=Number(body?.amount);
   if(!territoryId||!Number.isSafeInteger(amount)||amount<=0)return json({ok:false,error:'Укажите положительное количество самоцветов'},400);
   const territory=await env.DB.prepare(`SELECT id,name,owner_telegram_id,is_government FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first();
   if(!territory)return json({ok:false,error:'City not found'},404);
@@ -2236,7 +2236,7 @@ async function treasuryDonate(request, env) {
 
 async function treasuryWithdraw(request, env) {
   const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
-  const userId=Number(auth.user.id),territoryId=String(body?.territoryId||'').trim(),amount=Math.floor(Number(body?.amount||0)); if(!territoryId||!Number.isSafeInteger(amount)||amount<=0)return json({ok:false,error:'Введите положительное количество самоцветов'},400);
+  const userId=Number(auth.user.id),territoryId=String(body?.territoryId||'').trim(),amount=Number(body?.amount); if(!territoryId||!Number.isSafeInteger(amount)||amount<=0)return json({ok:false,error:'Введите положительное количество самоцветов'},400);
   const territory=await env.DB.prepare(`SELECT id,name FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404); if(!(await isTerritoryManager(env,territoryId,userId)))return json({ok:false,error:'Только основатель/мэр может тратить средства казны'},403);
   await env.DB.prepare(`INSERT OR IGNORE INTO user_currency(telegram_id,balance) VALUES(?,0)`).bind(userId).run(); await env.DB.prepare(`INSERT OR IGNORE INTO city_treasury(territory_id,balance,updated_at) VALUES(?,?,?)`).bind(territoryId,0,Date.now()).run();
   const transfer=await executeIdempotentFinancialTransfer(env,{
