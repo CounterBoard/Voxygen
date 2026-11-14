@@ -3308,3 +3308,24 @@ applyBankBalanceChange() и parseBankCommand().
 - Отдельно требуется решить атомарный claim финализации manager_change_requests; нельзя считать эту гонку устранённой данным изменением.
 - Добавлен `tests/account-cleanup.test.js`: проверяется распространение ошибки каждого из трёх обязательных DELETE и успешное выполнение в заданном порядке.
 - Production Worker/D1 не развёртывались и не проверялись.
+
+
+34.31 АТОМАРНЫЙ CLAIM ФИНАЛИЗАЦИИ ГОЛОСОВАНИЯ МЕНЕДЖЕРОВ
+
+Исправление:
+- В manager_change_requests добавлено поле finalizing_at. ensureManagerChangeTables() создаёт его для новых таблиц и добавляет через ALTER TABLE для уже существующих.
+- finalizeManagerChangeRequest() сначала атомарно переводит запрос pending -> finalizing условным UPDATE. Только worker, получивший meta.changes, выполняет применение роли.
+- Голос записывается через INSERT ... SELECT ... WHERE EXISTS(... status='pending'). Callback, который прочитал pending до claim, но дошёл до INSERT после claim, уже не сможет добавить или изменить голос.
+- После claim количество голосов пересчитывается: решение принимается по замороженному набору голосов.
+- Итоговый UPDATE разрешён только для finalizing и того же значения finalizing_at; уведомление инициатору отправляет только победивший финализатор.
+- Если Worker аварийно завершился после claim, запись остаётся finalizing. Повторная обработка разрешена, если claim старше 60 секунд. expireManagerChangeRequests() выбирает и просроченные pending, и зависшие finalizing.
+- applyManagerChange() остаётся повторяемой операцией; это необходимо для восстановления после сбоя между изменением роли и записью конечного статуса.
+
+Регрессионные тесты:
+- tests/manager-change-finalization.test.js проверяет single-winner claim для pending, однократный захват просроченного lease и запрет голосования после перехода в finalizing.
+- Тесты используют mock D1 и проверяют SQL guard/параметры; они не моделируют настоящую конкурентную транзакционность Cloudflare D1.
+
+Ограничения:
+- Миграция колонки выполняется при ensureManagerChangeTables(); производственная D1 не проверялась.
+- 60-секундный lease рассчитан на ограниченное время выполнения Worker; реальный runtime/cron recovery не запускался.
+- Production Worker не развёртывался.
