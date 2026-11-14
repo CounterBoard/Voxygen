@@ -28,3 +28,20 @@ test("managed and legacy deletion hold the barrier across relation cleanup", asy
   assert.ok(purge.indexOf("INSERT OR IGNORE INTO account_deletion_locks") < purge.indexOf("await removeManagedUserRelations(env,tid)"));
   assert.ok(purge.indexOf("DELETE FROM users WHERE telegram_id=?") < purge.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?") && purge.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?") < purge.indexOf("DELETE FROM user_directory WHERE telegram_id=?"));
 });
+
+test("deletion lock also blocks personal balance, inventory and ledger mutations", async () => {
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  for (const trigger of [
+    "guard_user_currency_deletion_lock_insert",
+    "guard_user_currency_deletion_lock_update",
+    "guard_user_items_deletion_lock_insert",
+    "guard_user_items_deletion_lock_update",
+    "guard_financial_operations_deletion_lock_insert",
+    "guard_financial_operations_deletion_lock_update",
+  ]) assert.ok(source.includes("CREATE TRIGGER IF NOT EXISTS "+trigger), "missing financial deletion guard: "+trigger);
+  assert.ok(source.includes("BEFORE UPDATE ON user_currency WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)"));
+  assert.ok(source.includes("BEFORE INSERT ON user_items WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)"));
+  assert.ok(source.includes("BEFORE INSERT ON financial_operations WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)"));
+  assert.match(source,/UPDATE city_treasury SET balance=balance-\\?,updated_at=\\? WHERE territory_id=\\? AND balance>=\\?.*NOT EXISTS \\(SELECT 1 FROM account_deletion_locks WHERE telegram_id=\\?\\)/);
+  assert.ok(source.includes("2026-11-v30"),"schema version must advance for the new triggers");
+});
