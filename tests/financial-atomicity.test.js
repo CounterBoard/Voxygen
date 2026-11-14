@@ -35,7 +35,7 @@ test("treasury transfer endpoints use conditional debits and atomic idempotent h
 });
 
 test("customization purchase debits only if item is not already owned and grants inventory only after debit", () => {
-  const body = bodyOf("purchaseCustomizationItem");
+  const body = bodyOf("purchaseCustomizationItem").replace(/\s+/g, " ");
   assert.match(body, /balance>=\? AND NOT EXISTS \(SELECT 1 FROM (?:city_items|user_items)/);
   assert.match(body, /INSERT INTO (?:city_items|user_items).*SELECT .*WHERE changes\(\)=1/s);
   assert.match(body, /env\.DB\.batch\(\[/);
@@ -74,7 +74,7 @@ test("treasury transfer entry points and idempotent batch fail closed for deleti
 test("personal customization purchases atomically reject deletion-locked buyers", () => {
   const body = bodyOf("purchaseCustomizationItem").replace(/\\s+/g, " ");
   assert.ok(body.includes("AND NOT EXISTS (SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)"), "personal debit must include lock predicate");
-  assert.match(body, /try\s*\{\s*purchaseBatch=accountCity);
+  assert.match(body, /try\s*\{\s*purchaseBatch=accountCity/);
   assert.match(body, /SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=\?/);
   assert.match(body, /Аккаунт находится в процессе удаления/);
 });
