@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
-import { verifyInitData, parseBankCommand, applyBankBalanceChange } from "../bot/src/worker.js";
+import { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer } from "../bot/src/worker.js";
 
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
