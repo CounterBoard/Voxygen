@@ -2756,3 +2756,24 @@ Manifest нельзя кешировать надолго, поскольку о
 - основной repo run 43571547765, commit 1562b60832cdfab168e16adb87a54582a8bbc21b — success, 87/87 tests, build, syntax и Wrangler dry-run пройдены;
 - map-assets run 43571525420, commit 5df135242b26f8526997ca545f10a4625613cd17 — success, 15 Python tests passed.
 Предупреждение о Node.js 20 runtime старых actions после обновления устранено; целевые версии Node.js 22 и Python 3.12 не менялись.
+
+
+34.14. Изоляция публичных данных по статусу территории
+
+Дополнительная проверка публичных read-only API выявила недостаточную связь части выдаваемых данных со статусом территории. GET /api/ratings, GET /api/comments и GET /api/screenshots ранее выбирали строки по territoryId и/или статусу самой записи, но не требовали, чтобы связанная территория имела status='approved'. Аналогично serveScreenshot() проверял status='approved' у скриншота, не проверяя статус территории.
+
+Исправлено в bot/src/worker.js (commit f170917a68609579130bef3c7f48f6ecafcce414):
+- GET /api/ratings соединяет ratings с territories и допускает только approved;
+- GET /api/comments соединяет comments с territories и допускает только approved;
+- GET /api/screenshots соединяет screenshots с territories и допускает только approved;
+- выдача /api/screenshots/{id} проверяет approved у скриншота и у территории.
+
+Это закрывает выдачу данных, связанных с территориями, которые больше не опубликованы. Проверка не меняет публичность данных внутри утверждённых территорий и не вводит авторизацию на публичные read-only маршруты.
+
+Статус подтверждения: изменение внесено непосредственно в main. Требуется дождаться CI и отдельно проверить поведение на тестовой D1/fixture для approved и не-approved территорий. Production Worker/D1 не изменялись.
+
+34.15. Положительная матрица полномочий — следующий этап
+
+Отрицательная route-auth-matrix проверяет 70 защищённых method/path комбинаций без Init Data и ожидает 401. Она не подтверждает положительные и отрицательные права каждой авторизованной роли. Следующий этап должен включать сценарии user, verified user, inspector, main inspector, city owner/manager, resident и outsider относительно территории; ожидаемые 200/403/404; попытки доступа к чужой территории; проверку авторства и состояния объектов; проверки побочных эффектов (D1 не меняется при отказе).
+
+Особенно важны следующие группы: рейтинги (обычный/инспекторский/собственный город), комментарии и ответы, screenshot upload/moderation/deletion, city membership/invites/manager voting, treasury (deposit/donate/withdraw), event create/update/delete/reminder, customization и административные endpoints. Полноценное подтверждение требует signed Telegram Init Data fixtures и mock либо отдельной тестовой D1; unit-тесты без реального D1 не следует выдавать за интеграционное подтверждение.
