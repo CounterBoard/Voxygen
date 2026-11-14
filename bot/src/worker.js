@@ -4142,8 +4142,9 @@ async function getRatings(request, env, url) {
   if (!territoryId) return json({ ok: false, error: "territoryId is required" }, 400);
 
   const rows = await env.DB.prepare(`
-    SELECT id, telegram_id, role, integrity, comfort, atmosphere, detail, created_at
-    FROM ratings WHERE territory_id = ? ORDER BY created_at DESC
+    SELECT r.id, r.telegram_id, r.role, r.integrity, r.comfort, r.atmosphere, r.detail, r.created_at
+    FROM ratings r JOIN territories t ON t.id=r.territory_id AND t.status='approved'
+    WHERE r.territory_id = ? ORDER BY r.created_at DESC
   `).bind(territoryId).all();
 
   return json({ ok: true, ratings: rows.results || [] });
@@ -4255,7 +4256,7 @@ async function deleteReply(request, env) {
 async function getComments(request, env, url) {
   await ensureWorldTables(env);
   const territoryId=url.searchParams.get('territoryId');if(!territoryId)return json({ok:false,error:'territoryId is required'},400);
-  const rows=await env.DB.prepare(`SELECT c.id,c.telegram_id,c.telegram_username,COALESCE(c.author_mc_nickname,u.mc_nickname) AS mc_nickname,c.text,c.role,c.created_at,cr.text AS reply_text FROM comments c LEFT JOIN users u ON u.telegram_id=c.telegram_id LEFT JOIN comment_replies cr ON cr.comment_id=c.id WHERE c.territory_id=? ORDER BY CASE WHEN c.role IN ('inspector','main_inspector') THEN 0 ELSE 1 END,c.created_at DESC`).bind(territoryId).all();
+  const rows=await env.DB.prepare(`SELECT c.id,c.telegram_id,c.telegram_username,COALESCE(c.author_mc_nickname,u.mc_nickname) AS mc_nickname,c.text,c.role,c.created_at,cr.text AS reply_text FROM comments c JOIN territories t ON t.id=c.territory_id AND t.status='approved' LEFT JOIN users u ON u.telegram_id=c.telegram_id LEFT JOIN comment_replies cr ON cr.comment_id=c.id WHERE c.territory_id=? ORDER BY CASE WHEN c.role IN ('inspector','main_inspector') THEN 0 ELSE 1 END,c.created_at DESC`).bind(territoryId).all();
   return json({ok:true,comments:(rows.results||[]).map(row=>({...row,reply:row.reply_text||null}))});
 }
 
@@ -4340,7 +4341,7 @@ async function getScreenshots(request, env, url) {
 
   const rows = await env.DB.prepare(`
     SELECT s.id, s.territory_id, s.telegram_id, s.telegram_username, s.status, s.created_at, COALESCE(s.author_mc_nickname,u.mc_nickname) AS mc_nickname
-    FROM screenshots s LEFT JOIN users u ON u.telegram_id=s.telegram_id
+    FROM screenshots s JOIN territories t ON t.id=s.territory_id AND t.status='approved' LEFT JOIN users u ON u.telegram_id=s.telegram_id
     WHERE s.territory_id = ? AND s.status = 'approved'
     ORDER BY s.created_at DESC
   `).bind(territoryId).all();
@@ -4414,7 +4415,7 @@ async function deleteScreenshot(request, env, screenshotId) {
 
 async function serveScreenshot(request, env, screenshotId) {
   const row = await env.DB.prepare(`
-    SELECT file_id, status, image_data FROM screenshots WHERE id = ?
+    SELECT s.file_id, s.status, s.image_data FROM screenshots s JOIN territories t ON t.id=s.territory_id AND t.status='approved' WHERE s.id = ?
   `).bind(screenshotId).first();
 
   if (!row || row.status !== "approved") {
