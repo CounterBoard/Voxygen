@@ -119,6 +119,7 @@
   --purple-border: var(--theme-color-action-primary-border);
   --mint: var(--theme-color-status-success);
   --mint-soft: var(--theme-color-status-success-soft);
+  --mint-strong: rgba(65, 255, 167, .28);
   --emerald: var(--theme-color-status-success);
   --gold: var(--theme-color-status-warning);
   --gold-soft: var(--theme-color-status-warning-soft);
