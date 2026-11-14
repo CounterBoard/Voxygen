@@ -5942,7 +5942,7 @@ async function deliverEventReminders(env, at = Date.now()) {
     const attempts = Number(row.attempts || 0) + 1;
     const delay = Math.min(60_000 * (2 ** Math.max(0, attempts - 1)), 30 * 60 * 1000);
     await env.DB.prepare(`UPDATE event_reminders SET status=?,attempts=?,next_attempt_at=?,claim_token=NULL,updated_at=?
-      WHERE id=? AND status='sending' AND updated_at<?`).bind(attempts >= 8 ? 'failed' : 'pending',attempts,now+delay,now,row.id,staleLeaseAt).run();
+      WHERE id=? AND status='sending' AND updated_at<? AND NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=event_reminders.telegram_id)`).bind(attempts >= 8 ? 'failed' : 'pending',attempts,now+delay,now,row.id,staleLeaseAt).run();
   }
   const due = await env.DB.prepare(`SELECT r.id,r.telegram_id,r.event_id
     FROM event_reminders r JOIN events e ON e.id=r.event_id
