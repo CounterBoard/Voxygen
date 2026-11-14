@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isTerritoryManager } from "../bot/src/worker.js";
+import { isTerritoryManager, isEligibleManagerChangeVoter } from "../bot/src/worker.js";
 
 const territories = [
   { id: "A", status: "approved", owner_telegram_id: 100 },
@@ -59,3 +59,4 @@ test("empty territory or user identifiers never grant manager access", async () 
   assert.equal(await isTerritoryManager(env, "A", 0), false);
   assert.equal(await isTerritoryManager(env, null, null), false);
 });
+\n\ntest("manager change initiator and target cannot vote", () => {\n  const request = { initiator_telegram_id: 101, target_telegram_id: 102 };\n  assert.equal(isEligibleManagerChangeVoter(101, request), false);\n  assert.equal(isEligibleManagerChangeVoter(102, request), false);\n  assert.equal(isEligibleManagerChangeVoter(103, request), true);\n  assert.equal(isEligibleManagerChangeVoter(0, request), false);\n  assert.equal(isEligibleManagerChangeVoter("not-a-number", request), false);\n});\n
