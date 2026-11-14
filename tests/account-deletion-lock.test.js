@@ -66,3 +66,29 @@ test("managed Telegram ID rekey rejects either side of an active deletion lock",
   assert.ok(rekey.indexOf("deletionLocks") < rekey.indexOf("await env.DB.batch(statements)"));
   assert.ok(rekey.includes("await env.DB.batch(statements)"), "all identity and relation mutations must remain one atomic batch");
 });
+
+
+test("registration, pre-registration claims and profile edits reject deletion-locked accounts atomically", async () => {
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  const managed = source.slice(source.indexOf("async function addManagedUser"), source.indexOf("function buildStaleDestinationOwnerTransferStatements"));
+  assert.ok(managed.includes("SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1"));
+  assert.ok(managed.includes("await env.DB.batch(statements)"), "verified user and directory changes must share one atomic batch");
+  assert.ok(managed.includes("Аккаунт находится в процессе удаления"));
+  const update = source.slice(source.indexOf("async function updateManagedUser"), source.indexOf("async function completeRequiredAccountCleanup"));
+  assert.ok(update.includes("UPDATE pre_registered_users SET hidden=1"));
+  assert.ok(update.includes("await env.DB.batch(statements)"), "pre-registration claim must atomically create user/directory and hide the source row");
+  assert.ok(update.includes("targetId===currentId") && update.includes("await env.DB.batch(["));
+  assert.ok(update.includes("return json({ok:false,error:'Аккаунт находится в процессе удаления'},409)"));
+  const claim = source.slice(source.indexOf("async function claimNickname"), source.indexOf("function buildFounderClaimStatement"));
+  assert.ok(claim.includes("account_deletion_locks WHERE telegram_id=? LIMIT 1"));
+  assert.ok(claim.includes("Аккаунт находится в процессе удаления"));
+});
+
+test("directory rebuild and Telegram nickname moderation cannot resurrect locked accounts", async () => {
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  const directorySync = source.slice(source.indexOf("async function syncUserDirectory"), source.indexOf("async function listManagedUsers"));
+  assert.ok(directorySync.includes("NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=u.telegram_id)"), "directory sync must skip locked users");
+  const moderation = source.slice(source.indexOf("async function handleNicknameCallback"), source.indexOf("async function startTerritoryApproval"));
+  assert.ok(moderation.includes("account deletion in progress"));
+  assert.ok(moderation.includes("Аккаунт находится в процессе удаления"));
+});
