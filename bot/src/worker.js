@@ -773,7 +773,7 @@ async function ensureMapSettingsTable(env) {
   return promise;
 }
 
-const WORLD_SCHEMA_VERSION = '2026-11-v31';
+const WORLD_SCHEMA_VERSION = '2026-11-v32';
 const worldTableInitPromises = new WeakMap();
 
 async function ensureWorldTables(env) {
@@ -1442,12 +1442,27 @@ async function initializeWorldTables(env) {
   await env.DB.prepare(`DELETE FROM customization_items WHERE id IN (${legacyPh})`).bind(...legacyMarkerIds).run().catch(()=>{});
   await cleanupCustomizationCategories(env).catch(error => console.error('Customization tag cleanup error:',error));
 
+  // The account directory is also protected: list synchronization and administrative flows must not recreate it during deletion.
+  await ensureUserDirectoryTable(env);
+
   // Durable account-removal barrier: relational writes cannot resurrect an account while cleanup is running.
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS account_deletion_locks (
     telegram_id INTEGER PRIMARY KEY,
     locked_at INTEGER NOT NULL,
     reason TEXT NOT NULL DEFAULT 'managed_delete'
   )`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_user_directory_deletion_lock_insert
+    BEFORE INSERT ON user_directory WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_user_directory_deletion_lock_update
+    BEFORE UPDATE ON user_directory WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_inspectors_deletion_lock_insert
+    BEFORE INSERT ON inspectors WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_inspectors_deletion_lock_update
+    BEFORE UPDATE ON inspectors WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
   await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_users_deletion_lock_insert
     BEFORE INSERT ON users WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
@@ -4026,8 +4041,8 @@ async function purgeLegacyRemovedUsers(env) {
       await env.DB.prepare(`INSERT OR IGNORE INTO account_deletion_locks(telegram_id,locked_at,reason) VALUES(?,?,'legacy_purge')`).bind(tid,Date.now()).run();
       await removeManagedUserRelations(env,tid);
       await env.DB.prepare(`DELETE FROM users WHERE telegram_id=?`).bind(tid).run();
-      await env.DB.prepare(`DELETE FROM account_deletion_locks WHERE telegram_id=?`).bind(tid).run();
       await env.DB.prepare(`DELETE FROM user_directory WHERE telegram_id=?`).bind(tid).run();
+      await env.DB.prepare(`DELETE FROM account_deletion_locks WHERE telegram_id=?`).bind(tid).run();
     }catch(error){console.error('Legacy removed user cleanup error:',tid,error)}
   }
 }
@@ -4042,8 +4057,8 @@ async function deleteManagedUser(request, env, userDirectoryId) {
     try {
       await removeManagedUserRelations(env,tid);
       await env.DB.prepare(`DELETE FROM users WHERE telegram_id=?`).bind(tid).run();
-      await env.DB.prepare(`DELETE FROM account_deletion_locks WHERE telegram_id=?`).bind(tid).run();
       await env.DB.prepare(`DELETE FROM user_directory WHERE id=?`).bind(userDirectoryId).run();
+      await env.DB.prepare(`DELETE FROM account_deletion_locks WHERE telegram_id=?`).bind(tid).run();
       return json({ok:true,telegram_id:tid});
     } catch(error) {
       console.error('Managed account deletion blocked; lock retained:',tid,error);
@@ -4081,8 +4096,19 @@ async function addInspector(request, env) {
     telegramId = Number(found.telegram_id);
   }
   if (String(telegramId) === String(env.INSPECTOR_CHAT_ID || '').trim()) return json({ ok: false, error: 'Главный инспектор уже имеет эту роль' }, 400);
+  await ensureWorldTables(env);
+  const deletionLock=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1`).bind(telegramId).first();
+  if(deletionLock)return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
   const username = usernameInput || (await env.DB.prepare('SELECT telegram_username FROM users WHERE telegram_id = ?').bind(telegramId).first())?.telegram_username || '';
-  await env.DB.prepare(`INSERT INTO inspectors (telegram_id, telegram_username, added_by, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(telegram_id) DO UPDATE SET telegram_username = excluded.telegram_username`).bind(telegramId, username || null, Number(auth.user.id), Date.now()).run();
+  try{
+    await env.DB.prepare(`INSERT INTO inspectors (telegram_id, telegram_username, added_by, created_at)
+      SELECT ?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)
+      ON CONFLICT(telegram_id) DO UPDATE SET telegram_username = excluded.telegram_username`)
+      .bind(telegramId, username || null, Number(auth.user.id), Date.now(), telegramId).run();
+  }catch(error){
+    if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
+    throw error;
+  }
   return json({ ok: true, telegramId, username: username || null });
 }
 
