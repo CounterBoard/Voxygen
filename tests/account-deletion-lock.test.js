@@ -111,3 +111,37 @@ test("account directory and inspector grants remain blocked until deletion lock 
   const purge = source.slice(source.indexOf("async function purgeLegacyRemovedUsers"), source.indexOf("async function deleteManagedUser"));
   assert.ok(purge.indexOf("DELETE FROM user_directory WHERE telegram_id=?") < purge.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?"));
 });
+
+
+test("deletion lock guards active invitations, manager workflows, preferences and event state", async () => {
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  for (const trigger of [
+    "guard_city_invites_deletion_lock_insert",
+    "guard_city_invites_deletion_lock_identity_update",
+    "guard_territory_requests_deletion_lock_insert",
+    "guard_territory_requests_deletion_lock_update",
+    "guard_manager_change_requests_deletion_lock_insert",
+    "guard_manager_change_requests_deletion_lock_identity_update",
+    "guard_manager_change_votes_deletion_lock_insert",
+    "guard_manager_change_votes_deletion_lock_update",
+    "guard_user_preferences_deletion_lock_insert",
+    "guard_user_preferences_deletion_lock_update",
+    "guard_territory_notification_preferences_deletion_lock_insert",
+    "guard_territory_notification_preferences_deletion_lock_update",
+    "guard_events_deletion_lock_insert",
+    "guard_event_reminders_deletion_lock_insert",
+    "guard_event_reminders_deletion_lock_update",
+    "guard_event_create_requests_deletion_lock_insert",
+    "guard_event_create_requests_deletion_lock_update",
+    "guard_ratings_deletion_lock_insert",
+    "guard_comments_deletion_lock_insert",
+    "guard_screenshots_deletion_lock_insert",
+    "guard_inspector_ratings_deletion_lock_insert",
+    "guard_comment_replies_deletion_lock_insert",
+  ]) assert.ok(source.includes("CREATE TRIGGER IF NOT EXISTS "+trigger), "missing user-data deletion guard: "+trigger);
+  const cleanup = source.slice(source.indexOf("async function removeManagedUserRelations"), source.indexOf("async function purgeLegacyRemovedUsers"));
+  for (const table of ["user_preferences","territory_notification_preferences","event_reminders","event_create_requests"]) {
+    assert.ok(cleanup.includes("DELETE FROM "+table+" WHERE telegram_id=?"), "account cleanup must remove active personal state from "+table);
+  }
+  assert.ok(cleanup.indexOf("await ensureUserPreferenceTables(env)")>=0 && cleanup.indexOf("await ensureEventsTables(env)")>=0);
+});
