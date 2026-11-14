@@ -2584,13 +2584,15 @@ Workflow Process and publish world map остаётся отдельным workf
 
 34.5. Операционный порядок дальнейшей проверки
 
-Известная граница надёжности POST /api/map:
-- saveMapSettings() записывает world_map_github_url и world_map_github_content_type в D1 до вызова GitHub workflow_dispatch;
-- если dispatch отвечает не HTTP 204, API возвращает 502, но уже записанный D1 URL не откатывается;
-- manifest map-assets при этом остаётся прежним, потому что pipeline не был запущен;
-- manifest-first клиент продолжает использовать опубликованную карту, пока manifest доступен, однако legacy GET /api/map может уже вернуть новый исходник.
+Граница надёжности POST /api/map после дополнительного исправления:
+- Worker загружает исходник в GitHub Release;
+- формирует mapVersion из имени asset;
+- вызывает workflow_dispatch publish-map.yml;
+- при ответе GitHub не 204 возвращает 502 и НЕ записывает новый URL/content type в D1;
+- только после подтверждённого dispatch (HTTP 204) Worker атомарно записывает world_map_github_url и world_map_github_content_type в D1 batch и удаляет legacy keys;
+- таким образом, отказ dispatch больше не оставляет D1 с URL нового, но необработанного изображения.
 
-Это не обход авторизации и не потеря опубликованного manifest, но состояние D1 и фактической публикации может временно разойтись. Компенсирующий rollback/CAS и конкурентный integration test для двух параллельных загрузок остаются отдельной задачей; в этом аудите они не менялись.
+Остаточная граница: GitHub может принять dispatch (204), после чего D1 batch может завершиться ошибкой. В таком редком случае workflow уже запущен, но legacy D1 URL не обновлён. Это не откатывает опубликованный manifest; manifest-first клиент продолжает читать опубликованную карту. Полная компенсация этого распределённого шага (outbox/reconciliation) и конкурентные integration tests для нескольких одновременных загрузок остаются отдельной задачей.
 
 Для завершения runtime-проверки карты следует:
 1. проверить актуальный manifest прямым GET;
@@ -2690,3 +2692,39 @@ GitHub Actions также выводит предупреждение о том,
 - npm build, Worker syntax check и Wrangler dry-run прошли.
 
 Матрица проверяет отказ неавторизованных запросов, но не заменяет полную матрицу положительных прав: доступ пользователя, подтверждённого пользователя, инспектора, менеджера территории и главного инспектора для каждого бизнес-сценария по-прежнему требует отдельных D1 integration tests. Публичные read-only маршруты в матрицу защищённых операций не включены.
+
+
+34.10. Повторяемость CI и версия Wrangler
+
+До аудита workflows использовали npx wrangler@latest. Это делало dry-run и production map-assets deployment зависимыми от версии CLI, опубликованной в npm в момент запуска, и могло неожиданно изменить поведение без изменения исходников.
+
+Исправлено:
+- .github/workflows/validate.yml основного приложения использует wrangler@4.162.0;
+- .github/workflows/publish-map.yml репозитория CounterBoard/Voxygen-map-assets также использует wrangler@4.162.0;
+- версия CLI теперь одинаковая в обоих workflows и не плавает вслед за latest;
+- это pin версии CLI, но не полная фиксация цепочки npm dependencies: основное приложение пока не имеет package-lock.json, CI выполняет npm install, а Python workflow ставит Pillow/requests через pip upgrade. Полная воспроизводимость потребует lock-файлов и закрепления зависимостей.
+
+34.11. CORS и cache contract map-assets
+
+public/_headers определяет две разные политики:
+- /world-map/manifest.json: Access-Control-Allow-Origin: *, GET/HEAD/OPTIONS, разрешён Content-Type и If-None-Match, nosniff, Cache-Control: no-store;
+- /world-map/versions/*: Access-Control-Allow-Origin: *, GET/HEAD/OPTIONS, Content-Type и If-None-Match, nosniff, Cache-Control: public, max-age=31536000, immutable.
+
+Manifest нельзя кешировать надолго, поскольку он является указателем на текущую mapVersion. Версионные preview и tiles не меняются внутри version path и безопасны для долгого immutable cache.
+
+Добавлен tests/test_static_headers.py:
+- проверяет CORS и no-store manifest;
+- проверяет CORS, nosniff и immutable cache для versioned assets.
+
+Последний map-assets CI:
+- run id 43571282712;
+- commit 2d27f688f143297861bd4db65836329dbd13596a;
+- 15 Python tests passed.
+
+Проверка _headers unit test подтверждает содержимое конфигурации, но не фактические response headers Cloudflare edge. Production CORS/cache по-прежнему требуют HTTP runtime probe.
+
+Дополнительное исправление POST /api/map:
+- D1 сохранение URL/content type перенесено после успешного GitHub workflow_dispatch;
+- при неуспешном dispatch новый URL не записывается;
+- commit 0d5d567908193145b9c3ce246cb53e887f52754e;
+- CI ожидает подтверждения.
