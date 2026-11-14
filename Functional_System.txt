@@ -3599,3 +3599,10 @@ DELETE в этих таблицах остаётся разрешённым дл
 Уточнены guards на city_memberships и territory_managers: добавлены триггеры v31, реагирующие на любой UPDATE строки, а не только UPDATE telegram_id. Проверяются OLD.telegram_id и NEW.telegram_id. Это закрывает обход через изменение territory_id/других колонок существующей связи locked аккаунта и перенос строки на locked ID.
 
 WORLD_SCHEMA_VERSION: 2026-11-v31. Старые триггеры сохранены; новые v31 дополняют их более широким запретом. Регрессионный тест account-deletion-lock.test.js проверяет новые trigger names и OLD/NEW guards. Source-level; конкурентный D1 runtime не моделируется.
+
+
+34.47 БАНКОВСКИЕ ОПЕРАЦИИ И ACCOUNT DELETION LOCK
+
+Административный банковский обработчик (handleBankMessage/applyBankBalanceChange) дополнительно защищён от начисления или списания самоцветов у аккаунта, находящегося в процессе удаления. Создание отсутствующей строки user_currency выполняется через INSERT … SELECT с NOT EXISTS(account_deletion_locks), а обе ветви UPDATE баланса (debit/credit) содержат тот же lock predicate непосредственно в SQL. Поэтому конкурентная блокировка не зависит только от предварительной проверки в приложении; при locked ID баланс не меняется, а условная финализация bank_transactions переводит операцию в rejected (changes()=0), вместо зависания в processing из-за trigger abort.
+
+Добавлен регрессионный тест tests/financial-atomicity.test.js на обе ветви SQL, защищённое создание баланса и rejected-финализацию. Это source-level проверка, не D1 concurrency simulation. Production Worker/D1 не развёртывались.
