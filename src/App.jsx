@@ -1,5 +1,6 @@
 // Voxygen-Version: v53
 import React, { useEffect, useState, useRef } from 'react';
+import { DEFAULT_THEME_ID } from '../shared/theme-catalog.js';
 import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, isValidWorldCoordinate, coordinateGeometryMatchesManifest, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
 import {
   Map as MapIcon, List as ListIcon, Users, MessageCircle, ThumbsUp, ThumbsDown,
@@ -3955,7 +3956,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
   }
 
   return (
-    <div className="atlas-root" data-theme="vox" style={{ minHeight: '100vh', width: '100%' }}>
+    <div className="atlas-root" data-theme={DEFAULT_THEME_ID} style={{ minHeight: '100vh', width: '100%' }}>
       <FontsAndTheme />
       <div style={{ maxWidth: 448, margin: '0 auto', position: 'relative' }}>
         <div className="atlas-screen-transition" key={`${screen}-${selected?.id || 'none'}`}>
