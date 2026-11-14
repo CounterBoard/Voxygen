@@ -3700,7 +3700,7 @@ CI после исправления whitespace-normalization в новых те
 - manager_change_votes: заблокированы новые/обновляемые голоса locked пользователя.
 - ratings, comments, screenshots, inspector_ratings и comment_replies: блокируется создание новых исторических записей от locked ID. Уже существующая история намеренно сохраняется.
 - user_preferences и territory_notification_preferences: INSERT/UPDATE защищены lazy triggers, устанавливаемыми при инициализации таблиц.
-- events, event_reminders и event_create_requests: добавлены guards при инициализации event tables; напоминания и idempotency requests locked аккаунта не могут создаваться или изменяться.
+- events: INSERT и UPDATE блокируются, если locked является создатель события; event_reminders и event_create_requests: добавлены guards при инициализации event tables; напоминания и idempotency requests locked аккаунта не могут создаваться или изменяться.
 
 Процедура removeManagedUserRelations теперь гарантированно инициализирует таблицы настроек и событий до очистки и удаляет активные персональные записи из user_preferences, territory_notification_preferences, event_reminders и event_create_requests. Голоса и manager-change requests очищаются/отклоняются существующей обязательной очисткой; приглашения отменяются. Пользовательские отзывы, комментарии, скриншоты и ответы остаются историей, но новые записи во время удаления запрещены.
 
@@ -3710,7 +3710,7 @@ CI после исправления whitespace-normalization в новых те
 - финализация manager-change переводит запрос в rejected, если применение пересекается с deletion lock, не оставляя finalizing;
 - createEvent атомарно объединяет INSERT события и финализацию event_create_requests в одном D1 batch; lock-trigger abort откатывает оба изменения;
 - saveEventReminder возвращает HTTP 409 для locked аккаунта;
-- deliverEventReminders исключает locked ID из выборки и атомарных claim/update условий, чтобы фоновая задача не пыталась отправлять напоминание удаляемому аккаунту;
+- deliverEventReminders исключает locked ID из выборки и атомарных claim/update условий, чтобы фоновая задача не пыталась отправлять напоминание удаляемому аккаунту. Как и для любой внешней отправки, остаётся узкое окно между последней проверкой БД и фактическим запросом к Telegram: уже начатая отправка не может быть отозвана транзакцией D1;
 - syncUserDirectory и legacy purge гарантируют инициализацию world schema до использования account_deletion_locks.
 
 Проверки source-level; конкурентный D1 runtime и фактическую отправку Telegram уведомлений не моделируют. Production Worker/D1 не развёртывались.
