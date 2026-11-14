@@ -10,7 +10,7 @@ class CleanupD1 {
 
   prepare(sql) {
     const execute = async (values = []) => {
-      if (sql.startsWith("CREATE TABLE")) return { success: true, meta: { changes: 0 } };
+      if (sql.startsWith("CREATE TABLE") || sql.startsWith("CREATE TRIGGER") || sql.startsWith("CREATE INDEX")) return { success: true, meta: { changes: 0 } };
       this.executed.push({ sql, values });
       if (this.failSql && sql.includes(this.failSql)) {
         throw new Error(`simulated D1 failure: ${this.failSql}`);
