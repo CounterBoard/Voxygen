@@ -3525,6 +3525,7 @@ async function ensureUserDirectoryTable(env) {
 }
 
 async function syncUserDirectory(env) {
+  await ensureWorldTables(env);
   await ensureUserDirectoryTable(env);
   const users = await env.DB.prepare(`
     SELECT u.telegram_id, u.telegram_username, u.mc_nickname
@@ -4097,6 +4098,7 @@ async function removeManagedUserRelations(env, telegramId) {
 }
 
 async function purgeLegacyRemovedUsers(env) {
+  await ensureWorldTables(env);
   const rows=await env.DB.prepare(`SELECT telegram_id FROM users WHERE status='removed'`).all();
   for(const row of rows.results||[]){
     const tid=Number(row.telegram_id); if(!Number.isSafeInteger(tid)||tid<=0)continue;
@@ -5881,10 +5883,10 @@ async function deliverEventReminders(env, at = Date.now()) {
   await ensureUserPreferenceTables(env);
   const now = Number(at || Date.now());
   await env.DB.prepare(`UPDATE event_reminders SET status='expired',claim_token=NULL,updated_at=?
-    WHERE status IN ('pending','sending') AND event_id IN (SELECT id FROM events WHERE active=0 OR event_at<=?)`).bind(now,now).run();
+    WHERE status IN ('pending','sending') AND NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=event_reminders.telegram_id) AND event_id IN (SELECT id FROM events WHERE active=0 OR event_at<=?)`).bind(now,now).run();
   // Recover stale claims with a delay. A Worker deployment must not cause an immediate retry storm.
   const staleLeaseAt = now - 5 * 60 * 1000;
-  const stale = await env.DB.prepare(`SELECT id,attempts FROM event_reminders WHERE status='sending' AND updated_at<? LIMIT 100`).bind(staleLeaseAt).all();
+  const stale = await env.DB.prepare(`SELECT id,attempts FROM event_reminders WHERE status='sending' AND updated_at<? AND NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=event_reminders.telegram_id) LIMIT 100`).bind(staleLeaseAt).all();
   for (const row of stale.results || []) {
     const attempts = Number(row.attempts || 0) + 1;
     const delay = Math.min(60_000 * (2 ** Math.max(0, attempts - 1)), 30 * 60 * 1000);
@@ -5893,12 +5895,12 @@ async function deliverEventReminders(env, at = Date.now()) {
   }
   const due = await env.DB.prepare(`SELECT r.id,r.telegram_id,r.event_id
     FROM event_reminders r JOIN events e ON e.id=r.event_id
-    WHERE r.status='pending' AND r.remind_at<=? AND r.next_attempt_at<=? AND e.active=1 AND e.event_at>?
+    WHERE r.status='pending' AND NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=r.telegram_id) AND r.remind_at<=? AND r.next_attempt_at<=? AND e.active=1 AND e.event_at>?
     ORDER BY r.remind_at ASC LIMIT 50`).bind(now,now,now).all();
   for (const item of due.results || []) {
     const claimToken = crypto.randomUUID();
     const claim = await env.DB.prepare(`UPDATE event_reminders SET status='sending',claim_token=?,updated_at=?
-      WHERE id=? AND status='pending' AND next_attempt_at<=?`).bind(claimToken,now,item.id,now).run();
+      WHERE id=? AND status='pending' AND next_attempt_at<=? AND NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=event_reminders.telegram_id)`).bind(claimToken,now,item.id,now).run();
     if (!claim.meta?.changes) continue;
     // Re-read after the atomic claim. Event edits/deletes may have raced with queue discovery.
     const fresh = await env.DB.prepare(`SELECT r.id,r.telegram_id,r.event_id,r.attempts,r.remind_at,
@@ -5907,12 +5909,12 @@ async function deliverEventReminders(env, at = Date.now()) {
       FROM event_reminders r JOIN events e ON e.id=r.event_id
       LEFT JOIN territories t ON t.id=e.territory_id
       LEFT JOIN user_preferences p ON p.telegram_id=r.telegram_id
-      WHERE r.id=? AND r.status='sending' AND r.claim_token=? LIMIT 1`).bind(item.id,claimToken).first();
+      WHERE r.id=? AND r.status='sending' AND r.claim_token=? AND NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=r.telegram_id) LIMIT 1`).bind(item.id,claimToken).first();
     if (!fresh) continue;
     const eventAt = Number(fresh.event_at || 0);
     if (Number(fresh.active) !== 1 || eventAt <= now || Number(fresh.remind_at) > now) {
       await env.DB.prepare(`UPDATE event_reminders SET status=?,claim_token=NULL,updated_at=?
-        WHERE id=? AND status='sending' AND claim_token=?`).bind(Number(fresh.active) === 1 && eventAt > now ? 'pending' : 'expired',now,item.id,claimToken).run();
+        WHERE id=? AND status='sending' AND claim_token=? AND NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=event_reminders.telegram_id)`).bind(Number(fresh.active) === 1 && eventAt > now ? 'pending' : 'expired',now,item.id,claimToken).run();
       continue;
     }
     const date = formatEventTimeForUser(eventAt, fresh.user_timezone);
@@ -5936,17 +5938,17 @@ async function deliverEventReminders(env, at = Date.now()) {
         const exponentialDelay = Math.min(60_000 * (2 ** Math.max(0, attempts - 1)), 30 * 60 * 1000);
         const delay = retryAfter > 0 ? Math.max(1000,retryAfter * 1000) : exponentialDelay;
         await env.DB.prepare(`UPDATE event_reminders SET status=?,attempts=?,next_attempt_at=?,claim_token=NULL,updated_at=?
-          WHERE id=? AND status='sending' AND claim_token=?`).bind(permanent?'failed':'pending',attempts,now+delay,now,item.id,claimToken).run();
+          WHERE id=? AND status='sending' AND claim_token=? AND NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=event_reminders.telegram_id)`).bind(permanent?'failed':'pending',attempts,now+delay,now,item.id,claimToken).run();
         console.error(JSON.stringify({event:'event_reminder_send_rejected',reminderId:item.id,attempts,telegramStatus:status,retryAfter:retryAfter||null,code:'TELEGRAM_SEND_FAILED'}));
         continue;
       }
       await env.DB.prepare(`UPDATE event_reminders SET status='sent',sent_at=?,next_attempt_at=0,claim_token=NULL,updated_at=?
-        WHERE id=? AND status='sending' AND claim_token=?`).bind(now,now,item.id,claimToken).run();
+        WHERE id=? AND status='sending' AND claim_token=? AND NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=event_reminders.telegram_id)`).bind(now,now,item.id,claimToken).run();
     } catch (error) {
       const attempts = Number(fresh.attempts || 0) + 1;
       const delay = Math.min(60_000 * (2 ** Math.max(0, attempts - 1)), 30 * 60 * 1000);
       await env.DB.prepare(`UPDATE event_reminders SET status=?,attempts=?,next_attempt_at=?,claim_token=NULL,updated_at=?
-        WHERE id=? AND status='sending' AND claim_token=?`).bind(attempts>=8?'failed':'pending',attempts,now+delay,now,item.id,claimToken).run();
+        WHERE id=? AND status='sending' AND claim_token=? AND NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=event_reminders.telegram_id)`).bind(attempts>=8?'failed':'pending',attempts,now+delay,now,item.id,claimToken).run();
       console.error(JSON.stringify({event:'event_reminder_send_failed',reminderId:item.id,attempts,code:'TELEGRAM_SEND_FAILED',message:String(error?.message||error).slice(0,180)}));
     }
   }
