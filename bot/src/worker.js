@@ -2600,6 +2600,27 @@ async function applyManagerChange(env,{territoryId,targetId,action,initiatorId=n
   return changed;
 }
 
+async function claimManagerChangeFinalization(env,requestId,requestStatus,now,leaseMs=60_000) {
+  if(requestStatus==='pending'){
+    const claim=await env.DB.prepare(`UPDATE manager_change_requests SET status='finalizing',finalizing_at=?
+      WHERE id=? AND status='pending'`).bind(now,requestId).run();
+    return Boolean(claim.meta?.changes);
+  }
+  if(requestStatus==='finalizing'){
+    const claim=await env.DB.prepare(`UPDATE manager_change_requests SET finalizing_at=?
+      WHERE id=? AND status='finalizing' AND COALESCE(finalizing_at,0)<=?`).bind(now,requestId,now-leaseMs).run();
+    return Boolean(claim.meta?.changes);
+  }
+  return false;
+}
+
+async function recordManagerChangeVote(env,requestId,actorId,approve,createdAt=Date.now()) {
+  return env.DB.prepare(`INSERT INTO manager_change_votes(request_id,voter_telegram_id,approve,created_at)
+    SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM manager_change_requests WHERE id=? AND status='pending')
+    ON CONFLICT(request_id,voter_telegram_id) DO UPDATE SET approve=excluded.approve,created_at=excluded.created_at`)
+    .bind(requestId,actorId,approve?1:0,createdAt,requestId).run();
+}
+
 async function finalizeManagerChangeRequest(env,requestId) {
   const now=Date.now(),leaseMs=60_000;
   const req=await env.DB.prepare(`SELECT * FROM manager_change_requests WHERE id=?`).bind(requestId).first();
@@ -2613,15 +2634,8 @@ async function finalizeManagerChangeRequest(env,requestId) {
     const beforeExpired=now>=Number(req.expires_at||0);
     const beforeRequired=Math.floor((Number(req.voter_count||0)+1)/2)+1;
     if(beforeYes+1<beforeRequired&&!beforeExpired&&beforeTotal<Number(req.voter_count||0))return null;
-    const claim=await env.DB.prepare(`UPDATE manager_change_requests SET status='finalizing',finalizing_at=?
-      WHERE id=? AND status='pending'`).bind(now,requestId).run();
-    if(!claim.meta?.changes)return null;
-  }else{
-    const staleBefore=now-leaseMs;
-    const claim=await env.DB.prepare(`UPDATE manager_change_requests SET finalizing_at=?
-      WHERE id=? AND status='finalizing' AND COALESCE(finalizing_at,0)<=?`).bind(now,requestId,staleBefore).run();
-    if(!claim.meta?.changes)return null;
   }
+  if(!await claimManagerChangeFinalization(env,requestId,req.status,now,leaseMs))return null;
 
   // Votes are frozen by the status claim: the vote endpoint only inserts while pending.
   const votes=await env.DB.prepare(`SELECT SUM(CASE WHEN approve=1 THEN 1 ELSE 0 END) AS yes,COUNT(*) AS total FROM manager_change_votes WHERE request_id=?`).bind(requestId).first();
@@ -2684,10 +2698,7 @@ async function handleManagerVoteCallback(env, callbackQuery) {
   const req=await env.DB.prepare(`SELECT * FROM manager_change_requests WHERE id=?`).bind(requestId).first(); if(!req){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Голосование не найдено',show_alert:true});return json({ok:true});}
   if(req.status!=='pending'||Date.now()>Number(req.expires_at)){await finalizeManagerChangeRequest(env,requestId);await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Голосование завершено',show_alert:true});return json({ok:true});}
   if(!isEligibleManagerChangeVoter(actorId,req)||!(await isTerritoryManager(env,req.territory_id,actorId))){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'⛔ Голосовать может только другой основатель/мэр',show_alert:true});return json({ok:true});}
-  const vote=await env.DB.prepare(`INSERT INTO manager_change_votes(request_id,voter_telegram_id,approve,created_at)
-    SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM manager_change_requests WHERE id=? AND status='pending')
-    ON CONFLICT(request_id,voter_telegram_id) DO UPDATE SET approve=excluded.approve,created_at=excluded.created_at`)
-    .bind(requestId,actorId,decision==='yes'?1:0,Date.now(),requestId).run();
+  const vote=await recordManagerChangeVote(env,requestId,actorId,decision==='yes',Date.now());
   const result=await finalizeManagerChangeRequest(env,requestId);
   const message=!vote.meta?.changes?'Голосование уже завершается':result?.status==='approved'?'Решение принято: одобрено':result?.status==='rejected'?'Решение принято: отклонено':'Голос учтён';
   await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:message}); return json({ok:true});
@@ -6517,4 +6528,4 @@ export default {
   },
 };
 
-export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup };
+export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote };
