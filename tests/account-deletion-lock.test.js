@@ -151,7 +151,7 @@ test("deletion lock guards active invitations, manager workflows, preferences an
 
 
 test("event publishing, reminders and manager workflows reject deletion races", async () => {
-  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\s+/g, " ");
   const createEvent = source.slice(source.indexOf("async function createEvent"), source.indexOf("async function updateEvent"));
   assert.ok(createEvent.includes("account_deletion_locks WHERE telegram_id=? LIMIT 1"));
   assert.ok(createEvent.includes("await env.DB.batch(["));
