@@ -3860,6 +3860,13 @@ async function transferTerritoryOwnerAfterAccountRemoval(env,territoryId,oldTele
     .bind(territoryId,newOwnerId,territoryId,newOwnerId).run();
 }
 
+async function preserveAccountHistoryAuthor(env,telegramId,nickname) {
+  const tid=Number(telegramId);
+  if(!Number.isSafeInteger(tid)||tid<=0)throw new Error('Некорректный Telegram ID для сохранения истории');
+  await env.DB.prepare(`UPDATE comments SET author_mc_nickname=COALESCE(author_mc_nickname,?) WHERE telegram_id=?`).bind(nickname||null,tid).run();
+  await env.DB.prepare(`UPDATE screenshots SET author_mc_nickname=COALESCE(author_mc_nickname,?) WHERE telegram_id=?`).bind(nickname||null,tid).run();
+}
+
 async function removeManagedUserRelations(env, telegramId) {
   const tid=Number(telegramId); if(!Number.isSafeInteger(tid)||tid<=0)return;
   const affectedVisualCities=await env.DB.prepare(`
@@ -3872,8 +3879,7 @@ async function removeManagedUserRelations(env, telegramId) {
   const actor=await env.DB.prepare(`SELECT telegram_username,mc_nickname FROM users WHERE telegram_id=? LIMIT 1`).bind(tid).first();
   const oldUsername=actor?.telegram_username||'';
   const oldNickname=actor?.mc_nickname||null;
-  try{await env.DB.prepare(`UPDATE comments SET author_mc_nickname=COALESCE(author_mc_nickname,?) WHERE telegram_id=?`).bind(oldNickname,tid).run()}catch(e){console.error('Preserve comment author error:',e)}
-  try{await env.DB.prepare(`UPDATE screenshots SET author_mc_nickname=COALESCE(author_mc_nickname,?) WHERE telegram_id=?`).bind(oldNickname,tid).run()}catch(e){console.error('Preserve screenshot author error:',e)}
+  await preserveAccountHistoryAuthor(env,tid,oldNickname);
 
   const owned=await env.DB.prepare(`SELECT id,name FROM territories WHERE owner_telegram_id=? AND status='approved'`).bind(tid).all();
   for(const territory of owned.results||[]){
@@ -6604,4 +6610,4 @@ export default {
   },
 };
 
-export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements };
+export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor };
