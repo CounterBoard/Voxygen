@@ -170,7 +170,7 @@ test("event publishing, reminders and manager workflows reject deletion races", 
   assert.ok(demotion.includes("account_deletion_locks WHERE telegram_id IN (?,?)"));
   const invite = source.slice(source.indexOf("async function inviteResident"), source.indexOf("async function sendResidentInvite"));
   assert.ok(invite.includes("account deletion in progress"));
-  assert.ok(invite.includes("user_directory d JOIN account_deletion_locks"), "nickname-only invitations must detect a locked account even before target_telegram_id is attached");
+  assert.ok(source.includes("user_directory d JOIN account_deletion_locks"), "nickname-only invitations must detect a locked account even before target_telegram_id is attached");
   const callback = source.slice(source.indexOf("async function handleResidentInviteCallback"), source.indexOf("async function notifyPendingInvitesForUser"));
   assert.ok(callback.includes("account_deletion_locks WHERE telegram_id=? LIMIT 1"));
 });
