@@ -1535,9 +1535,13 @@ async function initializeWorldTables(env) {
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
   await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_city_invites_deletion_lock_insert
     BEFORE INSERT ON city_invites WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.target_telegram_id OR telegram_id=NEW.invited_by)
+      OR EXISTS(SELECT 1 FROM users u JOIN account_deletion_locks l ON l.telegram_id=u.telegram_id WHERE lower(u.mc_nickname)=lower(NEW.target_nickname))
+      OR EXISTS(SELECT 1 FROM user_directory d JOIN account_deletion_locks l ON l.telegram_id=d.telegram_id WHERE lower(d.mc_nickname)=lower(NEW.target_nickname))
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
   await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_city_invites_deletion_lock_identity_update
-    BEFORE UPDATE OF target_telegram_id,invited_by ON city_invites WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.target_telegram_id OR telegram_id=NEW.target_telegram_id OR telegram_id=OLD.invited_by OR telegram_id=NEW.invited_by)
+    BEFORE UPDATE OF target_telegram_id,invited_by,target_nickname ON city_invites WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.target_telegram_id OR telegram_id=NEW.target_telegram_id OR telegram_id=OLD.invited_by OR telegram_id=NEW.invited_by)
+      OR EXISTS(SELECT 1 FROM users u JOIN account_deletion_locks l ON l.telegram_id=u.telegram_id WHERE lower(u.mc_nickname) IN (lower(OLD.target_nickname),lower(NEW.target_nickname)))
+      OR EXISTS(SELECT 1 FROM user_directory d JOIN account_deletion_locks l ON l.telegram_id=d.telegram_id WHERE lower(d.mc_nickname) IN (lower(OLD.target_nickname),lower(NEW.target_nickname)))
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
   await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_requests_deletion_lock_insert
     BEFORE INSERT ON territories WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.requested_by_id)
