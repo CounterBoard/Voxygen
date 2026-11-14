@@ -49,3 +49,10 @@ test("deletion lock also blocks personal balance, inventory and ledger mutations
   assert.ok(source.includes("BEFORE UPDATE ON territory_managers WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)"));
   assert.ok(source.includes("2026-11-v31"),"schema version must advance for the new triggers");
 });
+
+
+test("inspector personal inventory grants use a non-throwing atomic deletion-lock predicate", async () => {
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  assert.ok(source.includes("INSERT OR IGNORE INTO user_items(telegram_id,item_id,acquired_at,source) SELECT ?,?,?, 'main_inspector' WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)"), "admin grant must reject locked accounts inside INSERT");
+  assert.ok(source.includes("не выдан: аккаунт находится в процессе удаления"), "admin should report a clean rejection instead of surfacing a trigger exception");
+});
