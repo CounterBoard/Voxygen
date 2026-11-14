@@ -3592,3 +3592,10 @@ DELETE отношений и UPDATE owner с передачей владения
 DELETE в этих таблицах остаётся разрешённым для cleanup. Городская покупка из казны также получила SQL NOT EXISTS(account_deletion_locks) непосредственно в условии UPDATE city_treasury: проверка менеджера, выполненная до batch, больше не единственная защита от покупки аккаунтом, уже находящимся в процессе удаления.
 
 Регрессионный тест tests/account-deletion-lock.test.js расширен проверкой шести триггеров, UPDATE/INSERT guards и условия city treasury purchase. Проверка source-level; реальные concurrent D1 операции не запускались. Production Worker/D1 не развёртывались.
+
+
+34.46 ЗАЩИТА ОТ UPDATE СВЯЗЕЙ УЖЕ LOCKED АККАУНТА
+
+Уточнены guards на city_memberships и territory_managers: добавлены триггеры v31, реагирующие на любой UPDATE строки, а не только UPDATE telegram_id. Проверяются OLD.telegram_id и NEW.telegram_id. Это закрывает обход через изменение territory_id/других колонок существующей связи locked аккаунта и перенос строки на locked ID.
+
+WORLD_SCHEMA_VERSION: 2026-11-v31. Старые триггеры сохранены; новые v31 дополняют их более широким запретом. Регрессионный тест account-deletion-lock.test.js проверяет новые trigger names и OLD/NEW guards. Source-level; конкурентный D1 runtime не моделируется.
