@@ -2172,7 +2172,7 @@ async function purchaseCustomizationItem(request, env, ctx = null) {
     ? await env.DB.prepare('SELECT item_id FROM city_items WHERE territory_id=? AND item_id=?').bind(accountCity.id,itemId).first()
     : await env.DB.prepare('SELECT item_id FROM user_items WHERE telegram_id=? AND item_id=?').bind(userId,itemId).first();
   if(already)return json({ok:true,alreadyOwned:true,accountScope});
-  await env.DB.prepare('INSERT OR IGNORE INTO user_currency(telegram_id,balance) SELECT ?,0 WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)').bind(userId).run();
+  await env.DB.prepare('INSERT OR IGNORE INTO user_currency(telegram_id,balance) SELECT ?,0 WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)').bind(userId,userId).run();
   const balance=accountCity?await env.DB.prepare('SELECT balance FROM city_treasury WHERE territory_id=?').bind(accountCity.id).first():await env.DB.prepare('SELECT balance FROM user_currency WHERE telegram_id=?').bind(userId).first();
   if(Number(balance?.balance||0)<Number(item.price))return json({ok:false,error:'Недостаточно самоцветов'},400);
   const acquiredAt=Date.now();
