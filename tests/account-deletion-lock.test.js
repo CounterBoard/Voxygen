@@ -103,6 +103,7 @@ test("account directory and inspector grants remain blocked until deletion lock 
     "guard_inspectors_deletion_lock_update",
   ]) assert.ok(source.includes("CREATE TRIGGER IF NOT EXISTS "+trigger), "missing account-role/directory guard: "+trigger);
   assert.ok(source.includes("2026-11-v32"), "schema version must advance for directory and inspector triggers");
+  assert.ok(source.includes("CREATE TABLE IF NOT EXISTS inspectors ( telegram_id INTEGER PRIMARY KEY, telegram_username TEXT, added_by INTEGER, created_at INTEGER NOT NULL )"), "inspector table must exist before its triggers are installed");
   const addInspector = source.slice(source.indexOf("async function addInspector"), source.indexOf("async function removeInspector"));
   assert.ok(addInspector.includes("INSERT INTO inspectors (telegram_id, telegram_username, added_by, created_at) SELECT ?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)"));
   const managed = source.slice(source.indexOf("async function deleteManagedUser"), source.indexOf("async function listInspectors"));
