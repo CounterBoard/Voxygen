@@ -4119,7 +4119,7 @@ async function removeManagedUserRelations(env, telegramId) {
   await env.DB.prepare(`DELETE FROM territory_managers WHERE telegram_id=?`).bind(tid).run();
   await env.DB.prepare(`DELETE FROM city_memberships WHERE telegram_id=?`).bind(tid).run();
   await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=?,notification_claimed_at=NULL
-    WHERE status='pending' AND (target_telegram_id=? OR invited_by=?)`).bind(Date.now(),tid,tid).run();
+    WHERE status='pending' AND (target_telegram_id=? OR invited_by=? OR (target_telegram_id IS NULL AND ?<>'' AND lower(target_nickname)=lower(?)))`).bind(Date.now(),tid,tid,oldNickname||'',oldNickname||'').run();
   await env.DB.prepare(`DELETE FROM user_preferences WHERE telegram_id=?`).bind(tid).run();
   await env.DB.prepare(`DELETE FROM territory_notification_preferences WHERE telegram_id=?`).bind(tid).run();
   await env.DB.prepare(`DELETE FROM event_reminders WHERE telegram_id=?`).bind(tid).run();
