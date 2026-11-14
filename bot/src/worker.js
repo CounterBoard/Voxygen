@@ -795,7 +795,7 @@ async function ensureMapSettingsTable(env) {
   return promise;
 }
 
-const WORLD_SCHEMA_VERSION = '2026-11-v33';
+const WORLD_SCHEMA_VERSION = '2026-11-v34';
 const worldTableInitPromises = new WeakMap();
 
 async function ensureWorldTables(env) {
@@ -1565,6 +1565,12 @@ async function initializeWorldTables(env) {
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
   await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_managers_deletion_lock_update_all_v31
     BEFORE UPDATE ON territory_managers WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_manager_granter_deletion_lock_insert
+    BEFORE INSERT ON territory_managers WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.granted_by)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_manager_granter_deletion_lock_update
+    BEFORE UPDATE OF granted_by ON territory_managers WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.granted_by OR telegram_id=NEW.granted_by)
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
 
   // Indexes used by the most common initial-screen and detail queries.
@@ -5601,6 +5607,9 @@ async function initializeEventsTables(env) {
     updated_at INTEGER NOT NULL,
     note TEXT
   )`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_bank_transactions_deletion_lock_insert
+    BEFORE INSERT ON bank_transactions WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.actor_telegram_id OR telegram_id=NEW.target_telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
 }
 
 
