@@ -74,7 +74,7 @@ test("treasury transfer entry points and idempotent batch fail closed for deleti
 test("personal customization purchases atomically reject deletion-locked buyers", () => {
   const body = bodyOf("purchaseCustomizationItem").replace(/\\s+/g, " ");
   assert.ok(body.includes("AND NOT EXISTS (SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)"), "personal debit must include lock predicate");
-  assert.match(body, /try\\s*\\{\\s*purchaseBatch=accountCity/);
-  assert.match(body, /SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=\\?/);
+  assert.match(body, /try\s*\{\s*purchaseBatch=accountCity);
+  assert.match(body, /SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=\?/);
   assert.match(body, /Аккаунт находится в процессе удаления/);
 });
