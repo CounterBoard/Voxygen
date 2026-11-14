@@ -4122,8 +4122,9 @@ async function removeManagedUserRelations(env, telegramId) {
     UNION SELECT territory_id FROM city_customization WHERE background_item_id IN (SELECT item_id FROM user_items WHERE telegram_id=?)
   `).bind(tid,tid,tid,tid,tid).all();
   const actor=await env.DB.prepare(`SELECT telegram_username,mc_nickname FROM users WHERE telegram_id=? LIMIT 1`).bind(tid).first();
-  const oldUsername=actor?.telegram_username||'';
-  const oldNickname=actor?.mc_nickname||null;
+  const directoryActor=await env.DB.prepare(`SELECT telegram_username,mc_nickname FROM user_directory WHERE telegram_id=? LIMIT 1`).bind(tid).first();
+  const oldUsername=actor?.telegram_username||directoryActor?.telegram_username||'';
+  const oldNickname=actor?.mc_nickname||directoryActor?.mc_nickname||null;
   await preserveAccountHistoryAuthor(env,tid,oldNickname);
 
   const owned=await env.DB.prepare(`SELECT id,name FROM territories WHERE owner_telegram_id=? AND status='approved'`).bind(tid).all();
