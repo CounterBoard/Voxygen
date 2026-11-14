@@ -659,7 +659,11 @@ async function saveUserSettings(request, env) {
 }
 
 async function ensureManagerChangeTables(env) {
-  await ensureWorldTables(env);
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS account_deletion_locks (
+    telegram_id INTEGER PRIMARY KEY,
+    locked_at INTEGER NOT NULL,
+    reason TEXT NOT NULL DEFAULT 'managed_delete'
+  )`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS manager_change_requests (
     id TEXT PRIMARY KEY,
     territory_id TEXT NOT NULL,
