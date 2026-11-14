@@ -114,7 +114,7 @@ test("account directory and inspector grants remain blocked until deletion lock 
 
 
 test("deletion lock guards active invitations, manager workflows, preferences and event state", async () => {
-  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\s+/g, " ");
   for (const trigger of [
     "guard_city_invites_deletion_lock_insert",
     "guard_city_invites_deletion_lock_identity_update",
