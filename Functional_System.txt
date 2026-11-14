@@ -3730,7 +3730,7 @@ CI после исправления whitespace-normalization в новых те
 
 Дополнительно проверен переход между приглашением по Minecraft-нику и последующей привязкой Telegram ID. До регистрации приглашение может храниться с target_telegram_id=NULL и только с target_nickname. Ранее удаление уже зарегистрированного аккаунта отменяло приглашения по Telegram ID и invited_by, но не обязательно отменяло ещё не привязанные приглашения на тот же никнейм.
 
-removeManagedUserRelations теперь использует сохранённый oldNickname и при очистке отменяет все pending city_invites, где:
+removeManagedUserRelations теперь получает oldNickname из users, а если строка users уже отсутствует — использует mc_nickname из user_directory. При очистке отменяются все pending city_invites, где:
 - target_telegram_id совпадает с удаляемым Telegram ID;
 - invited_by совпадает с удаляемым Telegram ID;
 - target_telegram_id IS NULL, а target_nickname совпадает с прежним Minecraft-ником без учёта регистра.
