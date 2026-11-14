@@ -2742,7 +2742,7 @@ Manifest нельзя кешировать надолго, поскольку о
 - observer отключается в cleanup;
 - если ResizeObserver отсутствует, прежний preview и ручной пересчёт сохраняют работоспособность.
 
-Изменение затрагивает только клиентский tile selection, не координаты территорий и не map manifest. Проверка CI подтверждает синтаксис/build, но поведение при реальном Android orientation change требует browser/WebView runtime test.
+Изменение затрагивает только клиентский tile selection, не координаты территорий и не map manifest. CI run 43571478769 (commit c094fdc07ea28e2e8ca6da5d28051064d3adad83) прошёл успешно; поведение при реальном Android orientation change требует browser/WebView runtime test.
 
 
 34.13. GitHub Actions runtime migration
@@ -2752,4 +2752,7 @@ Manifest нельзя кешировать надолго, поскольку о
 - map-assets validate: actions/checkout@v5, actions/setup-python@v6;
 - map-assets publish: actions/checkout@v5, actions/setup-python@v6, actions/setup-node@v5.
 
-Это обновление runtime самих GitHub Actions; целевая версия проекта по-прежнему Node.js 22, Python 3.12, Wrangler 4.162.0. Результаты CI для этих обновлений ожидаются.
+Это обновление runtime самих GitHub Actions; целевая версия проекта по-прежнему Node.js 22, Python 3.12, Wrangler 4.162.0. Результаты CI:
+- основной repo run 43571547765, commit 1562b60832cdfab168e16adb87a54582a8bbc21b — success, 87/87 tests, build, syntax и Wrangler dry-run пройдены;
+- map-assets run 43571525420, commit 5df135242b26f8526997ca545f10a4625613cd17 — success, 15 Python tests passed.
+Предупреждение о Node.js 20 runtime старых actions после обновления устранено; целевые версии Node.js 22 и Python 3.12 не менялись.
