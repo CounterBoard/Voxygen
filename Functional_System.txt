@@ -3617,3 +3617,12 @@ WORLD_SCHEMA_VERSION: 2026-11-v31. Старые триггеры сохране�
 Добавлен source-level тест в tests/account-deletion-lock.test.js, фиксирующий lock predicate в административном INSERT и понятный отказ. Проверка не является runtime-тестом D1; production Worker/D1 не развёртывались.
 
 Следующие направления аудита: другие административные операции с инвентарём/балансами, начисления через награды и webhook, а также проверка, что отказ SQL корректно финализирует состояние операции и не оставляет очереди/ledger в промежуточном статусе.
+
+
+34.49 ИНИЦИАЦИЯ И ИДЕМПОТЕНТНОСТЬ ПЕРЕВОДОВ КАЗНЫ ПРИ ACCOUNT DELETION LOCK
+
+Проверены все три пользовательских сценария перемещения самоцветов между личным балансом и казной: treasuryDeposit, treasuryDonate, treasuryWithdraw. Их предварительное создание user_currency теперь использует INSERT OR IGNORE … SELECT с NOT EXISTS(account_deletion_locks), поэтому locked ID не получает новую строку баланса при отсутствии прежней.
+
+executeIdempotentFinancialTransfer() дополнительно обрабатывает исключение D1 batch: если атомарный batch отклонён из-за account_deletion_locks, helper возвращает контролируемый HTTP 409 «Аккаунт находится в процессе удаления». Batch не частично применяет debit/credit; для иных ошибок исключение сохраняется и не маскируется. getCustomization() также не создаёт личный баланс для locked ID при чтении.
+
+Добавлен tests/financial-atomicity.test.js: проверяет guard во всех четырёх entry points, обработку ошибки batch и сообщение об отказе. Source-level тесты; фактический race между запросом и lock требует отдельного D1 integration/concurrency теста. Production Worker/D1 не развёртывались.
