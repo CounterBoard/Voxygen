@@ -10,6 +10,7 @@ const territories = [
 const managers = [
   { territory_id: "A", telegram_id: 101 },
   { territory_id: "B", telegram_id: 102 },
+  { territory_id: "P", telegram_id: 103 },
 ];
 
 class AuthorizationD1 {
@@ -50,7 +51,7 @@ test("territory manager permission is scoped to the exact territory", async () =
   assert.equal(await isTerritoryManager(env, "A", 101), true);
   assert.equal(await isTerritoryManager(env, "B", 101), false);
   assert.equal(await isTerritoryManager(env, "A", 102), false);
-  assert.equal(await isTerritoryManager(env, "B", 102), true);
+  assert.equal(await isTerritoryManager(env, "B", 102), true);\n  assert.equal(await isTerritoryManager(env, "P", 103), false);
 });
 
 test("empty territory or user identifiers never grant manager access", async () => {
