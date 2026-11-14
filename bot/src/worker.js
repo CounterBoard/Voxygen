@@ -3964,8 +3964,8 @@ async function purgeLegacyRemovedUsers(env) {
       await env.DB.prepare(`INSERT OR IGNORE INTO account_deletion_locks(telegram_id,locked_at,reason) VALUES(?,?,'legacy_purge')`).bind(tid,Date.now()).run();
       await removeManagedUserRelations(env,tid);
       await env.DB.prepare(`DELETE FROM users WHERE telegram_id=?`).bind(tid).run();
-      await env.DB.prepare(`DELETE FROM user_directory WHERE telegram_id=?`).bind(tid).run();
       await env.DB.prepare(`DELETE FROM account_deletion_locks WHERE telegram_id=?`).bind(tid).run();
+      await env.DB.prepare(`DELETE FROM user_directory WHERE telegram_id=?`).bind(tid).run();
     }catch(error){console.error('Legacy removed user cleanup error:',tid,error)}
   }
 }
@@ -3980,8 +3980,8 @@ async function deleteManagedUser(request, env, userDirectoryId) {
     try {
       await removeManagedUserRelations(env,tid);
       await env.DB.prepare(`DELETE FROM users WHERE telegram_id=?`).bind(tid).run();
-      await env.DB.prepare(`DELETE FROM user_directory WHERE id=?`).bind(userDirectoryId).run();
       await env.DB.prepare(`DELETE FROM account_deletion_locks WHERE telegram_id=?`).bind(tid).run();
+      await env.DB.prepare(`DELETE FROM user_directory WHERE id=?`).bind(userDirectoryId).run();
       return json({ok:true,telegram_id:tid});
     } catch(error) {
       console.error('Managed account deletion blocked; lock retained:',tid,error);
