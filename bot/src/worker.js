@@ -2632,8 +2632,8 @@ async function finalizeManagerChangeRequest(env,requestId) {
     const before=await env.DB.prepare(`SELECT SUM(CASE WHEN approve=1 THEN 1 ELSE 0 END) AS yes,COUNT(*) AS total FROM manager_change_votes WHERE request_id=?`).bind(requestId).first();
     const beforeYes=Number(before?.yes||0),beforeTotal=Number(before?.total||0);
     const beforeExpired=now>=Number(req.expires_at||0);
-    const beforeRequired=Math.floor((Number(claimedReq.voter_count||0)+1)/2)+1;
-    if(beforeYes+1<beforeRequired&&!beforeExpired&&beforeTotal<Number(claimedReq.voter_count||0))return null;
+    const beforeRequired=Math.floor((Number(req.voter_count||0)+1)/2)+1;
+    if(beforeYes+1<beforeRequired&&!beforeExpired&&beforeTotal<Number(req.voter_count||0))return null;
   }
   if(!await claimManagerChangeFinalization(env,requestId,req.status,now,leaseMs))return null;
 
