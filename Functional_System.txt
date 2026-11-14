@@ -3786,3 +3786,27 @@ WORLD_SCHEMA_VERSION повышен до 2026-11-v37. Добавлены:
 
 Добавлены source-level проверки обоих gem_spend_log triggers и обновлён schema-version assertion.
 
+34.62 СВЕРКА ОСТАВШИХСЯ TELEGRAM-ID ПОЛЕЙ И ГРАНИЦЫ ПОКРЫТИЯ
+
+Проведена итоговая сверка CREATE TABLE и write paths в bot/src/worker.js по колонкам telegram_id, *_telegram_id, created_by, updated_by, requested_by_id, moderated_by, granted_by, invited_by и inspector_chat_id.
+
+Активные пользовательские таблицы теперь покрыты account_deletion_locks triggers, SQL predicates или контролируемым ingress/preflight:
+- users, user_directory, inspectors;
+- city_memberships, territory_managers (включая granted_by), territories (owner/requested_by);
+- city_invites (Telegram ID и nickname-only), manager_change_requests/votes;
+- user_currency, user_items, financial_operations, gem_spend_log, bank_transactions;
+- user_preferences, territory_notification_preferences;
+- events, event_reminders, event_create_requests;
+- ratings, comments, screenshots, inspector_ratings, comment_replies.
+
+Оставшиеся поля attribution не являются обычными пользовательскими write paths:
+- global_setting_overrides.updated_by — запись через saveAdminGlobalSetting с requireMainInspector;
+- vox_grid.updated_by — resetVoxGrid/saveVoxCell с requireMainInspector;
+- customization_categories.created_by и customization_items.created_by — создание через административный маршрут с requireMainInspector;
+- territory_approval_sessions.inspector_chat_id — внутренний идентификатор административной сессии, создаваемой основным инспектором.
+Главный инспектор защищён от удаления в deleteManagedUser. Эти поля поэтому не требуют пользовательского rekey/delete trigger.
+
+Исторические записи не удаляются только из-за удаления аккаунта: bank_transactions, gem_spend_log, события, оценки, комментарии, скриншоты и ответы сохраняются для аудита/истории. Новые пользовательские записи во время lock блокируются там, где они могут быть созданы; gem_spend_log и другие переносимые поля защищены также на UPDATE во время rekey.
+
+Текущий schema version: 2026-11-v37. Последние Worker, regression tests и документация прошли GitHub Actions; проверка остаётся source-level/CI. Production D1 migration, реальные конкурентные транзакции и внешние Telegram side effects в production не проверялись.
+
