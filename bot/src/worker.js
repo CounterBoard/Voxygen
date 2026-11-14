@@ -773,7 +773,7 @@ async function ensureMapSettingsTable(env) {
   return promise;
 }
 
-const WORLD_SCHEMA_VERSION = '2026-11-v30';
+const WORLD_SCHEMA_VERSION = '2026-11-v31';
 const worldTableInitPromises = new WeakMap();
 
 async function ensureWorldTables(env) {
@@ -1487,6 +1487,12 @@ async function initializeWorldTables(env) {
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
   await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_financial_operations_deletion_lock_update
     BEFORE UPDATE ON financial_operations WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_city_memberships_deletion_lock_update_all_v31
+    BEFORE UPDATE ON city_memberships WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_managers_deletion_lock_update_all_v31
+    BEFORE UPDATE ON territory_managers WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
 
   // Indexes used by the most common initial-screen and detail queries.
