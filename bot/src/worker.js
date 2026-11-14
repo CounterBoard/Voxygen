@@ -273,6 +273,7 @@ function formatEventTimeForUser(timestamp, timezoneOffset) {
 }
 
 async function ensureUserPreferenceTables(env) {
+  await ensureWorldTables(env);
   let promise = USER_PREFERENCE_TABLES_INIT_CACHE.get(env);
   if (!promise) {
     promise = (async () => {
@@ -320,6 +321,10 @@ async function ensureUserPreferenceTables(env) {
         PRIMARY KEY (telegram_id, territory_id)
       )`).run();
       await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_territory_notification_preferences_territory ON territory_notification_preferences(territory_id)`).run();
+      await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_user_preferences_deletion_lock_insert BEFORE INSERT ON user_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+      await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_user_preferences_deletion_lock_update BEFORE UPDATE ON user_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+      await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_notification_preferences_deletion_lock_insert BEFORE INSERT ON territory_notification_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+      await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_notification_preferences_deletion_lock_update BEFORE UPDATE ON territory_notification_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
     })().catch(error => { USER_PREFERENCE_TABLES_INIT_CACHE.delete(env); throw error; });
     USER_PREFERENCE_TABLES_INIT_CACHE.set(env, promise);
   }
@@ -654,6 +659,7 @@ async function saveUserSettings(request, env) {
 }
 
 async function ensureManagerChangeTables(env) {
+  await ensureWorldTables(env);
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS manager_change_requests (
     id TEXT PRIMARY KEY,
     territory_id TEXT NOT NULL,
@@ -680,6 +686,18 @@ async function ensureManagerChangeTables(env) {
     created_at INTEGER NOT NULL,
     PRIMARY KEY (request_id,voter_telegram_id)
   )`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_manager_change_requests_deletion_lock_insert
+    BEFORE INSERT ON manager_change_requests WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.target_telegram_id OR telegram_id=NEW.initiator_telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_manager_change_requests_deletion_lock_identity_update
+    BEFORE UPDATE OF target_telegram_id,initiator_telegram_id ON manager_change_requests WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.target_telegram_id OR telegram_id=NEW.target_telegram_id OR telegram_id=OLD.initiator_telegram_id OR telegram_id=NEW.initiator_telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_manager_change_votes_deletion_lock_insert
+    BEFORE INSERT ON manager_change_votes WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.voter_telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_manager_change_votes_deletion_lock_update
+    BEFORE UPDATE ON manager_change_votes WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.voter_telegram_id OR telegram_id=NEW.voter_telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
 }
 
 // v9: active territorial rights are derived only from the current Telegram ID; identity transfers must move owner/manager/currency relations atomically.
@@ -773,7 +791,7 @@ async function ensureMapSettingsTable(env) {
   return promise;
 }
 
-const WORLD_SCHEMA_VERSION = '2026-11-v32';
+const WORLD_SCHEMA_VERSION = '2026-11-v33';
 const worldTableInitPromises = new WeakMap();
 
 async function ensureWorldTables(env) {
@@ -1510,6 +1528,33 @@ async function initializeWorldTables(env) {
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
   await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_financial_operations_deletion_lock_update
     BEFORE UPDATE ON financial_operations WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_city_invites_deletion_lock_insert
+    BEFORE INSERT ON city_invites WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.target_telegram_id OR telegram_id=NEW.invited_by)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_city_invites_deletion_lock_identity_update
+    BEFORE UPDATE OF target_telegram_id,invited_by ON city_invites WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.target_telegram_id OR telegram_id=NEW.target_telegram_id OR telegram_id=OLD.invited_by OR telegram_id=NEW.invited_by)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_requests_deletion_lock_insert
+    BEFORE INSERT ON territories WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.requested_by_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_requests_deletion_lock_update
+    BEFORE UPDATE OF requested_by_id ON territories WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.requested_by_id OR telegram_id=NEW.requested_by_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_ratings_deletion_lock_insert
+    BEFORE INSERT ON ratings WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_comments_deletion_lock_insert
+    BEFORE INSERT ON comments WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_screenshots_deletion_lock_insert
+    BEFORE INSERT ON screenshots WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_inspector_ratings_deletion_lock_insert
+    BEFORE INSERT ON inspector_ratings WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_comment_replies_deletion_lock_insert
+    BEFORE INSERT ON comment_replies WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
   await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_city_memberships_deletion_lock_update_all_v31
     BEFORE UPDATE ON city_memberships WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)
@@ -4014,6 +4059,8 @@ async function preserveAccountHistoryAuthor(env,telegramId,nickname) {
 
 async function removeManagedUserRelations(env, telegramId) {
   const tid=Number(telegramId); if(!Number.isSafeInteger(tid)||tid<=0)return;
+  await ensureUserPreferenceTables(env);
+  await ensureEventsTables(env);
   const affectedVisualCities=await env.DB.prepare(`
     SELECT territory_id FROM city_memberships WHERE telegram_id=?
     UNION SELECT territory_id FROM territory_managers WHERE telegram_id=?
@@ -4037,6 +4084,10 @@ async function removeManagedUserRelations(env, telegramId) {
   await env.DB.prepare(`DELETE FROM city_memberships WHERE telegram_id=?`).bind(tid).run();
   await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=?,notification_claimed_at=NULL
     WHERE status='pending' AND (target_telegram_id=? OR invited_by=?)`).bind(Date.now(),tid,tid).run();
+  await env.DB.prepare(`DELETE FROM user_preferences WHERE telegram_id=?`).bind(tid).run();
+  await env.DB.prepare(`DELETE FROM territory_notification_preferences WHERE telegram_id=?`).bind(tid).run();
+  await env.DB.prepare(`DELETE FROM event_reminders WHERE telegram_id=?`).bind(tid).run();
+  await env.DB.prepare(`DELETE FROM event_create_requests WHERE telegram_id=?`).bind(tid).run();
   // Required cleanup and equipment reconciliation must succeed before account rows are deleted.
   await completeRequiredAccountCleanup(env,tid,affectedVisualCities.results||[]);
 }
@@ -5434,6 +5485,7 @@ async function webhook(request, env) {
 // v19: event calendar, scheduled reminders, city additional info and banker
 // ---------------------------------------------------------------------------
 async function initializeEventsTables(env) {
+  await ensureWorldTables(env);
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS events (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
@@ -5499,6 +5551,11 @@ async function initializeEventsTables(env) {
     catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
   }
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_event_create_requests_created ON event_create_requests(created_at)`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_events_deletion_lock_insert BEFORE INSERT ON events WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.created_by) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_event_reminders_deletion_lock_insert BEFORE INSERT ON event_reminders WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_event_reminders_deletion_lock_update BEFORE UPDATE ON event_reminders WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_event_create_requests_deletion_lock_insert BEFORE INSERT ON event_create_requests WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_event_create_requests_deletion_lock_update BEFORE UPDATE ON event_create_requests WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS bank_transactions (
     id TEXT PRIMARY KEY,
     update_id INTEGER NOT NULL UNIQUE,
