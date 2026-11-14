@@ -3737,3 +3737,17 @@ removeManagedUserRelations теперь использует сохранённ�
 
 Это предотвращает перенос старого приглашения на повторно зарегистрированный аккаунт с тем же никнеймом. Изменяется только статус приглашения; identity-поля не меняются, поэтому deletion-lock trigger на UPDATE identity не мешает штатной очистке. Добавлен source-level regression test.
 
+34.58 ПЕРЕНОС ПЕРСОНАЛЬНЫХ НАСТРОЕК И EVENT STATE ПРИ СМЕНЕ TELEGRAM ID
+
+Повторно проверен rekeyManagedUserId после расширения набора пользовательских таблиц. Выявлено, что прежняя атомарная операция переносила основные отношения, права, баланс, визуалы, приглашения и manager-change workflows, но не переносила новые активные таблицы, добавленные в ходе аудита.
+
+Теперь перед подготовкой D1 batch функция гарантирует инициализацию user preference и event tables. В рамках того же batch:
+- удаляются stale destination rows из user_preferences, territory_notification_preferences, event_reminders и event_create_requests;
+- записи source ID переносятся на new ID в этих четырёх таблицах;
+- events.created_by переносится со старого Telegram ID на новый;
+- существующие guards на INSERT/UPDATE для этих таблиц остаются последним барьером при гонке с account_deletion_locks.
+
+Удаление target rows предшествует переносу source rows, чтобы исключить конфликты PRIMARY KEY и UNIQUE(event_id,telegram_id)/UNIQUE(telegram_id,request_key). Вся операция остаётся одной D1 batch вместе с users, city memberships, territory managers, inspector role, currency, inventory, ratings, comments, screenshots, invites, manager workflows и user_directory. Если lock появляется после preflight, триггер прерывает batch целиком; catch нормализует отказ.
+
+Банковский ledger и уже опубликованные события сохраняются как история. bank_transactions не переписывается на новый ID, чтобы не менять историческую атрибуцию банковских операций. Добавлен regression test на очистку destination, перенос source и атомарность rekey.
+
