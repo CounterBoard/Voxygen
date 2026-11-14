@@ -129,6 +129,7 @@ test("deletion lock guards active invitations, manager workflows, preferences an
     "guard_territory_notification_preferences_deletion_lock_insert",
     "guard_territory_notification_preferences_deletion_lock_update",
     "guard_events_deletion_lock_insert",
+    "guard_events_deletion_lock_update",
     "guard_event_reminders_deletion_lock_insert",
     "guard_event_reminders_deletion_lock_update",
     "guard_event_create_requests_deletion_lock_insert",
