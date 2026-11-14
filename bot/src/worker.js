@@ -2456,13 +2456,17 @@ async function inviteResident(request, env) {
   let body; try { body = await request.json(); } catch { return json({ ok:false,error:'Invalid JSON' },400); }
   const territoryId=String(body?.territoryId||'').trim(), nickname=normalizeMcNickname(body?.nickname);
   if(!territoryId||!nickname) return json({ok:false,error:'territoryId и ник обязательны'},400);
+  const inviterLock=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1`).bind(Number(auth.user.id)).first();
+  if(inviterLock)return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
   const territory=await env.DB.prepare(`SELECT id,name,owner_telegram_id,owner_telegram_username FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first();
   if(!territory||!(await isTerritoryManager(env,territoryId,auth.user.id))) return json({ok:false,error:'Только основатель/мэр может приглашать жителей'},403);
   const target=await env.DB.prepare(`SELECT telegram_id,status FROM users WHERE lower(mc_nickname)=lower(?) LIMIT 1`).bind(nickname).first();
+  if(target){const targetLock=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1`).bind(Number(target.telegram_id)).first();if(targetLock)return json({ok:false,error:'Приглашаемый аккаунт находится в процессе удаления'},409);}
   if(!target) {
     await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=? WHERE territory_id=? AND target_telegram_id IS NULL AND lower(target_nickname)=lower(?) AND status='pending'`).bind(Date.now(),territoryId,nickname).run();
     const inviteId=crypto.randomUUID();
-    await env.DB.prepare(`INSERT INTO city_invites (id,territory_id,target_telegram_id,target_nickname,invited_by,invite_type,status,created_at) VALUES (?,?,NULL,?,?, 'join','pending',?)`).bind(inviteId,territoryId,nickname,Number(auth.user.id),Date.now()).run();
+    try{await env.DB.prepare(`INSERT INTO city_invites (id,territory_id,target_telegram_id,target_nickname,invited_by,invite_type,status,created_at) VALUES (?,?,NULL,?,?, 'join','pending',?)`).bind(inviteId,territoryId,nickname,Number(auth.user.id),Date.now()).run();}
+    catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);throw error;}
     return json({ok:true,pendingNickname:true,inviteId,message:'Приглашение сохранено. Оно будет отправлено после подтверждения этого никнейма.'});
   }
 if(String(target.telegram_id)===String(auth.user.id)) return json({ok:false,error:'Нельзя пригласить самого себя'},400);
@@ -2470,7 +2474,8 @@ if(String(target.telegram_id)===String(auth.user.id)) return json({ok:false,erro
   const inviteType='join';
   await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=? WHERE territory_id=? AND status='pending' AND (target_telegram_id=? OR (target_telegram_id IS NULL AND lower(target_nickname)=lower(?)))`).bind(Date.now(),territoryId,Number(target.telegram_id),nickname).run();
   const inviteId=crypto.randomUUID();
-  await env.DB.prepare(`INSERT INTO city_invites (id,territory_id,target_telegram_id,target_nickname,invited_by,invite_type,status,created_at) VALUES (?,?,?,?,?,?,'pending',?)`).bind(inviteId,territoryId,Number(target.telegram_id),nickname,Number(auth.user.id),inviteType,Date.now()).run();
+  try{await env.DB.prepare(`INSERT INTO city_invites (id,territory_id,target_telegram_id,target_nickname,invited_by,invite_type,status,created_at) VALUES (?,?,?,?,?,?,'pending',?)`).bind(inviteId,territoryId,Number(target.telegram_id),nickname,Number(auth.user.id),inviteType,Date.now()).run();}
+  catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);throw error;}
   if(target.status==='verified') await sendResidentInviteOnce(env,{id:inviteId,territory_id:territoryId,target_telegram_id:Number(target.telegram_id),target_nickname:nickname,invite_type:inviteType},territory.name);
   return json({ok:true,inviteId,inviteType,pendingNickname:target.status!=='verified'});
 }
@@ -2553,6 +2558,8 @@ async function cancelResidentInvite(request, env) {
 async function removeResident(request, env) {
   const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim(),targetId=Number(body?.telegramId); if(!territoryId||!Number.isSafeInteger(targetId)||targetId<=0)return json({ok:false,error:'territoryId и telegramId обязательны'},400);
+  const accountLocks=await env.DB.prepare(`SELECT telegram_id FROM account_deletion_locks WHERE telegram_id IN (?,?)`).bind(Number(auth.user.id),targetId).all();
+  if((accountLocks.results||[]).length)return json({ok:false,error:'Один из аккаунтов находится в процессе удаления'},409);
   if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403);
   const [territory, target] = await Promise.all([
     env.DB.prepare(`SELECT name FROM territories WHERE id=? LIMIT 1`).bind(territoryId).first(),
@@ -2609,6 +2616,8 @@ async function leaveTerritory(request, env) {
 async function promoteResident(request, env) {
   const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env); let body; try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim(),targetId=Number(body?.telegramId); if(!territoryId||!Number.isSafeInteger(targetId)||targetId<=0)return json({ok:false,error:'territoryId и telegramId обязательны'},400);
+  const accountLocks=await env.DB.prepare(`SELECT telegram_id FROM account_deletion_locks WHERE telegram_id IN (?,?)`).bind(Number(auth.user.id),targetId).all();
+  if((accountLocks.results||[]).length)return json({ok:false,error:'Один из аккаунтов находится в процессе удаления'},409);
   if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403);
   if(String(targetId)===String(auth.user.id))return json({ok:false,error:'Нельзя повысить себя'},400);
   const member=await env.DB.prepare(`SELECT 1 FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(territoryId,targetId).first(); if(!member)return json({ok:false,error:'Житель не найден'},404);
@@ -2620,7 +2629,7 @@ async function promoteResident(request, env) {
   }
   await ensureManagerChangeTables(env);
   const pending=await env.DB.prepare(`SELECT id FROM manager_change_requests WHERE territory_id=? AND target_telegram_id=? AND action='promote' AND status IN ('pending','finalizing') AND expires_at>? LIMIT 1`).bind(territoryId,targetId,Date.now()).first(); if(pending)return json({ok:false,error:'Запрос уже находится на голосовании'},409);
-  const id=crypto.randomUUID(),now=Date.now(),expires=now+24*60*60*1000,required=Math.floor(managers.length/2); await env.DB.prepare(`INSERT INTO manager_change_requests(id,territory_id,target_telegram_id,initiator_telegram_id,action,required_votes,voter_count,status,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(id,territoryId,targetId,Number(auth.user.id),'promote',required,voterCount,'pending',now,expires).run();
+  const id=crypto.randomUUID(),now=Date.now(),expires=now+24*60*60*1000,required=Math.floor(managers.length/2); try{await env.DB.prepare(`INSERT INTO manager_change_requests(id,territory_id,target_telegram_id,initiator_telegram_id,action,required_votes,voter_count,status,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(id,territoryId,targetId,Number(auth.user.id),'promote',required,voterCount,'pending',now,expires).run();}catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Один из аккаунтов находится в процессе удаления'},409);throw error;}
   const city=await env.DB.prepare('SELECT name FROM territories WHERE id=?').bind(territoryId).first(); const target=await env.DB.prepare('SELECT mc_nickname FROM users WHERE telegram_id=?').bind(targetId).first();
   await notifyTerritoryManagers(env,territoryId,`👑 <b>Голосование за нового основателя/мэра</b>\n\n🏙 <b>${escapeHtml(city?.name||'Город')}</b>\n👤 Кандидат: <b>${escapeHtml(target?.mc_nickname||`id${targetId}`)}</b>\n\nИнициатор: <b>${escapeHtml(auth.user.username?`@${normalizeUsername(auth.user.username)}`:`id${auth.user.id}`)}</b>\n\nОдобрить повышение?`,auth.user.id,{reply_markup:{inline_keyboard:[[{text:'✅ Одобрить',callback_data:`manager_vote:yes:${id}`},{text:'❌ Отклонить',callback_data:`manager_vote:no:${id}`}]]}});
   try{await telegram(env,'sendMessage',{chat_id:targetId,text:`⏳ Вам предложено стать основателем/мэром города «${escapeHtml(city?.name||'Город')}». Решение будет принято после голосования действующих основателей/мэров.`,parse_mode:'HTML'})}catch{}
@@ -2637,7 +2646,7 @@ async function demoteManager(request, env) {
   if(managers.length<=1)return json({ok:false,error:'В городе должен быть как минимум ещё один основатель/мэр'},400);
   const excludedVoters=Number(auth.user.id)===targetId?1:2; const voterCount=Math.max(0,managers.length-excludedVoters); if(voterCount===0){return json({ok:false,error:'Недостаточно участников для голосования (кандидат и инициатор не голосуют)'},400)}
   await ensureManagerChangeTables(env); const pending=await env.DB.prepare(`SELECT id FROM manager_change_requests WHERE territory_id=? AND target_telegram_id=? AND action='demote' AND status IN ('pending','finalizing') AND expires_at>? LIMIT 1`).bind(territoryId,targetId,Date.now()).first(); if(pending)return json({ok:false,error:'Запрос уже находится на голосовании'},409);
-  const id=crypto.randomUUID(),now=Date.now(),expires=now+24*60*60*1000,required=Math.floor(managers.length/2); await env.DB.prepare(`INSERT INTO manager_change_requests(id,territory_id,target_telegram_id,initiator_telegram_id,action,required_votes,voter_count,status,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(id,territoryId,targetId,Number(auth.user.id),'demote',required,voterCount,'pending',now,expires).run();
+  const id=crypto.randomUUID(),now=Date.now(),expires=now+24*60*60*1000,required=Math.floor(managers.length/2); try{await env.DB.prepare(`INSERT INTO manager_change_requests(id,territory_id,target_telegram_id,initiator_telegram_id,action,required_votes,voter_count,status,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(id,territoryId,targetId,Number(auth.user.id),'demote',required,voterCount,'pending',now,expires).run();}catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Один из аккаунтов находится в процессе удаления'},409);throw error;}
   const target=await env.DB.prepare('SELECT mc_nickname FROM users WHERE telegram_id=?').bind(targetId).first();
   const initiator=await env.DB.prepare('SELECT mc_nickname,telegram_username FROM users WHERE telegram_id=?').bind(Number(auth.user.id)).first();
   const initiatorName=String(initiator?.mc_nickname||'').trim() || String(initiator?.telegram_username||'').replace(/^@+/,'').trim() || `id${auth.user.id}`;
@@ -2856,7 +2865,9 @@ async function handleManagerVoteCallback(env, callbackQuery) {
     return json({ok:true});
   }
   if(!isEligibleManagerChangeVoter(actorId,req)||!(await isTerritoryManager(env,req.territory_id,actorId))){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'⛔ Голосовать может только другой основатель/мэр',show_alert:true});return json({ok:true});}
-  const vote=await recordManagerChangeVote(env,requestId,actorId,decision==='yes',Date.now());
+  let vote;
+  try{vote=await recordManagerChangeVote(env,requestId,actorId,decision==='yes',Date.now());}
+  catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error))){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Ваш аккаунт находится в процессе удаления',show_alert:true});return json({ok:true,ignored:true,reason:'account_deletion_in_progress'});}throw error;}
   const result=await finalizeManagerChangeRequest(env,requestId);
   const message=!vote.meta?.changes?'Голосование уже завершается':result?.status==='approved'?'Решение принято: одобрено':result?.status==='rejected'?'Решение принято: отклонено':'Голос учтён';
   await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:message}); return json({ok:true});
