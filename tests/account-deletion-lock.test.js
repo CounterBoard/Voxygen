@@ -47,7 +47,7 @@ test("deletion lock also blocks personal balance, inventory and ledger mutations
   assert.ok(source.includes("guard_territory_managers_deletion_lock_update_all_v31"));
   assert.ok(source.includes("BEFORE UPDATE ON city_memberships WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)"));
   assert.ok(source.includes("BEFORE UPDATE ON territory_managers WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)"));
-  assert.ok(source.includes("2026-11-v34"),"schema version must advance for the new triggers");
+  assert.ok(source.includes("2026-11-v35"),"schema version must advance for the new triggers");
 });
 
 
@@ -102,7 +102,7 @@ test("account directory and inspector grants remain blocked until deletion lock 
     "guard_inspectors_deletion_lock_insert",
     "guard_inspectors_deletion_lock_update",
   ]) assert.ok(source.includes("CREATE TRIGGER IF NOT EXISTS "+trigger), "missing account-role/directory guard: "+trigger);
-  assert.ok(source.includes("2026-11-v34"), "schema version must advance for directory and inspector triggers");
+  assert.ok(source.includes("2026-11-v35"), "schema version must advance for directory and inspector triggers");
   assert.ok(source.includes("CREATE TABLE IF NOT EXISTS inspectors ( telegram_id INTEGER PRIMARY KEY, telegram_username TEXT, added_by INTEGER, created_at INTEGER NOT NULL )"), "inspector table must exist before its triggers are installed");
   const addInspector = source.slice(source.indexOf("async function addInspector"), source.indexOf("async function removeInspector"));
   assert.ok(addInspector.includes("INSERT INTO inspectors (telegram_id, telegram_username, added_by, created_at) SELECT ?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)"));
@@ -170,6 +170,7 @@ test("event publishing, reminders and manager workflows reject deletion races", 
   assert.ok(demotion.includes("account_deletion_locks WHERE telegram_id IN (?,?)"));
   const invite = source.slice(source.indexOf("async function inviteResident"), source.indexOf("async function sendResidentInvite"));
   assert.ok(invite.includes("account deletion in progress"));
+  assert.ok(invite.includes("user_directory d JOIN account_deletion_locks"), "nickname-only invitations must detect a locked account even before target_telegram_id is attached");
   const callback = source.slice(source.indexOf("async function handleResidentInviteCallback"), source.indexOf("async function notifyPendingInvitesForUser"));
   assert.ok(callback.includes("account_deletion_locks WHERE telegram_id=? LIMIT 1"));
 });
