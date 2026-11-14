@@ -47,3 +47,12 @@ test("operation identifiers are length- and character-bounded", () => {
   const body = bodyOf("normalizeFinancialOperationId");
   assert.match(body, /\^\[A-Za-z0-9\._:-\]\{8,120\}\$/);
 });
+
+test("banker transfers refuse locked accounts without attempting currency inserts or updates", () => {
+  const handler = bodyOf("handleBankMessage");
+  const apply = bodyOf("applyBankBalanceChange");
+  assert.match(handler, /INSERT OR IGNORE INTO user_currency\(telegram_id,balance\) SELECT \?,0 WHERE NOT EXISTS\(SELECT 1 FROM account_deletion_locks WHERE telegram_id=\?\)/);
+  assert.match(apply, /UPDATE user_currency SET balance=balance-\?.*NOT EXISTS\(SELECT 1 FROM account_deletion_locks WHERE telegram_id=\?\)/);
+  assert.match(apply, /UPDATE user_currency SET balance=balance\+\?.*NOT EXISTS\(SELECT 1 FROM account_deletion_locks WHERE telegram_id=\?\)/);
+  assert.match(apply, /UPDATE bank_transactions[\s\S]*status='rejected'[\s\S]*changes\(\)=0/);
+});
