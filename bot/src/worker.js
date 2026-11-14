@@ -2635,12 +2635,12 @@ async function expireManagerChangeRequests(env, at=Date.now()) {
   return finalized;
 }
 
-async function handleManagerVoteCallback(env, callbackQuery) {
+function isEligibleManagerChangeVoter(actorId, request) {\n  const actor=Number(actorId||0);\n  return Number.isSafeInteger(actor)&&actor>0&&actor!==Number(request?.initiator_telegram_id)&&actor!==Number(request?.target_telegram_id);\n}\n\nasync function handleManagerVoteCallback(env, callbackQuery) {
   const parts=String(callbackQuery.data||'').split(':'),decision=parts[1],requestId=parts.slice(2).join(':');
   const actorId=Number(callbackQuery.from?.id||0); if(!['yes','no'].includes(decision)||!requestId)return json({ok:true}); await ensureManagerChangeTables(env);
   const req=await env.DB.prepare(`SELECT * FROM manager_change_requests WHERE id=?`).bind(requestId).first(); if(!req){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Голосование не найдено',show_alert:true});return json({ok:true});}
   if(req.status!=='pending'||Date.now()>Number(req.expires_at)){await finalizeManagerChangeRequest(env,requestId);await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Голосование завершено',show_alert:true});return json({ok:true});}
-  if(String(actorId)===String(req.initiator_telegram_id)||String(actorId)===String(req.target_telegram_id)||!(await isTerritoryManager(env,req.territory_id,actorId))){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'⛔ Голосовать может только другой основатель/мэр',show_alert:true});return json({ok:true});}
+  if(!isEligibleManagerChangeVoter(actorId,req)||!(await isTerritoryManager(env,req.territory_id,actorId))){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'⛔ Голосовать может только другой основатель/мэр',show_alert:true});return json({ok:true});}
   await env.DB.prepare(`INSERT INTO manager_change_votes(request_id,voter_telegram_id,approve,created_at) VALUES(?,?,?,?) ON CONFLICT(request_id,voter_telegram_id) DO UPDATE SET approve=excluded.approve,created_at=excluded.created_at`).bind(requestId,actorId,decision==='yes'?1:0,Date.now()).run();
   const result=await finalizeManagerChangeRequest(env,requestId); await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:result?.status==='approved'?'Решение принято: одобрено':result?.status==='rejected'?'Решение принято: отклонено':'Голос учтён'}); return json({ok:true});
 }
@@ -6462,4 +6462,4 @@ export default {
   },
 };
 
-export { verifyInitData, parseBankCommand, applyBankBalanceChange, isTerritoryManager };
+export { verifyInitData, parseBankCommand, applyBankBalanceChange, isTerritoryManager, isEligibleManagerChangeVoter };
