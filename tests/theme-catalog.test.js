@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   DEFAULT_THEME_ID,
   THEME_CATALOG,
@@ -28,4 +29,32 @@ test('unknown and malformed themes safely fall back to Vox', () => {
 test('fallback is accepted only when it is a registered theme', () => {
   assert.equal(normalizeThemeId('missing', 'also-missing'), DEFAULT_THEME_ID);
   assert.equal(normalizeThemeId('missing', 'vox'), 'vox');
+});
+
+
+test('Vox token pack exposes the shared visual contract and legacy aliases', () => {
+  const tokens = readFileSync(new URL('../src/theme/theme-tokens.css', import.meta.url), 'utf8');
+  for (const token of [
+    '--theme-color-canvas',
+    '--theme-color-surface',
+    '--theme-font-display',
+    '--theme-font-body',
+    '--theme-type-display-size',
+    '--theme-space-4',
+    '--theme-radius-control',
+    '--theme-control-height',
+    '--theme-slider-track-height',
+    '--theme-shadow-high',
+    '--theme-backdrop-blur',
+    '--theme-motion-modal',
+    '--bg:',
+    '--surface:',
+    '--purple:',
+    '--mint:',
+    '--mint-strong:',
+    '--gem:',
+  ]) {
+    assert.ok(tokens.includes(token), `Missing theme token: ${token}`);
+  }
+  assert.match(tokens, /prefers-reduced-motion/);
 });
