@@ -68,3 +68,10 @@ test("manager votes are accepted only while the request remains pending", async 
   const rejected = await recordManagerChangeVote({ DB: finalizing }, "req-3", 77, false, 600);
   assert.equal(rejected.meta.changes, 0);
 });
+
+
+test("a fresh finalization lease cannot be stolen before its timeout", async () => {
+  const db = new ManagerClaimD1("finalizing", 1000);
+  assert.equal(await claimManagerChangeFinalization({ DB: db }, "req-4", "finalizing", 2000), false);
+  assert.equal(db.row.finalizing_at, 1000);
+});
