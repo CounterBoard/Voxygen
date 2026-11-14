@@ -3323,7 +3323,7 @@ applyBankBalanceChange() и parseBankCommand().
 - applyManagerChange() остаётся повторяемой операцией; это необходимо для восстановления после сбоя между изменением роли и записью конечного статуса.
 
 Регрессионные тесты:
-- tests/manager-change-finalization.test.js проверяет single-winner claim для pending, однократный захват просроченного lease и запрет голосования после перехода в finalizing.
+- tests/manager-change-finalization.test.js проверяет single-winner claim для pending, отказ перехвата свежего lease, однократный захват просроченного lease и запрет голосования после перехода в finalizing.
 - Тесты используют mock D1 и проверяют SQL guard/параметры; они не моделируют настоящую конкурентную транзакционность Cloudflare D1.
 
 Ограничения:
