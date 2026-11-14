@@ -1051,7 +1051,6 @@ async function saveMapSettings(request, env, requestId = null) {
       return json({ ok: false, error: reason }, 502);
     }
 
-    stage = 'd1_save_github_asset_url';
     const uploadedType = SUPPORTED_MAP_TYPES.has(String(asset.content_type || '').toLowerCase())
       ? String(asset.content_type).toLowerCase()
       : contentType;
