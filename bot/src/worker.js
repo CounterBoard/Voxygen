@@ -4822,7 +4822,7 @@ async function updateTerritoryManager(request, env) {
         env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=?)`).bind(currentTelegramId,territoryId,now,territoryId,currentTelegramId),
         env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=? AND EXISTS(SELECT 1 FROM city_memberships WHERE territory_id=? AND telegram_id=?)`).bind(territoryId,currentTelegramId,territoryId,currentTelegramId),
         env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(territoryId,Number(target.telegram_id)),
-        env.DB.prepare(`INSERT OR IGNORE INTO territory_managers(territory_id,telegram_id,granted_by,granted_at) VALUES(?,?,?,?)`).bind(territoryId,Number(target.telegram_id),Number(auth.user.id),now),
+        env.DB.prepare(`INSERT OR IGNORE INTO territory_managers(territory_id,telegram_id,granted_by,granted_at) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM users WHERE telegram_id=? AND status='verified' AND trim(COALESCE(mc_nickname,''))<>'')`).bind(territoryId,Number(target.telegram_id),Number(auth.user.id),now,Number(target.telegram_id)),
       ]);
       const [m,member]=await Promise.all([
         env.DB.prepare(`SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territoryId,Number(target.telegram_id)).first(),
