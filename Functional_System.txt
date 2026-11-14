@@ -3043,3 +3043,26 @@ requireVerifiedUser(), requireMainInspector() и getRoleByTelegramId().
 
 Эти пункты — security hardening backlog; не утверждается, что production
 secret/configuration проверены или что реальный webhook/Worker запускался.
+
+
+======================================================================
+34.23. SELF-SERVICE OWNER CLAIM — CAS AND VERIFIED PROFILE
+======================================================================
+
+claimTerritoryOwner() проверен отдельно:
+- authenticated Telegram user;
+- территория должна быть approved;
+- existing owner блокирует чужой claim (403); текущий owner — idempotent no-op;
+- заявитель должен быть verified и иметь Minecraft nickname;
+- nickname или Telegram username заявителя должен совпасть с owner_input
+  территории (нормализация username без @);
+- UPDATE дополнительно содержит owner_telegram_id IS NULL и сравнение
+  captured owner_input, то есть защищает от устаревшего/конкурентного claim;
+- удаление дублирующих membership/manager relations выполняется только при
+  подтверждении нового owner через EXISTS;
+- отсутствие изменений проверяется повторным чтением owner и возвращает 409,
+  если территорию занял другой пользователь.
+
+Это static review, без race/failure injection на настоящем D1. Отдельно
+не проверены реальные username normalization и крайние случаи owner_input
+на UI/API fixtures.
