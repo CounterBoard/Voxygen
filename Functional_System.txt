@@ -3660,3 +3660,21 @@ executeIdempotentFinancialTransfer() дополнительно обрабаты
 
 Границы проверки: тесты фиксируют структуру исходного кода и наличие SQL guards, но не являются конкурентной SQLite/D1 симуляцией. Отдельно не проверялась внешняя доступность Telegram/Geyser во время регистрации. Production Worker и D1 не развёртывались.
 
+34.53 ЗАЩИТА КАТАЛОГА ПОЛЬЗОВАТЕЛЕЙ И РОЛИ ИНСПЕКТОРА ПРИ УДАЛЕНИИ
+
+Расширен охват account_deletion_locks после аудита оставшихся пользовательских таблиц.
+
+Выявлены два дополнительных пути:
+1. addInspector мог назначить роль инспектора Telegram ID, для которого уже выполнялась очистка. Таблица inspectors не имела deletion-lock trigger.
+2. user_directory не имела собственного SQL барьера. Даже после исключения locked ID из syncUserDirectory административный или другой путь записи мог создать/обновить запись каталога в период удаления.
+
+В WORLD_SCHEMA_VERSION добавлена версия 2026-11-v32. До установки триггеров initializeWorldTables гарантирует наличие user_directory. Созданы BEFORE INSERT и BEFORE UPDATE триггеры:
+- user_directory: проверяются NEW.telegram_id, а при UPDATE — OLD.telegram_id и NEW.telegram_id;
+- inspectors: аналогично проверяются старый и новый Telegram ID.
+
+addInspector теперь вызывает ensureWorldTables, выполняет предварительную проверку lock и использует INSERT … SELECT с NOT EXISTS(account_deletion_locks) непосредственно в SQL. Конкурентное срабатывание триггера преобразуется в HTTP 409. DELETE остаётся разрешённым для процедуры очистки.
+
+Дополнительно исправлен порядок завершения удаления. Ранее deleteManagedUser и purgeLegacyRemovedUsers снимали account_deletion_locks до удаления user_directory. Между снятием lock и удалением каталога пользователь мог повторно зарегистрироваться, после чего завершающий DELETE каталога мог удалить уже новую запись. Теперь обе процедуры удаляют users, затем user_directory, и только после этого снимают deletion lock. При любой ошибке lock остаётся активным.
+
+Регрессионные тесты обновлены: проверяют новые четыре триггера, guarded inspector INSERT, версию v32 и строгий порядок users → user_directory → deletion lock для managed delete и legacy purge. Проверки source-level; реальная конкуренция D1 не моделируется. Production Worker/D1 не развёртывались.
+
