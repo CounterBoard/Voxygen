@@ -4152,6 +4152,7 @@ async function claimNickname(request, env) {
     }
     return json({ ok: true, status: "pending" });
   } catch (error) {
+    if (/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error))) return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
     if (String(error).toLowerCase().includes("unique")) return json({ ok: false, error: "Этот ник уже привязан к другому Telegram аккаунту" }, 409);
     return json({ ok: false, error: "Database error", details: String(error) }, 500);
   }
