@@ -3757,11 +3757,15 @@ async function removeManagedUserRelations(env, telegramId) {
   try{await env.DB.prepare(`DELETE FROM manager_change_votes WHERE voter_telegram_id=?`).bind(tid).run()}catch{}
   await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=?,notification_claimed_at=NULL
     WHERE status='pending' AND (target_telegram_id=? OR invited_by=?)`).bind(Date.now(),tid,tid).run();
-  try{await env.DB.prepare(`DELETE FROM inspectors WHERE telegram_id=?`).bind(tid).run()}catch{}
-  try{await env.DB.prepare(`DELETE FROM user_items WHERE telegram_id=?`).bind(tid).run()}catch{}
-  try{await env.DB.prepare(`DELETE FROM user_currency WHERE telegram_id=?`).bind(tid).run()}catch{}
+  // These are required account-cleanup operations. Propagate failures so the
+  // caller cannot delete the account row or report success while personal state remains.
+  await env.DB.prepare(`DELETE FROM inspectors WHERE telegram_id=?`).bind(tid).run();
+  await env.DB.prepare(`DELETE FROM user_items WHERE telegram_id=?`).bind(tid).run();
+  await env.DB.prepare(`DELETE FROM user_currency WHERE telegram_id=?`).bind(tid).run();
+  // Reconciliation is also part of successful removal: a failed pass leaves the
+  // users row available for an idempotent retry instead of silently stranding equipment.
   for(const row of affectedVisualCities.results||[]){
-    await reconcileTerritoryVisualEquipment(env,row.territory_id).catch(error=>console.error('Equipment reconciliation after account removal:',error));
+    await reconcileTerritoryVisualEquipment(env,row.territory_id);
   }
 }
 
