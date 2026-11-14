@@ -38,18 +38,20 @@ for (const [table, statement] of requiredStatements) {
     const db = new CleanupD1(statement);
     await assert.rejects(
       completeRequiredAccountCleanup({ DB: db }, 12345),
-      new RegExp(`simulated D1 failure: ${statement.replace(/[.*+?^${}()|[\]\\]/g, "\\new RegExp(`simulated D1 failure: DELETE FROM ${table}`),")}`),
+      (error) => error.message.includes(`simulated D1 failure: ${statement}`),
     );
     assert.equal(db.executed.length, requiredStatements.findIndex(([name]) => name === table) + 1);
   });
 }
 
-test("required account cleanup removes all personal tables in order", async () => {
+test("required account cleanup processes manager relations and personal tables in order", async () => {
   const db = new CleanupD1();
   await completeRequiredAccountCleanup({ DB: db }, 12345);
   assert.deepEqual(
-    db.executed.map((entry) => entry.sql.match(/DELETE FROM ([a-z_]+)/)?.[1]),
-    ["UPDATE", "DELETE", "DELETE", "DELETE", "DELETE"],
+    db.executed.map((entry) => entry.sql.startsWith("UPDATE")
+      ? "UPDATE manager_change_requests"
+      : entry.sql.match(/DELETE FROM [a-z_]+/)?.[0]),
+    requiredStatements.map(([, statement]) => statement),
   );
   assert.ok(db.executed.every((entry) => entry.values.includes(12345)));
 });
