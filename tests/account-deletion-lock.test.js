@@ -22,9 +22,9 @@ test("managed and legacy deletion hold the barrier across relation cleanup", asy
   const managed = source.slice(source.indexOf("async function deleteManagedUser"), source.indexOf("async function listInspectors"));
   assert.ok(managed.indexOf("INSERT OR IGNORE INTO account_deletion_locks") < managed.indexOf("await removeManagedUserRelations(env,tid)"));
   assert.ok(managed.indexOf("await removeManagedUserRelations(env,tid)") < managed.indexOf("DELETE FROM users WHERE telegram_id=?"));
-  assert.ok(managed.indexOf("DELETE FROM user_directory WHERE id=?") < managed.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?"));
+  assert.ok(managed.indexOf("DELETE FROM users WHERE telegram_id=?") < managed.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?") && managed.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?") < managed.indexOf("DELETE FROM user_directory WHERE id=?"));
   assert.ok(managed.includes("lock retained"), "failed cleanup must preserve the lock for retry");
   const purge = source.slice(source.indexOf("async function purgeLegacyRemovedUsers"), source.indexOf("async function deleteManagedUser"));
   assert.ok(purge.indexOf("INSERT OR IGNORE INTO account_deletion_locks") < purge.indexOf("await removeManagedUserRelations(env,tid)"));
-  assert.ok(purge.indexOf("DELETE FROM user_directory WHERE telegram_id=?") < purge.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?"));
+  assert.ok(purge.indexOf("DELETE FROM users WHERE telegram_id=?") < purge.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?") && purge.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?") < purge.indexOf("DELETE FROM user_directory WHERE telegram_id=?"));
 });
