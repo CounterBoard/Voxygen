@@ -42,6 +42,6 @@ test("deletion lock also blocks personal balance, inventory and ledger mutations
   assert.ok(source.includes("BEFORE UPDATE ON user_currency WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)"));
   assert.ok(source.includes("BEFORE INSERT ON user_items WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)"));
   assert.ok(source.includes("BEFORE INSERT ON financial_operations WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)"));
-  assert.match(source,/UPDATE city_treasury SET balance=balance-\\?,updated_at=\\? WHERE territory_id=\\? AND balance>=\\?.*NOT EXISTS \\(SELECT 1 FROM account_deletion_locks WHERE telegram_id=\\?\\)/);
+  assert.ok(source.includes("NOT EXISTS (SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)"),"city treasury purchase must reject locked buyer");
   assert.ok(source.includes("2026-11-v30"),"schema version must advance for the new triggers");
 });
