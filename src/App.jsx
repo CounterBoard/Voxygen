@@ -663,6 +663,36 @@ function FontsAndTheme() {
         .atlas-root input:not([type="range"]):focus,.atlas-root textarea:focus,.atlas-root select:focus{border-color:rgba(139,92,246,.82)!important;box-shadow:0 0 0 3px rgba(139,92,246,.13),0 6px 18px rgba(0,0,0,.12);outline:none;}
 
         /* More consistent control geometry. */
+        .atlas-segmented{
+          display:flex;
+          gap:var(--theme-space-1);
+          padding:var(--theme-space-1);
+          border-radius:var(--theme-radius-pill);
+          background:var(--theme-color-surface-raised);
+        }
+        .atlas-segmented__option{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          gap:var(--theme-space-2);
+          padding:var(--theme-space-2) var(--theme-space-4);
+          min-height:var(--theme-control-height-compact);
+          border:0;
+          border-radius:var(--theme-radius-pill);
+          background:transparent;
+          color:var(--theme-color-text-muted);
+          font-size:var(--theme-type-control-size);
+          font-weight:var(--theme-type-label-weight);
+          cursor:pointer;
+        }
+        .atlas-segmented__option.is-active{
+          background:var(--theme-color-action-primary);
+          color:var(--theme-color-action-primary-contrast);
+        }
+        .atlas-segmented__option:focus-visible{
+          outline:2px solid var(--theme-color-action-primary);
+          outline-offset:2px;
+        }
         .atlas-root input,.atlas-root textarea,.atlas-root select{ border-radius:var(--theme-radius-control)!important; }
         .atlas-root ::selection{ background:var(--theme-color-action-primary-soft); color:var(--theme-color-text-primary); }
         .atlas-root ::-webkit-scrollbar{ width:0;height:0; }
@@ -715,21 +745,16 @@ function ScoreBadge({ type, value, size = 'md' }) {
 
 function Segmented({ options, value, onChange }) {
   return (
-    <div style={{ background: 'var(--surface-2)', borderRadius: 999, padding: 3, display: 'flex', gap: 2 }}>
+    <div className="atlas-segmented" role="group">
       {options.map((opt) => {
         const active = opt.value === value;
         return (
           <button
             key={opt.value}
             onClick={() => onChange(opt.value)}
-            className="press"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '7px 14px', borderRadius: 999, fontSize: 13, fontWeight: 600,
-              border: 'none', cursor: 'pointer',
-              background: active ? 'var(--purple)' : 'transparent',
-              color: active ? '#fff' : 'var(--text-muted)',
-            }}
+            className={`press atlas-segmented__option${active ? ' is-active' : ''}`}
+            type="button"
+            aria-pressed={active}
           >
             {opt.icon}{opt.label}
           </button>
@@ -866,7 +891,9 @@ function Dot({ c }) {
 
 function iconBtn(bg, color, square) {
   return {
-    width: 40, height: 40, borderRadius: square ? 12 : '50%', background: bg, color,
+    width: 'var(--theme-icon-button-size)', height: 'var(--theme-icon-button-size)',
+    borderRadius: square ? 'var(--theme-radius-control)' : 'var(--theme-radius-pill)',
+    background: bg, color,
     border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   };
 }
@@ -890,13 +917,18 @@ function SectionTitle({ icon, title, count }) {
 
 function Field({ label, ...props }) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 5 }}>{label}</div>
+    <div style={{ marginBottom: 'var(--theme-space-3)' }}>
+      <div style={{ fontSize: 'var(--theme-type-label-size)', color: 'var(--text-muted)', marginBottom: 'var(--theme-space-1)' }}>{label}</div>
       <input
         {...props}
+        className={`atlas-field-input ${props.className || ''}`.trim()}
         style={{
-          width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10,
-          padding: '10px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+          width: '100%', minHeight: 'var(--theme-control-height)',
+          background: 'var(--surface-2)', border: '1px solid var(--border)',
+          borderRadius: 'var(--theme-radius-control)',
+          padding: 'var(--theme-space-2) var(--theme-space-3)',
+          color: 'var(--text)', fontSize: 'var(--theme-type-control-size)',
+          outline: 'none', boxSizing: 'border-box',
         }}
       />
     </div>
@@ -2931,7 +2963,7 @@ function MainTabs({ tab, onChange }) {
 }
 
 
-function SimpleModal({title,children,onClose}){const {closing,requestClose}=useAnimatedClose(onClose,175);return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:100,background:'rgba(0,0,0,.78)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(448px,100%)',maxHeight:'76vh',overflowY:'auto',margin:'auto',background:'#12151D',border:'1px solid var(--border)',borderRadius:22,padding:18}}><div style={{display:'flex',alignItems:'flex-start',justifyContent:title?'space-between':'flex-end',marginBottom:title?14:10}}>{title&&<div className="atlas-display" style={{fontSize:18,fontWeight:700,lineHeight:1.2}}>{title}</div>}<button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>{children}</div></div>}
+function SimpleModal({title,children,onClose}){const {closing,requestClose}=useAnimatedClose(onClose,175);return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:100,background:'var(--theme-color-surface-overlay)',display:'flex',alignItems:'center',justifyContent:'center',padding:'var(--theme-space-6) var(--theme-space-4)',backdropFilter:'blur(var(--theme-modal-backdrop-blur))',WebkitBackdropFilter:'blur(var(--theme-modal-backdrop-blur))'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(var(--theme-modal-max-width),100%)',maxHeight:'76vh',overflowY:'auto',margin:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--theme-radius-modal)',padding:'var(--theme-space-4)'}}><div style={{display:'flex',alignItems:'flex-start',justifyContent:title?'space-between':'flex-end',marginBottom:title?'var(--theme-space-3)':'var(--theme-space-2)'}}>{title&&<div className="atlas-display" style={{fontSize:'var(--theme-type-title-size)',fontWeight:'var(--theme-type-title-weight)',lineHeight:1.2}}>{title}</div>}<button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>{children}</div></div>}
 function normalizedTelegramUsername(value) {
   const username=String(value||'').trim().replace(/^@+/,'');
   return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username) ? username : '';
