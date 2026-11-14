@@ -149,6 +149,7 @@ test("deletion lock guards active invitations, manager workflows, preferences an
   }
   assert.ok(cleanup.indexOf("await ensureUserPreferenceTables(env)")>=0 && cleanup.indexOf("await ensureEventsTables(env)")>=0);
   assert.ok(cleanup.includes("lower(target_nickname)=lower(?)"), "pending nickname-only invites must be cancelled when their registered target is deleted");
+  assert.ok(cleanup.includes("directoryActor?.mc_nickname"), "legacy directory-only accounts must still supply the nickname used for invitation and history cleanup");
 });
 
 
