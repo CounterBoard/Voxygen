@@ -3466,6 +3466,43 @@ async function addManagedUser(request, env) {
   return json({ok:true,user:{id:directoryId,telegram_id:telegramId,telegram_username:username,mc_nickname:nickname,skin_texture_id:textureId,skin_url:skinUrlFromTexture(textureId,nickname)}});
 }
 
+function buildStaleDestinationOwnerTransferStatements(env,territoryId,staleOwnerId) {
+  const territory=String(territoryId||'').trim();
+  const staleId=Number(staleOwnerId);
+  const eligibleManager=`SELECT tm.telegram_id FROM territory_managers tm
+    JOIN users u ON u.telegram_id=tm.telegram_id AND u.status='verified'
+    WHERE tm.territory_id=territories.id AND tm.telegram_id<>?
+      AND trim(COALESCE(u.mc_nickname,''))<>''
+    ORDER BY tm.granted_at ASC,tm.telegram_id ASC LIMIT 1`;
+  const update=env.DB.prepare(`UPDATE territories SET
+    owner_telegram_id=(${eligibleManager}),
+    owner_telegram_username=(SELECT u.telegram_username FROM territory_managers tm
+      JOIN users u ON u.telegram_id=tm.telegram_id AND u.status='verified'
+      WHERE tm.territory_id=territories.id AND tm.telegram_id<>?
+        AND trim(COALESCE(u.mc_nickname,''))<>''
+      ORDER BY tm.granted_at ASC,tm.telegram_id ASC LIMIT 1),
+    owner_input=(SELECT u.mc_nickname FROM territory_managers tm
+      JOIN users u ON u.telegram_id=tm.telegram_id AND u.status='verified'
+      WHERE tm.territory_id=territories.id AND tm.telegram_id<>?
+        AND trim(COALESCE(u.mc_nickname,''))<>''
+      ORDER BY tm.granted_at ASC,tm.telegram_id ASC LIMIT 1)
+    WHERE id=? AND status='approved' AND owner_telegram_id=?`)
+    .bind(staleId,staleId,staleId,territory,staleId);
+  // Remove the manager row belonging to the resulting owner, but only while
+  // the territory still names that same Telegram ID as its owner.
+  const removeOwnerManager=env.DB.prepare(`DELETE FROM territory_managers
+    WHERE territory_id=? AND telegram_id=(
+      SELECT owner_telegram_id FROM territories
+      WHERE id=? AND owner_telegram_id IS NOT NULL AND owner_telegram_id<>?
+    )
+    AND EXISTS(SELECT 1 FROM territories
+      WHERE id=? AND owner_telegram_id=territory_managers.telegram_id)`)
+    .bind(territory,territory,staleId,territory);
+  const removeStaleManager=env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`)
+    .bind(territory,staleId);
+  return [update,removeOwnerManager,removeStaleManager];
+}
+
 async function rekeyManagedUserId(env,{oldId,newId,username,nickname,xuid,skinTextureId}) {
   const oldTid=Number(oldId),newTid=Number(newId);
   if(oldTid===newTid)return;
@@ -3508,22 +3545,10 @@ async function rekeyManagedUserId(env,{oldId,newId,username,nickname,xuid,skinTe
   // Remove stale/deleted target-account ownership. If other managers exist,
   // the earliest one inherits ownership; otherwise the territory becomes ownerless.
   for(const territory of targetOwned.results||[]){
-    const next=await env.DB.prepare(`
-      SELECT tm.telegram_id,u.telegram_username,u.mc_nickname
-      FROM territory_managers tm
-      JOIN users u ON u.telegram_id=tm.telegram_id AND u.status='verified'
-      WHERE tm.territory_id=? AND tm.telegram_id<>?
-        AND trim(COALESCE(u.mc_nickname,''))<>''
-      ORDER BY tm.granted_at ASC,tm.telegram_id ASC
-      LIMIT 1
-    `).bind(territory.id,newTid).first();
-    if(next?.telegram_id){
-      statements.push(env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=? WHERE id=?`).bind(Number(next.telegram_id),next.telegram_username||null,next.mc_nickname||null,territory.id));
-      statements.push(env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territory.id,Number(next.telegram_id)));
-    }else{
-      statements.push(env.DB.prepare(`UPDATE territories SET owner_telegram_id=NULL,owner_telegram_username=NULL WHERE id=?`).bind(territory.id));
-    }
-    statements.push(env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?`).bind(territory.id,newTid));
+    // Keep the stale destination-owner handoff inside the same D1 batch as
+    // the identity rekey. The UPDATE chooses the eligible manager at write
+    // time and only succeeds while this territory still belongs to newTid.
+    statements.push(...buildStaleDestinationOwnerTransferStatements(env,territory.id,newTid));
     if(targetUsername){
       statements.push(env.DB.prepare(`UPDATE recruitment SET enabled=0,contact_username=NULL,updated_at=? WHERE territory_id=? AND enabled=1 AND contact_username IS NOT NULL AND lower(replace(contact_username,'@',''))=lower(replace(?,'@',''))`).bind(now,territory.id,targetUsername));
     }
@@ -6579,4 +6604,4 @@ export default {
   },
 };
 
-export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval };
+export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements };
