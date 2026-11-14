@@ -4717,8 +4717,10 @@ async function updateTerritoryOwner(request, env) {
   const now=Date.now();
   const statements=[
     env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=?
-      WHERE id=? AND status='approved' AND owner_telegram_id IS ?`)
-      .bind(targetId,target.telegram_username||null,target.mc_nickname,territoryId,expectedOwner),
+      WHERE id=? AND status='approved' AND owner_telegram_id IS ?
+        AND EXISTS(SELECT 1 FROM users WHERE telegram_id=? AND status='verified'
+          AND trim(COALESCE(mc_nickname,''))=? AND trim(COALESCE(mc_nickname,''))<>'')`)
+      .bind(targetId,target.telegram_username||null,target.mc_nickname,territoryId,expectedOwner,targetId,String(target.mc_nickname||'').trim()),
   ];
   if(oldOwner){
     statements.push(env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at)
