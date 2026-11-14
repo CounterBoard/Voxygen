@@ -153,10 +153,11 @@ migration for saved user preferences and active global overrides.
 
 The foundation centralizes the theme catalog, introduces the Vox token
 pack, and connects the frontend and backend to the same allowlist. The first
-migration slice now routes the global app background, typography scale,
-slider geometry, focus treatment, content width, and shared surface styling
-through theme tokens. Many component-level inline styles and legacy
-style-string selectors remain to be migrated. It does not yet add a theme
+migration slices now route the global app background, typography scale,
+slider geometry, focus treatment, content width, icon-button sizing,
+segmented controls, shared fields and the simple modal primitive through
+theme tokens. Many screen-specific inline styles and legacy style-string
+selectors remain to be migrated. It does not yet add a theme
 picker, download remote theme packs, or introduce third-party theme
 execution.
 
