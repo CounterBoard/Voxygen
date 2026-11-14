@@ -5992,8 +5992,8 @@ async function applyBankBalanceChange(env, { updateId, targetType, targetId, amo
       ? env.DB.prepare(`UPDATE city_treasury SET balance=balance-?,updated_at=? WHERE territory_id=? AND balance>=? AND EXISTS(SELECT 1 FROM bank_transactions WHERE update_id=? AND status='processing')`).bind(amount,now,String(targetId),amount,updateId)
       : env.DB.prepare(`UPDATE city_treasury SET balance=balance+?,updated_at=? WHERE territory_id=? AND EXISTS(SELECT 1 FROM bank_transactions WHERE update_id=? AND status='processing')`).bind(amount,now,String(targetId),updateId))
     : (debit
-      ? env.DB.prepare(`UPDATE user_currency SET balance=balance-? WHERE telegram_id=? AND balance>=? AND EXISTS(SELECT 1 FROM bank_transactions WHERE update_id=? AND status='processing')`).bind(amount,Number(targetId),amount,updateId)
-      : env.DB.prepare(`UPDATE user_currency SET balance=balance+? WHERE telegram_id=? AND EXISTS(SELECT 1 FROM bank_transactions WHERE update_id=? AND status='processing')`).bind(amount,Number(targetId),updateId));
+      ? env.DB.prepare(`UPDATE user_currency SET balance=balance-? WHERE telegram_id=? AND balance>=? AND EXISTS(SELECT 1 FROM bank_transactions WHERE update_id=? AND status='processing') AND NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(amount,Number(targetId),amount,updateId,Number(targetId))
+      : env.DB.prepare(`UPDATE user_currency SET balance=balance+? WHERE telegram_id=? AND EXISTS(SELECT 1 FROM bank_transactions WHERE update_id=? AND status='processing') AND NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(amount,Number(targetId),updateId,Number(targetId)));
   const balanceTable = treasury ? 'city_treasury' : 'user_currency';
   const balanceWhere = treasury ? 'territory_id=?' : 'telegram_id=?';
   const ledgerTargetId = treasury ? null : Number(targetId);
@@ -6075,7 +6075,7 @@ async function handleBankMessage(env, update, message) {
       return json({ ok: true, handled: 'bank_rejected' });
     }
     const targetId = resolved.telegramId;
-    await env.DB.prepare(`INSERT OR IGNORE INTO user_currency(telegram_id,balance) VALUES(?,0)`).bind(targetId).run();
+    await env.DB.prepare(`INSERT OR IGNORE INTO user_currency(telegram_id,balance) SELECT ?,0 WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(targetId,targetId).run();
     const transfer = await applyBankBalanceChange(env,{
       updateId,targetType:'user',targetId,amount:command.amount,direction:command.direction,
       ledgerDirection:command.direction,now:Date.now(),
