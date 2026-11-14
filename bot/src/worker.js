@@ -5711,6 +5711,8 @@ async function createEvent(request, env) {
   if (parsed.error) return json({ ok: false, error: parsed.error }, 400);
   const e = parsed.value;
   const creatorId = Number(auth.user.id);
+  const deletionLock=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1`).bind(creatorId).first();
+  if(deletionLock)return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
   const creatorRole = await getRoleByTelegramId(env, creatorId, auth.user.username || '');
   const isMainInspector = creatorRole === 'main_inspector';
   let selectedCity = null;
@@ -5740,15 +5742,19 @@ async function createEvent(request, env) {
   const payloadDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payloadForHash));
   const payloadHash = [...new Uint8Array(payloadDigest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
   const candidateId = crypto.randomUUID();
-  await env.DB.prepare(`INSERT OR IGNORE INTO event_create_requests(telegram_id,request_key,event_id,payload_hash,status,created_at,updated_at)
-    VALUES(?,?,?,?, 'processing',?,?)`).bind(creatorId,requestKey,candidateId,payloadHash,now,now).run();
+  try{
+    await env.DB.prepare(`INSERT OR IGNORE INTO event_create_requests(telegram_id,request_key,event_id,payload_hash,status,created_at,updated_at)
+      VALUES(?,?,?,?, 'processing',?,?)`).bind(creatorId,requestKey,candidateId,payloadHash,now,now).run();
+  }catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);throw error;}
   let reservation = await env.DB.prepare(`SELECT event_id,payload_hash FROM event_create_requests WHERE telegram_id=? AND request_key=? LIMIT 1`).bind(creatorId,requestKey).first();
   if (!reservation?.event_id) return json({ ok: false, error: 'Не удалось зарезервировать публикацию ивента' }, 500);
   // Backfill keys created by older versions without a payload fingerprint. The
   // conditional update makes competing retries agree on the first accepted body.
   if (!reservation.payload_hash) {
-    await env.DB.prepare(`UPDATE event_create_requests SET payload_hash=?,updated_at=?
-      WHERE telegram_id=? AND request_key=? AND payload_hash IS NULL`).bind(payloadHash,now,creatorId,requestKey).run();
+    try{
+      await env.DB.prepare(`UPDATE event_create_requests SET payload_hash=?,updated_at=?
+        WHERE telegram_id=? AND request_key=? AND payload_hash IS NULL`).bind(payloadHash,now,creatorId,requestKey).run();
+    }catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);throw error;}
     reservation = await env.DB.prepare(`SELECT event_id,payload_hash FROM event_create_requests WHERE telegram_id=? AND request_key=? LIMIT 1`).bind(creatorId,requestKey).first();
   }
   if (String(reservation?.payload_hash || '') !== payloadHash) {
@@ -5757,14 +5763,21 @@ async function createEvent(request, env) {
   const id = String(reservation.event_id);
   const existing = await env.DB.prepare(`SELECT id FROM events WHERE id=? LIMIT 1`).bind(id).first();
   if (existing) {
-    await env.DB.prepare(`UPDATE event_create_requests SET status='completed',updated_at=? WHERE telegram_id=? AND request_key=?`).bind(now,creatorId,requestKey).run();
+    try{await env.DB.prepare(`UPDATE event_create_requests SET status='completed',updated_at=? WHERE telegram_id=? AND request_key=?`).bind(now,creatorId,requestKey).run();}
+    catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);throw error;}
     return json({ ok: true, id, status: 'created', replayed: true });
   }
-  const inserted = await env.DB.prepare(`INSERT OR IGNORE INTO events(id,title,territory_id,place,event_at,coords,description,image_data,page_url,event_timezone,created_by,created_at,updated_at,active)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1)`).bind(id,e.title,e.territoryId,e.place,e.eventAt,e.coords,e.description,e.imageData,e.pageUrl,e.eventTimezone,creatorId,now,now).run();
+  let inserted;
+  try{
+    const batch=await env.DB.batch([
+      env.DB.prepare(`INSERT OR IGNORE INTO events(id,title,territory_id,place,event_at,coords,description,image_data,page_url,event_timezone,created_by,created_at,updated_at,active)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1)`).bind(id,e.title,e.territoryId,e.place,e.eventAt,e.coords,e.description,e.imageData,e.pageUrl,e.eventTimezone,creatorId,now,now),
+      env.DB.prepare(`UPDATE event_create_requests SET status='completed',updated_at=? WHERE telegram_id=? AND request_key=?`).bind(now,creatorId,requestKey)
+    ]);
+    inserted=batch[0];
+  }catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);throw error;}
   const created = await env.DB.prepare(`SELECT id FROM events WHERE id=? LIMIT 1`).bind(id).first();
   if (!created) return json({ ok: false, error: 'Не удалось сохранить ивент. Повторите отправку.' }, 500);
-  await env.DB.prepare(`UPDATE event_create_requests SET status='completed',updated_at=? WHERE telegram_id=? AND request_key=?`).bind(now,creatorId,requestKey).run();
   if (Number(inserted.meta?.changes || 0) > 0) {
     try { await notifyUsersOfNewEvent(env, e); } catch (error) { console.error('New event notification pass failed:', error); }
   }
@@ -5862,6 +5875,8 @@ async function saveEventReminder(request, env, remove = false) {
     await env.DB.prepare(`DELETE FROM event_reminders WHERE event_id=? AND telegram_id=?`).bind(eventId,Number(auth.user.id)).run();
     return json({ ok: true, removed: true });
   }
+  const deletionLock=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=? LIMIT 1`).bind(Number(auth.user.id)).first();
+  if(deletionLock)return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
   const value = Number(body?.value);
   const unit = String(body?.unit || 'minutes') === 'hours' ? 'hours' : 'minutes';
   if (!Number.isSafeInteger(value) || value < 1 || value > 10000) return json({ ok: false, error: 'Укажите число от 1 до 10000' }, 400);
@@ -5870,10 +5885,12 @@ async function saveEventReminder(request, env, remove = false) {
   const eventAt = Number(event.event_at), remindAt = eventAt - value * (unit === 'hours' ? 3600000 : 60000), now = Date.now();
   if (eventAt <= now || remindAt <= now) return json({ ok: false, error: 'Это время напоминания уже прошло' }, 400);
   const id = crypto.randomUUID();
-  await env.DB.prepare(`INSERT INTO event_reminders(id,event_id,telegram_id,lead_value,lead_unit,remind_at,status,attempts,next_attempt_at,claim_token,created_at,updated_at,sent_at)
-    VALUES(?,?,?,?,?,?,'pending',0,0,NULL,?,?,NULL)
-    ON CONFLICT(event_id,telegram_id) DO UPDATE SET lead_value=excluded.lead_value,lead_unit=excluded.lead_unit,remind_at=excluded.remind_at,status='pending',attempts=0,next_attempt_at=0,claim_token=NULL,updated_at=excluded.updated_at,sent_at=NULL`)
-    .bind(id,eventId,Number(auth.user.id),value,unit,remindAt,now,now).run();
+  try{
+    await env.DB.prepare(`INSERT INTO event_reminders(id,event_id,telegram_id,lead_value,lead_unit,remind_at,status,attempts,next_attempt_at,claim_token,created_at,updated_at,sent_at)
+      VALUES(?,?,?,?,?,?,'pending',0,0,NULL,?,?,NULL)
+      ON CONFLICT(event_id,telegram_id) DO UPDATE SET lead_value=excluded.lead_value,lead_unit=excluded.lead_unit,remind_at=excluded.remind_at,status='pending',attempts=0,next_attempt_at=0,claim_token=NULL,updated_at=excluded.updated_at,sent_at=NULL`)
+      .bind(id,eventId,Number(auth.user.id),value,unit,remindAt,now,now).run();
+  }catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);throw error;}
   const saved = await env.DB.prepare(`SELECT id,lead_value,lead_unit,remind_at,status FROM event_reminders WHERE event_id=? AND telegram_id=?`).bind(eventId,Number(auth.user.id)).first();
   return json({ ok: true, reminder: saved });
 }
