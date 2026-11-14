@@ -173,3 +173,16 @@ test("event publishing, reminders and manager workflows reject deletion races", 
   const callback = source.slice(source.indexOf("async function handleResidentInviteCallback"), source.indexOf("async function notifyPendingInvitesForUser"));
   assert.ok(callback.includes("account_deletion_locks WHERE telegram_id=? LIMIT 1"));
 });
+
+
+test("Telegram ID rekey transfers personal settings and event state atomically", async () => {
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\s+/g, " ");
+  const rekey = source.slice(source.indexOf("async function rekeyManagedUserId"), source.indexOf("function buildOrphanedOwnerRepairStatement"));
+  for (const table of ["user_preferences","territory_notification_preferences","event_reminders","event_create_requests"]) {
+    assert.ok(rekey.includes("DELETE FROM "+table+" WHERE telegram_id=?"), "stale destination state must be removed from "+table);
+    assert.ok(rekey.includes("UPDATE "+table+" SET telegram_id=? WHERE telegram_id=?"), "source state must follow the new Telegram ID in "+table);
+  }
+  assert.ok(rekey.includes("UPDATE events SET created_by=? WHERE created_by=?"), "event authorship must follow the rekeyed identity");
+  assert.ok(rekey.includes("await ensureUserPreferenceTables(env)") && rekey.includes("await ensureEventsTables(env)"));
+  assert.ok(rekey.includes("await env.DB.batch(statements)"), "all identity and personal-state transfers must remain atomic");
+});
