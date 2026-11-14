@@ -51,7 +51,8 @@ test("territory manager permission is scoped to the exact territory", async () =
   assert.equal(await isTerritoryManager(env, "A", 101), true);
   assert.equal(await isTerritoryManager(env, "B", 101), false);
   assert.equal(await isTerritoryManager(env, "A", 102), false);
-  assert.equal(await isTerritoryManager(env, "B", 102), true);\n  assert.equal(await isTerritoryManager(env, "P", 103), false);
+  assert.equal(await isTerritoryManager(env, "B", 102), true);
+  assert.equal(await isTerritoryManager(env, "P", 103), false);
 });
 
 test("empty territory or user identifiers never grant manager access", async () => {
@@ -59,4 +60,13 @@ test("empty territory or user identifiers never grant manager access", async () 
   assert.equal(await isTerritoryManager(env, "A", 0), false);
   assert.equal(await isTerritoryManager(env, null, null), false);
 });
-\n\ntest("manager change initiator and target cannot vote", () => {\n  const request = { initiator_telegram_id: 101, target_telegram_id: 102 };\n  assert.equal(isEligibleManagerChangeVoter(101, request), false);\n  assert.equal(isEligibleManagerChangeVoter(102, request), false);\n  assert.equal(isEligibleManagerChangeVoter(103, request), true);\n  assert.equal(isEligibleManagerChangeVoter(0, request), false);\n  assert.equal(isEligibleManagerChangeVoter("not-a-number", request), false);\n});\n
+
+
+test("manager change initiator and target cannot vote", () => {
+  const request = { initiator_telegram_id: 101, target_telegram_id: 102 };
+  assert.equal(isEligibleManagerChangeVoter(101, request), false);
+  assert.equal(isEligibleManagerChangeVoter(102, request), false);
+  assert.equal(isEligibleManagerChangeVoter(103, request), true);
+  assert.equal(isEligibleManagerChangeVoter(0, request), false);
+  assert.equal(isEligibleManagerChangeVoter("not-a-number", request), false);
+});
