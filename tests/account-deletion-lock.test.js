@@ -22,11 +22,11 @@ test("managed and legacy deletion hold the barrier across relation cleanup", asy
   const managed = source.slice(source.indexOf("async function deleteManagedUser"), source.indexOf("async function listInspectors"));
   assert.ok(managed.indexOf("INSERT OR IGNORE INTO account_deletion_locks") < managed.indexOf("await removeManagedUserRelations(env,tid)"));
   assert.ok(managed.indexOf("await removeManagedUserRelations(env,tid)") < managed.indexOf("DELETE FROM users WHERE telegram_id=?"));
-  assert.ok(managed.indexOf("DELETE FROM users WHERE telegram_id=?") < managed.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?") && managed.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?") < managed.indexOf("DELETE FROM user_directory WHERE id=?"));
+  assert.ok(managed.indexOf("DELETE FROM users WHERE telegram_id=?") < managed.indexOf("DELETE FROM user_directory WHERE id=?") && managed.indexOf("DELETE FROM user_directory WHERE id=?") < managed.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?"), "the deletion lock must remain active until directory cleanup finishes");
   assert.ok(managed.includes("lock retained"), "failed cleanup must preserve the lock for retry");
   const purge = source.slice(source.indexOf("async function purgeLegacyRemovedUsers"), source.indexOf("async function deleteManagedUser"));
   assert.ok(purge.indexOf("INSERT OR IGNORE INTO account_deletion_locks") < purge.indexOf("await removeManagedUserRelations(env,tid)"));
-  assert.ok(purge.indexOf("DELETE FROM users WHERE telegram_id=?") < purge.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?") && purge.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?") < purge.indexOf("DELETE FROM user_directory WHERE telegram_id=?"));
+  assert.ok(purge.indexOf("DELETE FROM users WHERE telegram_id=?") < purge.indexOf("DELETE FROM user_directory WHERE telegram_id=?") && purge.indexOf("DELETE FROM user_directory WHERE telegram_id=?") < purge.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?"), "legacy purge must release the lock only after directory cleanup");
 });
 
 test("deletion lock also blocks personal balance, inventory and ledger mutations", async () => {
@@ -91,4 +91,22 @@ test("directory rebuild and Telegram nickname moderation cannot resurrect locked
   const moderation = source.slice(source.indexOf("async function handleNicknameCallback"), source.indexOf("async function startTerritoryApproval"));
   assert.ok(moderation.includes("account deletion in progress"));
   assert.ok(moderation.includes("Аккаунт находится в процессе удаления"));
+});
+
+
+test("account directory and inspector grants remain blocked until deletion lock release", async () => {
+  const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\\s+/g, " ");
+  for (const trigger of [
+    "guard_user_directory_deletion_lock_insert",
+    "guard_user_directory_deletion_lock_update",
+    "guard_inspectors_deletion_lock_insert",
+    "guard_inspectors_deletion_lock_update",
+  ]) assert.ok(source.includes("CREATE TRIGGER IF NOT EXISTS "+trigger), "missing account-role/directory guard: "+trigger);
+  assert.ok(source.includes("2026-11-v32"), "schema version must advance for directory and inspector triggers");
+  const addInspector = source.slice(source.indexOf("async function addInspector"), source.indexOf("async function removeInspector"));
+  assert.ok(addInspector.includes("INSERT INTO inspectors (telegram_id, telegram_username, added_by, created_at) SELECT ?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)"));
+  const managed = source.slice(source.indexOf("async function deleteManagedUser"), source.indexOf("async function listInspectors"));
+  assert.ok(managed.indexOf("DELETE FROM user_directory WHERE id=?") < managed.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?"));
+  const purge = source.slice(source.indexOf("async function purgeLegacyRemovedUsers"), source.indexOf("async function deleteManagedUser"));
+  assert.ok(purge.indexOf("DELETE FROM user_directory WHERE telegram_id=?") < purge.indexOf("DELETE FROM account_deletion_locks WHERE telegram_id=?"));
 });
