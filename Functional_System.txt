@@ -3098,3 +3098,38 @@ Residual:
   remains absent.
 - Unit coverage does not yet execute these handlers with signed Telegram Init
   Data + D1; conclusions are static review only.
+
+
+======================================================================
+34.25. SCREENSHOTS / COMMENTS — PUBLICATION AND MODERATION REVIEW
+======================================================================
+
+Проверены uploadScreenshot(), getScreenshots(), moderateScreenshot(),
+deleteScreenshot(), serveScreenshot(), addComment(), updateComment(),
+deleteComment(), createReply()/updateReply()/deleteReply().
+
+Screenshot:
+- upload требует verified user, approved territory, JPEG MIME и size bounds;
+- ordinary user screenshot проходит pending moderation; inspector/main inspector
+  и government flow имеют direct approved path;
+- pending moderation адресуется current managers; callback/handler проверяет
+  manager конкретной approved территории или main inspector;
+- approve/reject использует conditional UPDATE status='pending' (single
+  moderator wins; повторная обработка возвращает 409);
+- public listing и image serve требуют screenshot approved и territory approved;
+- delete approved screenshot ограничен territory manager/main inspector;
+  government screenshot удаляет только main inspector.
+
+Comments/replies:
+- create comment требует verified profile, approved territory, text length
+  bound; quota (5 per Telegram ID + territory) проверяется в INSERT SELECT;
+- edit — только автор; комментарий с reply нельзя редактировать; UPDATE
+  повторно проверяет NOT EXISTS(reply), защищая race с manager reply;
+- delete — автор/main inspector согласно handler;
+- reply mutations привязаны к manager конкретной территории.
+
+Не покрыто integration test:
+- реальный Telegram sendPhoto/getFile и частичные ошибки уведомления;
+- конкурентная moderation callback + HTTP action;
+- actual image response/cache/CORS на Cloudflare edge;
+- signed Init Data + D1 fixture для всей positive/negative role matrix.
