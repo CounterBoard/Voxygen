@@ -773,7 +773,7 @@ async function ensureMapSettingsTable(env) {
   return promise;
 }
 
-const WORLD_SCHEMA_VERSION = '2026-11-v29';
+const WORLD_SCHEMA_VERSION = '2026-11-v30';
 const worldTableInitPromises = new WeakMap();
 
 async function ensureWorldTables(env) {
@@ -1470,6 +1470,24 @@ async function initializeWorldTables(env) {
     BEFORE UPDATE OF owner_telegram_id ON territories WHEN NEW.owner_telegram_id IS NOT NULL
       AND EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.owner_telegram_id)
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_user_currency_deletion_lock_insert
+    BEFORE INSERT ON user_currency WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_user_currency_deletion_lock_update
+    BEFORE UPDATE ON user_currency WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_user_items_deletion_lock_insert
+    BEFORE INSERT ON user_items WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_user_items_deletion_lock_update
+    BEFORE UPDATE ON user_items WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_financial_operations_deletion_lock_insert
+    BEFORE INSERT ON financial_operations WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_financial_operations_deletion_lock_update
+    BEFORE UPDATE ON financial_operations WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
 
   // Indexes used by the most common initial-screen and detail queries.
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_territories_status_created_at ON territories(status,created_at DESC)`).run();
@@ -2161,7 +2179,7 @@ async function purchaseCustomizationItem(request, env, ctx = null) {
   // The NOT EXISTS predicate makes simultaneous/retried purchases idempotent for the selected account.
   const purchaseBatch=accountCity
     ?await env.DB.batch([
-      env.DB.prepare(`UPDATE city_treasury SET balance=balance-?,updated_at=? WHERE territory_id=? AND balance>=? AND NOT EXISTS (SELECT 1 FROM city_items WHERE territory_id=? AND item_id=?)`).bind(Number(item.price),acquiredAt,accountCity.id,Number(item.price),accountCity.id,itemId),
+      env.DB.prepare(`UPDATE city_treasury SET balance=balance-?,updated_at=? WHERE territory_id=? AND balance>=? AND NOT EXISTS (SELECT 1 FROM city_items WHERE territory_id=? AND item_id=?) AND NOT EXISTS (SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(Number(item.price),acquiredAt,accountCity.id,Number(item.price),accountCity.id,itemId,userId),
       env.DB.prepare(`INSERT INTO city_items (territory_id,item_id,acquired_at,source) SELECT ?,?,?,'treasury_purchase' WHERE changes()=1`).bind(accountCity.id,itemId,acquiredAt),
       spendLogStatement,
     ])
