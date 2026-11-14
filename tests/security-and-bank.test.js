@@ -166,7 +166,7 @@ class FakeFinancialD1 {
       if(s.includes("INSERT OR IGNORE INTO financial_operations")){
         if(!this.operations.has(b[0])){this.operations.set(b[0],{operation_id:b[0],telegram_id:b[1],operation_type:b[2],target_id:b[3],amount:b[4],status:"processing"});changes=1;}
       }else if(s.includes("UPDATE user_currency SET balance=balance-?")){
-        if(previousChanges===1&&this.operations.get("op-123")?.status==="processing"&&this.personalBalance>=b[2]){this.personalBalance-=b[0];changes=1;}
+        if(previousChanges===1&&this.operations.get("operation-123")?.status==="processing"&&this.personalBalance>=b[2]){this.personalBalance-=b[0];changes=1;}
       }else if(s.includes("INSERT INTO city_treasury")){
         if(previousChanges===1){this.treasuryBalance+=b[1];changes=1;}
       }else if(s.includes("UPDATE financial_operations SET status=CASE")){
@@ -180,7 +180,7 @@ class FakeFinancialD1 {
 
 test("financial transfer operation ID is replay-safe and does not debit twice", async () => {
   const DB=new FakeFinancialD1(100);
-  const args={operationId:"op-123",telegramId:7,operationType:"treasury_deposit",targetId:"city-A",amount:30,
+  const args={operationId:"operation-123",telegramId:7,operationType:"treasury_deposit",targetId:"city-A",amount:30,
     debitStatement:DB.prepare("UPDATE user_currency SET balance=balance-? WHERE telegram_id=? AND balance>=?").bind(30,7,30),
     creditStatement:DB.prepare("INSERT INTO city_treasury(territory_id,balance,updated_at) SELECT ?,?,? WHERE changes()=1").bind("city-A",30,1)};
   const first=await executeIdempotentFinancialTransfer({DB},args);
@@ -193,8 +193,8 @@ test("financial transfer operation ID is replay-safe and does not debit twice", 
 
 test("financial transfer rejects operation ID reuse with different payload", async () => {
   const DB=new FakeFinancialD1(100);
-  DB.operations.set("op-123",{operation_id:"op-123",telegram_id:7,operation_type:"treasury_deposit",target_id:"city-A",amount:30,status:"completed"});
-  const result=await executeIdempotentFinancialTransfer({DB},{operationId:"op-123",telegramId:8,operationType:"treasury_deposit",targetId:"city-A",amount:30,
+  DB.operations.set("operation-123",{operation_id:"operation-123",telegram_id:7,operation_type:"treasury_deposit",target_id:"city-A",amount:30,status:"completed"});
+  const result=await executeIdempotentFinancialTransfer({DB},{operationId:"operation-123",telegramId:8,operationType:"treasury_deposit",targetId:"city-A",amount:30,
     debitStatement:DB.prepare("UPDATE user_currency SET balance=balance-?").bind(30),
     creditStatement:DB.prepare("INSERT INTO city_treasury").bind("city-A",30,1)});
   assert.equal(result.status,409);
