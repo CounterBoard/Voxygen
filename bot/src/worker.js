@@ -795,7 +795,7 @@ async function ensureMapSettingsTable(env) {
   return promise;
 }
 
-const WORLD_SCHEMA_VERSION = '2026-11-v34';
+const WORLD_SCHEMA_VERSION = '2026-11-v35';
 const worldTableInitPromises = new WeakMap();
 
 async function ensureWorldTables(env) {
@@ -1533,6 +1533,8 @@ async function initializeWorldTables(env) {
   await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_financial_operations_deletion_lock_update
     BEFORE UPDATE ON financial_operations WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`DROP TRIGGER IF EXISTS guard_city_invites_deletion_lock_insert`).run();
+  await env.DB.prepare(`DROP TRIGGER IF EXISTS guard_city_invites_deletion_lock_identity_update`).run();
   await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_city_invites_deletion_lock_insert
     BEFORE INSERT ON city_invites WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.target_telegram_id OR telegram_id=NEW.invited_by)
       OR EXISTS(SELECT 1 FROM users u JOIN account_deletion_locks l ON l.telegram_id=u.telegram_id WHERE lower(u.mc_nickname)=lower(NEW.target_nickname))
