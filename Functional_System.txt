@@ -2777,3 +2777,37 @@ Manifest нельзя кешировать надолго, поскольку о
 Отрицательная route-auth-matrix проверяет 70 защищённых method/path комбинаций без Init Data и ожидает 401. Она не подтверждает положительные и отрицательные права каждой авторизованной роли. Следующий этап должен включать сценарии user, verified user, inspector, main inspector, city owner/manager, resident и outsider относительно территории; ожидаемые 200/403/404; попытки доступа к чужой территории; проверку авторства и состояния объектов; проверки побочных эффектов (D1 не меняется при отказе).
 
 Особенно важны следующие группы: рейтинги (обычный/инспекторский/собственный город), комментарии и ответы, screenshot upload/moderation/deletion, city membership/invites/manager voting, treasury (deposit/donate/withdraw), event create/update/delete/reminder, customization и административные endpoints. Полноценное подтверждение требует signed Telegram Init Data fixtures и mock либо отдельной тестовой D1; unit-тесты без реального D1 не следует выдавать за интеграционное подтверждение.
+
+
+34.16. Сводная матрица полномочий по бизнес-операциям (code review)
+
+Матрица ниже отражает проверки в текущих handler-функциях Worker; это статическое описание, а не полное runtime доказательство.
+
+| Операция | Серверное ограничение |
+|---|---|
+| Создание территории | Telegram Init Data; обычный пользователь — verified profile; административный сценарий отдельно |
+| Обычная оценка | verified user; нельзя оценивать собственную территорию управляющему; resident/user учитываются раздельно |
+| Инспекторская оценка | inspector/main_inspector; отдельная таблица inspector_ratings |
+| Создание комментария / скриншота | verified user |
+| Изменение комментария | автор комментария; комментарий с ответом не редактируется |
+| Удаление комментария | автор или main_inspector |
+| Ответ на комментарий и управление ответом | manager конкретной территории |
+| Модерация скриншота | manager конкретной территории или main_inspector |
+| Удаление approved screenshot | manager конкретной территории или main_inspector; государственная территория — main_inspector |
+| Переименование территории | manager конкретной территории |
+| Удаление территории, изменение координат/owner/manager | main_inspector |
+| City management read | member или manager; pending invites видны только manager |
+| Invite/remove resident/promote/demote | manager конкретной территории |
+| Treasury deposit | member или manager соответствующей территории |
+| Treasury donate | authenticated user; государственная территория запрещена; требуется получатель-управляющий |
+| Treasury withdraw | manager конкретной территории |
+| Recruitment management | manager; contact-setting дополнительно проверяет авторизованного пользователя и правила контакта |
+| Event create | authenticated user; для выбранной территории member/manager; main_inspector имеет отдельный обход ограничений |
+| Event update/delete | создатель или main_inspector; update также проверяет время события и право на новую территорию |
+| Event reminder | authenticated user, reminder привязан к Telegram ID пользователя |
+| Users/inspectors/global settings/map/FAQ/grid/customization administration | main_inspector |
+| Personal settings | authenticated user, запись привязана к его Telegram ID |
+
+Главный инспектор не считается автоматически управляющим каждой территорией в функциях, использующих isTerritoryManager(); административные обходы реализованы отдельно в тех операциях, где они предусмотрены. Инспектор (без main_inspector) не эквивалентен главному инспектору.
+
+Проверки владельца/мэра привязаны к territoryId, поэтому дальнейшие integration tests должны обязательно включать две территории (A и B), manager A, manager B и outsider: право на A не должно давать право на B. Также требуется проверять side effects при 403, особенно batch/transaction операций экономики и смены ролей.
