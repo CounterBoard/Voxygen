@@ -187,7 +187,8 @@ test("financial transfer operation ID is replay-safe and does not debit twice", 
   const replay=await executeIdempotentFinancialTransfer({DB},args);
   assert.equal(first.status,"completed");
   assert.equal(replay.replayed,true);
-  assert.equal(DB.personalBalance,70);\n  assert.equal(DB.treasuryBalance,30);
+  assert.equal(DB.personalBalance,70);
+  assert.equal(DB.treasuryBalance,30);
 });
 
 test("financial transfer rejects operation ID reuse with different payload", async () => {
