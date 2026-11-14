@@ -3547,3 +3547,19 @@ applyBankBalanceChange() и parseBankCommand().
 Это дополняет предварительный SELECT и защищает от ситуации, когда аккаунт становится pending/removed либо теряет nickname между чтением и записью owner_telegram_id. Ветка назначения нового manager также имеет SQL guard на INSERT territory_managers (раздел 34.41).
 
 Тест tests/manager-assignment-account-guard.test.js фиксирует наличие обоих guards. Проверка статическая; реальная конкурентная D1-гонка не воспроизводилась. Общий deletion lock остаётся открытой задачей (34.38). Production Worker/D1 не развёртывались.
+
+
+34.43 БАРЬЕР УДАЛЕНИЯ АККАУНТА И ЗАЩИТА ОТ ПОВТОРНОГО НАЗНАЧЕНИЯ
+
+Введена таблица account_deletion_locks (telegram_id, locked_at, reason), которая хранит временный барьер удаления независимо от строки users. Миграция WORLD_SCHEMA_VERSION обновлена до 2026-11-v29; барьер и триггеры создаются при initializeWorldTables().
+
+Перед очисткой связей deleteManagedUser() устанавливает lock. Только после успешной очистки территорий/мэрств/участий, удаления users и user_directory lock снимается. При ошибке очистки lock сохраняется, а endpoint возвращает ошибку с указанием повторить операцию: это fail-closed поведение, не позволяющее конкурентным запросам восстановить удаляемый аккаунт. purgeLegacyRemovedUsers() использует тот же протокол.
+
+D1-триггеры блокируют:
+- INSERT и любой UPDATE users для locked Telegram ID (включая повторный claimNickname и смену статуса);
+- INSERT/UPDATE city_memberships и territory_managers для locked ID;
+- UPDATE territories, назначающий locked ID новым owner.
+
+DELETE отношений и UPDATE owner с передачей владения другому ID разрешены, чтобы очистка могла завершиться. После снятия lock ID снова может быть зарегистрирован обычным путём; к этому моменту старые связи уже очищены.
+
+Добавлен tests/account-deletion-lock.test.js: статические регрессионные проверки таблицы/триггеров, порядка установки lock → cleanup → удаления строк → снятия lock и сохранения lock при ошибке. Это проверка исходного кода, не полноценная конкурентная SQLite/D1 симуляция. Worker/D1 в production не развёртывались.
