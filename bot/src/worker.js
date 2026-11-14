@@ -795,7 +795,7 @@ async function ensureMapSettingsTable(env) {
   return promise;
 }
 
-const WORLD_SCHEMA_VERSION = '2026-11-v36';
+const WORLD_SCHEMA_VERSION = '2026-11-v37';
 const worldTableInitPromises = new WeakMap();
 
 async function ensureWorldTables(env) {
@@ -1557,6 +1557,12 @@ async function initializeWorldTables(env) {
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
   await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_screenshots_deletion_lock_insert
     BEFORE INSERT ON screenshots WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_gem_spend_log_deletion_lock_insert
+    BEFORE INSERT ON gem_spend_log WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_gem_spend_log_deletion_lock_update
+    BEFORE UPDATE OF telegram_id ON gem_spend_log WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id)
     BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
   await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_inspector_ratings_deletion_lock_insert
     BEFORE INSERT ON inspector_ratings WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
