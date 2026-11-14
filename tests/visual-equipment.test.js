@@ -15,9 +15,9 @@ class VisualEligibilityD1 {
       bind(...values) {
         return {
           first: async () => {
+            if (sql.includes("SELECT 1 FROM city_items")) return db.inventory ? { 1: 1 } : null;
             if (sql.includes("FROM territories")) return db.territory;
             if (sql.includes("FROM customization_items")) return db.visual;
-            if (sql.includes("SELECT 1 FROM city_items")) return db.inventory ? { 1: 1 } : null;
             throw new Error(`Unexpected SQL: ${sql}`);
           },
         };
