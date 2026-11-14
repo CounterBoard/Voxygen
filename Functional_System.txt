@@ -3578,3 +3578,17 @@ DELETE отношений и UPDATE owner с передачей владения
 Покупка customization item также выполняет debit, выдачу user_items/city_items и gem_spend_log в одном D1 batch. UPDATE баланса проверяет достаточность средств и NOT EXISTS для уже приобретённого предмета; запись инвентаря создаётся только при changes()=1 после успешного debit. Первичный SELECT баланса — только предварительная проверка интерфейса, окончательное решение принимает условный UPDATE.
 
 Добавлен tests/financial-atomicity.test.js: регрессионно фиксирует связность batch, payload-binding idempotency, условные списания, отсутствие повторной выдачи предмета и ограничения operation_id. Это source-level тесты: они не моделируют реальные конкурентные транзакции SQLite/Cloudflare D1 и не заменяют нагрузочное испытание. Production Worker/D1 не развёртывались.
+
+
+34.45 РАСШИРЕНИЕ ACCOUNT DELETION LOCK НА ФИНАНСЫ И ИНВЕНТАРЬ
+
+Аудит выявил, что барьер 34.43 ранее защищал пользователей и социальные связи, но не все личные финансовые/инвентарные таблицы. При конкурентном запросе в окно удаления теоретически можно было создать/изменить user_currency, user_items или financial_operations после начала очистки.
+
+В WORLD_SCHEMA_VERSION 2026-11-v30 добавлены триггеры:
+- user_currency: блок INSERT и UPDATE для locked telegram_id;
+- user_items: блок INSERT и UPDATE для locked telegram_id;
+- financial_operations: блок INSERT и UPDATE для locked telegram_id.
+
+DELETE в этих таблицах остаётся разрешённым для cleanup. Городская покупка из казны также получила SQL NOT EXISTS(account_deletion_locks) непосредственно в условии UPDATE city_treasury: проверка менеджера, выполненная до batch, больше не единственная защита от покупки аккаунтом, уже находящимся в процессе удаления.
+
+Регрессионный тест tests/account-deletion-lock.test.js расширен проверкой шести триггеров, UPDATE/INSERT guards и условия city treasury purchase. Проверка source-level; реальные concurrent D1 операции не запускались. Production Worker/D1 не развёртывались.
