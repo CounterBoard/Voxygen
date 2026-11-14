@@ -9,21 +9,20 @@ class CleanupD1 {
   }
 
   prepare(sql) {
+    const execute = async (values = []) => {
+      if (sql.startsWith("CREATE TABLE")) return { success: true, meta: { changes: 0 } };
+      this.executed.push({ sql, values });
+      if (this.failSql && sql.includes(this.failSql)) {
+        throw new Error(`simulated D1 failure: ${this.failSql}`);
+      }
+      return { success: true, meta: { changes: 1 } };
+    };
     return {
       all: async () => ({ results: [{ name: "finalizing_at" }] }),
-      bind: (...values) => ({
-        run: async () => {
-          if (sql.startsWith("CREATE TABLE")) return { success: true, meta: { changes: 0 } };
-          this.executed.push({ sql, values });
-          if (this.failSql && sql.includes(this.failSql)) {
-            throw new Error(`simulated D1 failure: ${this.failSql}`);
-          }
-          return { success: true, meta: { changes: 1 } };
-        },
-      }),
+      run: async () => execute(),
+      bind: (...values) => ({ run: async () => execute(values) }),
     };
-  }
-}
+  }}
 
 const requiredStatements = [
   ["manager_change_requests", "UPDATE manager_change_requests"],
