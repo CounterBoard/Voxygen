@@ -773,7 +773,7 @@ async function ensureMapSettingsTable(env) {
   return promise;
 }
 
-const WORLD_SCHEMA_VERSION = '2026-11-v28';
+const WORLD_SCHEMA_VERSION = '2026-11-v29';
 const worldTableInitPromises = new WeakMap();
 
 async function ensureWorldTables(env) {
@@ -1441,6 +1441,35 @@ async function initializeWorldTables(env) {
   await env.DB.prepare(`UPDATE city_customization SET marker_item_id=NULL WHERE marker_item_id IN (${legacyPh})`).bind(...legacyMarkerIds).run().catch(()=>{});
   await env.DB.prepare(`DELETE FROM customization_items WHERE id IN (${legacyPh})`).bind(...legacyMarkerIds).run().catch(()=>{});
   await cleanupCustomizationCategories(env).catch(error => console.error('Customization tag cleanup error:',error));
+
+  // Durable account-removal barrier: relational writes cannot resurrect an account while cleanup is running.
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS account_deletion_locks (
+    telegram_id INTEGER PRIMARY KEY,
+    locked_at INTEGER NOT NULL,
+    reason TEXT NOT NULL DEFAULT 'managed_delete'
+  )`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_users_deletion_lock_insert
+    BEFORE INSERT ON users WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_users_deletion_lock_update
+    BEFORE UPDATE OF telegram_id ON users WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_city_memberships_deletion_lock_insert
+    BEFORE INSERT ON city_memberships WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_city_memberships_deletion_lock_update
+    BEFORE UPDATE OF telegram_id ON city_memberships WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_managers_deletion_lock_insert
+    BEFORE INSERT ON territory_managers WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_managers_deletion_lock_update
+    BEFORE UPDATE OF telegram_id ON territory_managers WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territories_deletion_lock_owner
+    BEFORE UPDATE OF owner_telegram_id ON territories WHEN NEW.owner_telegram_id IS NOT NULL
+      AND EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.owner_telegram_id)
+    BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
 
   // Indexes used by the most common initial-screen and detail queries.
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_territories_status_created_at ON territories(status,created_at DESC)`).run();
@@ -3931,8 +3960,13 @@ async function purgeLegacyRemovedUsers(env) {
   const rows=await env.DB.prepare(`SELECT telegram_id FROM users WHERE status='removed'`).all();
   for(const row of rows.results||[]){
     const tid=Number(row.telegram_id); if(!Number.isSafeInteger(tid)||tid<=0)continue;
-    try{await removeManagedUserRelations(env,tid);await env.DB.prepare(`DELETE FROM users WHERE telegram_id=?`).bind(tid).run();await env.DB.prepare(`DELETE FROM user_directory WHERE telegram_id=?`).bind(tid).run()}
-    catch(error){console.error('Legacy removed user cleanup error:',tid,error)}
+    try{
+      await env.DB.prepare(`INSERT OR IGNORE INTO account_deletion_locks(telegram_id,locked_at,reason) VALUES(?,?,'legacy_purge')`).bind(tid,Date.now()).run();
+      await removeManagedUserRelations(env,tid);
+      await env.DB.prepare(`DELETE FROM users WHERE telegram_id=?`).bind(tid).run();
+      await env.DB.prepare(`DELETE FROM user_directory WHERE telegram_id=?`).bind(tid).run();
+      await env.DB.prepare(`DELETE FROM account_deletion_locks WHERE telegram_id=?`).bind(tid).run();
+    }catch(error){console.error('Legacy removed user cleanup error:',tid,error)}
   }
 }
 async function deleteManagedUser(request, env, userDirectoryId) {
@@ -3942,10 +3976,17 @@ async function deleteManagedUser(request, env, userDirectoryId) {
   if(existing){
     const tid=Number(existing.telegram_id);
     if(String(tid)===String(env.INSPECTOR_CHAT_ID||'').trim())return json({ok:false,error:'Главного инспектора удалить нельзя'},403);
-    await removeManagedUserRelations(env,tid);
-    await env.DB.prepare(`DELETE FROM users WHERE telegram_id=?`).bind(tid).run();
-    await env.DB.prepare(`DELETE FROM user_directory WHERE id=?`).bind(userDirectoryId).run();
-    return json({ok:true,telegram_id:tid});
+    await env.DB.prepare(`INSERT OR IGNORE INTO account_deletion_locks(telegram_id,locked_at,reason) VALUES(?,?,'managed_delete')`).bind(tid,Date.now()).run();
+    try {
+      await removeManagedUserRelations(env,tid);
+      await env.DB.prepare(`DELETE FROM users WHERE telegram_id=?`).bind(tid).run();
+      await env.DB.prepare(`DELETE FROM user_directory WHERE id=?`).bind(userDirectoryId).run();
+      await env.DB.prepare(`DELETE FROM account_deletion_locks WHERE telegram_id=?`).bind(tid).run();
+      return json({ok:true,telegram_id:tid});
+    } catch(error) {
+      console.error('Managed account deletion blocked; lock retained:',tid,error);
+      return json({ok:false,error:'Удаление не завершено; аккаунт временно заблокирован для повторных назначений. Повторите операцию.',details:String(error)},500);
+    }
   }
   const pre=await env.DB.prepare(`SELECT id FROM pre_registered_users WHERE id=? AND hidden=0 LIMIT 1`).bind(userDirectoryId).first();
   if(pre){await env.DB.prepare(`UPDATE pre_registered_users SET hidden=1,updated_at=? WHERE id=?`).bind(Date.now(),userDirectoryId).run();return json({ok:true})}
