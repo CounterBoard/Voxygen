@@ -2632,8 +2632,8 @@ async function finalizeManagerChangeRequest(env,requestId) {
     const before=await env.DB.prepare(`SELECT SUM(CASE WHEN approve=1 THEN 1 ELSE 0 END) AS yes,COUNT(*) AS total FROM manager_change_votes WHERE request_id=?`).bind(requestId).first();
     const beforeYes=Number(before?.yes||0),beforeTotal=Number(before?.total||0);
     const beforeExpired=now>=Number(req.expires_at||0);
-    const beforeRequired=Math.floor((Number(req.voter_count||0)+1)/2)+1;
-    if(beforeYes+1<beforeRequired&&!beforeExpired&&beforeTotal<Number(req.voter_count||0))return null;
+    const beforeRequired=Math.floor((Number(claimedReq.voter_count||0)+1)/2)+1;
+    if(beforeYes+1<beforeRequired&&!beforeExpired&&beforeTotal<Number(claimedReq.voter_count||0))return null;
   }
   if(!await claimManagerChangeFinalization(env,requestId,req.status,now,leaseMs))return null;
 
@@ -2650,7 +2650,7 @@ async function finalizeManagerChangeRequest(env,requestId) {
   const requiredTotal=Math.floor((Number(claimedReq.voter_count||0)+1)/2)+1;
   let status=null;
   if(approvedTotal>=requiredTotal)status='approved';
-  else if(expired||total>=Number(req.voter_count||0))status='rejected';
+  else if(expired||total>=Number(claimedReq.voter_count||0))status='rejected';
   if(!status){
     await env.DB.prepare(`UPDATE manager_change_requests SET status='pending',finalizing_at=NULL
       WHERE id=? AND status='finalizing' AND finalizing_at=?`).bind(requestId,now).run();
@@ -2661,7 +2661,7 @@ async function finalizeManagerChangeRequest(env,requestId) {
     const applied=await applyManagerChange(env,{
       territoryId:claimedReq.territory_id,
       targetId:Number(claimedReq.target_telegram_id),
-      action:req.action,
+      action:claimedReq.action,
       initiatorId:Number(claimedReq.initiator_telegram_id),
     });
     if(!applied)status='rejected';
@@ -2674,7 +2674,7 @@ async function finalizeManagerChangeRequest(env,requestId) {
   const target=await env.DB.prepare(`SELECT mc_nickname FROM users WHERE telegram_id=?`).bind(Number(claimedReq.target_telegram_id)).first();
   const city=await env.DB.prepare(`SELECT name FROM territories WHERE id=?`).bind(claimedReq.territory_id).first();
   const resultText=status==='approved'?'✅ Решение одобрено':'❌ Решение отклонено';
-  try{await telegram(env,'sendMessage',{chat_id:Number(claimedReq.initiator_telegram_id),text:`${resultText}\n\n🏙 ${escapeHtml(city?.name||'Город')}\n👤 ${escapeHtml(target?.mc_nickname||`id${req.target_telegram_id}`)}`,parse_mode:'HTML'})}catch{}
+  try{await telegram(env,'sendMessage',{chat_id:Number(claimedReq.initiator_telegram_id),text:`${resultText}\n\n🏙 ${escapeHtml(city?.name||'Город')}\n👤 ${escapeHtml(target?.mc_nickname||`id${claimedReq.target_telegram_id}`)}`,parse_mode:'HTML'})}catch{}
   return {status,yes,total};
 }
 
