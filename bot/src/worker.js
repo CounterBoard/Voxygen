@@ -2183,17 +2183,24 @@ async function purchaseCustomizationItem(request, env, ctx = null) {
     .bind(spendLogId,attributedCity?.id||null,userId,itemId,Number(item.price),acquiredAt,attributedCity?.id||null,Number(item.price));
   // Debit, inventory grant and achievement-spend journal are one D1 transaction.
   // The NOT EXISTS predicate makes simultaneous/retried purchases idempotent for the selected account.
-  const purchaseBatch=accountCity
+  let purchaseBatch;
+  try {
+    purchaseBatch=accountCity
     ?await env.DB.batch([
       env.DB.prepare(`UPDATE city_treasury SET balance=balance-?,updated_at=? WHERE territory_id=? AND balance>=? AND NOT EXISTS (SELECT 1 FROM city_items WHERE territory_id=? AND item_id=?) AND NOT EXISTS (SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(Number(item.price),acquiredAt,accountCity.id,Number(item.price),accountCity.id,itemId,userId),
       env.DB.prepare(`INSERT INTO city_items (territory_id,item_id,acquired_at,source) SELECT ?,?,?,'treasury_purchase' WHERE changes()=1`).bind(accountCity.id,itemId,acquiredAt),
       spendLogStatement,
     ])
     :await env.DB.batch([
-      env.DB.prepare(`UPDATE user_currency SET balance=balance-? WHERE telegram_id=? AND balance>=? AND NOT EXISTS (SELECT 1 FROM user_items WHERE telegram_id=? AND item_id=?)`).bind(Number(item.price),userId,Number(item.price),userId,itemId),
+      env.DB.prepare(`UPDATE user_currency SET balance=balance-? WHERE telegram_id=? AND balance>=? AND NOT EXISTS (SELECT 1 FROM user_items WHERE telegram_id=? AND item_id=?) AND NOT EXISTS (SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(Number(item.price),userId,Number(item.price),userId,itemId,userId),
       env.DB.prepare(`INSERT INTO user_items (telegram_id,item_id,acquired_at,source) SELECT ?,?,?,'purchase' WHERE changes()=1`).bind(userId,itemId,acquiredAt),
       spendLogStatement,
     ]);
+  } catch (error) {
+    const locked=await env.DB.prepare(`SELECT 1 AS locked FROM account_deletion_locks WHERE telegram_id=?`).bind(userId).first().catch(()=>null);
+    if(locked)return json({ok:false,error:'Аккаунт находится в процессе удаления'},409);
+    throw error;
+  }
   if(!purchaseBatch?.[0]?.meta?.changes){
     const ownedNow=accountCity
       ?await env.DB.prepare('SELECT item_id FROM city_items WHERE territory_id=? AND item_id=?').bind(accountCity.id,itemId).first()
