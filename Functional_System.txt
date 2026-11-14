@@ -3751,3 +3751,14 @@ removeManagedUserRelations теперь использует сохранённ�
 
 Банковский ledger и уже опубликованные события сохраняются как история. bank_transactions не переписывается на новый ID, чтобы не менять историческую атрибуцию банковских операций. Добавлен regression test на очистку destination, перенос source и атомарность rekey.
 
+34.59 ЗАЩИТА NICKNAME-ONLY INVITES ОТ ГОНКИ С УДАЛЕНИЕМ
+
+Обнаружен дополнительный крайний случай: city_invites может хранить приглашение только по target_nickname, пока пользователь ещё не привязал Telegram ID. В этот момент target_telegram_id равен NULL, поэтому обычная проверка lock по Telegram ID не видит, что никнейм уже принадлежит удаляемому аккаунту.
+
+WORLD_SCHEMA_VERSION повышен до 2026-11-v35. При миграции старые city_invites INSERT/identity UPDATE triggers удаляются и создаются заново с nickname-aware проверками:
+- новый invite отклоняется, если target_nickname совпадает с mc_nickname пользователя, чей Telegram ID заблокирован;
+- проверяется как users, так и user_directory, чтобы защита сохранялась после удаления users, пока каталог ещё не очищен;
+- UPDATE target_nickname также проверяет старое и новое значение, наряду с target_telegram_id и invited_by.
+
+Это закрывает окно, в котором новое nickname-only приглашение могло появиться после отмены старых приглашений, но до снятия account deletion lock. Добавлен regression test, проверяющий связку user_directory и lock. Приглашения на никнеймы, не принадлежащие существующим/удаляемым аккаунтам, по-прежнему разрешены.
+
