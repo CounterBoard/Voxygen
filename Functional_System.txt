@@ -2730,3 +2730,16 @@ Manifest нельзя кешировать надолго, поскольку о
 - при неуспешном dispatch новый URL не записывается;
 - commit 0d5d567908193145b9c3ce246cb53e887f52754e;
 - CI run 43571346363 завершился success.
+
+
+34.12. Пересчёт Deep Zoom при изменении viewport
+
+В WorldMap visible tile set вычисляется из viewport.clientWidth/clientHeight, текущего pan/scale и devicePixelRatio. До исправления пересчёт запускался при жестах (pan, pinch, wheel), но не при изменении размера viewport без жеста. При повороте устройства, изменении высоты панели или responsive resize могла оставаться старая выборка тайлов: preview продолжал отображаться, но высокодетализированные тайлы не покрывали новую область.
+
+Исправлено в src/App.jsx:
+- добавлен ResizeObserver на map viewport;
+- при resize вызывается scheduleTileRefresh(), существующий debounce 110 ms объединяет частые resize события;
+- observer отключается в cleanup;
+- если ResizeObserver отсутствует, прежний preview и ручной пересчёт сохраняют работоспособность.
+
+Изменение затрагивает только клиентский tile selection, не координаты территорий и не map manifest. Проверка CI подтверждает синтаксис/build, но поведение при реальном Android orientation change требует browser/WebView runtime test.
