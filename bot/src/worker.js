@@ -3724,6 +3724,14 @@ async function updateManagedUser(request, env, userDirectoryId) {
   return json({ok:true,user:{id:userDirectoryId,telegram_id:targetId,telegram_username:username,mc_nickname:nickname,skin_texture_id:finalTexture,skin_url:skinUrlFromTexture(finalTexture,nickname)}});
 }
 
+async function completeRequiredAccountCleanup(env,telegramId,affectedVisualCities=[]) {
+  const tid=Number(telegramId);
+  await env.DB.prepare(`DELETE FROM inspectors WHERE telegram_id=?`).bind(tid).run();
+  await env.DB.prepare(`DELETE FROM user_items WHERE telegram_id=?`).bind(tid).run();
+  await env.DB.prepare(`DELETE FROM user_currency WHERE telegram_id=?`).bind(tid).run();
+  for(const row of affectedVisualCities||[]) await reconcileTerritoryVisualEquipment(env,row.territory_id);
+}
+
 async function removeManagedUserRelations(env, telegramId) {
   const tid=Number(telegramId); if(!Number.isSafeInteger(tid)||tid<=0)return;
   const affectedVisualCities=await env.DB.prepare(`
@@ -3757,16 +3765,8 @@ async function removeManagedUserRelations(env, telegramId) {
   try{await env.DB.prepare(`DELETE FROM manager_change_votes WHERE voter_telegram_id=?`).bind(tid).run()}catch{}
   await env.DB.prepare(`UPDATE city_invites SET status='cancelled',responded_at=?,notification_claimed_at=NULL
     WHERE status='pending' AND (target_telegram_id=? OR invited_by=?)`).bind(Date.now(),tid,tid).run();
-  // These are required account-cleanup operations. Propagate failures so the
-  // caller cannot delete the account row or report success while personal state remains.
-  await env.DB.prepare(`DELETE FROM inspectors WHERE telegram_id=?`).bind(tid).run();
-  await env.DB.prepare(`DELETE FROM user_items WHERE telegram_id=?`).bind(tid).run();
-  await env.DB.prepare(`DELETE FROM user_currency WHERE telegram_id=?`).bind(tid).run();
-  // Reconciliation is also part of successful removal: a failed pass leaves the
-  // users row available for an idempotent retry instead of silently stranding equipment.
-  for(const row of affectedVisualCities.results||[]){
-    await reconcileTerritoryVisualEquipment(env,row.territory_id);
-  }
+  // Required cleanup and equipment reconciliation must succeed before account rows are deleted.
+  await completeRequiredAccountCleanup(env,tid,affectedVisualCities.results||[]);
 }
 
 async function purgeLegacyRemovedUsers(env) {
@@ -6483,4 +6483,4 @@ export default {
   },
 };
 
-export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual };
+export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup };
