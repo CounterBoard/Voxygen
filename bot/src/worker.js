@@ -6462,4 +6462,4 @@ export default {
   },
 };
 
-export { verifyInitData, parseBankCommand, applyBankBalanceChange };
+export { verifyInitData, parseBankCommand, applyBankBalanceChange, isTerritoryManager };
