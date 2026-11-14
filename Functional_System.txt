@@ -3002,3 +3002,44 @@ CI подтверждение:
 batch и operation record, но не Cloudflare D1 locks, транзакционные rollback,
 уникальные индексы, реальную конкуренцию двух запросов или сетевые повторы.
 Для production-grade доказательства остаётся D1 integration/concurrency test.
+
+
+======================================================================
+34.22. AUTHENTICATION / MAIN INSPECTOR CONFIGURATION REVIEW
+======================================================================
+
+Проверены verifyInitData(), getCurrentUser(), requireUser(),
+requireVerifiedUser(), requireMainInspector() и getRoleByTelegramId().
+
+Подтверждено кодом:
+- Telegram Init Data проверяется HMAC SHA-256 по BOT_TOKEN;
+- hash обязателен; user JSON обязателен;
+- auth_date проверяется на positive safe integer, не более 60 секунд
+  в будущем и не старше 24 часов;
+- requireVerifiedUser дополнительно требует users.status='verified' и
+  непустой Minecraft nickname;
+- main inspector bypass не выводится из таблицы inspectors: его проверка
+  отдельная, а обычный inspector не становится main inspector;
+- route-auth-matrix проверяет 70 protected method/path вариантов без Init Data
+  и ожидает 401 до protected work.
+
+Риски/дальнейшее усиление:
+- 24-часовой срок Telegram Init Data позволяет повторное использование
+  подписанных данных в течение этого окна (при компрометации/перехвате).
+  Рассмотреть сокращение до 1 часа и/или серверный replay nonce, оценив
+  влияние на Telegram WebView и повторные запросы.
+- getCurrentUser() принимает initData также из URL query. Предпочтительнее
+  body/header; query string может попадать в browser history, telemetry,
+  proxy logs и referrer. Перед удалением query fallback проверить старые
+  клиенты и миграцию.
+- INSPECTOR_CHAT_ID поддерживает numeric ID и username fallback. Для
+  production привилегированной роли предпочтителен неизменяемый numeric
+  Telegram ID; username может измениться/быть переиспользован. Текущее
+  поведение сохранено ради совместимости и не считается ошибкой без проверки
+  фактического значения secret.
+- unit tests verifyInitData подтверждают подпись и срок действия, но не
+  покрывают replay, key rotation, реальные Telegram WebView заголовки,
+  usernames и полноценную роль main inspector на API/D1 fixtures.
+
+Эти пункты — security hardening backlog; не утверждается, что production
+secret/configuration проверены или что реальный webhook/Worker запускался.
