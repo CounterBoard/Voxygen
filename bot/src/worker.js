@@ -3651,6 +3651,41 @@ statements.push(env.DB.prepare(`DELETE FROM manager_change_votes WHERE voter_tel
   }
 }
 
+function buildOrphanedOwnerRepairStatement(env,{territoryId,staleOwnerId,telegramId,nickname,fallbackUsername}) {
+  const tid=Number(telegramId),stale=Number(staleOwnerId),name=String(nickname||'').trim();
+  const fallback=String(fallbackUsername||'').replace(/^@+/,'').trim();
+  return env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,
+      owner_telegram_username=(SELECT COALESCE(NULLIF(trim(u.telegram_username),''),?) FROM users u WHERE u.telegram_id=?),
+      owner_input=(SELECT u.mc_nickname FROM users u WHERE u.telegram_id=?)
+    WHERE id=? AND status='approved' AND owner_telegram_id=?
+      AND NOT EXISTS(SELECT 1 FROM users current_owner
+        WHERE current_owner.telegram_id=territories.owner_telegram_id AND current_owner.status='verified')
+      AND EXISTS(SELECT 1 FROM users u WHERE u.telegram_id=? AND u.status='verified'
+        AND trim(COALESCE(u.mc_nickname,''))<>''
+        AND lower(trim(u.mc_nickname))=lower(trim(?))
+        AND (SELECT COUNT(*) FROM users eligible WHERE eligible.status='verified'
+          AND lower(trim(eligible.mc_nickname))=lower(trim(?)))=1)`)
+    .bind(tid,fallback,tid,tid,String(territoryId),stale,tid,name,name);
+}
+
+function buildUnclaimedOwnerRepairStatement(env,{territoryId,telegramId,nickname,fallbackUsername,ownerInput}) {
+  const tid=Number(telegramId),name=String(nickname||'').trim();
+  const fallback=String(fallbackUsername||'').replace(/^@+/,'').trim();
+  const input=String(ownerInput||'').trim(),inputUsername=input.replace(/^@+/,'');
+  return env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,
+      owner_telegram_username=(SELECT COALESCE(NULLIF(trim(u.telegram_username),''),?) FROM users u WHERE u.telegram_id=?),
+      owner_input=(SELECT u.mc_nickname FROM users u WHERE u.telegram_id=?)
+    WHERE id=? AND status='approved' AND owner_telegram_id IS NULL
+      AND EXISTS(SELECT 1 FROM users u WHERE u.telegram_id=? AND u.status='verified'
+        AND trim(COALESCE(u.mc_nickname,''))<>''
+        AND (lower(trim(u.mc_nickname))=lower(trim(?))
+          OR lower(replace(trim(COALESCE(NULLIF(u.telegram_username,''),?)),'@',''))=lower(?))
+        AND (SELECT COUNT(*) FROM users eligible WHERE eligible.status='verified'
+          AND (lower(trim(eligible.mc_nickname))=lower(trim(?))
+            OR lower(replace(trim(eligible.telegram_username),'@',''))=lower(?)))=1)`)
+    .bind(tid,fallback,tid,tid,String(territoryId),tid,input,fallback,inputUsername,input,inputUsername);
+}
+
 async function repairOrphanedTerritoryOwnersForUser(env, telegramId, nickname) {
   const tid=Number(telegramId||0),name=String(nickname||'').trim();
   if(!Number.isSafeInteger(tid)||tid<=0||!name)return;
@@ -3671,9 +3706,7 @@ async function repairOrphanedTerritoryOwnersForUser(env, telegramId, nickname) {
     if((matches.results||[]).length!==1||Number(matches.results[0].telegram_id)!==tid)continue;
     const staleOwnerId=Number(row.owner_telegram_id);
     const transition=await env.DB.batch([
-      env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=?
-        WHERE id=? AND status='approved' AND owner_telegram_id=?`)
-        .bind(tid,user.telegram_username||null,user.mc_nickname||name,row.id,staleOwnerId),
+      buildOrphanedOwnerRepairStatement(env,{territoryId:row.id,staleOwnerId,telegramId:tid,nickname:user.mc_nickname||name,fallbackUsername:user.telegram_username||''}),
       env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id IN (?,?)
         AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
         .bind(row.id,staleOwnerId,tid,row.id,tid),
@@ -3701,9 +3734,7 @@ async function repairOrphanedTerritoryOwnersForUser(env, telegramId, nickname) {
     `).bind(String(row.owner_input||''),String(row.owner_input||'').replace(/^@+/,'')).all();
     if((candidates.results||[]).length!==1||Number(candidates.results[0].telegram_id)!==tid)continue;
     const transition=await env.DB.batch([
-      env.DB.prepare(`UPDATE territories SET owner_telegram_id=?,owner_telegram_username=?,owner_input=?
-        WHERE id=? AND status='approved' AND owner_telegram_id IS NULL`)
-        .bind(tid,user.telegram_username||null,user.mc_nickname||name,row.id),
+      buildUnclaimedOwnerRepairStatement(env,{territoryId:row.id,telegramId:tid,nickname:user.mc_nickname||name,fallbackUsername:user.telegram_username||'',ownerInput:row.owner_input}),
       env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?
         AND EXISTS(SELECT 1 FROM territories WHERE id=? AND owner_telegram_id=?)`)
         .bind(row.id,tid,row.id,tid),
@@ -6622,4 +6653,4 @@ export default {
   },
 };
 
-export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement };
+export { verifyInitData, parseBankCommand, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
