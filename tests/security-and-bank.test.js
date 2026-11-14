@@ -151,7 +151,7 @@ test("bank debit records rejection without changing the balance when funds are i
 
 
 class FakeFinancialD1 {
-  constructor(balance) { this.balance=balance; this.operations=new Map(); }
+  constructor(balance) { this.personalBalance=balance; this.treasuryBalance=0; this.operations=new Map(); }
   prepare(sql) {
     const st={sql,binds:[],bind(...values){this.binds=values;return this;},first:async()=>{
       if(sql.includes("SELECT operation_id,telegram_id,operation_type,target_id,amount,status"))return this.operations.get(st.binds[0])||null;
@@ -166,9 +166,9 @@ class FakeFinancialD1 {
       if(s.includes("INSERT OR IGNORE INTO financial_operations")){
         if(!this.operations.has(b[0])){this.operations.set(b[0],{operation_id:b[0],telegram_id:b[1],operation_type:b[2],target_id:b[3],amount:b[4],status:"processing"});changes=1;}
       }else if(s.includes("UPDATE user_currency SET balance=balance-?")){
-        if(previousChanges===1&&this.operations.get("op-123")?.status==="processing"&&this.balance>=b[2]){this.balance-=b[0];changes=1;}
+        if(previousChanges===1&&this.operations.get("op-123")?.status==="processing"&&this.personalBalance>=b[2]){this.personalBalance-=b[0];changes=1;}
       }else if(s.includes("INSERT INTO city_treasury")){
-        if(previousChanges===1){this.balance+=b[1];changes=1;}
+        if(previousChanges===1){this.treasuryBalance+=b[1];changes=1;}
       }else if(s.includes("UPDATE financial_operations SET status=CASE")){
         const op=this.operations.get(b[1]);if(op&&op.status==="processing"){op.status=previousChanges===1?"completed":"rejected";changes=1;}
       }
@@ -184,10 +184,10 @@ test("financial transfer operation ID is replay-safe and does not debit twice", 
     debitStatement:DB.prepare("UPDATE user_currency SET balance=balance-? WHERE telegram_id=? AND balance>=?").bind(30,7,30),
     creditStatement:DB.prepare("INSERT INTO city_treasury(territory_id,balance,updated_at) SELECT ?,?,? WHERE changes()=1").bind("city-A",30,1)};
   const first=await executeIdempotentFinancialTransfer({DB},args);
-  const replay=await executeIdempotentFinancialTransfer(DB,args);
+  const replay=await executeIdempotentFinancialTransfer({DB},args);
   assert.equal(first.status,"completed");
   assert.equal(replay.replayed,true);
-  assert.equal(DB.balance,70);
+  assert.equal(DB.personalBalance,70);\n  assert.equal(DB.treasuryBalance,30);
 });
 
 test("financial transfer rejects operation ID reuse with different payload", async () => {
