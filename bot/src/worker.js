@@ -2637,11 +2637,17 @@ async function finalizeManagerChangeRequest(env,requestId) {
   }
   if(!await claimManagerChangeFinalization(env,requestId,req.status,now,leaseMs))return null;
 
+  // Re-read after claim: identity rekey or account removal may have cancelled
+  // or rewritten the request between the initial read and the atomic claim.
+  const claimedReq=await env.DB.prepare(`SELECT * FROM manager_change_requests
+    WHERE id=? AND status='finalizing' AND finalizing_at=?`).bind(requestId,now).first();
+  if(!claimedReq)return null;
+
   // Votes are frozen by the status claim: the vote endpoint only inserts while pending.
   const votes=await env.DB.prepare(`SELECT SUM(CASE WHEN approve=1 THEN 1 ELSE 0 END) AS yes,COUNT(*) AS total FROM manager_change_votes WHERE request_id=?`).bind(requestId).first();
-  const yes=Number(votes?.yes||0),total=Number(votes?.total||0),expired=now>=Number(req.expires_at||0);
+  const yes=Number(votes?.yes||0),total=Number(votes?.total||0),expired=now>=Number(claimedReq.expires_at||0);
   const approvedTotal=yes+1;
-  const requiredTotal=Math.floor((Number(req.voter_count||0)+1)/2)+1;
+  const requiredTotal=Math.floor((Number(claimedReq.voter_count||0)+1)/2)+1;
   let status=null;
   if(approvedTotal>=requiredTotal)status='approved';
   else if(expired||total>=Number(req.voter_count||0))status='rejected';
@@ -2653,10 +2659,10 @@ async function finalizeManagerChangeRequest(env,requestId) {
 
   if(status==='approved'){
     const applied=await applyManagerChange(env,{
-      territoryId:req.territory_id,
-      targetId:Number(req.target_telegram_id),
+      territoryId:claimedReq.territory_id,
+      targetId:Number(claimedReq.target_telegram_id),
       action:req.action,
-      initiatorId:Number(req.initiator_telegram_id),
+      initiatorId:Number(claimedReq.initiator_telegram_id),
     });
     if(!applied)status='rejected';
   }
@@ -2665,10 +2671,10 @@ async function finalizeManagerChangeRequest(env,requestId) {
     WHERE id=? AND status='finalizing' AND finalizing_at=?`).bind(status,now,requestId,now).run();
   if(!decision.meta?.changes)return null;
 
-  const target=await env.DB.prepare(`SELECT mc_nickname FROM users WHERE telegram_id=?`).bind(Number(req.target_telegram_id)).first();
-  const city=await env.DB.prepare(`SELECT name FROM territories WHERE id=?`).bind(req.territory_id).first();
+  const target=await env.DB.prepare(`SELECT mc_nickname FROM users WHERE telegram_id=?`).bind(Number(claimedReq.target_telegram_id)).first();
+  const city=await env.DB.prepare(`SELECT name FROM territories WHERE id=?`).bind(claimedReq.territory_id).first();
   const resultText=status==='approved'?'✅ Решение одобрено':'❌ Решение отклонено';
-  try{await telegram(env,'sendMessage',{chat_id:Number(req.initiator_telegram_id),text:`${resultText}\n\n🏙 ${escapeHtml(city?.name||'Город')}\n👤 ${escapeHtml(target?.mc_nickname||`id${req.target_telegram_id}`)}`,parse_mode:'HTML'})}catch{}
+  try{await telegram(env,'sendMessage',{chat_id:Number(claimedReq.initiator_telegram_id),text:`${resultText}\n\n🏙 ${escapeHtml(city?.name||'Город')}\n👤 ${escapeHtml(target?.mc_nickname||`id${req.target_telegram_id}`)}`,parse_mode:'HTML'})}catch{}
   return {status,yes,total};
 }
 
