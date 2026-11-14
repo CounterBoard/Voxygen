@@ -191,7 +191,8 @@ test("Telegram ID rekey transfers personal settings and event state atomically",
 
 test("Telegram webhook ignores locked actors before any message or callback mutation", async () => {
   const source = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\s+/g, " ");
-  const webhook = source.slice(source.indexOf("async function webhook"), source.indexOf("// --------------------------------------------------------------------------- v19"));
+  const webhookStart = source.indexOf("async function webhook");
+  const webhook = source.slice(webhookStart, source.indexOf("async function initializeEventsTables", webhookStart));
   const gate = webhook.indexOf("const deletionLock=await env.DB.prepare");
   assert.ok(gate >= 0);
   assert.ok(gate < webhook.indexOf("INSERT INTO users"), "locked callback/message actors must be rejected before user sync");
