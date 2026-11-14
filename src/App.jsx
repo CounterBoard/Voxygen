@@ -888,6 +888,37 @@ function Dot({ c }) {
   return <span style={{ width: 7, height: 7, borderRadius: '50%', background: c, display: 'inline-block' }} />;
 }
 
+/** Theme-aware icon-only action with an explicit accessible name and stable touch target. */
+function IconButton({ icon: Icon, label, title = label, size = 'var(--theme-icon-button-size)', radius = 'var(--theme-radius-control)', variant = 'neutral', onClick, disabled = false, style = {}, ...props }) {
+  const variants = {
+    neutral: { background:'var(--theme-color-surface-raised)', color:'var(--theme-color-text-muted)', border:'1px solid var(--theme-color-border)' },
+    primary: { background:'var(--theme-color-action-primary-soft)', color:'var(--theme-color-action-primary)', border:'1px solid var(--theme-color-action-primary-border)' },
+    success: { background:'var(--theme-color-status-success-soft)', color:'var(--theme-color-status-success)', border:'1px solid var(--theme-color-border)' },
+    danger: { background:'var(--theme-color-status-danger-soft)', color:'var(--theme-color-status-danger)', border:'1px solid var(--theme-color-status-danger-border)' },
+    ghost: { background:'transparent', color:'var(--theme-color-text-muted)', border:'1px solid transparent' },
+  };
+  return (
+    <button
+      type="button"
+      {...props}
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={label}
+      className="press atlas-icon-button"
+      style={{
+        width:size, height:size, minWidth:size, minHeight:size, padding:0,
+        borderRadius:radius, display:'inline-flex', alignItems:'center',
+        justifyContent:'center', flexShrink:0,
+        cursor:disabled?'not-allowed':'pointer', opacity:disabled?0.5:1,
+        ...variants[variant] || variants.neutral, ...style,
+      }}
+    >
+      {Icon && <Icon size={18} strokeWidth={2} aria-hidden="true" />}
+    </button>
+  );
+}
+
 function iconBtn(bg, color, square) {
   return {
     width: 'var(--theme-icon-button-size)', height: 'var(--theme-icon-button-size)',
@@ -999,7 +1030,7 @@ function AddTerritoryModal({ onClose, onSubmit, isMainInspector = false }) {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div className="atlas-display" style={{ fontSize: 16, fontWeight: 700 }}>Добавить территорию</div>
-          <button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)', 'var(--text-muted)')}><X size={16} /></button>
+          <IconButton icon={X} label="Закрыть окно" onClick={requestClose} />
         </div>
 
         <Field label="Название территории" value={name} onChange={(e) => setName(e.target.value)} />
@@ -1888,7 +1919,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
     <div onClick={e=>e.stopPropagation()} className={'atlas-modal-shell'+(closing?' atlas-closing':'')} style={{width:'min(448px,100%)',maxHeight:'84vh',overflowY:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:22,padding:18,boxSizing:'border-box'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:16}}>
         <div className="atlas-display" style={{fontSize:19,fontWeight:750}}>Настройки</div>
-        <button onClick={requestClose} className="press" aria-label="Закрыть настройки" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button>
+        <IconButton icon={X} label="Закрыть настройки" onClick={requestClose} />
       </div>
       {loading?<div style={{padding:'24px 0',textAlign:'center',fontSize:13,color:'var(--text-muted)'}}>Загрузка настроек…</div>:!settings?<div style={{fontSize:12.5,color:'var(--red)',lineHeight:1.5}}>
         {error||'Настройки недоступны.'}
@@ -1978,7 +2009,7 @@ function GlobalSettingsPanel({ initData, onSettingsChanged, onClose, timezoneOff
   const secondaryStyle={minHeight:38,border:'1px solid var(--border)',borderRadius:9,padding:'0 11px',background:'var(--surface)',color:'var(--text)',fontWeight:700,fontSize:12};
   return <div className={'atlas-overlay'+(closing?' atlas-closing':'')} style={{position:'fixed',inset:0,zIndex:140,background:'rgba(0,0,0,.82)',display:'flex',alignItems:'center',justifyContent:'center',padding:'18px 14px'}} onClick={requestClose}>
     <div onClick={e=>e.stopPropagation()} className={'atlas-modal-shell'+(closing?' atlas-closing':'')} style={{width:'min(448px,100%)',maxHeight:'88vh',overflowY:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:22,padding:18,boxSizing:'border-box'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:8}}><div className="atlas-display" style={{fontSize:19,fontWeight:800}}>Глобальные настройки</div><button onClick={requestClose} className="press" aria-label="Закрыть глобальные настройки" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:8}}><div className="atlas-display" style={{fontSize:19,fontWeight:800}}>Глобальные настройки</div><IconButton icon={X} label="Закрыть глобальные настройки" onClick={requestClose} /></div>
       <div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.45,marginBottom:14}}>Каждая настройка включается и снимается независимо. Глобальные значения временно заменяют личные настройки пользователей, пока те не выберут собственное значение или пока не закончится срок действия.</div>
       {loading?<div style={{padding:16,color:'var(--text-muted)',fontSize:12}}>Загрузка…</div>:<>
         <div style={sectionStyle}><div style={{fontSize:13,fontWeight:750,marginBottom:4}}>Тема</div><div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{status(themeRow)}</div>
@@ -2415,7 +2446,7 @@ function ReplyBox({ onSend }) {
 function ResidentsModal({ residents, members = [], pendingInvites = [], ownerName, isOwner, onClose, newResident, setNewResident, onAdd, onRemove, onCancelInvite }) {
   const displayMembers=members.length?members:residents.map((name,i)=>({mc_nickname:name,fallback:i}));
   const { closing, requestClose } = useAnimatedClose(onClose, 175);
-  return <div className={`atlas-overlay${closing ? ' atlas-closing' : ''}`} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.82)',zIndex:60,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing ? ' atlas-closing' : ''}`} style={{width:'100%',maxWidth:448,background:'var(--surface)',borderRadius:22,border:'1px solid var(--border)',padding:18,maxHeight:'70vh',overflowY:'auto'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Жители</div><button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div><div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:isOwner?14:0}}>{displayMembers.length===0?<div style={{fontSize:12.5,color:'var(--text-muted)'}}>Список жителей пуст.</div>:displayMembers.map(m=><div key={m.telegram_id||m.fallback||m.mc_nickname} style={{display:'flex',alignItems:'center',gap:10,background:'var(--surface-2)',borderRadius:12,padding:'9px 12px'}}><User size={15} color="var(--text-muted)"/><MinecraftText text={m.mc_nickname||'Неизвестно'} style={{fontSize:13.5,flex:1}}/>{isOwner&&m.telegram_id&&<button onClick={()=>onRemove(m)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><Trash2 size={14}/></button>}</div>)}</div>{isOwner&&pendingInvites.length>0&&<div style={{marginBottom:14}}><div style={{fontSize:12,fontWeight:700,color:'var(--gold)',marginBottom:7}}>Ожидают ответа</div>{pendingInvites.map(inv=><div key={inv.id} style={{display:'flex',alignItems:'center',gap:8,background:'var(--gold-soft)',borderRadius:12,padding:'9px 10px',marginBottom:7}}><Clock size={14} color="var(--gold)"/><MinecraftText text={inv.target_nickname} style={{flex:1,fontSize:12.5}}/><button onClick={()=>onCancelInvite(inv.id)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><X size={15}/></button></div>)}</div>}{isOwner&&<div style={{display:'flex',gap:8}}><input value={newResident} onChange={e=>setNewResident(e.target.value)} placeholder="Ник игрока" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'9px 12px',color:'var(--text)',fontSize:13}}/><button onClick={onAdd} className="press" style={iconBtn('var(--purple)','#fff',true)}><UserPlus size={15}/></button></div>}</div></div>;
+  return <div className={`atlas-overlay${closing ? ' atlas-closing' : ''}`} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.82)',zIndex:60,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing ? ' atlas-closing' : ''}`} style={{width:'100%',maxWidth:448,background:'var(--surface)',borderRadius:22,border:'1px solid var(--border)',padding:18,maxHeight:'70vh',overflowY:'auto'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Жители</div><IconButton icon={X} label="Закрыть окно" onClick={requestClose} /></div><div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:isOwner?14:0}}>{displayMembers.length===0?<div style={{fontSize:12.5,color:'var(--text-muted)'}}>Список жителей пуст.</div>:displayMembers.map(m=><div key={m.telegram_id||m.fallback||m.mc_nickname} style={{display:'flex',alignItems:'center',gap:10,background:'var(--surface-2)',borderRadius:12,padding:'9px 12px'}}><User size={15} color="var(--text-muted)"/><MinecraftText text={m.mc_nickname||'Неизвестно'} style={{fontSize:13.5,flex:1}}/>{isOwner&&m.telegram_id&&<button onClick={()=>onRemove(m)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><Trash2 size={14}/></button>}</div>)}</div>{isOwner&&pendingInvites.length>0&&<div style={{marginBottom:14}}><div style={{fontSize:12,fontWeight:700,color:'var(--gold)',marginBottom:7}}>Ожидают ответа</div>{pendingInvites.map(inv=><div key={inv.id} style={{display:'flex',alignItems:'center',gap:8,background:'var(--gold-soft)',borderRadius:12,padding:'9px 10px',marginBottom:7}}><Clock size={14} color="var(--gold)"/><MinecraftText text={inv.target_nickname} style={{flex:1,fontSize:12.5}}/><button onClick={()=>onCancelInvite(inv.id)} className="press" style={{border:'none',background:'transparent',color:'var(--red)'}}><X size={15}/></button></div>)}</div>}{isOwner&&<div style={{display:'flex',gap:8}}><input value={newResident} onChange={e=>setNewResident(e.target.value)} placeholder="Ник игрока" style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'9px 12px',color:'var(--text)',fontSize:13}}/><button onClick={onAdd} className="press" style={iconBtn('var(--purple)','#fff',true)}><UserPlus size={15}/></button></div>}</div></div>;
 }
 
 function RecruitmentScreen({ territories, onSelect }) {
@@ -2962,7 +2993,7 @@ function MainTabs({ tab, onChange }) {
 }
 
 
-function SimpleModal({title,children,onClose}){const {closing,requestClose}=useAnimatedClose(onClose,175);return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:100,background:'var(--theme-color-surface-overlay)',display:'flex',alignItems:'center',justifyContent:'center',padding:'var(--theme-space-6) var(--theme-space-4)',backdropFilter:'blur(var(--theme-modal-backdrop-blur))',WebkitBackdropFilter:'blur(var(--theme-modal-backdrop-blur))'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(var(--theme-modal-max-width),100%)',maxHeight:'76vh',overflowY:'auto',margin:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--theme-radius-modal)',padding:'var(--theme-space-4)'}}><div style={{display:'flex',alignItems:'flex-start',justifyContent:title?'space-between':'flex-end',marginBottom:title?'var(--theme-space-3)':'var(--theme-space-2)'}}>{title&&<div className="atlas-display" style={{fontSize:'var(--theme-type-title-size)',fontWeight:'var(--theme-type-title-weight)',lineHeight:1.2}}>{title}</div>}<button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>{children}</div></div>}
+function SimpleModal({title,children,onClose}){const {closing,requestClose}=useAnimatedClose(onClose,175);return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:100,background:'var(--theme-color-surface-overlay)',display:'flex',alignItems:'center',justifyContent:'center',padding:'var(--theme-space-6) var(--theme-space-4)',backdropFilter:'blur(var(--theme-modal-backdrop-blur))',WebkitBackdropFilter:'blur(var(--theme-modal-backdrop-blur))'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(var(--theme-modal-max-width),100%)',maxHeight:'76vh',overflowY:'auto',margin:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--theme-radius-modal)',padding:'var(--theme-space-4)'}}><div style={{display:'flex',alignItems:'flex-start',justifyContent:title?'space-between':'flex-end',marginBottom:title?'var(--theme-space-3)':'var(--theme-space-2)'}}>{title&&<div className="atlas-display" style={{fontSize:'var(--theme-type-title-size)',fontWeight:'var(--theme-type-title-weight)',lineHeight:1.2}}>{title}</div>}<IconButton icon={X} label="Закрыть окно" onClick={requestClose} /></div>{children}</div></div>}
 function normalizedTelegramUsername(value) {
   const username=String(value||'').trim().replace(/^@+/,'');
   return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username) ? username : '';
@@ -3175,7 +3206,7 @@ function VisualEditModal({item,onClose,onSaved,initData}){
     <div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing ? ' atlas-closing' : ''}`} style={{width:'100%',maxWidth:448,maxHeight:'90vh',overflowY:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:22,padding:18}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
         <div className="atlas-display" style={{fontSize:18,fontWeight:700}}>Редактировать визуал</div>
-        <button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button>
+        <IconButton icon={X} label="Закрыть окно" onClick={requestClose} />
       </div>
       <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Название" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:10,color:'var(--text)',marginBottom:8}}/>
       <input value={form.categories} onChange={e=>setForm(f=>({...f,categories:e.target.value}))} placeholder="Теги через запятую" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:10,color:'var(--text)',marginBottom:8}}/>
