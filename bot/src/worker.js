@@ -2702,7 +2702,20 @@ async function handleManagerVoteCallback(env, callbackQuery) {
   const parts=String(callbackQuery.data||'').split(':'),decision=parts[1],requestId=parts.slice(2).join(':');
   const actorId=Number(callbackQuery.from?.id||0); if(!['yes','no'].includes(decision)||!requestId)return json({ok:true}); await ensureManagerChangeTables(env);
   const req=await env.DB.prepare(`SELECT * FROM manager_change_requests WHERE id=?`).bind(requestId).first(); if(!req){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Голосование не найдено',show_alert:true});return json({ok:true});}
-  if(req.status!=='pending'||Date.now()>Number(req.expires_at)){await finalizeManagerChangeRequest(env,requestId);await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Голосование завершено',show_alert:true});return json({ok:true});}
+  if(req.status==='finalizing'){
+    await finalizeManagerChangeRequest(env,requestId);
+    await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Решение уже обрабатывается',show_alert:true});
+    return json({ok:true});
+  }
+  if(req.status!=='pending'){
+    await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Голосование завершено',show_alert:true});
+    return json({ok:true});
+  }
+  if(Date.now()>Number(req.expires_at)){
+    await finalizeManagerChangeRequest(env,requestId);
+    await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'Время голосования истекло',show_alert:true});
+    return json({ok:true});
+  }
   if(!isEligibleManagerChangeVoter(actorId,req)||!(await isTerritoryManager(env,req.territory_id,actorId))){await telegram(env,'answerCallbackQuery',{callback_query_id:callbackQuery.id,text:'⛔ Голосовать может только другой основатель/мэр',show_alert:true});return json({ok:true});}
   const vote=await recordManagerChangeVote(env,requestId,actorId,decision==='yes',Date.now());
   const result=await finalizeManagerChangeRequest(env,requestId);
