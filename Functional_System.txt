@@ -3460,3 +3460,33 @@ applyBankBalanceChange() и parseBankCommand().
 Оставшееся замечание:
 - После успешного восстановления владельца reconcileTerritoryVisualEquipment() в этом helper по-прежнему вызывается через catch с логированием. Это отдельная проблема надёжного повторения пост-обработки: нельзя просто заменить catch на throw, поскольку изменение владельца уже могло сохраниться, а следующий запуск больше не увидит прежнее orphan-состояние. Требуется отдельный идемпотентный механизм отложенной reconciliation/retry.
 - Production Worker/D1 не развёртывались и не изменялись.
+
+
+34.38 ГОНКА МЕЖДУ УДАЛЕНИЕМ АККАУНТА И ПАРАЛЛЕЛЬНЫМИ ОПЕРАЦИЯМИ С ИДЕНТИЧНОСТЬЮ
+
+Обнаруженный риск:
+- deleteManagedUser() вызывает removeManagedUserRelations(), а та сначала получает snapshot затронутых территорий и отдельно snapshot территорий, принадлежащих удаляемому Telegram ID.
+- До физического удаления строки users статус пользователя остаётся прежним. В частности, verified-пользователь всё ещё проходит условие buildFounderClaimStatement(), поэтому параллельный claimTerritoryOwner() может назначить его владельцем уже после получения snapshot owned.
+- В этом случае последующий DELETE users оставляет owner_telegram_id без соответствующей users-записи; территория не попадает в первоначальный цикл передачи владельца.
+- Простая предварительная смена users.status на removed сама по себе недостаточна: claimNickname() выполняет UPSERT, который переводит конфликтующую строку обратно в pending. updateManagedUser() также имеет путь, который явно устанавливает status='verified'.
+- Дополнительно проверяются конкурентные rekeyManagedUserId() и finalizeManagerChangeRequest()/applyManagerChange(): они пакетно меняют users, territory_managers, city_memberships и ownership, поэтому локальная проверка только в endpoint удаления не обеспечивает общей защиты.
+
+Текущее состояние:
+- Риск подтверждён чтением последовательности SQL и порядка операций в Worker; исправление ещё не внесено.
+- В текущем deleteManagedUser() нет предварительного deletion-lock/тombstone, который блокировал бы новые операции с идентичностью до завершения cleanup.
+- Нужна единая защита на уровне записи, охватывающая регистрацию/повторную заявку, административное редактирование, перенос Telegram ID, назначение владельца и изменение manager/member-связей.
+- Механизм должен сохранять возможность безопасного повторного запуска после частичного сбоя и не сообщать об успешном удалении до завершения обязательных этапов.
+
+Проверяемые связанные пути:
+- claimTerritoryOwner() и buildFounderClaimStatement();
+- claimNickname();
+- updateManagedUser(), включая nickname-only update и rekey;
+- rekeyManagedUserId();
+- finalizeManagerChangeRequest() и applyManagerChange();
+- административные updateTerritoryOwner()/updateTerritoryManager();
+- purgeLegacyRemovedUsers().
+
+Ограничения:
+- Это подтверждённый аудитом дефект, но не доказательство фактического воспроизведения гонки на production D1.
+- Для проверки используются анализ SQL и регрессионные тесты; mock D1 не моделирует параллельное выполнение Cloudflare D1.
+- Production Worker/D1 не развёртывались и не изменялись.
