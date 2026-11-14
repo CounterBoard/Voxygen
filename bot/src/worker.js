@@ -10,6 +10,7 @@ import {
   worldCoordinateToPercent,
   normalizeMapZoomPercent,
 } from '../../shared/world-map-coordinates.js';
+import { isSupportedTheme, normalizeThemeId as normalizeVoxygenTheme } from '../../shared/theme-catalog.js';
 
 const TELEGRAM_API = "https://api.telegram.org";
 const EVENT_TABLES_INIT_CACHE = new WeakMap();
@@ -434,12 +435,6 @@ async function notifyMainInspectorOfPurchase(env, details) {
 
 const GLOBAL_SETTINGS_INIT_CACHE = new WeakMap();
 const GLOBAL_SETTING_KEYS = new Set(['theme', 'map_zoom']);
-const VOXYGEN_THEMES = new Set(['vox']);
-
-function normalizeVoxygenTheme(value) {
-  const theme = String(value || 'vox').trim().toLowerCase();
-  return VOXYGEN_THEMES.has(theme) ? theme : 'vox';
-}
 
 async function ensureGlobalSettingsTable(env) {
   let promise = GLOBAL_SETTINGS_INIT_CACHE.get(env);
@@ -558,7 +553,7 @@ async function saveAdminGlobalSetting(request, env) {
       value = String(normalizeMapZoomPercent(raw));
     } else {
       const theme = String(rawSettings[key] || '').trim().toLowerCase();
-      if (!VOXYGEN_THEMES.has(theme)) return json({ ok: false, error: 'Неизвестная тема оформления' }, 400);
+      if (!isSupportedTheme(theme)) return json({ ok: false, error: 'Неизвестная тема оформления' }, 400);
       value = normalizeVoxygenTheme(theme);
     }
     statements.push(env.DB.prepare(`INSERT INTO global_setting_overrides(setting_key,value,expires_at,updated_at,updated_by)

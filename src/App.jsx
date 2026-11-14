@@ -1,5 +1,6 @@
 // Voxygen-Version: v53
 import React, { useEffect, useState, useRef } from 'react';
+import { DEFAULT_THEME_ID } from '../shared/theme-catalog.js';
 import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, isValidWorldCoordinate, coordinateGeometryMatchesManifest, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
 import {
   Map as MapIcon, List as ListIcon, Users, MessageCircle, ThumbsUp, ThumbsDown,
@@ -283,118 +284,66 @@ function FontsAndTheme() {
         rel="stylesheet"
       />
       <style>{`
-        :root{
-          /* Voxygen visual system: dark neutral foundation + Mint + Purple + cyan GEM semantics */
-          --bg:#0A0B10;
-          --surface:#12151D;
-          --surface-2:#171B24;
-          --surface-3:#1D2230;
-
-          --text:#F7F8FC;
-          --text-secondary:#B5BBCB;
-          --text-muted:#7F879A;
-          --text-dim:#636B7E;
-
-          --purple:#8B5CF6;
-          --purple-soft:rgba(139,92,246,.14);
-          --purple-strong:rgba(139,92,246,.30);
-          --purple-border:rgba(139,92,246,.28);
-
-          --mint:#41FFA7;
-          --mint-soft:rgba(65,255,167,.11);
-          --mint-strong:rgba(65,255,167,.28);
-
-          /* Kept deliberately blue because gem balances already use it. */
-          --gem:#38BDF8;
-
-          /* Semantic states stay inside the Voxygen palette. */
-          --gold:var(--mint);
-          --gold-soft:var(--mint-soft);
-          --emerald:var(--mint);
-          --red:#FF5D73;
-          --red-soft:rgba(255,93,115,.12);
-          --red-border:rgba(255,93,115,.28);
-
-          --border:rgba(181,187,203,.12);
-          --shadow-sm:0 8px 22px rgba(0,0,0,.18);
-          --shadow-md:0 16px 42px rgba(0,0,0,.28);
-          --shadow-lg:0 26px 70px rgba(0,0,0,.38);
-          --glow-purple:0 14px 34px rgba(139,92,246,.17);
-          --glow-mint:0 14px 34px rgba(65,255,167,.12);
-          --ease-standard:cubic-bezier(.22,.72,.22,1);
-          --ease-interactive:cubic-bezier(.2,.85,.25,1);
-          --motion-tap:160ms;
-          --motion-standard:190ms;
-          --motion-modal:245ms;
-
-          --radius-md:16px;
-          --radius-lg:20px;
-        }
+        /* Theme values are owned by src/theme/theme-tokens.css. */
 
         *{ box-sizing:border-box; }
         html,body,#root{ min-height:100%; }
         body{
           margin:0;
-          background:var(--bg);
-          color:var(--text);
-          font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
           -webkit-font-smoothing:antialiased;
           text-rendering:optimizeLegibility;
         }
 
         .atlas-root{
           min-height:100vh;
-          font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
-          background:
-            radial-gradient(620px 360px at 100% -8%, rgba(139,92,246,.075), transparent 68%),
-            radial-gradient(520px 320px at -10% 40%, rgba(65,255,167,.045), transparent 72%),
-            linear-gradient(180deg,#0B0C11 0%,#090A0F 100%);
-          color:var(--text);
+          font-family:var(--theme-font-body);
+          background:var(--theme-app-background);
+          color:var(--theme-color-text-primary);
         }
 
         /* Typography: one display face and one reading face, with clear hierarchy. */
         .atlas-root h1,.atlas-root h2,.atlas-root h3,
         .atlas-root .atlas-display{
-          font-family:'Manrope',ui-sans-serif,system-ui,sans-serif!important;
-          color:var(--text);
+          font-family:var(--theme-font-display)!important;
+          color:var(--theme-color-text-primary);
         }
         .atlas-display{ letter-spacing:-.028em; }
         .atlas-root h1{
-          font-size:30px;
-          line-height:1.08;
+          font-size:var(--theme-type-display-size);
+          line-height:var(--theme-type-display-line-height);
           letter-spacing:-.035em;
-          font-weight:800;
-          margin:0 0 20px;
+          font-weight:var(--theme-type-display-weight);
+          margin:0 0 var(--theme-space-5);
         }
         .atlas-root h2{
-          font-size:24px;
+          font-size:var(--theme-type-headline-size);
           line-height:1.14;
           letter-spacing:-.028em;
-          font-weight:750;
-          margin:0 0 16px;
+          font-weight:var(--theme-type-headline-weight);
+          margin:0 0 var(--theme-space-4);
         }
         .atlas-root h3{
-          font-size:18px;
+          font-size:var(--theme-type-title-size);
           line-height:1.2;
           letter-spacing:-.018em;
-          font-weight:700;
-          margin:0 0 10px;
+          font-weight:var(--theme-type-title-weight);
+          margin:0 0 var(--theme-space-3);
         }
         .atlas-root p{
           margin:0 0 14px;
-          font-size:15px;
-          line-height:1.55;
+          font-size:var(--theme-type-body-size);
+          line-height:var(--theme-type-body-line-height);
           color:var(--text-secondary);
         }
         .atlas-root small{
-          font-size:12px;
+          font-size:var(--theme-type-label-size);
           line-height:1.45;
         }
         .atlas-root button,
         .atlas-root input,
         .atlas-root textarea,
         .atlas-root select{
-          font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
+          font-family:var(--theme-font-body);
         }
         .atlas-root button{
           font-weight:650;
@@ -420,8 +369,8 @@ function FontsAndTheme() {
         input::placeholder,textarea::placeholder{ color:var(--text-dim); }
         input:focus,textarea:focus,select:focus{
           outline:none;
-          border-color:rgba(65,255,167,.46)!important;
-          box-shadow:0 0 0 3px rgba(65,255,167,.08), 0 6px 24px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.025);
+          border-color:var(--theme-color-action-primary)!important;
+          box-shadow:0 0 0 3px var(--theme-color-action-primary-soft),var(--theme-shadow-low);
         }
 
         .atlas-root input[type="range"].slider-gold,
@@ -440,8 +389,8 @@ function FontsAndTheme() {
         .atlas-root input[type="range"].slider-gold::-webkit-slider-runnable-track,
         .atlas-root input[type="range"].slider-inspector::-webkit-slider-runnable-track,
         .atlas-root input[type="range"].slider-player::-webkit-slider-runnable-track{
-          height:4px;
-          border-radius:999px;
+          height:var(--theme-slider-track-height);
+          border-radius:var(--theme-radius-pill);
           background:linear-gradient(to right,var(--slider-fill) 0 var(--slider-progress),var(--surface-3) var(--slider-progress) 100%);
           border:0;
         }
@@ -450,36 +399,36 @@ function FontsAndTheme() {
         .atlas-root input[type="range"].slider-player::-webkit-slider-thumb{
           -webkit-appearance:none;
           appearance:none;
-          width:18px;
-          height:18px;
-          margin-top:-7px;
-          border-radius:50%;
-          border:2px solid #0A0B10;
+          width:var(--theme-slider-thumb-size);
+          height:var(--theme-slider-thumb-size);
+          margin-top:calc((var(--theme-slider-track-height) - var(--theme-slider-thumb-size)) / 2);
+          border-radius:var(--theme-radius-pill);
+          border:2px solid var(--theme-color-canvas);
           background:var(--slider-fill);
           box-shadow:0 1px 4px rgba(0,0,0,.35);
         }
         .atlas-root input[type="range"].slider-gold::-moz-range-track,
         .atlas-root input[type="range"].slider-inspector::-moz-range-track,
         .atlas-root input[type="range"].slider-player::-moz-range-track{
-          height:4px;
-          border-radius:999px;
+          height:var(--theme-slider-track-height);
+          border-radius:var(--theme-radius-pill);
           background:var(--surface-3);
           border:0;
         }
         .atlas-root input[type="range"].slider-gold::-moz-range-progress,
         .atlas-root input[type="range"].slider-inspector::-moz-range-progress,
         .atlas-root input[type="range"].slider-player::-moz-range-progress{
-          height:4px;
-          border-radius:999px;
+          height:var(--theme-slider-track-height);
+          border-radius:var(--theme-radius-pill);
           background:var(--slider-fill);
         }
         .atlas-root input[type="range"].slider-gold::-moz-range-thumb,
         .atlas-root input[type="range"].slider-inspector::-moz-range-thumb,
         .atlas-root input[type="range"].slider-player::-moz-range-thumb{
-          width:18px;
-          height:18px;
-          border-radius:50%;
-          border:2px solid #0A0B10;
+          width:var(--theme-slider-thumb-size);
+          height:var(--theme-slider-thumb-size);
+          border-radius:var(--theme-radius-pill);
+          border:2px solid var(--theme-color-canvas);
           background:var(--slider-fill);
           box-shadow:0 1px 4px rgba(0,0,0,.35);
         }
@@ -610,15 +559,15 @@ function FontsAndTheme() {
         /* Navigation and sticky controls */
         .atlas-nav-glow{
           box-shadow:0 -16px 42px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.035);
-          backdrop-filter:blur(18px) saturate(1.05);
-          -webkit-backdrop-filter:blur(18px) saturate(1.05);
+          backdrop-filter:blur(var(--theme-backdrop-blur)) saturate(1.05);
+          -webkit-backdrop-filter:blur(var(--theme-backdrop-blur)) saturate(1.05);
         }
 
         :root{ color-scheme:dark; }
         html{ scroll-behavior:smooth; }
         button,input,textarea,select{ -webkit-tap-highlight-color:transparent; }
         .atlas-root{ isolation:isolate; }
-        .atlas-root > div{ width:min(100%,448px); }
+        .atlas-root > div{ width:min(100%,var(--theme-content-max-width)); }
 
         .atlas-root .atlas-display{ font-weight:700; }
         .atlas-root .atlas-display strong{ font-weight:800; }
@@ -652,7 +601,7 @@ function FontsAndTheme() {
         .atlas-overlay{animation:atlas-overlay-in .20s ease-out both;background-color:rgba(0,0,0,.78);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
         .atlas-overlay.atlas-closing{animation:atlas-overlay-out .17s ease-in both;pointer-events:none;}
         .atlas-lightbox-content{animation:atlas-viewer-content-in .22s ease-out both;}
-        .atlas-modal-shell{animation:atlas-modal-in var(--motion-modal) var(--ease-standard) both;isolation:isolate;box-shadow:var(--shadow-lg),0 0 0 1px rgba(255,255,255,.035),0 24px 54px rgba(0,0,0,.32);transform-origin:top center;}
+        .atlas-modal-shell{animation:atlas-modal-in var(--motion-modal) var(--ease-standard) both;isolation:isolate;box-shadow:var(--theme-shadow-high),0 0 0 1px var(--theme-color-border);transform-origin:top center;}
         .atlas-modal-shell.atlas-closing{animation:atlas-modal-out .17s ease-in both;pointer-events:none;}
         .atlas-bottom-sheet{transform-origin:bottom center;animation:atlas-sheet-in var(--motion-modal) var(--ease-standard) both;}
         .atlas-pop{animation:atlas-soft-pop .22s cubic-bezier(.2,.75,.25,1) both;}
@@ -714,10 +663,40 @@ function FontsAndTheme() {
         .atlas-root input:not([type="range"]):focus,.atlas-root textarea:focus,.atlas-root select:focus{border-color:rgba(139,92,246,.82)!important;box-shadow:0 0 0 3px rgba(139,92,246,.13),0 6px 18px rgba(0,0,0,.12);outline:none;}
 
         /* More consistent control geometry. */
-        .atlas-root input,.atlas-root textarea,.atlas-root select{ border-radius:14px!important; }
-        .atlas-root ::selection{ background:rgba(65,255,167,.20); color:var(--text); }
+        .atlas-segmented{
+          display:flex;
+          gap:var(--theme-space-1);
+          padding:var(--theme-space-1);
+          border-radius:var(--theme-radius-pill);
+          background:var(--theme-color-surface-raised);
+        }
+        .atlas-segmented__option{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          gap:var(--theme-space-2);
+          padding:var(--theme-space-2) var(--theme-space-4);
+          min-height:var(--theme-control-height-compact);
+          border:0;
+          border-radius:var(--theme-radius-pill);
+          background:transparent;
+          color:var(--theme-color-text-muted);
+          font-size:var(--theme-type-control-size);
+          font-weight:var(--theme-type-label-weight);
+          cursor:pointer;
+        }
+        .atlas-segmented__option.is-active{
+          background:var(--theme-color-action-primary);
+          color:var(--theme-color-action-primary-contrast);
+        }
+        .atlas-segmented__option:focus-visible{
+          outline:2px solid var(--theme-color-action-primary);
+          outline-offset:2px;
+        }
+        .atlas-root input,.atlas-root textarea,.atlas-root select{ border-radius:var(--theme-radius-control)!important; }
+        .atlas-root ::selection{ background:var(--theme-color-action-primary-soft); color:var(--theme-color-text-primary); }
         .atlas-root ::-webkit-scrollbar{ width:0;height:0; }
-        .atlas-root a{ color:var(--mint); text-decoration:none; }
+        .atlas-root a{ color:var(--theme-color-action-primary); text-decoration:none; }
         .atlas-root hr{ border:0; border-top:1px solid var(--border); margin:16px 0; }
 
         @media (max-width:380px){
@@ -766,21 +745,15 @@ function ScoreBadge({ type, value, size = 'md' }) {
 
 function Segmented({ options, value, onChange }) {
   return (
-    <div style={{ background: 'var(--surface-2)', borderRadius: 999, padding: 3, display: 'flex', gap: 2 }}>
+    <div className="atlas-segmented" role="group">
       {options.map((opt) => {
         const active = opt.value === value;
         return (
           <button
             key={opt.value}
             onClick={() => onChange(opt.value)}
-            className="press"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '7px 14px', borderRadius: 999, fontSize: 13, fontWeight: 600,
-              border: 'none', cursor: 'pointer',
-              background: active ? 'var(--purple)' : 'transparent',
-              color: active ? '#fff' : 'var(--text-muted)',
-            }}
+            className={`press atlas-segmented__option${active ? ' is-active' : ''}`}
+            aria-pressed={active}
           >
             {opt.icon}{opt.label}
           </button>
@@ -917,7 +890,9 @@ function Dot({ c }) {
 
 function iconBtn(bg, color, square) {
   return {
-    width: 40, height: 40, borderRadius: square ? 12 : '50%', background: bg, color,
+    width: 'var(--theme-icon-button-size)', height: 'var(--theme-icon-button-size)',
+    borderRadius: square ? 'var(--theme-radius-control)' : 'var(--theme-radius-pill)',
+    background: bg, color,
     border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   };
 }
@@ -941,13 +916,18 @@ function SectionTitle({ icon, title, count }) {
 
 function Field({ label, ...props }) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 5 }}>{label}</div>
+    <div style={{ marginBottom: 'var(--theme-space-3)' }}>
+      <div style={{ fontSize: 'var(--theme-type-label-size)', color: 'var(--text-muted)', marginBottom: 'var(--theme-space-1)' }}>{label}</div>
       <input
         {...props}
+        className={`atlas-field-input ${props.className || ''}`.trim()}
         style={{
-          width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10,
-          padding: '10px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+          width: '100%', minHeight: 'var(--theme-control-height)',
+          background: 'var(--surface-2)', border: '1px solid var(--border)',
+          borderRadius: 'var(--theme-radius-control)',
+          padding: 'var(--theme-space-2) var(--theme-space-3)',
+          color: 'var(--text)', fontSize: 'var(--theme-type-control-size)',
+          outline: 'none', boxSizing: 'border-box',
         }}
       />
     </div>
@@ -2982,7 +2962,7 @@ function MainTabs({ tab, onChange }) {
 }
 
 
-function SimpleModal({title,children,onClose}){const {closing,requestClose}=useAnimatedClose(onClose,175);return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:100,background:'rgba(0,0,0,.78)',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px 16px'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(448px,100%)',maxHeight:'76vh',overflowY:'auto',margin:'auto',background:'#12151D',border:'1px solid var(--border)',borderRadius:22,padding:18}}><div style={{display:'flex',alignItems:'flex-start',justifyContent:title?'space-between':'flex-end',marginBottom:title?14:10}}>{title&&<div className="atlas-display" style={{fontSize:18,fontWeight:700,lineHeight:1.2}}>{title}</div>}<button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>{children}</div></div>}
+function SimpleModal({title,children,onClose}){const {closing,requestClose}=useAnimatedClose(onClose,175);return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:100,background:'var(--theme-color-surface-overlay)',display:'flex',alignItems:'center',justifyContent:'center',padding:'var(--theme-space-6) var(--theme-space-4)',backdropFilter:'blur(var(--theme-modal-backdrop-blur))',WebkitBackdropFilter:'blur(var(--theme-modal-backdrop-blur))'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(var(--theme-modal-max-width),100%)',maxHeight:'76vh',overflowY:'auto',margin:'auto',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--theme-radius-modal)',padding:'var(--theme-space-4)'}}><div style={{display:'flex',alignItems:'flex-start',justifyContent:title?'space-between':'flex-end',marginBottom:title?'var(--theme-space-3)':'var(--theme-space-2)'}}>{title&&<div className="atlas-display" style={{fontSize:'var(--theme-type-title-size)',fontWeight:'var(--theme-type-title-weight)',lineHeight:1.2}}>{title}</div>}<button onClick={requestClose} className="press" style={iconBtn('var(--surface-2)','var(--text-muted)')}><X size={16}/></button></div>{children}</div></div>}
 function normalizedTelegramUsername(value) {
   const username=String(value||'').trim().replace(/^@+/,'');
   return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username) ? username : '';
@@ -3955,7 +3935,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
   }
 
   return (
-    <div className="atlas-root" data-theme="vox" style={{ minHeight: '100vh', width: '100%' }}>
+    <div className="atlas-root" data-theme={DEFAULT_THEME_ID} style={{ minHeight: '100vh', width: '100%' }}>
       <FontsAndTheme />
       <div style={{ maxWidth: 448, margin: '0 auto', position: 'relative' }}>
         <div className="atlas-screen-transition" key={`${screen}-${selected?.id || 'none'}`}>
