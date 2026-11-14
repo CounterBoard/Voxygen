@@ -2523,8 +2523,8 @@ async function applyManagerChange(env,{territoryId,targetId,action,initiatorId=n
 
     await env.DB.batch([
       env.DB.prepare(`INSERT OR IGNORE INTO territory_managers(territory_id,telegram_id,granted_by,granted_at)
-        SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM city_memberships WHERE territory_id=? AND telegram_id=?)`)
-        .bind(territoryId,targetId,Number(initiatorId||targetId),now,territoryId,targetId),
+        SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM city_memberships WHERE territory_id=? AND telegram_id=?) AND EXISTS(SELECT 1 FROM users WHERE telegram_id=? AND status='verified' AND trim(COALESCE(mc_nickname,''))<>'')`)
+        .bind(territoryId,targetId,Number(initiatorId||targetId),now,territoryId,targetId,targetId),
       env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?
         AND EXISTS(SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=?)`)
         .bind(territoryId,targetId,territoryId,targetId),
@@ -2542,7 +2542,7 @@ async function applyManagerChange(env,{territoryId,targetId,action,initiatorId=n
       : Number(initiatorId||0);
     if(!nextOwnerId||nextOwnerId===Number(targetId))return false;
     const [nextOwner,nextOwnerManager]=await Promise.all([
-      env.DB.prepare(`SELECT telegram_id,telegram_username,mc_nickname FROM users WHERE telegram_id=?`).bind(nextOwnerId).first(),
+      env.DB.prepare(`SELECT telegram_id,telegram_username,mc_nickname FROM users WHERE telegram_id=? AND status='verified' AND trim(COALESCE(mc_nickname,''))<>''`).bind(nextOwnerId).first(),
       env.DB.prepare(`SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=? LIMIT 1`).bind(territoryId,nextOwnerId).first(),
     ]);
     if(!nextOwner||!nextOwnerManager)return false;
@@ -2576,8 +2576,8 @@ async function applyManagerChange(env,{territoryId,targetId,action,initiatorId=n
     if(!manager)return false;
     await env.DB.batch([
       env.DB.prepare(`INSERT OR IGNORE INTO city_memberships(telegram_id,territory_id,joined_at)
-        SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=?)`)
-        .bind(targetId,territoryId,now,territoryId,targetId),
+        SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM territory_managers WHERE territory_id=? AND telegram_id=?) AND EXISTS(SELECT 1 FROM users WHERE telegram_id=? AND status='verified' AND trim(COALESCE(mc_nickname,''))<>'')`)
+        .bind(targetId,territoryId,now,territoryId,targetId,targetId),
       env.DB.prepare(`DELETE FROM territory_managers WHERE territory_id=? AND telegram_id=?
         AND EXISTS(SELECT 1 FROM city_memberships WHERE territory_id=? AND telegram_id=?)`)
         .bind(territoryId,targetId,territoryId,targetId),
