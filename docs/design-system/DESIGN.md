@@ -178,7 +178,7 @@ and accessibility defaults, while callers continue to own state and actions.
 | `IconButton` | icon-only action with required accessible label and semantic variants | Added; used for selected modal close actions |
 | `SurfaceCard` | base, raised and elevated theme surfaces | Added; applied to a territory-management panel |
 | `Slider` | shared range geometry with player/inspector/gold variants | Added; applied to map zoom and territory rating |
-| `Field` | single-line input with tokenized control geometry, labels, hints and errors | Existing; 13 uses; migration in progress |
+| `Field` | single-line input with tokenized control geometry, labels, hints and errors | Existing; 16+ uses; migration in progress |
 | `TextAreaField` | multiline input with tokenized surface, border, typography and radius | Added; migrated announcement/event editors |
 | `SelectField` | native select with tokenized control geometry | Added; applied to theme selection |
 | `Segmented` | compact mutually-exclusive option group with pressed state | Existing; migration in progress |\n| `ToggleField` | accessible switch with label/description and disabled state | Promoted from settings UI; 3 uses |
