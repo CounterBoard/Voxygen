@@ -164,3 +164,37 @@ execution.
 Theme packs remain trusted, versioned code shipped with the application.
 Do not accept arbitrary CSS, JavaScript, font URLs or executable theme
 payloads from users or the database.
+
+
+## 9. Shared UI primitives (migration status)
+
+The shared primitives currently live beside the application composition in
+`src/App.jsx`. They are intentionally behavior-light: they own presentation
+and accessibility defaults, while callers continue to own state and actions.
+
+| Primitive | Contract | Migration status |
+|---|---|---|
+| `Button` | primary, neutral, success, danger and ghost actions; size and full-width options | Added; used in selected high-value actions |
+| `IconButton` | icon-only action with required accessible label and semantic variants | Added; used for selected modal close actions |
+| `SurfaceCard` | base, raised and elevated theme surfaces | Added; applied to a territory-management panel |
+| `Slider` | shared range geometry with player/inspector/gold variants | Added; applied to map zoom and territory rating |
+| `Field` | single-line input with tokenized control geometry | Existing; migration in progress |
+| `TextAreaField` | multiline input with tokenized surface, border, typography and radius | Added; applied to inspector FAQ editor |
+| `SelectField` | native select with tokenized control geometry | Added; applied to theme selection |
+| `Segmented` | compact mutually-exclusive option group with pressed state | Existing; migration in progress |
+
+### Primitive rules
+
+- Prefer semantic variants over caller-supplied colors for standard actions.
+- Keep native form controls and their keyboard behavior; never replace them
+  with decorative elements.
+- Preserve controlled values, callbacks, validation, loading and disabled
+  behavior during migration.
+- Label, hint and error text must be associated with the relevant control;
+  invalid state must be programmatically exposed, not only colored.
+- Focus-visible, disabled, selected and error states are part of the
+  component contract, not optional screen decoration.
+- Screen-specific spacing may remain a caller override; core appearance
+  (surface, typography, border, radius and control geometry) comes from tokens.
+- A primitive is not considered fully migrated until representative uses
+  and responsive/accessibility checks have been completed.
