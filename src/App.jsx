@@ -3342,9 +3342,9 @@ function VisualEditModal({item,onClose,onSaved,initData}){
         <div className="atlas-display" style={{fontSize:18,fontWeight:700}}>Редактировать визуал</div>
         <IconButton icon={X} label="Закрыть окно" onClick={requestClose} />
       </div>
-      <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Название" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:10,color:'var(--text)',marginBottom:8}}/>
-      <input value={form.categories} onChange={e=>setForm(f=>({...f,categories:e.target.value}))} placeholder="Теги через запятую" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:10,color:'var(--text)',marginBottom:8}}/>
-      <input value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value.replace(/\D/g,'')}))} placeholder="Цена" inputMode="numeric" style={{width:'100%',boxSizing:'border-box',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:10,color:'var(--text)',marginBottom:8}}/>
+      <Field value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Название" style={{marginBottom:8}}/>
+      <Field value={form.categories} onChange={e=>setForm(f=>({...f,categories:e.target.value}))} placeholder="Теги через запятую" style={{marginBottom:8}}/>
+      <Field value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value.replace(/\D/g,'')}))} placeholder="Цена" inputMode="numeric" style={{marginBottom:8}}/>
       <label style={{display:'flex',alignItems:'center',gap:9,fontSize:13,fontWeight:700,margin:'3px 0 8px',cursor:'pointer'}}>
         <input type="checkbox" checked={form.forAchievement} onChange={e=>setForm(f=>({...f,forAchievement:e.target.checked}))}/>
         За достижение
