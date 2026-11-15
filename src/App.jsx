@@ -1796,7 +1796,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
     {error&&<div style={{fontSize:12,color:'var(--red)',marginTop:8}}>{error}</div>}
     <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:16,marginBottom:12}}>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}><ShieldCheck size={16} color="var(--mint)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Диагностика D1</div><span style={{marginLeft:'auto',fontSize:10,color:'var(--mint)',fontWeight:700}}>ТОЛЬКО ЧТЕНИЕ</span></div>
-      <div style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.45,marginBottom:10}}>Проверка количества записей, осиротевших связей, статусов и объёма больших полей. Отчёт не удаляет и не изменяет данные.</div>
+      <div style={{fontSize:12,color:'var(--theme-color-text-muted)',lineHeight:1.45,marginBottom:10}}>Проверка количества записей, осиротевших связей, статусов и объёма больших полей. Отчёт не удаляет и не изменяет данные.</div>
       <button onClick={loadD1Diagnostics} disabled={d1DiagnosticsLoading} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',background:'var(--mint)',color:'#06120D',fontWeight:700}}>{'Получить read-only отчёт'}</button>
       {d1DiagnosticsError&&<div role="alert" style={{fontSize:12,color:'var(--red)',marginTop:9}}>{d1DiagnosticsError}</div>}
       {d1Diagnostics&&<div style={{marginTop:12,fontSize:12,lineHeight:1.5}}>
@@ -1992,8 +1992,8 @@ function TreasuryCard({city,initData,tgUser}={}){
 }
 function ToggleField({ checked, onChange, disabled = false, label, description }) {
   return <div style={{display:'flex',alignItems:'center',gap:12,padding:'11px 0',opacity:disabled?0.48:1}}>
-    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13.5,fontWeight:650,color:'var(--text)',lineHeight:1.3}}>{label}</div>{description&&<div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.4,marginTop:4}}>{description}</div>}</div>
-    <button type="button" role="switch" aria-checked={Boolean(checked)} disabled={disabled} onClick={()=>onChange(!checked)} className="press" style={{width:48,height:28,borderRadius:999,border:`1px solid ${checked?'var(--purple-border)':'var(--border)'}`,background:checked?'var(--purple-soft)':'var(--surface-2)',padding:3,display:'flex',alignItems:'center',justifyContent:checked?'flex-end':'flex-start',flexShrink:0,cursor:disabled?'default':'pointer'}}><span style={{width:20,height:20,borderRadius:'50%',background:checked?'var(--purple)':'var(--text-muted)',display:'block',transition:'all .16s'}}/></button>
+    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13.5,fontWeight:650,color:'var(--theme-color-text-primary)',lineHeight:1.3}}>{label}</div>{description&&<div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.4,marginTop:4}}>{description}</div>}</div>
+    <button type="button" role="switch" aria-checked={Boolean(checked)} disabled={disabled} onClick={()=>onChange(!checked)} className="press" style={{width:48,height:28,borderRadius:999,border:`1px solid ${checked?'var(--theme-color-action-primary-border)':'var(--theme-color-border)'}`,background:checked?'var(--theme-color-action-primary-soft)':'var(--theme-color-surface-raised)',padding:3,display:'flex',alignItems:'center',justifyContent:checked?'flex-end':'flex-start',flexShrink:0,cursor:disabled?'default':'pointer'}}><span style={{width:20,height:20,borderRadius:'50%',background:checked?'var(--theme-color-action-primary)':'var(--theme-color-text-muted)',display:'block',transition:'all .16s'}}/></button>
   </div>;
 }
 
