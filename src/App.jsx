@@ -1039,6 +1039,26 @@ function Field({ label, ...props }) {
   );
 }
 
+function TextAreaField({ label, className = '', style = {}, ...props }) {
+  return (
+    <div style={{ marginBottom: 'var(--theme-space-3)' }}>
+      {label && <div style={{ fontSize: 'var(--theme-type-label-size)', color: 'var(--theme-color-text-muted)', marginBottom: 'var(--theme-space-1)' }}>{label}</div>}
+      <textarea
+        {...props}
+        className={`atlas-field-input atlas-textarea-field ${className}`.trim()}
+        style={{
+          width: '100%', boxSizing: 'border-box', minHeight: 'var(--theme-control-height)',
+          resize: 'vertical', background: 'var(--theme-color-surface-raised)',
+          border: '1px solid var(--theme-color-border)', borderRadius: 'var(--theme-radius-control)',
+          padding: 'var(--theme-space-2) var(--theme-space-3)', color: 'var(--theme-color-text-primary)',
+          fontSize: 'var(--theme-type-control-size)', outline: 'none', lineHeight: 1.5,
+          ...style,
+        }}
+      />
+    </div>
+  );
+}
+
 function FixedToast({ message, type = null }) {
   const [visible,setVisible]=useState(Boolean(message));
   const [exiting,setExiting]=useState(false);
@@ -1727,7 +1747,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}><MessageCircle size={16} color="var(--purple)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>ЧиВо</div></div>
       {faqLoading&&<div role="status" style={{fontSize:12,color:'var(--text-muted)',marginBottom:8}}>Загрузка сохранённого текста…</div>}
       {faqLoadError&&<div role="alert" style={{fontSize:12,color:'var(--red)',lineHeight:1.45,marginBottom:8}}>{faqLoadError}<button type="button" onClick={loadFaq} className="press" style={{display:'block',marginTop:8,padding:'8px 11px',borderRadius:9,border:'1px solid var(--border)',background:'var(--surface-2)',color:'var(--text)',fontWeight:700}}>Повторить загрузку</button></div>}
-      <textarea value={faqText} onChange={e=>setFaqText(e.target.value)} disabled={faqLoading||Boolean(faqLoadError)} placeholder={faqLoading?'Загрузка…':faqLoadError?'Загрузка не удалась. Повторите запрос.':''} rows={9} style={{width:'100%',boxSizing:'border-box',resize:'none',background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,lineHeight:1.5,marginBottom:8,opacity:faqLoading||faqLoadError?0.65:1}}/>
+      <TextAreaField value={faqText} onChange={e=>setFaqText(e.target.value)} disabled={faqLoading||Boolean(faqLoadError)} placeholder={faqLoading?'Загрузка…':faqLoadError?'Загрузка не удалась. Повторите запрос.':''} rows={9} style={{resize:'none',marginBottom:8,opacity:faqLoading||faqLoadError?0.65:1}}/>
       <button onClick={saveFaq} disabled={faqSaving||faqLoading||Boolean(faqLoadError)} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',background:'var(--purple)',color:'#fff',fontWeight:700,opacity:faqSaving||faqLoading||faqLoadError?0.55:1}}>{faqSaving?'Сохранение…':'Сохранить ЧиВо'}</button>
     </div>
 
