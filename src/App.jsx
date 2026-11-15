@@ -1,5 +1,5 @@
 // Voxygen-Version: v53
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useId } from 'react';
 import { DEFAULT_THEME_ID } from '../shared/theme-catalog.js';
 import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, isValidWorldCoordinate, coordinateGeometryMatchesManifest, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
 import {
@@ -1019,22 +1019,30 @@ function SectionTitle({ icon, title, count }) {
   );
 }
 
-function Field({ label, ...props }) {
+function Field({ label, hint, error, id, className = '', style = {}, ...props }) {
+  const generatedId = useId();
+  const controlId = id || generatedId;
+  const messageId = error ? `${controlId}-error` : hint ? `${controlId}-hint` : undefined;
   return (
     <div style={{ marginBottom: 'var(--theme-space-3)' }}>
-      <div style={{ fontSize: 'var(--theme-type-label-size)', color: 'var(--text-muted)', marginBottom: 'var(--theme-space-1)' }}>{label}</div>
+      {label && <label htmlFor={controlId} style={{ display:'block', fontSize:'var(--theme-type-label-size)', color:'var(--theme-color-text-muted)', marginBottom:'var(--theme-space-1)' }}>{label}</label>}
       <input
         {...props}
-        className={`atlas-field-input ${props.className || ''}`.trim()}
+        id={controlId}
+        aria-invalid={error ? 'true' : props['aria-invalid']}
+        aria-describedby={messageId || props['aria-describedby']}
+        className={`atlas-field-input ${className}`.trim()}
         style={{
           width: '100%', minHeight: 'var(--theme-control-height)',
-          background: 'var(--surface-2)', border: '1px solid var(--border)',
+          background: 'var(--theme-color-surface-raised)', border: `1px solid ${error ? 'var(--theme-color-status-danger)' : 'var(--theme-color-border)'}`,
           borderRadius: 'var(--theme-radius-control)',
           padding: 'var(--theme-space-2) var(--theme-space-3)',
-          color: 'var(--text)', fontSize: 'var(--theme-type-control-size)',
-          outline: 'none', boxSizing: 'border-box',
+          color: 'var(--theme-color-text-primary)', fontSize: 'var(--theme-type-control-size)',
+          outline: 'none', boxSizing: 'border-box', ...style,
         }}
       />
+      {error && <div id={`${controlId}-error`} role="alert" style={{fontSize:'var(--theme-type-caption-size)',color:'var(--theme-color-status-danger)',marginTop:'var(--theme-space-1)'}}>{error}</div>}
+      {!error && hint && <div id={`${controlId}-hint`} style={{fontSize:'var(--theme-type-caption-size)',color:'var(--theme-color-text-muted)',marginTop:'var(--theme-space-1)'}}>{hint}</div>}
     </div>
   );
 }
