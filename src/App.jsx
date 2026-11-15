@@ -1059,6 +1059,28 @@ function TextAreaField({ label, className = '', style = {}, ...props }) {
   );
 }
 
+
+function SelectField({ label, className = '', style = {}, children, ...props }) {
+  return (
+    <div style={{ marginBottom: 'var(--theme-space-3)' }}>
+      {label && <div style={{ fontSize: 'var(--theme-type-label-size)', color: 'var(--theme-color-text-muted)', marginBottom: 'var(--theme-space-1)' }}>{label}</div>}
+      <select
+        {...props}
+        className={`atlas-field-input atlas-select-field ${className}`.trim()}
+        style={{
+          width: '100%', minHeight: 'var(--theme-control-height)', boxSizing: 'border-box',
+          background: 'var(--theme-color-surface-raised)', border: '1px solid var(--theme-color-border)',
+          borderRadius: 'var(--theme-radius-control)', padding: 'var(--theme-space-2) var(--theme-space-3)',
+          color: 'var(--theme-color-text-primary)', fontSize: 'var(--theme-type-control-size)',
+          outline: 'none', ...style,
+        }}
+      >
+        {children}
+      </select>
+    </div>
+  );
+}
+
 function FixedToast({ message, type = null }) {
   const [visible,setVisible]=useState(Boolean(message));
   const [exiting,setExiting]=useState(false);
@@ -2107,7 +2129,7 @@ function GlobalSettingsPanel({ initData, onSettingsChanged, onClose, timezoneOff
       <div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.45,marginBottom:14}}>Каждая настройка включается и снимается независимо. Глобальные значения временно заменяют личные настройки пользователей, пока те не выберут собственное значение или пока не закончится срок действия.</div>
       {loading?<div style={{padding:16,color:'var(--text-muted)',fontSize:12}}>Загрузка…</div>:<>
         <div style={sectionStyle}><div style={{fontSize:13,fontWeight:750,marginBottom:4}}>Тема</div><div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{status(themeRow)}</div>
-          <select value={theme} onChange={e=>setTheme(e.target.value)} style={{width:'100%',minHeight:40,boxSizing:'border-box',border:'1px solid var(--border)',borderRadius:9,background:'var(--surface)',color:'var(--text)',padding:'8px 10px',fontSize:13,marginBottom:9}}><option value="vox">Vox</option></select>
+          <SelectField value={theme} onChange={e=>setTheme(e.target.value)} style={{marginBottom:9}}><option value="vox">Vox</option></SelectField>
           <div style={{display:'flex',gap:7,flexWrap:'wrap'}}><button onClick={()=>apply('theme',false)} disabled={busy} className="press" style={{...actionStyle,flex:'1 1 130px'}}>Применить до даты</button><button onClick={()=>apply('theme',true)} disabled={busy} className="press" style={secondaryStyle}>Навсегда</button><button onClick={()=>clear('theme')} disabled={busy||!themeRow?.active} className="press" style={secondaryStyle}>Снять тему</button></div>
         </div>
         <div style={sectionStyle}><div style={{fontSize:13,fontWeight:750,marginBottom:4}}>Масштаб карты</div><div style={{fontSize:11,color:'var(--text-muted)',marginBottom:8}}>{status(zoomRow)}</div>
