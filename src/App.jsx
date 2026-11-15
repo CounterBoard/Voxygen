@@ -1041,8 +1041,8 @@ function Field({ label, hint, error, id, className = '', style = {}, ...props })
           outline: 'none', boxSizing: 'border-box', ...style,
         }}
       />
-      {error && <div id={`${controlId}-error`} role="alert" style={{fontSize:'var(--theme-type-caption-size)',color:'var(--theme-color-status-danger)',marginTop:'var(--theme-space-1)'}}>{error}</div>}
-      {!error && hint && <div id={`${controlId}-hint`} style={{fontSize:'var(--theme-type-caption-size)',color:'var(--theme-color-text-muted)',marginTop:'var(--theme-space-1)'}}>{hint}</div>}
+      {error && <div id={`${controlId}-error`} role="alert" style={{fontSize:'var(--theme-type-technical-size)',color:'var(--theme-color-status-danger)',marginTop:'var(--theme-space-1)'}}>{error}</div>}
+      {!error && hint && <div id={`${controlId}-hint`} style={{fontSize:'var(--theme-type-technical-size)',color:'var(--theme-color-text-muted)',marginTop:'var(--theme-space-1)'}}>{hint}</div>}
     </div>
   );
 }
