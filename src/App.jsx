@@ -877,8 +877,8 @@ function Lightbox({ shots = [], index = 0, mode, onClose, onApprove, onReject, o
       <MinecraftText text={shot.author || shot.mc_nickname || shot.telegram_username || ''} style={{position:'fixed',bottom:'calc(38px + env(safe-area-inset-bottom))',left:'50%',transform:'translateX(-50%)',zIndex:8,maxWidth:'80vw',fontSize:12,color:'var(--text-muted)',textAlign:'center',pointerEvents:'none',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}/>
       {safeShots.length>1&&<div onClick={e=>e.stopPropagation()} style={{position:'fixed',bottom:'calc(14px + env(safe-area-inset-bottom))',left:'50%',transform:'translateX(-50%)',display:'flex',alignItems:'center',gap:5,zIndex:8,pointerEvents:'auto'}}>{safeShots.map((_,i)=><span key={i} style={{width:i===safeIndex?14:6,height:6,borderRadius:999,background:i===safeIndex?'var(--purple)':'var(--surface-2)',border:'1px solid var(--border)'}} />)}</div>}
       {mode==='moderate'&&<div style={{position:'absolute',left:12,right:12,bottom:14,display:'flex',gap:10}} onClick={e=>e.stopPropagation()}>
-        <button onClick={onApprove} className="press" style={{flex:1,padding:'12px 0',borderRadius:12,border:'none',background:'var(--emerald)',color:'#06120D',fontWeight:700,fontSize:14}}>Одобрить</button>
-        <button onClick={onReject} className="press" style={{flex:1,padding:'12px 0',borderRadius:12,border:'none',background:'var(--red-soft)',color:'var(--red)',fontWeight:700,fontSize:14}}>Отклонить</button>
+        <Button onClick={onApprove} variant="success" style={{flex:1}}>Одобрить</Button>
+        <Button onClick={onReject} variant="danger" style={{flex:1}}>Отклонить</Button>
       </div>}
     </div>
   );
@@ -915,6 +915,41 @@ function IconButton({ icon: Icon, label, title = label, size = 'var(--theme-icon
       }}
     >
       {Icon && <Icon size={18} strokeWidth={2} aria-hidden="true" />}
+    </button>
+  );
+}
+
+/** Theme-aware text action with semantic variants and token-driven geometry. */
+function Button({ children, variant = 'primary', size = 'md', fullWidth = false, type = 'button', disabled = false, onClick, style = {}, className = '', ...props }) {
+  const variants = {
+    primary: { background:'var(--theme-color-action-primary)', color:'var(--theme-color-action-primary-contrast)', border:'1px solid var(--theme-color-action-primary)' },
+    neutral: { background:'var(--theme-color-surface-raised)', color:'var(--theme-color-text-primary)', border:'1px solid var(--theme-color-border-strong)' },
+    success: { background:'var(--theme-color-status-success-soft)', color:'var(--theme-color-status-success)', border:'1px solid var(--theme-color-border)' },
+    danger: { background:'var(--theme-color-status-danger-soft)', color:'var(--theme-color-status-danger)', border:'1px solid var(--theme-color-status-danger-border)' },
+    ghost: { background:'transparent', color:'var(--theme-color-text-secondary)', border:'1px solid transparent' },
+  };
+  const sizes = {
+    sm: { minHeight:'var(--theme-control-height-compact)', padding:'0 var(--theme-space-3)', fontSize:'var(--theme-type-label-size)' },
+    md: { minHeight:'var(--theme-control-height)', padding:'0 var(--theme-space-4)', fontSize:'var(--theme-type-control-size)' },
+    lg: { minHeight:'calc(var(--theme-control-height) + var(--theme-space-2))', padding:'0 var(--theme-space-5)', fontSize:'var(--theme-type-body-size)' },
+  };
+  return (
+    <button
+      {...props}
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`press atlas-button${className ? ` ${className}` : ''}`}
+      style={{
+        display:'inline-flex', alignItems:'center', justifyContent:'center', gap:'var(--theme-space-2)',
+        width:fullWidth?'100%':undefined, minWidth:0, borderRadius:'var(--theme-radius-control)',
+        fontFamily:'var(--theme-font-body)', fontWeight:700, lineHeight:1.2,
+        cursor:disabled?'not-allowed':'pointer', opacity:disabled?0.52:1,
+        transition:'background var(--theme-motion-tap) var(--theme-ease-interactive), border-color var(--theme-motion-tap) var(--theme-ease-interactive), opacity var(--theme-motion-tap) var(--theme-ease-interactive)',
+        ...sizes[size] || sizes.md, ...variants[variant] || variants.primary, ...style,
+      }}
+    >
+      {children}
     </button>
   );
 }
@@ -1851,7 +1886,7 @@ function TreasuryCard({city,initData,tgUser}={}){
       <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:14,padding:'11px 12px'}}><div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:6}}>В казне</div><div className="atlas-display" style={{fontSize:22,fontWeight:800,color:'var(--gem)',display:'flex',alignItems:'center',gap:6}}>{data?.balance??0}<GemHex/></div></div>
       <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:14,padding:'11px 12px'}}><div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:6}}>Ваш баланс</div><div className="atlas-display" style={{fontSize:22,fontWeight:800,color:'var(--gem)',display:'flex',alignItems:'center',gap:6}}>{data?.personal_balance??0}<GemHex/></div></div>
     </div>
-    <div style={{display:'flex',gap:8}}><input value={amount} onChange={e=>setAmount(e.target.value.replace(/\D/g,''))} inputMode="numeric" placeholder="Количество сц" style={{flex:1,minWidth:0,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:12,padding:'11px 12px',color:'var(--text)',fontSize:14}}/><button onClick={deposit} disabled={busy||!amount} className="press" style={{border:'none',borderRadius:12,padding:'10px 14px',background:'var(--purple)',color:'#fff',fontWeight:750,whiteSpace:'nowrap'}}>{busy?'…':'Пополнить казну'}</button></div>
+    <div style={{display:'flex',gap:8}}><input value={amount} onChange={e=>setAmount(e.target.value.replace(/\D/g,''))} inputMode="numeric" placeholder="Количество сц" style={{flex:1,minWidth:0,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:12,padding:'11px 12px',color:'var(--text)',fontSize:14}}/><Button onClick={deposit} disabled={busy||!amount} size="sm" style={{whiteSpace:'nowrap'}}>{busy?'…':'Пополнить казну'}</Button></div>
     {error&&<div style={{fontSize:12,color:'var(--red)',marginTop:9}}>{error}</div>}
     {notice&&<FixedToast key={notice} message={notice}/>}
   </div>;
@@ -1940,7 +1975,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
         {(settings.territories||[]).length>0&&<div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:4}}>Уведомления территорий</div>}
         {(settings.territories||[]).map(item=><div key={item.id} style={{borderBottom:'1px solid var(--border)'}}><SettingsToggle label={<span>Территория <MinecraftText text={item.name}/></span>} description={item.role==='manager'?'Основатель/мэр':'Житель'} checked={Boolean(item.enabled)} onChange={enabled=>changeTerritory(item.id,enabled)}/></div>)}
         {error&&<div role="alert" style={{fontSize:12,color:'var(--red)',marginTop:10}}>{error}</div>}
-        <button onClick={save} disabled={saving} className="press" style={{width:'100%',marginTop:16,padding:'12px',border:'none',borderRadius:12,background:'var(--purple)',color:'#fff',fontSize:14,fontWeight:750}}>{saving?'Сохранение…':'Сохранить настройки'}</button>
+        <Button onClick={save} disabled={saving} fullWidth style={{marginTop:16}}>{saving?'Сохранение…':'Сохранить настройки'}</Button>
       </>}
     </div>
   </div>;
