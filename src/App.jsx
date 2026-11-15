@@ -1047,33 +1047,43 @@ function Field({ label, hint, error, id, className = '', style = {}, ...props })
   );
 }
 
-function TextAreaField({ label, className = '', style = {}, ...props }) {
+function TextAreaField({ label, hint, error, id, className = '', style = {}, ...props }) {
+  const generatedId = useId();
+  const controlId = id || generatedId;
+  const messageId = error ? `${controlId}-error` : hint ? `${controlId}-hint` : undefined;
   return (
     <div style={{ marginBottom: 'var(--theme-space-3)' }}>
-      {label && <div style={{ fontSize: 'var(--theme-type-label-size)', color: 'var(--theme-color-text-muted)', marginBottom: 'var(--theme-space-1)' }}>{label}</div>}
+      {label && <label htmlFor={controlId} style={{ display:'block',fontSize:'var(--theme-type-label-size)',color:'var(--theme-color-text-muted)',marginBottom:'var(--theme-space-1)' }}>{label}</label>}
       <textarea
         {...props}
+        id={controlId}
+        aria-invalid={error ? 'true' : props['aria-invalid']}
+        aria-describedby={messageId || props['aria-describedby']}
         className={`atlas-field-input atlas-textarea-field ${className}`.trim()}
         style={{
           width: '100%', boxSizing: 'border-box', minHeight: 'var(--theme-control-height)',
           resize: 'vertical', background: 'var(--theme-color-surface-raised)',
-          border: '1px solid var(--theme-color-border)', borderRadius: 'var(--theme-radius-control)',
+          border: `1px solid ${error ? 'var(--theme-color-status-danger)' : 'var(--theme-color-border)'}`, borderRadius: 'var(--theme-radius-control)',
           padding: 'var(--theme-space-2) var(--theme-space-3)', color: 'var(--theme-color-text-primary)',
-          fontSize: 'var(--theme-type-control-size)', outline: 'none', lineHeight: 1.5,
-          ...style,
+          fontSize: 'var(--theme-type-control-size)', outline: 'none', lineHeight: 1.5, ...style,
         }}
       />
+      {error && <div id={`${controlId}-error`} role="alert" style={{fontSize:'var(--theme-type-technical-size)',color:'var(--theme-color-status-danger)',marginTop:'var(--theme-space-1)'}}>{error}</div>}
+      {!error && hint && <div id={`${controlId}-hint`} style={{fontSize:'var(--theme-type-technical-size)',color:'var(--theme-color-text-muted)',marginTop:'var(--theme-space-1)'}}>{hint}</div>}
     </div>
   );
 }
 
 
-function SelectField({ label, className = '', style = {}, children, ...props }) {
+function SelectField({ label, id, className = '', style = {}, children, ...props }) {
+  const generatedId = useId();
+  const controlId = id || generatedId;
   return (
     <div style={{ marginBottom: 'var(--theme-space-3)' }}>
-      {label && <div style={{ fontSize: 'var(--theme-type-label-size)', color: 'var(--theme-color-text-muted)', marginBottom: 'var(--theme-space-1)' }}>{label}</div>}
+      {label && <label htmlFor={controlId} style={{display:'block',fontSize:'var(--theme-type-label-size)',color:'var(--theme-color-text-muted)',marginBottom:'var(--theme-space-1)' }}>{label}</label>}
       <select
         {...props}
+        id={controlId}
         className={`atlas-field-input atlas-select-field ${className}`.trim()}
         style={{
           width: '100%', minHeight: 'var(--theme-control-height)', boxSizing: 'border-box',
