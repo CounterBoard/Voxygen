@@ -503,14 +503,14 @@ function FontsAndTheme() {
 
         /* Surfaces: neutral, calm, with restrained depth rather than a blue wash. */
         div[style*="background: var(--surface)"]{
-          background:#12151D!important;
+          background:var(--theme-color-surface)!important;
           box-shadow:var(--shadow-md),inset 0 1px 0 rgba(255,255,255,.018);
-          border-radius:var(--radius-lg)!important;
+          border-radius:var(--theme-radius-large)!important;
         }
         div[style*="background: var(--surface-2)"]{
-          background:#171B24!important;
+          background:var(--theme-color-surface-raised)!important;
           box-shadow:var(--shadow-sm),inset 0 1px 0 rgba(255,255,255,.02);
-          border-radius:var(--radius-md)!important;
+          border-radius:var(--theme-radius-card)!important;
         }
         .atlas-root [style*="background: var(--surface)"],
         .atlas-root [style*="background: var(--surface-2)"],
@@ -553,7 +553,7 @@ function FontsAndTheme() {
           -webkit-tap-highlight-color:transparent;
         }
         .atlas-root [style*="background: var(--surface-3)"]{
-          background:#1D2230!important;
+          background:var(--theme-color-surface-elevated)!important;
         }
 
         /* Navigation and sticky controls */
@@ -951,6 +951,32 @@ function Button({ children, variant = 'primary', size = 'md', fullWidth = false,
     >
       {children}
     </button>
+  );
+}
+
+/** Theme-aware content surface shared by cards and grouped panels. */
+function SurfaceCard({ children, tone = 'base', padding = 'var(--theme-space-4)', radius = 'var(--theme-radius-card)', className = '', style = {}, ...props }) {
+  const surfaces = {
+    base: 'var(--theme-color-surface)',
+    raised: 'var(--theme-color-surface-raised)',
+    elevated: 'var(--theme-color-surface-elevated)',
+  };
+  return (
+    <div
+      {...props}
+      className={`atlas-surface${className ? ` ${className}` : ''}`}
+      style={{
+        background: surfaces[tone] || surfaces.base,
+        border: '1px solid var(--theme-color-border)',
+        borderRadius: radius,
+        padding,
+        color: 'var(--theme-color-text-primary)',
+        boxShadow: 'var(--theme-shadow-low)',
+        ...style,
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -1825,7 +1851,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
     setInventory(v=>v?{...v,...(mode==='cover'?{equippedBackgroundItemId:nextId}:{equippedMarkerItemId:nextId})}:v);
   }
   if(!territory)return null;
-  return <div className="atlas-page-panel" style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:14,marginBottom:12}}>
+  return <SurfaceCard className="atlas-page-panel" padding={14} style={{marginBottom:12}}>
     <MinecraftText text={territory.name} as="div" className="atlas-display" style={{fontSize:16,fontWeight:700,marginBottom:12}}/>
     <div style={{fontSize:12,color:'var(--text-muted)',marginBottom:6}}>Название</div><div style={{display:'flex',gap:8,marginBottom:4}}><input value={name} readOnly={readOnly} onChange={e=>setName(e.target.value)} style={{flex:1,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 12px',color:'var(--text)',fontSize:13,cursor:readOnly?'default':'text'}}/>{!readOnly&&<button onClick={rename} className="press" style={iconBtn('var(--purple)','#fff',true)}><Pencil size={15}/></button>}</div>
     <div style={{fontSize:12,color:'var(--text-muted)',marginTop:12,marginBottom:6}}>Доп. информация</div>
@@ -1849,7 +1875,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
     {!readOnly&&<button onClick={requestInspectorRating} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'10px 12px',background:'var(--purple)',color:'#fff',fontWeight:700,marginBottom:16,minHeight:44}}>Запросить оценку инспектора</button>}
     {error&&<div style={{fontSize:12,color:'var(--red)',marginTop:10}}>{error}</div>}
     {notice&&<FixedToast key={notice} message={notice}/>}
-  </div>;
+  </SurfaceCard>;
 }
 
 function ProfileInventory({initData,role,tgUser,territory}={}){
