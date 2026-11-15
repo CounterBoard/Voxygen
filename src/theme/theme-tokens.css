@@ -160,6 +160,27 @@
   font-family: var(--theme-font-display) !important;
 }
 
+
+/* Shared focus and state affordances for theme-aware primitives. */
+.atlas-root[data-theme] :is(.atlas-field-input, .atlas-segmented__option, .atlas-button, .atlas-icon-button):focus-visible {
+  outline: 2px solid var(--theme-color-action-primary);
+  outline-offset: 2px;
+}
+.atlas-root[data-theme] .atlas-field-input {
+  transition: border-color var(--theme-motion-instant) var(--theme-ease-standard),
+    background-color var(--theme-motion-instant) var(--theme-ease-standard);
+}
+.atlas-root[data-theme] .atlas-field-input:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+}
+.atlas-root[data-theme] .atlas-field-input[aria-invalid="true"]:focus-visible {
+  outline-color: var(--theme-color-status-danger);
+}
+.atlas-root[data-theme] .atlas-segmented__option[aria-pressed="true"] {
+  color: var(--theme-color-text-primary);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .atlas-root[data-theme] *,
   .atlas-root[data-theme] *::before,
