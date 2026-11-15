@@ -1990,7 +1990,7 @@ function TreasuryCard({city,initData,tgUser}={}){
     {notice&&<FixedToast key={notice} message={notice}/>}
   </div>;
 }
-function SettingsToggle({ checked, onChange, disabled = false, label, description }) {
+function ToggleField({ checked, onChange, disabled = false, label, description }) {
   return <div style={{display:'flex',alignItems:'center',gap:12,padding:'11px 0',opacity:disabled?0.48:1}}>
     <div style={{flex:1,minWidth:0}}><div style={{fontSize:13.5,fontWeight:650,color:'var(--text)',lineHeight:1.3}}>{label}</div>{description&&<div style={{fontSize:11.5,color:'var(--text-muted)',lineHeight:1.4,marginTop:4}}>{description}</div>}</div>
     <button type="button" role="switch" aria-checked={Boolean(checked)} disabled={disabled} onClick={()=>onChange(!checked)} className="press" style={{width:48,height:28,borderRadius:999,border:`1px solid ${checked?'var(--purple-border)':'var(--border)'}`,background:checked?'var(--purple-soft)':'var(--surface-2)',padding:3,display:'flex',alignItems:'center',justifyContent:checked?'flex-end':'flex-start',flexShrink:0,cursor:disabled?'default':'pointer'}}><span style={{width:20,height:20,borderRadius:'50%',background:checked?'var(--purple)':'var(--text-muted)',display:'block',transition:'all .16s'}}/></button>
@@ -2069,7 +2069,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
         <div style={{fontSize:12,color:'var(--text)',fontWeight:700,textAlign:'center',marginBottom:16}}>{settings.personalMapZoomPercent??88}%</div>
         <div style={{fontSize:15,fontWeight:750,marginBottom:4}}>Уведомления</div>
         <div style={{borderTop:'1px solid var(--border)',borderBottom:'1px solid var(--border)',marginBottom:9}}>
-          <SettingsToggle label="Уведомления о новых ивентах" description="Сообщение от бота при создании каждого нового ивента" checked={Boolean(settings.eventNotifications)} onChange={enabled=>patch({eventNotifications:enabled})}/>
+          <ToggleField label="Уведомления о новых ивентах" description="Сообщение от бота при создании каждого нового ивента" checked={Boolean(settings.eventNotifications)} onChange={enabled=>patch({eventNotifications:enabled})}/>
         </div>
         {(settings.territories||[]).length>0&&<div style={{fontSize:12,color:'var(--text-muted)',fontWeight:700,marginBottom:4}}>Уведомления территорий</div>}
         {(settings.territories||[]).map(item=><div key={item.id} style={{borderBottom:'1px solid var(--border)'}}><SettingsToggle label={<span>Территория <MinecraftText text={item.name}/></span>} description={item.role==='manager'?'Основатель/мэр':'Житель'} checked={Boolean(item.enabled)} onChange={enabled=>changeTerritory(item.id,enabled)}/></div>)}
