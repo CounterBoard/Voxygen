@@ -1,0 +1,45 @@
+name: Validate Voxygen
+
+on:
+  push:
+    branches:
+      - main
+      - ci/validate-all-pull-requests
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build Voxygen app
+        run: npm run build
+
+      - name: Check backend Worker syntax
+        run: node --check bot/src/worker.js
+
+      - name: Bundle backend Worker (dry run)
+        run: npx --yes wrangler@latest deploy --dry-run --config bot/wrangler.toml
