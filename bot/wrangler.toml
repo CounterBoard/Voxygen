@@ -1,0 +1,27 @@
+name = "voxygen"
+main = "./src/worker.js"
+compatibility_date = "2026-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "voxygen"
+database_id = "1d7fb0f9-60ef-4afd-b10b-46cd572d2a25"
+
+[vars]
+GITHUB_OWNER = "CounterBoard"
+GITHUB_REPO = "Voxygen-map-storage"
+GITHUB_RELEASE_TAG = "world-map"
+
+[triggers]
+crons = ["* * * * *"]
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
+
+[observability.traces]
+enabled = false
+head_sampling_rate = 1
+persist = true
