@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-13T21:55:00+03:00",
+  "title": "Design System: Voxygen",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Night Base",
+        "canonical": "#0A0B10",
+        "tonalRamp": [
+          "#080B12",
+          "#1D2229",
+          "#363B43",
+          "#50565E",
+          "#6C727B",
+          "#8A9099",
+          "#B8BEC8",
+          "#E9EFF9"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Voxygen Purple",
+        "canonical": "#8B5CF6",
+        "tonalRamp": [
+          "#20005D",
+          "#32007D",
+          "#48009F",
+          "#6123C0",
+          "#7C49E3",
+          "#996AFF",
+          "#C69BFF",
+          "#F6CEFF"
+        ]
+      },
+      "success": {
+        "role": "secondary",
+        "displayName": "Voxygen Mint",
+        "canonical": "#41FFA7",
+        "tonalRamp": [
+          "#001B00",
+          "#003700",
+          "#005500",
+          "#007303",
+          "#00932D",
+          "#00B34C",
+          "#00E57B",
+          "#40FFAB"
+        ]
+      },
+      "gem": {
+        "role": "tertiary",
+        "displayName": "Gem Cyan",
+        "canonical": "#38BDF8",
+        "tonalRamp": [
+          "#000340",
+          "#00245D",
+          "#00427C",
+          "#00609B",
+          "#007FBC",
+          "#009EDD",
+          "#00CFFF",
+          "#61FFFF"
+        ]
+      },
+      "danger": {
+        "role": "secondary",
+        "displayName": "Danger Coral",
+        "canonical": "#FF5D73",
+        "tonalRamp": [
+          "#3F0000",
+          "#620000",
+          "#850001",
+          "#A80021",
+          "#CC243D",
+          "#F04C5A",
+          "#FF7F87",
+          "#FFB1B6"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Manrope",
+        "purpose": "Page headings, panel headings and prominent values; loaded in current app."
+      },
+      "body": {
+        "displayName": "Inter",
+        "purpose": "Body copy, controls, labels and navigation; loaded in current app."
+      },
+      "technical": {
+        "displayName": "IBM Plex Mono",
+        "purpose": "Proposed technical-data role for coordinates and IDs; not yet loaded in current app."
+      }
+    },
+    "shadows": [
+      {
+        "name": "low",
+        "value": "0 8px 22px rgba(0,0,0,.18)",
+        "purpose": "Nested surfaces and compact cards."
+      },
+      {
+        "name": "medium",
+        "value": "0 16px 42px rgba(0,0,0,.28)",
+        "purpose": "Primary cards and panels."
+      },
+      {
+        "name": "high",
+        "value": "0 26px 70px rgba(0,0,0,.38)",
+        "purpose": "Modal shells and overlays."
+      },
+      {
+        "name": "purple-glow",
+        "value": "0 14px 34px rgba(139,92,246,.17)",
+        "purpose": "Primary action emphasis."
+      },
+      {
+        "name": "mint-glow",
+        "value": "0 14px 34px rgba(65,255,167,.12)",
+        "purpose": "Positive and curator emphasis."
+      }
+    ],
+    "motion": [
+      {
+        "name": "tap",
+        "value": "160ms",
+        "purpose": "Press response and short interactive transitions."
+      },
+      {
+        "name": "standard",
+        "value": "190ms",
+        "purpose": "Default component state transitions."
+      },
+      {
+        "name": "modal",
+        "value": "245ms",
+        "purpose": "Modal and bottom-sheet entrance timing."
+      },
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(.22,.72,.22,1)",
+        "purpose": "Standard Voxygen movement curve."
+      },
+      {
+        "name": "ease-interactive",
+        "value": "cubic-bezier(.2,.85,.25,1)",
+        "purpose": "Direct interaction and press response."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-phone",
+        "value": "380px",
+        "purpose": "Current compact typography breakpoint."
+      },
+      {
+        "name": "content-max",
+        "value": "448px",
+        "purpose": "Current maximum main content width."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Purple action button with white text and restrained accent glow.",
+      "html": "<button class=\"ds-button-primary\">Основное действие</button>",
+      "css": ".ds-button-primary{min-height:44px;padding:0 16px;border:1px solid rgba(255,255,255,.055);border-radius:12px;background:#8B5CF6;color:#FFFFFF;font:600 14px/1.2 Inter,ui-sans-serif,sans-serif;transition:transform 160ms cubic-bezier(.2,.85,.25,1),box-shadow 190ms ease,background-color 190ms ease}.ds-button-primary:hover{box-shadow:0 14px 34px rgba(139,92,246,.17)}.ds-button-primary:active{transform:translateY(1px) scale(.975)}.ds-button-primary:focus-visible{outline:2px solid #8B5CF6;outline-offset:3px}.ds-button-primary:disabled{opacity:.45;cursor:not-allowed}"
+    },
+    {
+      "name": "Success Button",
+      "kind": "button",
+      "refersTo": "button-success",
+      "description": "Mint action reserved for success and positive confirmation.",
+      "html": "<button class=\"ds-button-success\">Подтвердить</button>",
+      "css": ".ds-button-success{min-height:44px;padding:0 16px;border:1px solid rgba(255,255,255,.06);border-radius:12px;background:#41FFA7;color:#06120D;font:700 14px/1.2 Inter,ui-sans-serif,sans-serif;transition:transform 160ms ease,box-shadow 190ms ease}.ds-button-success:hover{box-shadow:0 14px 34px rgba(65,255,167,.12)}.ds-button-success:active{transform:translateY(1px) scale(.975)}.ds-button-success:focus-visible{outline:2px solid #41FFA7;outline-offset:3px}"
+    },
+    {
+      "name": "Surface Card",
+      "kind": "card",
+      "refersTo": "card-default",
+      "description": "Deep neutral panel with quiet border and medium elevation.",
+      "html": "<section class=\"ds-card\"><strong>Заголовок карточки</strong><p>Краткое описание содержимого</p></section>",
+      "css": ".ds-card{padding:16px;border:1px solid rgba(181,187,203,.12);border-radius:20px;background:#12151D;color:#F7F8FC;box-shadow:0 16px 42px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.018);font:400 14px/1.5 Inter,ui-sans-serif,sans-serif}.ds-card p{margin:6px 0 0;color:#B5BBCB}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Raised-surface field with a visible purple focus halo.",
+      "html": "<label class=\"ds-field\"><span>Название</span><input placeholder=\"Введите значение\"></label>",
+      "css": ".ds-field{display:grid;gap:6px;color:#7F879A;font:600 12px/1.35 Inter,ui-sans-serif,sans-serif}.ds-field input{width:100%;min-height:44px;padding:10px 12px;border:1px solid rgba(181,187,203,.12);border-radius:12px;background:#171B24;color:#F7F8FC;font:400 14px/1.45 Inter,ui-sans-serif,sans-serif}.ds-field input:focus{outline:none;border-color:rgba(139,92,246,.82);box-shadow:0 0 0 3px rgba(139,92,246,.13)}.ds-field input:focus-visible{outline:2px solid #8B5CF6;outline-offset:2px}"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "custom",
+      "refersTo": "segmented-control",
+      "description": "Pill-shaped selector with a purple active segment.",
+      "html": "<div class=\"ds-segmented\"><button class=\"is-active\">Карта</button><button>Рейтинг</button></div>",
+      "css": ".ds-segmented{display:flex;gap:2px;padding:3px;border-radius:999px;background:#171B24}.ds-segmented button{min-height:36px;padding:7px 14px;border:0;border-radius:999px;background:transparent;color:#7F879A;font:600 13px/1.2 Inter,ui-sans-serif,sans-serif}.ds-segmented button.is-active{background:#8B5CF6;color:#FFFFFF}.ds-segmented button:focus-visible{outline:2px solid #8B5CF6;outline-offset:2px}"
+    },
+    {
+      "name": "Score Badge",
+      "kind": "chip",
+      "refersTo": "score-badge",
+      "description": "Role-coded score pill; inspector/curator is mint, community/player is purple.",
+      "html": "<span class=\"ds-score-badge\">★ 4.8</span>",
+      "css": ".ds-score-badge{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:8px 12px;border:1px solid rgba(139,92,246,.30);border-radius:999px;background:rgba(139,92,246,.14);color:#8B5CF6;font:800 15px/1 Manrope,ui-sans-serif,sans-serif}"
+    },
+    {
+      "name": "Modal Shell",
+      "kind": "custom",
+      "refersTo": "modal-shell",
+      "description": "Centered deep-surface dialog with 22px corners and a restrained overlay.",
+      "html": "<div class=\"ds-overlay\"><section class=\"ds-modal\"><strong>Настройки</strong><p>Содержимое окна</p></section></div>",
+      "css": ".ds-overlay{position:fixed;inset:0;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.78);backdrop-filter:blur(4px)}.ds-modal{width:min(448px,100%);max-height:84vh;overflow:auto;padding:18px;border:1px solid rgba(181,187,203,.12);border-radius:22px;background:#12151D;color:#F7F8FC;box-shadow:0 26px 70px rgba(0,0,0,.38);font:400 14px/1.5 Inter,ui-sans-serif,sans-serif}.ds-modal p{color:#B5BBCB}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Living Atlas",
+    "overview": "A dark, mobile-first territorial community interface. The map and community data lead; the interface organizes them with compact neutral surfaces, restrained purple and mint accents, and a clear Manrope/Inter typographic hierarchy.",
+    "keyCharacteristics": [
+      "Dark neutral foundation",
+      "Purple action and selection",
+      "Mint positive/curator accent",
+      "Cyan reserved for gem economy",
+      "Mobile-first compact surfaces",
+      "Restrained motion and depth"
+    ],
+    "rules": [
+      {
+        "name": "The Semantic Separation Rule",
+        "body": "Purple means action/selection; mint means positive/curator; cyan means gems; red means danger.",
+        "section": "colors"
+      },
+      {
+        "name": "The Four-Pixel Rhythm Rule",
+        "body": "Layout spacing uses multiples of 4px wherever practical.",
+        "section": "layout"
+      },
+      {
+        "name": "The Two-Voice Rule",
+        "body": "Manrope is for display hierarchy; Inter is for ordinary reading and controls.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Do preserve semantic color roles across themes.",
+      "Do use Manrope for display and Inter for body/control text.",
+      "Do test the interface at phone widths."
+    ],
+    "donts": [
+      "Don't use mint as both success and warning.",
+      "Don't recolor user visual-item colors or Minecraft text formatting.",
+      "Don't change geometry in a color-only theme."
+    ]
+  }
+}
