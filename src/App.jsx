@@ -1747,7 +1747,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
           <div style={{background:'var(--surface-2)',borderRadius:10,padding:10}}><div style={{color:'var(--text-muted)',fontSize:10}}>Orphan связей</div><div style={{fontSize:18,fontWeight:800,color:(d1Diagnostics.orphanRelations||[]).length?'var(--red)':'var(--mint)'}}>{(d1Diagnostics.orphanRelations||[]).reduce((sum,item)=>sum+Number(item.rows||0),0)}</div></div>
           <div style={{background:'var(--surface-2)',borderRadius:10,padding:10}}><div style={{color:'var(--text-muted)',fontSize:10}}>FK нарушения</div><div style={{fontSize:18,fontWeight:800,color:Number(d1Diagnostics.foreignKeyViolations?.count||0)?'var(--red)':'var(--mint)'}}>{Number(d1Diagnostics.foreignKeyViolations?.count||0)}</div></div>
           <div style={{background:'var(--surface-2)',borderRadius:10,padding:10}}><div style={{color:'var(--text-muted)',fontSize:10}}>Предупреждения отчёта</div><div style={{fontSize:18,fontWeight:800}}>{(d1Diagnostics.warnings||[]).length}</div></div>
-        </SurfaceCard>
+        </div>
         <details style={{borderTop:'1px solid var(--border)',paddingTop:8}}>
           <summary style={{cursor:'pointer',fontWeight:700}}>Подробности отчёта (JSON)</summary>
           <pre style={{maxHeight:340,overflow:'auto',whiteSpace:'pre-wrap',overflowWrap:'anywhere',fontSize:10.5,lineHeight:1.4,background:'var(--surface-2)',borderRadius:9,padding:9}}>{JSON.stringify(d1Diagnostics, null, 2)}</pre>
@@ -1757,7 +1757,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
         {d1ReportCopyText&&<textarea readOnly value={d1ReportCopyText} onFocus={event=>event.currentTarget.select()} rows={7} aria-label="JSON отчёта D1" style={{width:'100%',boxSizing:'border-box',marginTop:8,background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:9,padding:8,color:'var(--text)',fontSize:10,lineHeight:1.4}}/>}
         <div style={{color:'var(--text-muted)',marginTop:9}}>Отчёт не является резервной копией. Перед очисткой нужно проверить результаты и сделать отдельный снимок базы.</div>
       </div>}
-    </div>
+    </SurfaceCard>
   </div>;
 }
 
