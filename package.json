@@ -1,0 +1,24 @@
+{
+  "name": "voxygen-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test && npm run theme:check",
+    "theme:check": "node scripts/check-theme-packs.mjs",
+    "theme:create": "node scripts/theme.mjs create",
+    "theme:publish": "node scripts/theme.mjs publish"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "lucide-react": "^0.383.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^6.0.0"
+  }
+}

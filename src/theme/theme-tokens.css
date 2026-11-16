@@ -1,0 +1,389 @@
+/*
+ * Voxygen Theme Tokens
+ * --------------------
+ * Vox is the first registered theme and the default theme.
+ * Theme-specific values live on the app root; protected content semantics
+ * live on :root and are deliberately not overridden by theme packs.
+ */
+
+:root {
+  /* Protected content colors: not theme accents. */
+  --content-color-gem: #38BDF8;
+}
+
+.atlas-root[data-theme="vox"] {
+  color-scheme: dark;
+
+  /* Color roles */
+  --theme-color-canvas: #0A0B10;
+  --theme-color-surface: #12151D;
+  --theme-color-surface-raised: #171B24;
+  --theme-color-surface-elevated: #1D2230;
+  --theme-color-surface-overlay: rgba(5, 7, 12, .78);
+  --theme-color-overlay-scrim: rgba(0, 0, 0, .82);
+  --theme-color-navigation-surface: rgba(10, 11, 16, .94);
+  --theme-color-image-control-surface: rgba(11, 13, 16, .58);
+  --theme-color-text-primary: #F7F8FC;
+  --theme-color-text-secondary: #B5BBCB;
+  --theme-color-text-muted: #7F879A;
+  --theme-color-text-subtle: #636B7E;
+  --theme-color-border: rgba(181, 187, 203, .12);
+  --theme-color-border-strong: rgba(181, 187, 203, .22);
+
+  --theme-color-action-primary: #8B5CF6;
+  --theme-color-action-primary-contrast: #FFFFFF;
+  --theme-color-action-primary-soft: rgba(139, 92, 246, .14);
+  --theme-color-action-primary-strong: rgba(139, 92, 246, .30);
+  --theme-color-action-primary-border: rgba(139, 92, 246, .28);
+  --theme-color-action-primary-focus: rgba(139, 92, 246, .13);
+
+  --theme-color-status-success: #41FFA7;
+  --theme-color-status-success-contrast: #06120D;
+  --theme-color-status-success-soft: rgba(65, 255, 167, .11);
+  --theme-color-status-success-border: rgba(65, 255, 167, .28);
+  --theme-color-status-warning: #F6C453;
+  --theme-color-status-warning-contrast: #211805;
+  --theme-glow-warning: 0 14px 34px rgba(246, 196, 83, .12);
+  --theme-color-status-warning-soft: rgba(246, 196, 83, .13);
+  --theme-color-status-warning-border: rgba(246, 196, 83, .28);
+  --theme-color-status-danger: #FF5D73;
+  --theme-color-status-danger-soft: rgba(255, 93, 115, .12);
+  --theme-color-status-danger-border: rgba(255, 93, 115, .28);
+  --theme-color-status-info: #67B7FF;
+
+  /* Component recipes: theme authors can retune variants without editing React primitives. */
+  --theme-recipe-toggle-track-on-bg: var(--theme-color-action-primary-soft);
+  --theme-recipe-toggle-track-on-border: var(--theme-color-action-primary-border);
+  --theme-recipe-toggle-track-off-bg: var(--theme-color-surface-raised);
+  --theme-recipe-toggle-track-off-border: var(--theme-color-border);
+  --theme-recipe-toggle-thumb-on-bg: var(--theme-color-action-primary);
+  --theme-recipe-toggle-thumb-off-bg: var(--theme-color-text-muted);
+
+  --theme-recipe-badge-neutral-bg: var(--theme-color-surface-raised);
+  --theme-recipe-badge-neutral-fg: var(--theme-color-text-secondary);
+  --theme-recipe-badge-neutral-border: var(--theme-color-border);
+  --theme-recipe-badge-primary-bg: var(--theme-color-action-primary-soft);
+  --theme-recipe-badge-primary-fg: var(--theme-color-action-primary);
+  --theme-recipe-badge-primary-border: var(--theme-color-action-primary-border);
+  --theme-recipe-badge-success-bg: var(--theme-color-status-success-soft);
+  --theme-recipe-badge-success-fg: var(--theme-color-status-success);
+  --theme-recipe-badge-success-border: var(--theme-color-status-success-border);
+  --theme-recipe-badge-warning-bg: var(--theme-color-status-warning-soft);
+  --theme-recipe-badge-warning-fg: var(--theme-color-status-warning);
+  --theme-recipe-badge-warning-border: var(--theme-color-status-warning-border);
+  --theme-recipe-badge-danger-bg: var(--theme-color-status-danger-soft);
+  --theme-recipe-badge-danger-fg: var(--theme-color-status-danger);
+  --theme-recipe-badge-danger-border: var(--theme-color-status-danger-border);
+
+  --theme-recipe-surface-base-bg: var(--theme-color-surface);
+  --theme-recipe-surface-raised-bg: var(--theme-color-surface-raised);
+  --theme-recipe-surface-elevated-bg: var(--theme-color-surface-elevated);
+  --theme-recipe-surface-border: var(--theme-color-border);
+  --theme-recipe-surface-fg: var(--theme-color-text-primary);
+  --theme-recipe-surface-shadow: var(--theme-shadow-low);
+  --theme-recipe-surface-radius: var(--theme-radius-card);
+  --theme-recipe-surface-padding: var(--theme-space-4);
+
+  --theme-recipe-field-bg: var(--theme-color-surface-raised);
+  --theme-recipe-field-fg: var(--theme-color-text-primary);
+  --theme-recipe-field-border: var(--theme-color-border);
+  --theme-recipe-field-radius: var(--theme-radius-control);
+  --theme-recipe-field-padding: var(--theme-space-2) var(--theme-space-3);
+
+  --theme-recipe-button-primary-bg: var(--theme-color-action-primary);
+  --theme-recipe-button-primary-fg: var(--theme-color-action-primary-contrast);
+  --theme-recipe-button-primary-border: var(--theme-color-action-primary-border);
+  --theme-recipe-button-neutral-bg: var(--theme-color-surface-raised);
+  --theme-recipe-button-neutral-fg: var(--theme-color-text-primary);
+  --theme-recipe-button-neutral-border: var(--theme-color-border-strong);
+  --theme-recipe-button-success-bg: var(--theme-color-status-success-soft);
+  --theme-recipe-button-success-fg: var(--theme-color-status-success);
+  --theme-recipe-button-success-border: var(--theme-color-status-success-border);
+  --theme-recipe-button-danger-bg: var(--theme-color-status-danger-soft);
+  --theme-recipe-button-danger-fg: var(--theme-color-status-danger);
+  --theme-recipe-button-danger-border: var(--theme-color-status-danger-border);
+  --theme-recipe-button-ghost-bg: transparent;
+  --theme-recipe-button-ghost-fg: var(--theme-color-text-secondary);
+  --theme-recipe-button-ghost-border: transparent;
+  --theme-recipe-icon-neutral-bg: var(--theme-color-surface-raised);
+  --theme-recipe-icon-neutral-fg: var(--theme-color-text-muted);
+  --theme-recipe-icon-neutral-border: var(--theme-color-border);
+  --theme-recipe-icon-primary-bg: var(--theme-color-action-primary-soft);
+  --theme-recipe-icon-primary-fg: var(--theme-color-action-primary);
+  --theme-recipe-icon-primary-border: var(--theme-color-action-primary-border);
+  --theme-recipe-icon-success-bg: var(--theme-color-status-success-soft);
+  --theme-recipe-icon-success-fg: var(--theme-color-status-success);
+  --theme-recipe-icon-success-border: var(--theme-color-status-success-border);
+  --theme-recipe-icon-danger-bg: var(--theme-color-status-danger-soft);
+  --theme-recipe-icon-danger-fg: var(--theme-color-status-danger);
+  --theme-recipe-icon-danger-border: var(--theme-color-status-danger-border);
+  --theme-recipe-icon-ghost-bg: transparent;
+  --theme-recipe-icon-ghost-fg: var(--theme-color-text-muted);
+  --theme-recipe-icon-ghost-border: transparent;
+  --theme-recipe-segmented-active-bg: var(--theme-color-action-primary);
+  --theme-recipe-segmented-active-fg: var(--theme-color-action-primary-contrast);
+  --theme-recipe-segmented-idle-bg: transparent;
+  --theme-recipe-segmented-idle-fg: var(--theme-color-text-muted);
+
+  /* Typography: themes may replace families and the complete type scale. */
+  --theme-font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --theme-font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --theme-font-technical: 'IBM Plex Mono', ui-monospace, monospace;
+  --theme-type-display-size: 30px;
+  --theme-type-compact-display-size: 27px;
+  --theme-type-compact-headline-size: 22px;
+  --theme-type-compact-title-size: 17px;
+  --theme-type-compact-body-size: 14px;
+  --theme-type-display-weight: 800;
+  --theme-type-display-line-height: 1.08;
+  --theme-type-headline-size: 24px;
+  --theme-type-headline-weight: 700;
+  --theme-type-title-size: 18px;
+  --theme-type-title-weight: 700;
+  --theme-type-body-size: 15px;
+  --theme-type-body-line-height: 1.55;
+  --theme-type-label-size: 12px;
+  --theme-type-label-weight: 600;
+  --theme-type-control-size: 13px;
+  --theme-type-technical-size: 12px;
+  --theme-type-control-line-height: 1.4;
+  --theme-type-headline-line-height: 1.14;
+  --theme-type-title-line-height: 1.2;
+  --theme-type-small-line-height: 1.45;
+  --theme-type-label-line-height: 1.35;
+  --theme-type-field-size: 14px;
+  --theme-type-field-line-height: 1.45;
+  --theme-type-button-line-height: 1.2;
+  --theme-type-inline-line-height: 1.35;
+  --theme-type-display-letter-spacing: -.028em;
+  --theme-type-h1-letter-spacing: -.035em;
+  --theme-type-h2-letter-spacing: -.028em;
+  --theme-type-h3-letter-spacing: -.018em;
+  --theme-type-paragraph-margin-bottom: 14px;
+  --theme-type-button-weight: 650;
+  --theme-type-button-letter-spacing: -.01em;
+  --theme-type-textarea-line-height: 1.5;
+
+  /* Geometry and spacing: intentionally themeable. */
+  --theme-space-1: 4px;
+  --theme-space-2: 8px;
+  --theme-space-3: 12px;
+  --theme-space-4: 16px;
+  --theme-space-5: 20px;
+  --theme-space-6: 24px;
+  --theme-space-8: 32px;
+  --theme-radius-xs: 8px;
+  --theme-radius-sm: 10px;
+  --theme-radius-control: 12px;
+  --theme-radius-card: 16px;
+  --theme-radius-large: 20px;
+  --theme-radius-modal: 22px;
+  --theme-radius-pill: 999px;
+  --theme-control-height: 44px;
+  --theme-control-height-compact: 36px;
+  --theme-field-label-gap: var(--theme-space-1);
+  --theme-field-message-gap: var(--theme-space-1);
+  --theme-icon-button-size: 40px;
+  --theme-navigation-padding-block-start: 10px;
+  --theme-navigation-padding-inline: 6px;
+  --theme-navigation-padding-block-end: calc(14px + env(safe-area-inset-bottom));
+  --theme-navigation-item-min-height: 44px;
+  --theme-navigation-item-gap: 3px;
+  --theme-navigation-icon-size: 19px;
+  --theme-navigation-label-size: 10.5px;
+  --theme-avatar-radius: var(--theme-radius-control);
+  --theme-avatar-fallback-background: var(--theme-color-action-primary-soft);
+  --theme-avatar-fallback-foreground: var(--theme-color-action-primary);
+  --theme-score-badge-radius: var(--theme-radius-pill);
+  --theme-score-badge-weight: 800;
+  --theme-score-badge-line-height: 1;
+  --theme-score-badge-icon-stroke: 2.5;
+  --theme-score-badge-shadow: var(--theme-shadow-low);
+  --theme-score-badge-gap-sm: var(--theme-space-1);
+  --theme-score-badge-gap-default: var(--theme-space-1);
+  --theme-score-badge-gap-lg: var(--theme-space-2);
+  --theme-score-badge-gap-recruitment: var(--theme-space-1);
+  --theme-score-badge-padding-sm: 6px 11px;
+  --theme-score-badge-padding-default: 8px 12px;
+  --theme-score-badge-padding-lg: 11px 17px;
+  --theme-score-badge-padding-recruitment: 8px 12px;
+  --theme-score-badge-size-sm: 13px;
+  --theme-score-badge-size-default: 15px;
+  --theme-score-badge-size-lg: 20px;
+  --theme-score-badge-size-recruitment: 16px;
+  --theme-score-badge-icon-sm: 14px;
+  --theme-score-badge-icon-default: 15px;
+  --theme-score-badge-icon-lg: 20px;
+  --theme-score-badge-icon-recruitment: 17px;
+  --theme-score-badge-height-sm: 36px;
+  --theme-score-badge-height-default: 36px;
+  --theme-score-badge-height-lg: 48px;
+  --theme-score-badge-height-recruitment: 42px;
+  --theme-icon-button-glyph-size: 18px;
+  --theme-icon-button-glyph-stroke: 2;
+  --theme-button-font-weight: 700;
+  --theme-button-line-height: 1.2;
+  --theme-button-radius: var(--theme-radius-control);
+  --theme-button-gap: var(--theme-space-2);
+  --theme-react-action-gap: var(--theme-space-1);
+  --theme-react-action-size: var(--theme-type-technical-size);
+  --theme-react-action-weight-active: 700;
+  --theme-react-action-weight-idle: 500;
+  --theme-section-title-gap: var(--theme-space-2);
+  --theme-section-title-bottom-gap: var(--theme-space-2);
+  --theme-section-title-size: var(--theme-type-control-size);
+  --theme-section-title-weight: 600;
+  --theme-section-count-size: var(--theme-type-technical-size);
+  --theme-slider-track-height: 4px;
+  --theme-slider-thumb-size: 18px;
+  --theme-toggle-track-width: 48px;
+  --theme-toggle-track-height: 28px;
+  --theme-toggle-thumb-size: 20px;
+  --theme-toggle-track-inset: 3px;
+  --theme-toggle-row-gap: 12px;
+  --theme-toggle-row-padding: 11px;
+  --theme-toggle-label-size: 13.5px;
+  --theme-toggle-label-weight: 650;
+  --theme-toggle-label-line-height: 1.3;
+  --theme-toggle-description-size: 11.5px;
+  --theme-toggle-description-line-height: 1.4;
+  --theme-toggle-description-gap: 4px;
+  --theme-content-max-width: 448px;
+  --theme-modal-max-width: 448px;
+  --theme-modal-overlay-padding: var(--theme-space-4);
+  --theme-modal-content-padding: 18px;
+  --theme-modal-viewport-inset-total: 48px;
+  --theme-modal-viewport-safe-height: calc(100vh - var(--theme-modal-viewport-inset-total));
+  --theme-modal-max-height-compact: 70vh;
+  --theme-modal-max-height-standard: 76vh;
+  --theme-modal-max-height-form: 80vh;
+  --theme-modal-max-height-settings: 84vh;
+  --theme-modal-max-height-expanded: 88vh;
+  --theme-modal-max-height-editor: 90vh;
+
+  /* Elevation and effects */
+  --theme-shadow-low: 0 8px 22px rgba(0, 0, 0, .18);
+  --theme-shadow-medium: 0 16px 42px rgba(0, 0, 0, .28);
+  --theme-shadow-high: 0 26px 70px rgba(0, 0, 0, .38);
+  --theme-shadow-slider-thumb: 0 1px 4px rgba(0, 0, 0, .35);
+  --theme-shadow-toast: 0 10px 26px rgba(0, 0, 0, .20);
+  --theme-shadow-navigation: 0 -16px 42px rgba(0, 0, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .035);
+  --theme-shadow-map-marker-hover: 0 4px 9px rgba(0, 0, 0, .48);
+  --theme-shadow-focus-field: 0 6px 18px rgba(0, 0, 0, .12);
+  --theme-shadow-cover-title: 0 2px 10px rgba(0, 0, 0, .28);
+  --theme-account-switcher-padding: 14px 16px;
+  --theme-color-sheen-soft: rgba(255, 255, 255, .012);
+  --theme-color-sheen-strong: rgba(255, 255, 255, .055);
+  --theme-color-highlight-inset-subtle: rgba(255, 255, 255, .018);
+  --theme-color-highlight-inset-soft: rgba(255, 255, 255, .02);
+  --theme-glow-primary: 0 14px 34px rgba(139, 92, 246, .17);
+  --theme-glow-success: 0 14px 34px rgba(65, 255, 167, .12);
+  --theme-backdrop-blur: 18px;
+  --theme-toast-bottom-offset: calc(76px + env(safe-area-inset-bottom));
+  --theme-toast-max-width: 420px;
+  --theme-toast-viewport-gutter-total: 32px;
+  --theme-toast-padding-block: 11px;
+  --theme-toast-padding-inline: 16px;
+  --theme-toast-radius: var(--theme-radius-pill);
+  --theme-toast-font-size: 12.5px;
+  --theme-toast-font-weight: 700;
+  --theme-toast-line-height: 1.3;
+  --theme-modal-backdrop-blur: 4px;
+  --theme-app-background:
+    radial-gradient(620px 360px at 100% -8%, rgba(139, 92, 246, .075), transparent 68%),
+    radial-gradient(520px 320px at -10% 40%, rgba(65, 255, 167, .045), transparent 72%),
+    linear-gradient(180deg, #0B0C11 0%, #090A0F 100%);
+
+  /* Motion: themes may define durations, curves and component animation style. */
+  --theme-motion-instant: 100ms;
+  --theme-motion-tap: 160ms;
+  --theme-motion-standard: 190ms;
+  --theme-motion-modal: 245ms;
+  --theme-ease-standard: cubic-bezier(.22, .72, .22, 1);
+  --theme-ease-interactive: cubic-bezier(.2, .85, .25, 1);
+  --theme-ease-enter: cubic-bezier(.16, 1, .3, 1);
+
+  /* Compatibility bridge for the current legacy stylesheet. */
+  --bg: var(--theme-color-canvas);
+  --surface: var(--theme-color-surface);
+  --surface-2: var(--theme-color-surface-raised);
+  --surface-3: var(--theme-color-surface-elevated);
+  --text: var(--theme-color-text-primary);
+  --text-secondary: var(--theme-color-text-secondary);
+  --text-muted: var(--theme-color-text-muted);
+  --text-dim: var(--theme-color-text-subtle);
+  --purple: var(--theme-color-action-primary);
+  --purple-soft: var(--theme-color-action-primary-soft);
+  --purple-strong: var(--theme-color-action-primary-strong);
+  --purple-border: var(--theme-color-action-primary-border);
+  --mint: var(--theme-color-status-success);
+  --mint-soft: var(--theme-color-status-success-soft);
+  --emerald: var(--theme-color-status-success);
+  --gold: var(--theme-color-status-warning);
+  --gold-soft: var(--theme-color-status-warning-soft);
+  --success: var(--theme-color-status-success);
+  --success-soft: var(--theme-color-status-success-soft);
+  --warning: var(--theme-color-status-warning);
+  --warning-soft: var(--theme-color-status-warning-soft);
+  --danger: var(--theme-color-status-danger);
+  --gem: var(--content-color-gem);
+  --red: var(--theme-color-status-danger);
+  --red-soft: var(--theme-color-status-danger-soft);
+  --red-border: var(--theme-color-status-danger-border);
+  --border: var(--theme-color-border);
+  --shadow-sm: var(--theme-shadow-low);
+  --shadow-md: var(--theme-shadow-medium);
+  --shadow-lg: var(--theme-shadow-high);
+  --glow-purple: var(--theme-glow-primary);
+  --glow-mint: var(--theme-glow-success);
+  --ease-standard: var(--theme-ease-standard);
+  --ease-interactive: var(--theme-ease-interactive);
+  --motion-tap: var(--theme-motion-tap);
+  --motion-standard: var(--theme-motion-standard);
+  --motion-modal: var(--theme-motion-modal);
+  --radius-md: var(--theme-radius-card);
+  --radius-lg: var(--theme-radius-large);
+
+  background: var(--theme-app-background);
+  color: var(--theme-color-text-primary);
+  font-family: var(--theme-font-body);
+}
+
+.atlas-root[data-theme] h1,
+.atlas-root[data-theme] h2,
+.atlas-root[data-theme] h3,
+.atlas-root[data-theme] .atlas-display {
+  font-family: var(--theme-font-display) !important;
+}
+
+
+/* Shared focus and state affordances for theme-aware primitives. */
+.atlas-root[data-theme] :is(.atlas-field-input, .atlas-segmented__option, .atlas-button, .atlas-icon-button):focus-visible {
+  outline: 2px solid var(--theme-color-action-primary);
+  outline-offset: 2px;
+}
+.atlas-root[data-theme] .atlas-field-input {
+  transition: border-color var(--theme-motion-instant) var(--theme-ease-standard),
+    background-color var(--theme-motion-instant) var(--theme-ease-standard);
+}
+.atlas-root[data-theme] .atlas-field-input:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+}
+.atlas-root[data-theme] .atlas-field-input[aria-invalid="true"]:focus-visible {
+  outline-color: var(--theme-color-status-danger);
+}
+.atlas-root[data-theme] .atlas-segmented__option[aria-pressed="true"] {
+  color: var(--theme-color-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-root[data-theme] *,
+  .atlas-root[data-theme] *::before,
+  .atlas-root[data-theme] *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
