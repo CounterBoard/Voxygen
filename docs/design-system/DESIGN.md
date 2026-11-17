@@ -280,10 +280,10 @@ independent semantic roles.
 ## 18. Theme-aware overlays and state-control contrast
 
 Modal scrims, full-screen overlays, primary-action focus rings, and status
-button contrast now use dedicated theme roles. Warning buttons preserve their
-warning background, warning contrast foreground, warning border and warning
-glow; they are no longer styled as success actions. Primary and success
-controls consume their own contrast tokens. This migration deliberately leaves
+button contrast now use dedicated theme roles. Warning buttons keep their
+warning semantic token names but intentionally share Vox's mint background,
+contrast, border and glow. Caution is communicated through copy and iconography.
+Primary and danger controls retain their own contrast tokens. This migration deliberately leaves
 Minecraft formatting, visual-equipment palette values, territory colors and the
 gem content color unchanged.
 
