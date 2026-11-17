@@ -6325,10 +6325,10 @@ function parseBankCommand(raw) {
   const isAmount = value => /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) > 0 && Number(value) <= 1_000_000_000;
   const sign = value => value.startsWith('-') || value.startsWith('−') ? 'debit' : 'credit';
   const digits = value => value.replace(/^[+＋]/, '').replace(/^[-−]/, '');
-  // Also accept the compact amount-first debit form `42 -Nick`.
+  // Also accept compact amount-first debit forms `42 -Nick` and `42-Nick`. 
   let match = text.match(/^(\d+)\s*[-−]([^\s].*)$/);
   if (match && isAmount(match[1])) return { target: stripMinecraftFormatting(match[2]).trim().replace(/^@+/, ''), amount: Number(match[1]), direction: 'debit' };
-  // Target-first syntax: `Steve 42`, `Steve +42`, `Steve -42`.
+  // Target-first syntax: `Steve 42`, `Steve +42`, `Steve -42`, `Steve-42`, `Steve+42`.
   match = text.match(/^(.+?)(?:\s+|(?=[+＋−-]))((?:[+＋]|[-−])?\d+)$/);
   if (match) {
     const target = match[1].trim(), rawAmount = match[2], amount = digits(rawAmount);
