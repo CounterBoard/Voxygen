@@ -184,7 +184,7 @@
   --theme-control-height-compact: 36px;
   --theme-field-label-gap: var(--theme-space-1);
   --theme-field-message-gap: var(--theme-space-1);
-  --theme-icon-button-size: 40px;
+  --theme-icon-button-size: 44px;
   --theme-navigation-padding-block-start: 10px;
   --theme-navigation-padding-inline: 6px;
   --theme-navigation-padding-block-end: calc(14px + env(safe-area-inset-bottom));
