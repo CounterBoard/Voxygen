@@ -567,9 +567,27 @@ test('viewport overlays, treasury controls and territory links follow the UI con
   assert.match(app, /width:112,minWidth:112,height:'var\(--theme-control-height\)'/);
   assert.match(app, /wrapperStyle = \{\}/);
   assert.match(app, /padding:'18px 16px 100px'/);
-  assert.match(app, /width:40,height:40,flex:'0 0 40px'/);
+  assert.match(app, /width:44,height:44,flex:'0 0 44px'/);
   assert.match(app, /aria-label="Удалить скриншот"/);
   assert.doesNotMatch(app, /@keyframes atlas-toast-in\{\s*0%\{/);
   assert.match(app, /family=IBM\+Plex\+Mono/);
   assert.match(app, /family=Unbounded/);
+});
+
+test('compact controls and nested cards follow shared geometry', () => {
+  assert.match(tokens, /--theme-icon-button-size:\s*44px/);
+  assert.match(app, /width:44,height:44,flex:'0 0 44px'/);
+  assert.match(app, /flex: 1, minHeight: 44, boxSizing: 'border-box'/);
+  assert.match(app, /width:44,height:44,flex:'0 0 44px'/);
+  assert.match(app, /borderRadius:'var\(--theme-radius-control\)',padding:'11px 12px'/);
+  assert.match(app, /borderRadius:'var\(--theme-radius-card\)',overflow:'hidden',marginTop:0,marginBottom:16/);
+  assert.doesNotMatch(app, /minHeight:40/);
+  assert.doesNotMatch(app, /minHeight:42/);
+  assert.match(app, /aria-label="Переместить визуал выше"/);
+  assert.match(app, /aria-label="Переместить визуал ниже"/);
+  assert.match(app, /aria-label="Редактировать визуал"/);
+  assert.match(app, /aria-label="Удалить визуал"/);
+  assert.match(app, /atlas-page atlas-page--events" style=\{\{ padding:'18px 16px 100px' \}\}/);
+  assert.match(app, /atlas-visual-card-reveal atlas-visual-card[^\n]+borderRadius:'var\(--theme-radius-card\)'/);
+
 });
