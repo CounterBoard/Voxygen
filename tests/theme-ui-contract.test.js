@@ -582,4 +582,11 @@ test('compact controls and nested cards follow shared geometry', () => {
   assert.match(app, /borderRadius:'var\(--theme-radius-card\)',overflow:'hidden',marginTop:0,marginBottom:16/);
   assert.doesNotMatch(app, /minHeight:40/);
   assert.doesNotMatch(app, /minHeight:42/);
+  assert.match(app, /aria-label="Переместить визуал выше"/);
+  assert.match(app, /aria-label="Переместить визуал ниже"/);
+  assert.match(app, /aria-label="Редактировать визуал"/);
+  assert.match(app, /aria-label="Удалить визуал"/);
+  assert.match(app, /atlas-page atlas-page--events" style=\{\{ padding:'18px 16px 100px' \}\}/);
+  assert.match(app, /atlas-visual-card-reveal atlas-visual-card[^\n]+borderRadius:'var\(--theme-radius-card\)'/);
+
 });
