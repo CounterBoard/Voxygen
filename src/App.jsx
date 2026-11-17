@@ -2596,7 +2596,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
         {String(t.additional_info || '').trim() && <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:14,padding:'12px 14px',marginTop:-6,marginBottom:18}}><TelegramMinecraftText text={t.additional_info} interactive style={{fontSize:13.5,lineHeight:1.55,color:'var(--theme-color-text-primary)'}} /></div>}
         <SectionTitle icon={<Camera size={15} />} title="Скрины" count={approved.length} />
         <div className="atlas-scroll" style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 14 }}>
-          {approved.map((s, shotIndex) => <div key={s.id} className="atlas-shot-reveal" style={{ position: 'relative', flexShrink: 0, animationDelay: `${Math.min(shotIndex * 35, 175)}ms` }}><ShotThumb shot={s} onOpen={() => { setLightboxIndex(approved.findIndex(x => x.id === s.id)); setLightbox({ shot: s }); }} />{canDeleteShot && <button onClick={() => deleteShot(s.id)} className="press" style={{ position: 'absolute', right: 3, top: 3, width: 24, height: 24, border: 'none', borderRadius: '50%', background: 'rgba(0,0,0,.72)', color: 'var(--theme-color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} /></button>}</div>)}
+          {approved.map((s, shotIndex) => <div key={s.id} className="atlas-shot-reveal" style={{ position: 'relative', flexShrink: 0, animationDelay: `${Math.min(shotIndex * 35, 175)}ms` }}><ShotThumb shot={s} onOpen={() => { setLightboxIndex(approved.findIndex(x => x.id === s.id)); setLightbox({ shot: s }); }} />{canDeleteShot && <button onClick={() => deleteShot(s.id)} className="press" aria-label="Удалить скриншот" title="Удалить скриншот" style={{ position: 'absolute', right: 0, top: 0, width: 44, height: 44, padding: 0, border: 'none', background: 'transparent', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end' }}><span style={{ margin: 3, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,.72)', color: 'var(--theme-color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} /></span></button>}</div>)}
           {hasNickname && (!isOwner || isGovernment) && <><input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} /><button onClick={() => fileInputRef.current?.click()} className="press" style={{ flexShrink: 0, width: 96, height: 68, borderRadius: 12, border: '1px dashed var(--theme-color-border)', background: 'transparent', color: 'var(--theme-color-text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 11 }}><Plus size={16} /> Добавить</button></>}
         </div>
         {!isGovernment&&<button onClick={() => setShowResidents(true)} className="press" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--theme-color-surface)', border: '1px solid var(--theme-color-border)', borderRadius: 14, padding: '11px 13px', margin: '0 0 16px', color: 'var(--theme-color-text-primary)' }}><span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600 }}><Users size={15} /> Жители</span><span style={{ fontSize: 12, color: 'var(--theme-color-text-muted)' }}>{residentCount} →</span></button>}
@@ -2645,10 +2645,11 @@ function ReplyBox({ onSend }) {
       <input
         value={val}
         onChange={(e) => setVal(e.target.value)}
+        aria-label="Ответить как основатель или мэр"
         placeholder="Ответить как основатель/мэр…"
         style={{
-          flex: 1, background: 'var(--theme-color-surface-raised)', border: '1px solid var(--theme-color-border)', borderRadius: 10,
-          padding: '7px 10px', color: 'var(--theme-color-text-primary)', fontSize: 12.5, outline: 'none',
+          flex: 1, minHeight: 40, boxSizing: 'border-box', background: 'var(--theme-color-surface-raised)', border: '1px solid var(--theme-color-border)', borderRadius: 10,
+          padding: '9px 10px', color: 'var(--theme-color-text-primary)', fontSize: 12.5, outline: 'none',
         }}
       />
       <button
