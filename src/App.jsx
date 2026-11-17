@@ -857,7 +857,7 @@ function Lightbox({ shots = [], index = 0, mode, onClose, onApprove, onReject, o
       className={`atlas-overlay${closing ? ' atlas-closing' : ''}`}
       style={{ position:'fixed', inset:0, background:'var(--theme-color-canvas)', zIndex:80, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', overflow:'hidden', padding:0 }}
     >
-      <button onClick={requestClose} className="press" aria-label="Закрыть" style={{ ...iconBtn('var(--theme-color-surface-raised)','var(--theme-color-text-primary)'), position:'fixed', top:12, right:12, width:58, height:58, zIndex:5 }}><X size={34}/></button>
+      <button onClick={requestClose} className="press" aria-label="Закрыть" style={{ ...iconBtn('var(--theme-color-surface-raised)','var(--theme-color-text-primary)'), position:'fixed', top:12, right:12, width:44, height:44, zIndex:5 }}><X size={22}/></button>
       <div
         onClick={e=>e.stopPropagation()}
         onTouchStart={handleTouchStart}
@@ -1932,7 +1932,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
     setInventory(v=>v?{...v,...(mode==='cover'?{equippedBackgroundItemId:nextId}:{equippedMarkerItemId:nextId})}:v);
   }
   if(!territory)return null;
-  return <SurfaceCard className="atlas-page-panel" padding={14} style={{marginBottom:12}}>
+  return <SurfaceCard className="atlas-page-panel" padding={14} style={{marginBottom:10}}>
     <MinecraftText text={territory.name} as="div" className="atlas-display" style={{fontSize:16,fontWeight:700,marginBottom:12}}/>
     <div style={{fontSize:12,color:'var(--theme-color-text-muted)',marginBottom:6}}>Название</div><div style={{display:'flex',gap:8,marginBottom:4}}><input value={name} readOnly={readOnly} onChange={e=>setName(e.target.value)} style={{flex:1,background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding:'10px 12px',color:'var(--theme-color-text-primary)',fontSize:13,cursor:readOnly?'default':'text'}}/>{!readOnly&&<button onClick={rename} className="press" style={iconBtn('var(--theme-color-action-primary)','var(--theme-color-action-primary-contrast)',true)}><Pencil size={15}/></button>}</div>
     <div style={{fontSize:12,color:'var(--theme-color-text-muted)',marginTop:12,marginBottom:6}}>Доп. информация</div>
@@ -1973,7 +1973,7 @@ function ProfileInventory({initData,role,tgUser,territory}={}){
   }
   useEffect(()=>{load()},[initData,territory?.id]);
   const items=territory?(data?.cityInventory||[]):(data?.myItems||[]);
-  return <div className="atlas-page-panel" style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding:14,marginBottom:12}}>
+  return <div className="atlas-page-panel" style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding:14,marginBottom:10}}>
     <div className="atlas-display" style={{fontSize:16,fontWeight:700,marginBottom:5}}>{territory?<>Инвентарь визуала — <MinecraftText text={territory.name}/></>:'Покупки'}</div>
     {loading&&!data?<div role="status" style={{fontSize:12,color:'var(--theme-color-text-muted)',padding:'9px 0'}}>Загрузка покупок…</div>
       : error&&!data?<div role="alert" style={{fontSize:12,color:'var(--theme-color-status-danger)',padding:'9px 0'}}>{error}</div>
@@ -1986,14 +1986,14 @@ function TreasuryCard({city,initData,tgUser}={}){
   useEffect(()=>{load()},[city?.id,initData]);
   async function deposit(){const n=Math.floor(Number(amount));if(!Number.isSafeInteger(n)||n<=0){setError('');return}const operation=getFinancialOperationToken('treasury-deposit',city.id,n);if(operation.blocked){setError(`Предыдущая операция на ${operation.amount} сц ещё не подтверждена. Верните прежнюю сумму и повторите попытку.`);return}try{setBusy(true);setError('');setNotice('');const r=await fetch(`${API_BASE}/api/treasury/deposit`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,territoryId:city.id,amount:n,operationId:operation.id})}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok){if([400,401,403,404,422].includes(r.status))clearFinancialOperationToken(operation);throw new Error(apiErrorMessage(r,d,"Операция не выполнена."));}clearFinancialOperationToken(operation);setData(d);setAmount('');setNotice('Казна пополнена');window.dispatchEvent(new Event('voxygen:currency-changed'))}catch(e){setError(safeCaughtError(e, 'Не удалось пополнить казну'))}finally{setBusy(false)}}
   if(!city)return null;
-  return <div className="atlas-page-panel" style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding:'var(--theme-space-4)',marginBottom:12}}>
+  return <div className="atlas-page-panel" style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding:'var(--theme-space-4)',marginBottom:10}}>
     <div className="atlas-display" style={{fontSize:18,fontWeight:800,marginBottom:5}}>Казна: <MinecraftText text={city.name}/></div>
     <div style={{fontSize:13,color:'var(--theme-color-text-muted)',marginBottom:14}}>Пополнение этого счёта доступно всем жителям города.</div>
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
       <div style={{background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:14,padding:'11px 12px'}}><div style={{fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginBottom:6}}>В казне</div><div className="atlas-display" style={{fontSize:22,fontWeight:800,color:'var(--content-color-gem)',display:'flex',alignItems:'center',gap:6}}>{data?.balance??0}<GemHex/></div></div>
       <div style={{background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:14,padding:'11px 12px'}}><div style={{fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginBottom:6}}>Ваш баланс</div><div className="atlas-display" style={{fontSize:22,fontWeight:800,color:'var(--content-color-gem)',display:'flex',alignItems:'center',gap:6}}>{data?.personal_balance??0}<GemHex/></div></div>
     </div>
-    <div style={{display:'flex',gap:8}}><Field value={amount} onChange={e=>setAmount(e.target.value.replace(/\D/g,''))} inputMode="numeric" placeholder="Количество сц" style={{flex:1,minWidth:0}}/><Button onClick={deposit} disabled={busy||!amount} size="sm" style={{whiteSpace:'nowrap'}}>{busy?'…':'Пополнить казну'}</Button></div>
+    <div style={{display:'flex',gap:8}}><Field value={amount} onChange={e=>setAmount(e.target.value.replace(/\D/g,''))} inputMode="numeric" placeholder="Количество сц" style={{flex:1,minWidth:0}}/><Button onClick={deposit} disabled={busy||!amount} size="md" style={{whiteSpace:'nowrap',minHeight:'var(--theme-control-height)',padding:'0 10px',fontSize:12,flexShrink:0}}>{busy?'…':'Пополнить казну'}</Button></div>
     {error&&<div style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop:9}}>{error}</div>}
     {notice&&<FixedToast key={notice} message={notice}/>}
   </div>;
@@ -2049,6 +2049,7 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
   const [reloadToken,setReloadToken] = useState(0);
   const [personalZoomChanged,setPersonalZoomChanged] = useState(false);
   const [personalThemeChanged,setPersonalThemeChanged] = useState(false);
+  const themeSwipeStart = useRef(null);
   const { closing, requestClose } = useAnimatedClose(onClose, 175);
 
   useEffect(()=>{
@@ -2082,7 +2083,18 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
     finally{setSaving(false);}
   }
 
-  return <div className={'atlas-overlay'+(closing?' atlas-closing':'')} style={{position:'fixed',inset:0,zIndex:130,background:'var(--theme-color-overlay-scrim)',display:'flex',alignItems:'center',justifyContent:'center',padding:'18px 14px'}} onClick={requestClose}>
+  const availableThemeIds = Array.isArray(settings?.availableThemes) && settings.availableThemes.length ? settings.availableThemes : ['vox'];
+  const availableThemeItems = availableThemeIds.map(themeId=>THEME_CATALOG[themeId]).filter(Boolean);
+  const selectedThemeId = normalizeThemeId(settings?.personalTheme??settings?.defaultTheme);
+  const selectedThemeIndex = Math.max(0,availableThemeItems.findIndex(item=>item.id===selectedThemeId));
+  const selectedTheme = availableThemeItems[selectedThemeIndex] || THEME_CATALOG.vox;
+  function selectTheme(themeId){setPersonalThemeChanged(true);patch({personalTheme:themeId,defaultTheme:themeId});}
+  function stepTheme(delta){const nextIndex=Math.max(0,Math.min(availableThemeItems.length-1,selectedThemeIndex+delta));const next=availableThemeItems[nextIndex];if(next&&next.id!==selectedThemeId)selectTheme(next.id);}
+  function onThemeTouchStart(event){const touch=event.touches?.[0];themeSwipeStart.current=touch?{x:touch.clientX,y:touch.clientY}:null;}
+  function onThemeTouchEnd(event){const start=themeSwipeStart.current;themeSwipeStart.current=null;const touch=event.changedTouches?.[0];if(!start||!touch)return;const dx=touch.clientX-start.x,dy=touch.clientY-start.y;if(Math.abs(dx)<36||Math.abs(dx)<Math.abs(dy)*1.2)return;stepTheme(dx<0?1:-1);}
+  function onThemeKeyDown(event){if(event.key==='ArrowLeft'){event.preventDefault();stepTheme(-1);}else if(event.key==='ArrowRight'){event.preventDefault();stepTheme(1);}}
+
+    return <div className={'atlas-overlay'+(closing?' atlas-closing':'')} style={{position:'fixed',inset:0,zIndex:130,background:'var(--theme-color-overlay-scrim)',display:'flex',alignItems:'center',justifyContent:'center',padding:'18px 14px'}} onClick={requestClose}>
     <div onClick={e=>e.stopPropagation()} className={'atlas-modal-shell'+(closing?' atlas-closing':'')} style={{width:'min(var(--theme-modal-max-width),100%)',maxHeight:'min(var(--theme-modal-max-height-settings), var(--theme-modal-viewport-safe-height))',overflowY:'auto',background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-modal)',padding:'var(--theme-modal-content-padding)',boxSizing:'border-box'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:16}}>
         <div className="atlas-display" style={{fontSize:19,fontWeight:750}}>Настройки</div>
@@ -2094,9 +2106,15 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
       </div>:<>
         <div style={{fontSize:15,fontWeight:750,marginBottom:8}}>Основные</div>
         <div style={{fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginBottom:7}}>Тема интерфейса</div>
-        <SelectField value={normalizeThemeId(settings.personalTheme??settings.defaultTheme)} onChange={e=>{setPersonalThemeChanged(true);patch({personalTheme:normalizeThemeId(e.target.value),defaultTheme:normalizeThemeId(e.target.value)})}} style={{marginBottom:5}} aria-label="Личная тема интерфейса">
-          {(Array.isArray(settings.availableThemes)?settings.availableThemes:['vox']).map(themeId=>THEME_CATALOG[themeId]).filter(Boolean).map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
-        </SelectField>
+        <div role="group" aria-label="Выбор темы интерфейса" tabIndex={0} onKeyDown={onThemeKeyDown} onTouchStart={onThemeTouchStart} onTouchEnd={onThemeTouchEnd} style={{display:'flex',alignItems:'center',gap:8,padding:10,marginBottom:16,background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:14,touchAction:'pan-y',userSelect:'none'}}>
+          <IconButton icon={ChevronLeft} label="Предыдущая тема" onClick={()=>stepTheme(-1)} disabled={selectedThemeIndex<=0}/>
+          <div aria-live="polite" style={{flex:1,minWidth:0,textAlign:'center'}}>
+            <div className="atlas-display" style={{fontSize:17,fontWeight:800}}>{selectedTheme?.name||'Vox'}</div>
+            <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',lineHeight:1.4,marginTop:3}}>{selectedTheme?.description||'Тема интерфейса Voxygen'}</div>
+            {availableThemeItems.length>1?<div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:5,marginTop:9}}>{availableThemeItems.map((item,index)=><span key={item.id} aria-label={item.name} style={{width:index===selectedThemeIndex?16:6,height:6,borderRadius:99,background:index===selectedThemeIndex?'var(--theme-color-action-primary)':'var(--theme-color-border-strong)',transition:'all 160ms ease'}}/>)}</div>:<div style={{fontSize:10.5,color:'var(--theme-color-text-subtle)',marginTop:8}}>Сейчас доступна только тема Vox</div>}
+          </div>
+          <IconButton icon={ChevronRight} label="Следующая тема" onClick={()=>stepTheme(1)} disabled={selectedThemeIndex>=availableThemeItems.length-1}/>
+        </div>
         <div style={{fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginBottom:6}}>Часовой пояс</div>
         <input value={settings.timezone||'UTC+3'} onChange={e=>patch({timezone:keepUtcPrefix(e.target.value)})} onBlur={()=>patch({timezone:normalizeTimezoneOffset(settings.timezone)})} placeholder="UTC+3" aria-label="Часовой пояс" style={{width:'100%',boxSizing:'border-box',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:11,padding:'11px 12px',color:'var(--theme-color-text-primary)',fontSize:14,marginBottom:16}}/>
         <div style={{fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginBottom:7}}>Масштаб карты</div>
@@ -2251,9 +2269,9 @@ function ProfileScreen({ profile, profileLoadState, profileLoadError, claimNickn
   const residentCities=visibleCities.filter(t=>!managerCityIds.has(String(t.id))&&(Array.isArray(t.resident_telegram_ids)&&t.resident_telegram_ids.map(String).includes(uid)));
   const userCitiesForTreasury=visibleCities;
   return <div className="atlas-page atlas-page--profile" style={{padding:'18px 16px 40px',minHeight:'60vh'}}>
-    <div className="atlas-display atlas-page-title" style={{fontSize:22,fontWeight:700,marginBottom:4}}>Профиль</div>
+    <div className="atlas-display atlas-page-title" style={{fontSize:22,fontWeight:700,marginBottom:12}}>Профиль</div>
     {profileLoadError&&<div role="status" style={{display:'flex',alignItems:'center',gap:10,background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:12,padding:12,marginBottom:12,fontSize:12.5,lineHeight:1.45}}><span style={{flex:1,color:'var(--theme-color-text-muted)'}}>{profileLoadError}{profileLoadState!=='error'?' Последние подтверждённые данные сохранены.':''}</span><button onClick={refreshProfile} className="press" style={{border:'1px solid var(--theme-color-border)',borderRadius:10,background:'var(--theme-color-surface)',color:'var(--theme-color-text-primary)',padding:'8px 10px',fontWeight:700,flexShrink:0}}>Повторить</button></div>}
-    <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding:'var(--theme-space-4)',marginBottom:12}}><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}><AvatarHead nickname={profile.status==='verified'?profile.nickname:null} skinUrl={profile.status==='verified'?profile.skinUrl:null} size={46}/><div><div style={{fontSize:15,fontWeight:600}}>{profileLoadState==='error'?'Профиль временно недоступен':<MinecraftText text={profile.nickname||'Ник не указан'}/>}</div>{isInspector?<div style={{fontSize:11.5,color:'var(--theme-color-status-warning)',display:'flex',alignItems:'center',gap:4,fontWeight:700}}><ShieldCheck size={12}/>{isMainInspector?'Главный инспектор':'Инспектор'}</div>:profile.status==='verified'?<div style={{fontSize:11.5,color:'var(--theme-color-status-success)'}}>Ник подтверждён</div>:profile.status==='pending'?<div style={{fontSize:11.5,color:'var(--theme-color-status-warning)'}}>Ожидает подтверждения инспектора</div>:<div style={{fontSize:11.5,color:'var(--theme-color-text-muted)'}}>Ник в Minecraft</div>}</div><div style={{display:'flex',alignItems:'center',gap:6,marginLeft:'auto',flexShrink:0}}>
+    <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding:'var(--theme-space-4)',marginBottom:10}}><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}><AvatarHead nickname={profile.status==='verified'?profile.nickname:null} skinUrl={profile.status==='verified'?profile.skinUrl:null} size={46}/><div><div style={{fontSize:15,fontWeight:600}}>{profileLoadState==='error'?'Профиль временно недоступен':<MinecraftText text={profile.nickname||'Ник не указан'}/>}</div>{isInspector?<div style={{fontSize:11.5,color:'var(--theme-color-status-warning)',display:'flex',alignItems:'center',gap:4,fontWeight:700}}><ShieldCheck size={12}/>{isMainInspector?'Главный инспектор':'Инспектор'}</div>:profile.status==='verified'?<div style={{fontSize:11.5,color:'var(--theme-color-status-success)'}}>Ник подтверждён</div>:profile.status==='pending'?<div style={{fontSize:11.5,color:'var(--theme-color-status-warning)'}}>Ожидает подтверждения инспектора</div>:<div style={{fontSize:11.5,color:'var(--theme-color-text-muted)'}}>Ник в Minecraft</div>}</div><div style={{display:'flex',alignItems:'center',gap:6,marginLeft:'auto',flexShrink:0}}>
         <button type="button" onClick={()=>setSettingsOpen(true)} className="press" aria-label="Настройки профиля" title="Настройки" style={{width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--theme-color-border)',borderRadius:12,background:'var(--theme-color-surface-raised)',color:'var(--theme-color-text-muted)'}}><Settings size={18}/></button>
         {isMainInspector&&<button type="button" onClick={()=>onOpenGlobalSettings?.()} className="press" aria-label="Глобальные настройки" title="Глобальные настройки" style={{width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--theme-color-status-success)',borderRadius:12,background:'var(--theme-color-status-success)',color:'var(--theme-color-status-success-contrast)'}}><Settings size={18}/></button>}
       </div></div><div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom:10}}>Telegram: {tgUser?`@${tgUser.username||'—'} · id ${tgUser.id}`:'не определён'}</div>{!isInspector&&profileLoadState==='needs_nickname'&&profile.status!=='verified'&&<><div style={{display:'flex',gap:8}}><Field value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ваш ник в Minecraft" style={{flex:1,background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding:'10px 12px',color:'var(--theme-color-text-primary)',fontSize:13}}/><button onClick={submit} className="press" style={iconBtn('var(--theme-color-action-primary)','var(--theme-color-action-primary-contrast)',true)}><Pencil size={15}/></button></div>{error&&<div style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop:8}}>{error}</div>}</>}</div>
@@ -2589,7 +2607,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
         {!isGovernment&&<button onClick={() => setShowResidents(true)} className="press" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--theme-color-surface)', border: '1px solid var(--theme-color-border)', borderRadius: 14, padding: '11px 13px', margin: '0 0 16px', color: 'var(--theme-color-text-primary)' }}><span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600 }}><Users size={15} /> Жители</span><span style={{ fontSize: 12, color: 'var(--theme-color-text-muted)' }}>{residentCount} →</span></button>}
         {canRate && <div className="atlas-panel-reveal" style={{ background: 'var(--theme-color-surface)', border: '1px solid var(--theme-color-border)', borderRadius: 16, padding: 14, marginBottom: 18 }}><div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Ваша оценка</div>{rated && ratingNextAt > ratingNow ? <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, color:'var(--theme-color-status-success)' }}><Check size={14} /> Спасибо за оценку, обновить её можно через {formatRatingCooldown(ratingNextAt, ratingNow)}.</div> : <>{CRITERIA.map(c => <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}><div style={{ flex: 1 }}><div style={{ fontSize: 12, color: 'var(--theme-color-text-muted)', marginBottom: 4 }}>{c.label}</div><Slider label={c.label} variant={isInspectorRole?'inspector':'player'} min="1" max="5" value={myRating[c.key]} onChange={e => setMyRating(v => ({ ...v, [c.key]: Number(e.target.value) }))} style={{ '--slider-progress': `${((myRating[c.key] - 1) / 4) * 100}%`, '--slider-fill': isInspectorRole ? 'var(--theme-color-status-success)' : 'var(--theme-color-action-primary)' }} /></div><div className="atlas-display" style={{ width: 20, textAlign: 'center', fontSize: 17, fontWeight: 700, color: isInspectorRole ? 'var(--theme-color-status-success)' : 'var(--theme-color-action-primary)' }}>{myRating[c.key]}</div></div>)}<button onClick={saveRating} className="press" style={{ width: '100%', padding: '11px 0', borderRadius: 12, border: 'none', background: isInspectorRole ? 'var(--theme-color-status-success)' : 'var(--theme-color-action-primary)', color: isInspectorRole ? 'var(--theme-color-status-success-contrast)' : 'var(--theme-color-action-primary-contrast)', fontWeight: 700 }}>Сохранить оценку</button></>}</div>}
         <SectionTitle icon={<MessageCircle size={15} />} title="Отзывы" count={(t.reviews || []).length} />
-        {!isOwner && hasNickname && <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}><Field value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Оставить отзыв о территории" style={{ flex: 1, background: 'var(--theme-color-surface)', border: '1px solid var(--theme-color-border)', borderRadius: 12, padding: '10px 12px', color: 'var(--theme-color-text-primary)', fontSize: 13 }} /><button onClick={addComment} className="press" style={iconBtn('var(--theme-color-surface)', 'var(--theme-color-text-primary)', true)}><Send size={15} /></button></div>}
+        {!isOwner && hasNickname && <div style={{ display: 'flex', alignItems:'center', justifyContent:'center', width:'100%', boxSizing:'border-box', gap: 8, margin: '0 auto 14px' }}><Field value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Оставить отзыв о территории" style={{ flex: 1, minWidth:0, width:'100%', boxSizing:'border-box', background: 'var(--theme-color-surface)', border: '1px solid var(--theme-color-border)', borderRadius: 12, padding: '10px 12px', color: 'var(--theme-color-text-primary)', fontSize: 13 }} /><button onClick={addComment} className="press" style={iconBtn('var(--theme-color-surface)', 'var(--theme-color-text-primary)', true)}><Send size={15} /></button></div>}
         {!hasNickname && !isOwner && <div style={{ fontSize: 12.5, color: 'var(--theme-color-text-muted)', marginBottom: 14 }}>Укажите ник в <button onClick={onGoToProfile} className="press" style={{ background: 'none', border: 'none', color: 'var(--theme-color-action-primary)', padding: 0, fontSize: 12.5, fontWeight: 600 }}>профиле</button>, чтобы оставлять отзывы.</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{(t.reviews || []).map((r, reviewIndex) => {
           const isMyComment = String(r.telegram_id || '') === String(tgUser?.id || '');
@@ -3543,7 +3561,7 @@ function CustomizationScreen({initData,tgUser,role,territories,profile}){
     return (filters.tag==='all'||cats.includes(filters.tag.toLowerCase()))&&(filters.color==='all'||String(item.color||'white')===filters.color);
   });
 
-  const accountCardStyle={width:'100%',background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding:'14px 16px',marginBottom:12,display:'flex',justifyContent:'space-between',alignItems:'center',textAlign:'left',color:'var(--theme-color-text-primary)'};
+  const accountCardStyle={width:'100%',background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding:'14px 16px',marginBottom:10,display:'flex',justifyContent:'space-between',alignItems:'center',textAlign:'left',color:'var(--theme-color-text-primary)'};
   const accountCardContent=<>
     <span style={{display:'flex',flexDirection:'column',gap:3}}><MinecraftText text={profileAccountLabel(accountScope,managerCities,tgUser,profile)} className="atlas-display" style={{fontSize:17,fontWeight:800,lineHeight:1.15}}/>{canSwitchAccount&&<span style={{fontSize:10.5,color:'var(--theme-color-text-muted)'}}>Нажмите, чтобы переключить счёт</span>}</span>
     <span className="atlas-display atlas-account-balance" style={{fontSize:22,fontWeight:800,color:'var(--content-color-gem)',display:'flex',alignItems:'center',gap:6,lineHeight:1}}><span>{accountLoading?'…':(data?.balance??0)}</span><GemHex/></span>
@@ -3561,7 +3579,7 @@ function CustomizationScreen({initData,tgUser,role,territories,profile}){
       </div>
     )}
 
-    {isMain&&<div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding:14,marginBottom:14}}>
+    {isMain&&<div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding:14,marginBottom:10}}>
       <div className="atlas-display" style={{fontSize:16,fontWeight:700,marginBottom:10}}>Добавить визуал</div>
       <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Название" style={{width:'100%',boxSizing:'border-box',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding:10,color:'var(--theme-color-text-primary)',marginBottom:8}}/>
       <input value={form.categories} onChange={e=>setForm(f=>({...f,categories:e.target.value}))} placeholder="Теги через запятую" style={{width:'100%',boxSizing:'border-box',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding:10,color:'var(--theme-color-text-primary)',marginBottom:8}}/>
@@ -3585,13 +3603,13 @@ function CustomizationScreen({initData,tgUser,role,territories,profile}){
       <button onClick={create} disabled={saving} className="press" style={{width:'100%',padding:10,border:'none',borderRadius:10,background:'var(--theme-color-status-warning)',color:'var(--theme-color-status-warning-contrast)',fontWeight:700,marginTop:8}}>{saving?'Создание…':'Добавить визуал'}</button>
     </div>}
 
-    {isMain&&<div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:14,padding:12,marginBottom:14}}>
+    {isMain&&<div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:14,padding:12,marginBottom:10}}>
       <div style={{fontSize:12,color:'var(--theme-color-text-muted)',lineHeight:1.45,marginBottom:9}}>Проверить достижения у всех одобренных городов повторно. Это исправит пропущенные выдачи, например если достижение было добавлено до назначения основателя/мэра.</div>
       <button onClick={recheckAchievements} disabled={rechecking} className="press" style={{width:'100%',border:'1px solid var(--theme-color-border)',borderRadius:10,padding:'10px 12px',background:'var(--theme-color-surface-raised)',color:'var(--theme-color-text-primary)',fontWeight:800}}>{rechecking?'Проверка достижений…':'Перепроверить достижения всех городов'}</button>
       {recheckNotice&&<div role="status" style={{fontSize:12,color:'var(--theme-color-status-success)',marginTop:8}}>{recheckNotice}</div>}
     </div>}
 
-    <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding:12,marginBottom:14}}>
+    <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding:12,marginBottom:10}}>
       <div style={{display:'flex',gap:7,overflowX:'auto',paddingBottom:7,alignItems:'center'}}>
         <button onClick={()=>setFilters(f=>({...f,tag:'all'}))} className="press" style={{border:'none',borderRadius:999,padding:'7px 10px',background:filters.tag==='all'?'var(--theme-color-action-primary)':'var(--theme-color-surface-raised)',color:filters.tag==='all'?'var(--theme-color-action-primary-contrast)':'var(--theme-color-text-muted)',fontSize:11.5,fontWeight:700}}>Все</button>
         {tagNames.map((c,i)=><div key={c.id} style={{display:'flex',alignItems:'center',gap:2,flex:'0 0 auto'}}>
