@@ -45,8 +45,6 @@ Theme-specific automated coverage:
 - [ ] Icon buttons имеют accessible name и заметный focus-visible.
 - [ ] Fields: label, hint, error, invalid, disabled; длинный текст и ввод с клавиатуры.
 - [ ] Select, textarea, slider, toggle, segmented controls: touch, keyboard, state feedback.
-- [ ] Icon-only primary actions and modal close controls use the shared 44 px hit target; dense card toolbars remain at least 24 px and have explicit accessible names.
-- [ ] Repeated cards, inset panels and controls use the shared card/control radius tokens; page top insets align across comparable sections.
 - [ ] Surface cards и вложенные панели: контраст, границы, отсутствие обрезки.
 - [ ] Dialogs/sheets: открытие, закрытие, backdrop, scroll, viewport-fit, повторное открытие.
 
@@ -75,7 +73,7 @@ Theme-specific automated coverage:
 
 
 ### Theme semantic-state regression checks
-- [ ] Warning action buttons use the Vox mint treatment and shared mint contrast/border/glow; caution remains clear through wording and iconography, never a new gold or violet hue.
+- [ ] Warning action buttons use Vox's violet warning treatment and the warning contrast token, border and glow; they remain visually distinct from mint success and red danger.
 - [ ] Success action buttons retain the Vox mint accent and success contrast.
 - [ ] Primary actions use the primary contrast token in enabled and disabled states.
 - [ ] Modal scrims and full-screen overlays use theme overlay roles.
