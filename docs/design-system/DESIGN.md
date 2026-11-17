@@ -51,7 +51,9 @@ permissions and business behavior.
 ## 3. Vox baseline
 
 Vox is the first active theme. It uses a dark neutral foundation, purple
-primary action, mint positive/curator accent, Manrope display typography and
+primary action, mint positive/curator accent, violet warning treatment, red
+destructive states and a neutral informational role. Cyan is reserved for gem
+currency. The theme uses Manrope display typography and
 Inter reading/control typography.
 
 The current token pack is implemented in
@@ -177,7 +179,7 @@ and accessibility defaults, while callers continue to own state and actions.
 | `Button` | primary, neutral, success, danger and ghost actions; size and full-width options | Variants, sizing, typography, radius and spacing tokenized; rollout in progress |
 | `IconButton` | icon-only action with required accessible label and semantic variants | Surface, geometry, glyph size/stroke and variants tokenized; rollout in progress |
 | `SurfaceCard` | base, raised and elevated theme surfaces | Added; applied to a territory-management panel |
-| `Slider` | shared range geometry with player/inspector/gold variants | Added; applied to map zoom and territory rating |
+| `Slider` | shared range geometry with player/inspector/warning variants | Added; applied to map zoom and territory rating |
 | `Field` | single-line input with tokenized control geometry, labels, hints and errors | Control typography, label/message rhythm and validation states tokenized; rollout in progress |
 | `TextAreaField` | multiline input with tokenized surface, border, typography and radius | Control and multiline line-height, label/message rhythm tokenized; rollout in progress |
 | `SelectField` | native select with tokenized control geometry | Control typography and label rhythm tokenized; rollout in progress |
@@ -237,8 +239,8 @@ unchanged.
 `SectionTitle` uses theme tokens for title/count typography, icon-to-title
 spacing and bottom rhythm, and semantic primary/muted text roles.
 `reactBtn` uses tokens for icon/label gap, label size and active/idle weight.
-The active reaction keeps its existing gold semantic color; this migration
-does not reinterpret reaction state or alter its meaning.
+The active reaction keeps its warning semantic role; Vox renders that role
+with the theme's violet warning treatment rather than an extra gold accent.
 
 ## 14. Theme-tokenized player avatar
 
