@@ -575,6 +575,7 @@ test('viewport overlays, treasury controls and territory links follow the UI con
 });
 
 test('compact controls and nested cards follow shared geometry', () => {
+  assert.match(tokens, /--theme-icon-button-size:\s*44px/);
   assert.match(app, /width:44,height:44,flex:'0 0 44px'/);
   assert.match(app, /flex: 1, minHeight: 44, boxSizing: 'border-box'/);
   assert.match(app, /width:44,height:44,flex:'0 0 44px'/);
