@@ -857,7 +857,7 @@ function Lightbox({ shots = [], index = 0, mode, onClose, onApprove, onReject, o
       className={`atlas-overlay${closing ? ' atlas-closing' : ''}`}
       style={{ position:'fixed', inset:0, background:'var(--theme-color-canvas)', zIndex:80, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', overflow:'hidden', padding:0 }}
     >
-      <button onClick={requestClose} className="press" aria-label="Закрыть" style={{ ...iconBtn('var(--theme-color-surface-raised)','var(--theme-color-text-primary)'), position:'fixed', top:12, right:12, width:44, height:44, zIndex:5 }}><X size={22}/></button>
+      <button onClick={requestClose} className="press" aria-label="Закрыть" style={{ ...iconBtn('var(--theme-color-surface-raised)','var(--theme-color-text-primary)'), position:'fixed', top:12, right:12, width:40, height:40, zIndex:5 }}><X size={20}/></button>
       <div
         onClick={e=>e.stopPropagation()}
         onTouchStart={handleTouchStart}
