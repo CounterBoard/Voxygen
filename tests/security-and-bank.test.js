@@ -56,6 +56,9 @@ test("gem withdrawal parser reads personal and territorial amounts from the corr
   assert.deepEqual(parseGemWithdrawalCommand("Северный город -25"), {
     personal: false, territory: "Северный город", amount: 25,
   });
+  assert.deepEqual(parseGemWithdrawalCommand("Северный город-25"), {
+    personal: false, territory: "Северный город", amount: 25,
+  });
   assert.deepEqual(parseGemWithdrawalCommand("Северный город - 25"), {
     personal: false, territory: "Северный город", amount: 25,
   });
@@ -83,8 +86,17 @@ test("bank command parser supports target-first and amount-first credit/debit va
   assert.deepEqual(parseBankCommand("North Harbor -120"), {
     target: "North Harbor", amount: 120, direction: "debit",
   });
+  assert.deepEqual(parseBankCommand("North Harbor-120"), {
+    target: "North Harbor", amount: 120, direction: "debit",
+  });
+  assert.deepEqual(parseBankCommand("North Harbor+120"), {
+    target: "North Harbor", amount: 120, direction: "credit",
+  });
   assert.deepEqual(parseBankCommand("42 Steve"), {
     target: "Steve", amount: 42, direction: "credit",
+  });
+  assert.deepEqual(parseBankCommand("42-Steve"), {
+    target: "Steve", amount: 42, direction: "debit",
   });
   assert.deepEqual(parseBankCommand("-42 @Steve"), {
     target: "Steve", amount: 42, direction: "debit",
@@ -109,6 +121,7 @@ test("visual inventory parser accepts target-first and visual-first grant/remova
     ["Steve Blue Banner", false, "steve"],
     ["Blue Banner Steve", false, "steve"],
     ["Steve -Blue Banner", true, "steve"],
+    ["Steve-Blue Banner", true, "steve"],
     ["-Blue Banner Steve", true, "steve"],
   ];
   for (const [command, remove, rawTarget] of expected) {
@@ -120,8 +133,9 @@ test("visual inventory parser accepts target-first and visual-first grant/remova
 });
 
 test("banker gem withdrawal notification uses the requested structured template", () => {
-  assert.equal(formatGemWithdrawalBankerNotification({nickname:"Steve",username:"steve_123",territoryName:"Северный город",personal:false,amount:25,balance:75}), "💎 Снятие самоцветов\n\nКто: Steve @steve_123\nОткуда: Казна Северный город\nСумма: 25 сц\nОстаток: 75 сц");
-  assert.equal(formatGemWithdrawalBankerNotification({nickname:"Alex",username:"alex",personal:true,amount:10,balance:90}), "💎 Снятие самоцветов\n\nКто: Alex @alex\nОткуда: Личный счёт\nСумма: 10 сц\nОстаток: 90 сц");
+  assert.equal(formatGemWithdrawalBankerNotification({nickname:"Steve",username:"steve_123",territoryName:"Северный город",personal:false,amount:25,balance:75}), "💎 Снятие самоцветов\n\nКто: [<code>Steve</code>] @steve_123\nОткуда: Казна Северный город\nСумма: 25 сц\nОстаток: 75 сц");
+  assert.equal(formatGemWithdrawalBankerNotification({nickname:"Alex",username:"alex",personal:true,amount:10,balance:90}), "💎 Снятие самоцветов\n\nКто: [<code>Alex</code>] @alex\nОткуда: Личный счёт\nСумма: 10 сц\nОстаток: 90 сц");
+  assert.ok(formatGemWithdrawalBankerNotification({nickname:"<Alex>",username:"alex",personal:true,amount:10,balance:90}).includes("<code>&lt;Alex&gt;</code>"));
 });
 test("bank commands are accepted only from the configured user in a private bot chat", () => {
   const bankerId = "7966858383";

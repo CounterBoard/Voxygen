@@ -14,7 +14,11 @@ test('theme host binds the app root to the shared default theme ID', () => {
 
 test('effective server theme is applied and personal theme choices use the shared catalog', () => {
   assert.equal((app.match(/Object\.values\(THEME_CATALOG\)\.filter\(item=>item\.status==='active'\)\.map\(item=><option/g)||[]).length, 1, 'global theme picker must use the shared catalog');
-  assert.match(app, /settings\.availableThemes\)\?settings\.availableThemes:\['vox'\]/, 'personal picker must honor backend access filtering');
+  assert.match(app, /Array\.isArray\(settings\?\.availableThemes\).*settings\.availableThemes\.length/, 'personal picker must honor backend access filtering');
+  assert.match(app, /Выбор темы интерфейса/);
+  assert.match(app, /onTouchStart=\{onThemeTouchStart\}/);
+  assert.match(app, /onTouchEnd=\{onThemeTouchEnd\}/);
+  assert.doesNotMatch(app, /<SelectField value=\{normalizeThemeId\(settings\.personalTheme/);
   assert.match(app, /settings\.personalTheme\?\?settings\.defaultTheme/);
   assert.match(app, /setPersonalThemeChanged\(true\)/);
   assert.match(app, /onSettingsSaved=\{settings=>\{setActiveTheme/);
@@ -166,7 +170,7 @@ test('App styles consume semantic theme roles instead of legacy color aliases', 
   for (const legacy of [
     'bg', 'surface', 'surface-2', 'surface-3', 'text', 'text-secondary',
     'text-muted', 'text-dim', 'purple', 'purple-soft', 'purple-strong',
-    'purple-border', 'mint', 'mint-soft', 'emerald', 'gold', 'gold-soft',
+    'purple-border', 'mint', 'mint-soft',
     'red', 'red-soft', 'red-border', 'gem', 'border',
     'shadow-sm', 'shadow-md', 'shadow-lg', 'glow-purple', 'glow-mint',
     'ease-standard', 'ease-interactive', 'motion-tap', 'motion-standard',
@@ -183,6 +187,9 @@ test('App styles consume semantic theme roles instead of legacy color aliases', 
 test('success and warning borders have distinct semantic tokens', () => {
   assert.match(tokens, /--theme-color-status-success-border:/);
   assert.match(tokens, /--theme-color-status-warning-border:/);
+  assert.doesNotMatch(tokens, /--(?:emerald|gold)(?:-soft)?:/);
+  assert.match(tokens, /--theme-color-status-warning:\s*#B69CFF/);
+  assert.match(tokens, /--theme-color-status-info:\s*#B5BBCB/);
   assert.doesNotMatch(app, /--mint-strong/);
   assert.ok(app.includes('border-color:var(--theme-color-status-warning-border)'));
   assert.ok(app.includes('var(--theme-color-status-success-border)'));

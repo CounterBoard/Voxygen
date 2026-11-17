@@ -48,11 +48,11 @@ Recipes are component-level visual decisions; semantic tokens remain the color s
 | `--theme-color-status-success-contrast` | `#06120D` | Positive state (not warning or danger). |
 | `--theme-color-status-success-soft` | `rgba(65, 255, 167, .11)` | Positive state (not warning or danger). |
 | `--theme-color-status-success-border` | `rgba(65, 255, 167, .28)` | Positive state (not warning or danger). |
-| `--theme-color-status-warning` | `#F6C453` | Caution state; distinct from success. |
-| `--theme-color-status-warning-contrast` | `#211805` | Caution state; distinct from success. |
-| `--theme-glow-warning` | `0 14px 34px rgba(246, 196, 83, .12)` | Depth/effect role. |
-| `--theme-color-status-warning-soft` | `rgba(246, 196, 83, .13)` | Caution state; distinct from success. |
-| `--theme-color-status-warning-border` | `rgba(246, 196, 83, .28)` | Caution state; distinct from success. |
+| `--theme-color-status-warning` | `#B69CFF` | Violet caution state; distinct from mint success. |
+| `--theme-color-status-warning-contrast` | `#130D24` | Foreground paired with the violet warning surface. |
+| `--theme-glow-warning` | `0 14px 34px rgba(182, 156, 255, .12)` | Violet warning depth/effect role. |
+| `--theme-color-status-warning-soft` | `rgba(182, 156, 255, .12)` | Violet caution surface; distinct from success. |
+| `--theme-color-status-warning-border` | `rgba(182, 156, 255, .28)` | Violet caution border. |
 | `--theme-color-status-danger` | `#FF5D73` | Error/destructive state. |
 | `--theme-color-status-danger-soft` | `rgba(255, 93, 115, .12)` | Error/destructive state. |
 | `--theme-color-status-danger-border` | `rgba(255, 93, 115, .28)` | Error/destructive state. |
@@ -263,7 +263,7 @@ The current Vox pack contains **307 scoped declarations**. The protected `--cont
 
 ### Compatibility aliases
 
-`--bg`, `--border`, `--danger`, `--ease-interactive`, `--ease-standard`, `--emerald`, `--gem`, `--glow-mint`, `--glow-purple`, `--gold`, `--gold-soft`, `--mint`, `--mint-soft`, `--motion-modal`, `--motion-standard`, `--motion-tap`, `--purple`, `--purple-border`, `--purple-soft`, `--purple-strong`, `--radius-lg`, `--radius-md`, `--red`, `--red-border`, `--red-soft`, `--shadow-lg`, `--shadow-md`, `--shadow-sm`, `--success`, `--success-soft`, `--surface`, `--surface-2`, `--surface-3`, `--text`, `--text-dim`, `--text-muted`, `--text-secondary`, `--warning`, `--warning-soft`
+`--bg`, `--border`, `--danger`, `--ease-interactive`, `--ease-standard`, `--gem`, `--glow-mint`, `--glow-purple`, `--mint`, `--mint-soft`, `--motion-modal`, `--motion-standard`, `--motion-tap`, `--purple`, `--purple-border`, `--purple-soft`, `--purple-strong`, `--radius-lg`, `--radius-md`, `--red`, `--red-border`, `--red-soft`, `--shadow-lg`, `--shadow-md`, `--shadow-sm`, `--success`, `--success-soft`, `--surface`, `--surface-2`, `--surface-3`, `--text`, `--text-dim`, `--text-muted`, `--text-secondary`, `--warning`, `--warning-soft`
 
 ### Other theme roles
 
