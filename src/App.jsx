@@ -3354,11 +3354,14 @@ const VISUAL_COLORS=[['none','none'],['red','#EF4444'],['orange','#F97316'],['ye
 function ColorDot({value,selected,onClick,small=false,title}) {
   const isNone=value==='none';
   const c=isNone?'transparent':(VISUAL_COLORS.find(x=>x[0]===value)?.[1]||'#fff');
+  const dotSize=small?20:24;
   return <button type="button" onClick={onClick} title={title||(isNone?'Без цвета':value)} aria-label={title||(isNone?'Без цвета':value)} className="press" style={{
-    width:24,height:24,borderRadius:'50%',border:selected?'2px solid var(--theme-color-text-primary)':'1px solid var(--theme-color-border)',
-    background:c,position:'relative',padding:0
+    width:40,height:40,flex:'0 0 40px',borderRadius:'50%',border:'none',background:'transparent',
+    display:'flex',alignItems:'center',justifyContent:'center',padding:0
   }}>
-    {isNone&&<span style={{position:'absolute',left:4,right:4,top:'50%',height:2,background:'#9AA2C2',transform:'rotate(-45deg)',transformOrigin:'center'}}/>}
+    <span style={{width:dotSize,height:dotSize,boxSizing:'border-box',borderRadius:'50%',border:selected?'2px solid var(--theme-color-text-primary)':'1px solid var(--theme-color-border)',background:c,position:'relative',display:'block'}}>
+      {isNone&&<span style={{position:'absolute',left:4,right:4,top:'50%',height:2,background:'#9AA2C2',transform:'rotate(-45deg)',transformOrigin:'center'}}/>}
+    </span>
   </button>
 }
 
