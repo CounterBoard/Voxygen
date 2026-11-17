@@ -188,6 +188,7 @@ test('Vox warning semantic roles use the approved mint accent', () => {
   assert.match(tokens, /--theme-color-status-success-border:/);
   assert.match(tokens, /--theme-color-status-warning-border:/);
   assert.doesNotMatch(tokens, /--(?:emerald|gold)(?:-soft)?:/);
+  assert.doesNotMatch(app, /slider-gold/);
   assert.match(tokens, /--theme-color-status-success:\s*#55D6AE/);
   assert.match(tokens, /--theme-color-status-warning:\s*var\(--theme-color-status-success\)/);
   assert.match(tokens, /--theme-color-status-warning-soft:\s*var\(--theme-color-status-success-soft\)/);
