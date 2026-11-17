@@ -375,7 +375,6 @@ function FontsAndTheme() {
           box-shadow:0 0 0 3px var(--theme-color-action-primary-soft),var(--theme-shadow-low);
         }
 
-        .atlas-root input[type="range"].slider-gold,
         .atlas-root input[type="range"].slider-inspector,
         .atlas-root input[type="range"].slider-player{
           -webkit-appearance:none;
@@ -388,7 +387,6 @@ function FontsAndTheme() {
           color-scheme:dark;
           cursor:pointer;
         }
-        .atlas-root input[type="range"].slider-gold::-webkit-slider-runnable-track,
         .atlas-root input[type="range"].slider-inspector::-webkit-slider-runnable-track,
         .atlas-root input[type="range"].slider-player::-webkit-slider-runnable-track{
           height:var(--theme-slider-track-height);
@@ -396,7 +394,6 @@ function FontsAndTheme() {
           background:linear-gradient(to right,var(--slider-fill) 0 var(--slider-progress),var(--theme-color-surface-elevated) var(--slider-progress) 100%);
           border:0;
         }
-        .atlas-root input[type="range"].slider-gold::-webkit-slider-thumb,
         .atlas-root input[type="range"].slider-inspector::-webkit-slider-thumb,
         .atlas-root input[type="range"].slider-player::-webkit-slider-thumb{
           -webkit-appearance:none;
@@ -409,7 +406,6 @@ function FontsAndTheme() {
           background:var(--slider-fill);
           box-shadow:var(--theme-shadow-slider-thumb);
         }
-        .atlas-root input[type="range"].slider-gold::-moz-range-track,
         .atlas-root input[type="range"].slider-inspector::-moz-range-track,
         .atlas-root input[type="range"].slider-player::-moz-range-track{
           height:var(--theme-slider-track-height);
@@ -417,14 +413,12 @@ function FontsAndTheme() {
           background:var(--theme-color-surface-elevated);
           border:0;
         }
-        .atlas-root input[type="range"].slider-gold::-moz-range-progress,
         .atlas-root input[type="range"].slider-inspector::-moz-range-progress,
         .atlas-root input[type="range"].slider-player::-moz-range-progress{
           height:var(--theme-slider-track-height);
           border-radius:var(--theme-radius-pill);
           background:var(--slider-fill);
         }
-        .atlas-root input[type="range"].slider-gold::-moz-range-thumb,
         .atlas-root input[type="range"].slider-inspector::-moz-range-thumb,
         .atlas-root input[type="range"].slider-player::-moz-range-thumb{
           width:var(--theme-slider-thumb-size);
@@ -434,7 +428,6 @@ function FontsAndTheme() {
           background:var(--slider-fill);
           box-shadow:var(--theme-shadow-slider-thumb);
         }
-        .atlas-root input[type="range"].slider-gold,
         .atlas-root input[type="range"].slider-inspector{ --slider-fill:var(--theme-color-status-success); }
         .atlas-root input[type="range"].slider-player{ --slider-fill:var(--theme-color-action-primary); }
 
@@ -988,7 +981,7 @@ function SurfaceCard({ children, tone = 'base', padding = 'var(--theme-space-4)'
 
 /** Theme-aware range control with shared geometry and semantic track variants. */
 function Slider({ label, variant = 'player', className = '', style = {}, ...props }) {
-  const safeVariant = ['gold', 'inspector', 'player'].includes(variant) ? variant : 'player';
+  const safeVariant = ['inspector', 'player'].includes(variant) ? variant : 'player';
   return (
     <input
       {...props}
