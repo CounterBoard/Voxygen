@@ -95,6 +95,9 @@ test("bank command parser supports target-first and amount-first credit/debit va
   assert.deepEqual(parseBankCommand("42 Steve"), {
     target: "Steve", amount: 42, direction: "credit",
   });
+  assert.deepEqual(parseBankCommand("42-Steve"), {
+    target: "Steve", amount: 42, direction: "debit",
+  });
   assert.deepEqual(parseBankCommand("-42 @Steve"), {
     target: "Steve", amount: 42, direction: "debit",
   });
