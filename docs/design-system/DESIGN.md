@@ -50,11 +50,11 @@ permissions and business behavior.
 
 ## 3. Vox baseline
 
-Vox is the first active theme. It uses a dark neutral foundation, purple
-primary action, mint positive/curator accent, violet warning treatment, red
-destructive states and a neutral informational role. Cyan is reserved for gem
-currency. The theme uses Manrope display typography and
-Inter reading/control typography.
+Vox is the first active theme. It uses the approved dark neutral foundation,
+purple primary action, mint positive/curator accent, mint caution treatment,
+and red destructive states. Cyan is reserved for gem currency. Display
+headings use Unbounded, reading/control text uses Inter, and technical values
+use IBM Plex Mono.
 
 The current token pack is implemented in
 `src/theme/theme-tokens.css`. Its token families cover:
@@ -77,7 +77,7 @@ must retain their meaning:
 
 - primary: primary actions, selection and active navigation;
 - success: successful completion and positive confirmation;
-- warning: caution and attention, distinct from success;
+- warning: caution and attention, using Vox mint by explicit palette rule; distinguish it from success with wording and iconography, not a new hue;
 - danger: destructive actions and errors;
 - info: neutral informational emphasis.
 
@@ -240,7 +240,7 @@ unchanged.
 spacing and bottom rhythm, and semantic primary/muted text roles.
 `reactBtn` uses tokens for icon/label gap, label size and active/idle weight.
 The active reaction keeps its warning semantic role; Vox renders that role
-with the theme's violet warning treatment rather than an extra gold accent.
+with the approved mint accent rather than introducing a gold or violet hue.
 
 ## 14. Theme-tokenized player avatar
 
@@ -269,9 +269,9 @@ component-local custom properties rather than being treated as theme roles.
 
 ## 17. Explicit semantic border and action contrast roles
 
-Success and warning states now have separate border tokens instead of sharing
-the ambiguous legacy mint-strength alias. This keeps toast borders and curator
-score borders aligned with success, while warning toast borders follow warning.
+Success and warning retain separate semantic token names, but Vox intentionally
+maps both to the approved mint accent. Warning copy and iconography carry the
+caution meaning; the interface must not introduce a gold or violet warning hue.
 Primary-action inline styles use the theme's action-contrast token rather than
 hard-coded white. Status foregrounds and the protected gem color remain
 independent semantic roles.
