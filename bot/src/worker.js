@@ -6134,7 +6134,8 @@ function parseVisualInventoryCandidates(rawText, items) {
     const name = normalizeVisualCommandText(item.name);
     if (!name) continue;
     const ending = text.endsWith(` -${name}`) ? { remove: true, token: ` -${name}` }
-      : text.endsWith(` ${name}`) ? { remove: false, token: ` ${name}` } : null;
+      : text.endsWith(`-${name}`) ? { remove: true, token: `-${name}` }
+        : text.endsWith(` ${name}`) ? { remove: false, token: ` ${name}` } : null;
     if (ending && text.length > ending.token.length) {
       const rawTarget = text.slice(0, text.length - ending.token.length).trim();
       if (rawTarget) parsed.push({ item, name, remove: ending.remove, rawTarget });
@@ -6226,7 +6227,7 @@ async function handleVisualInventoryCommand(env, message, rawText) {
 function parseGemWithdrawalCommand(raw) {
   const text = String(raw || '').trim();
   const personal = text.match(/^[-−]\s*(\d+)$/);
-  const territorialTargetFirst = text.match(/^(.+?)\s+[-−]\s*(\d+)$/);
+  const territorialTargetFirst = text.match(/^(.+?)\s*[-−]\s*(\d+)$/);
   const territorialAmountFirst = text.match(/^[-−]\s*(\d+)\s+(.+)$/);
   const territorial = territorialTargetFirst
     ? { territory: territorialTargetFirst[1], amount: territorialTargetFirst[2] }
@@ -6244,8 +6245,8 @@ function parseGemWithdrawalCommand(raw) {
 function formatGemWithdrawalBankerNotification({ nickname, username, territoryName, personal, amount, balance }) {
   const displayName = String(nickname || '').trim() || 'Ник не указан';
   const displayUsername = String(username || '').trim().replace(/^@+/, '');
-  const identity = [displayName, displayUsername ? '@' + displayUsername : ''].filter(Boolean).join(' ');
-  const source = personal ? 'Личный счёт' : 'Казна ' + String(territoryName || 'Неизвестная территория').trim();
+  const identity = `[<code>${escapeHtml(displayName)}</code>]${displayUsername ? ' @' + escapeHtml(displayUsername) : ''}`;
+  const source = personal ? 'Личный счёт' : 'Казна ' + escapeHtml(String(territoryName || 'Неизвестная территория').trim());
   return ['💎 Снятие самоцветов', '', 'Кто: ' + identity, 'Откуда: ' + source, 'Сумма: ' + Number(amount) + ' сц', 'Остаток: ' + Number(balance) + ' сц'].join('\n');
 }
 async function handleUserGemWithdrawal(env, update, message) {
@@ -6302,7 +6303,7 @@ async function handleUserGemWithdrawal(env, update, message) {
     try{
       const profile=await env.DB.prepare('SELECT mc_nickname,telegram_username FROM users WHERE telegram_id=? LIMIT 1').bind(uid).first();
       const notice=formatGemWithdrawalBankerNotification({nickname:profile?.mc_nickname||message.from?.first_name,username:profile?.telegram_username||message.from?.username,territoryName:territory?.name,personal:targetType==='personal',amount,balance});
-      await telegram(env,'sendMessage',{chat_id:Number(bankerId),text:notice});
+      await telegram(env,'sendMessage',{chat_id:Number(bankerId),text:notice,parse_mode:'HTML'});
     }catch(error){console.error('Gem withdrawal banker notification failed:',String(error?.message||error));}
   }
   await telegram(env,'sendMessage',{chat_id:message.chat.id,text:`✅ Снято ${amount} самоцветов. Остаток: ${balance} сц.`,reply_to_message_id:message.message_id});
@@ -6325,10 +6326,10 @@ function parseBankCommand(raw) {
   const sign = value => value.startsWith('-') || value.startsWith('−') ? 'debit' : 'credit';
   const digits = value => value.replace(/^[+＋]/, '').replace(/^[-−]/, '');
   // Also accept the compact amount-first debit form `42 -Nick`.
-  let match = text.match(/^(\d+)\s+[-−]([^\s].*)$/);
+  let match = text.match(/^(\d+)\s*[-−]([^\s].*)$/);
   if (match && isAmount(match[1])) return { target: stripMinecraftFormatting(match[2]).trim().replace(/^@+/, ''), amount: Number(match[1]), direction: 'debit' };
   // Target-first syntax: `Steve 42`, `Steve +42`, `Steve -42`.
-  match = text.match(/^(.+?)\s+((?:[+＋]|[-−])?\d+)$/);
+  match = text.match(/^(.+?)(?:\s+|(?=[+＋−-]))((?:[+＋]|[-−])?\d+)$/);
   if (match) {
     const target = match[1].trim(), rawAmount = match[2], amount = digits(rawAmount);
     if (target && isAmount(amount)) return { target: stripMinecraftFormatting(target).trim().replace(/^@+/, ''), amount: Number(amount), direction: sign(rawAmount) };
