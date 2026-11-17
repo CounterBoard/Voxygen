@@ -452,13 +452,6 @@ function FontsAndTheme() {
           white-space:normal;
           pointer-events:none;
           z-index:1200;
-          animation:atlas-toast-in .32s cubic-bezier(.2,.9,.25,1) both, atlas-toast-glow .70s ease-out both;
-        }
-        @keyframes atlas-toast-in{
-          0%{opacity:0;transform:translate(-50%,22px) scale(.91)}
-          68%{opacity:1;transform:translate(-50%,-3px) scale(1.025)}
-          84%{transform:translate(-50%,1px) scale(.995)}
-          100%{opacity:1;transform:translate(-50%,0) scale(1)}
         }
         @keyframes atlas-toast-glow{
           0%,38%{box-shadow:0 0 0 1px var(--theme-color-status-success-border),0 0 0 5px var(--theme-color-status-success-soft),var(--theme-shadow-toast)}
