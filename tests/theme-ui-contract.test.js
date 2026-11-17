@@ -567,6 +567,9 @@ test('viewport overlays, treasury controls and territory links follow the UI con
   assert.match(app, /width:112,minWidth:112,height:'var\(--theme-control-height\)'/);
   assert.match(app, /wrapperStyle = \{\}/);
   assert.match(app, /padding:'18px 16px 100px'/);
+  assert.match(app, /width:40,height:40,flex:'0 0 40px'/);
+  assert.match(app, /aria-label="Удалить скриншот"/);
+  assert.doesNotMatch(app, /@keyframes atlas-toast-in\{\s*0%\{/);
   assert.match(app, /family=IBM\+Plex\+Mono/);
   assert.match(app, /family=Unbounded/);
 });
