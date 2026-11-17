@@ -3607,8 +3607,8 @@ function CustomizationScreen({initData,tgUser,role,territories,profile}){
         {tagNames.map((c,i)=><div key={c.id} style={{display:'flex',alignItems:'center',gap:2,flex:'0 0 auto'}}>
           <button onClick={()=>setFilters(f=>({...f,tag:c.name}))} className="press" style={{border:'none',borderRadius:999,padding:'7px 10px',background:filters.tag.toLowerCase()===c.name.toLowerCase()?'var(--theme-color-action-primary)':'var(--theme-color-surface-raised)',color:filters.tag.toLowerCase()===c.name.toLowerCase()?'var(--theme-color-action-primary-contrast)':'var(--theme-color-text-muted)',fontSize:11.5,fontWeight:700,whiteSpace:'nowrap'}}><MinecraftText text={c.name}/></button>
           {isMain&&<span style={{display:'flex',gap:1}}>
-            <button disabled={i===0} onClick={()=>reorderTags(c.id,-1)} className="press" style={{border:'none',background:'transparent',color:'var(--theme-color-text-muted)',fontSize:10,padding:2}}><ChevronUp size={14}/></button>
-            <button disabled={i===tagNames.length-1} onClick={()=>reorderTags(c.id,1)} className="press" style={{border:'none',background:'transparent',color:'var(--theme-color-text-muted)',fontSize:10,padding:2}}>›</button>
+            <button type="button" disabled={i===0} onClick={()=>reorderTags(c.id,-1)} className="press" title="Переместить тег выше" aria-label={`Переместить тег ${c.name} выше`} style={{width:32,height:32,minWidth:32,minHeight:32,display:'flex',alignItems:'center',justifyContent:'center',border:'none',borderRadius:8,background:'transparent',color:'var(--theme-color-text-muted)',padding:0}}><ChevronUp size={14}/></button>
+            <button type="button" disabled={i===tagNames.length-1} onClick={()=>reorderTags(c.id,1)} className="press" title="Переместить тег ниже" aria-label={`Переместить тег ${c.name} ниже`} style={{width:32,height:32,minWidth:32,minHeight:32,display:'flex',alignItems:'center',justifyContent:'center',border:'none',borderRadius:8,background:'transparent',color:'var(--theme-color-text-muted)',padding:0,fontSize:17}}>›</button>
           </span>}
         </div>)}
       </div>
