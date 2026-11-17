@@ -73,7 +73,7 @@ Theme-specific automated coverage:
 
 
 ### Theme semantic-state regression checks
-- [ ] Warning action buttons remain yellow/amber in Vox and use the warning contrast token, warning border and warning glow; they must never inherit success green.
+- [ ] Warning action buttons use Vox's violet warning treatment and the warning contrast token, border and glow; they remain visually distinct from mint success and red danger.
 - [ ] Success action buttons retain success green and success contrast.
 - [ ] Primary actions use the primary contrast token in enabled and disabled states.
 - [ ] Modal scrims and full-screen overlays use theme overlay roles.
