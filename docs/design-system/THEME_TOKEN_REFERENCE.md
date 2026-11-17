@@ -24,10 +24,10 @@ Recipes are component-level visual decisions; semantic tokens remain the color s
 
 | Token | Vox default | Role / guidance |
 |---|---|---|
-| `--theme-color-canvas` | `#0A0B10` | Theme value; tune only when the corresponding component contract is understood. |
-| `--theme-color-surface` | `#12151D` | Surface hierarchy; keep elevation levels distinct. |
-| `--theme-color-surface-raised` | `#171B24` | Surface hierarchy; keep elevation levels distinct. |
-| `--theme-color-surface-elevated` | `#1D2230` | Surface hierarchy; keep elevation levels distinct. |
+| `--theme-color-canvas` | `#0D0F14` | Theme value; tune only when the corresponding component contract is understood. |
+| `--theme-color-surface` | `#151922` | Surface hierarchy; keep elevation levels distinct. |
+| `--theme-color-surface-raised` | `#1C2230` | Surface hierarchy; keep elevation levels distinct. |
+| `--theme-color-surface-elevated` | `#242B3A` | Surface hierarchy; keep elevation levels distinct. |
 | `--theme-color-surface-overlay` | `rgba(5, 7, 12, .78)` | Surface hierarchy; keep elevation levels distinct. |
 | `--theme-color-overlay-scrim` | `rgba(0, 0, 0, .82)` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-color-navigation-surface` | `rgba(13, 15, 20, .94)` | Surface hierarchy; keep elevation levels distinct. |
