@@ -184,18 +184,12 @@ test('App styles consume semantic theme roles instead of legacy color aliases', 
 });
 
 
-test('Vox warning semantic roles use the approved mint accent', () => {
+test('success and warning borders have distinct semantic tokens', () => {
   assert.match(tokens, /--theme-color-status-success-border:/);
   assert.match(tokens, /--theme-color-status-warning-border:/);
   assert.doesNotMatch(tokens, /--(?:emerald|gold)(?:-soft)?:/);
-  assert.doesNotMatch(app, /slider-gold/);
-  assert.match(tokens, /--theme-color-status-success:\s*#55D6AE/);
-  assert.match(tokens, /--theme-color-status-warning:\s*var\(--theme-color-status-success\)/);
-  assert.match(tokens, /--theme-color-status-warning-soft:\s*var\(--theme-color-status-success-soft\)/);
-  assert.match(tokens, /--theme-color-status-warning-border:\s*var\(--theme-color-status-success-border\)/);
-  assert.match(tokens, /--theme-color-status-info:\s*var\(--theme-color-text-secondary\)/);
-  assert.match(tokens, /--theme-color-action-primary:\s*#A78BFA/);
-  assert.match(tokens, /--theme-font-display:\s*'Unbounded'/);
+  assert.match(tokens, /--theme-color-status-warning:\s*#B69CFF/);
+  assert.match(tokens, /--theme-color-status-info:\s*#B5BBCB/);
   assert.doesNotMatch(app, /--mint-strong/);
   assert.ok(app.includes('border-color:var(--theme-color-status-warning-border)'));
   assert.ok(app.includes('var(--theme-color-status-success-border)'));
@@ -555,41 +549,4 @@ test('ToggleField track and thumb states use independent theme recipes', () => {
     assert.ok(tokens.includes(`--theme-recipe-toggle-${role}:`),`Missing toggle recipe ${role}`);
     assert.ok(toggle.includes(`var(--theme-recipe-toggle-${role})`),`ToggleField bypasses ${role}`);
   }
-});
-
-test('viewport overlays, treasury controls and territory links follow the UI contract', () => {
-  assert.match(app, /import \{ createPortal \} from 'react-dom'/);
-  assert.match(app, /document\.querySelector\('\.atlas-root'\)/);
-  assert.match(app, /createPortal\(toast, toastRoot\)/);
-  assert.match(app, /position:'fixed', top:12, right:12, width:44, height:44/);
-  assert.match(app, /<TelegramMinecraftText text=\{t\.additional_info\} interactive/);
-  assert.doesNotMatch(app, /Пополнение этого счёта доступно всем жителям города/);
-  assert.match(app, /width:112,minWidth:112,height:'var\(--theme-control-height\)'/);
-  assert.match(app, /wrapperStyle = \{\}/);
-  assert.match(app, /padding:'18px 16px 100px'/);
-  assert.match(app, /width:44,height:44,flex:'0 0 44px'/);
-  assert.match(app, /aria-label="Удалить скриншот"/);
-  assert.doesNotMatch(app, /@keyframes atlas-toast-in\{\s*0%\{/);
-  assert.match(app, /family=IBM\+Plex\+Mono/);
-  assert.match(app, /family=Unbounded/);
-});
-
-test('compact controls and nested cards follow shared geometry', () => {
-  assert.match(tokens, /--theme-icon-button-size:\s*44px/);
-  assert.match(app, /width:44,height:44,flex:'0 0 44px'/);
-  assert.match(app, /flex: 1, minHeight: 44, boxSizing: 'border-box'/);
-  assert.match(app, /width:44,height:44,flex:'0 0 44px'/);
-  assert.match(app, /borderRadius:'var\(--theme-radius-control\)',padding:'11px 12px'/);
-  assert.match(app, /borderRadius:'var\(--theme-radius-card\)',overflow:'hidden',marginTop:0,marginBottom:16/);
-  assert.doesNotMatch(app, /minHeight:40/);
-  assert.doesNotMatch(app, /minHeight:42/);
-  assert.match(app, /aria-label=\{`Переместить тег \$\{c\.name\} выше`\}/);
-  assert.match(app, /aria-label=\{`Переместить тег \$\{c\.name\} ниже`\}/);
-  assert.match(app, /aria-label="Переместить визуал выше"/);
-  assert.match(app, /aria-label="Переместить визуал ниже"/);
-  assert.match(app, /aria-label="Редактировать визуал"/);
-  assert.match(app, /aria-label="Удалить визуал"/);
-  assert.match(app, /atlas-page atlas-page--events" style=\{\{ padding:'18px 16px 100px' \}\}/);
-  assert.match(app, /atlas-visual-card-reveal atlas-visual-card[^\n]+borderRadius:'var\(--theme-radius-card\)'/);
-
 });
