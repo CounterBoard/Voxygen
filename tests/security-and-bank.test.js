@@ -132,7 +132,7 @@ test("visual inventory parser accepts target-first and visual-first grant/remova
 test("banker gem withdrawal notification uses the requested structured template", () => {
   assert.equal(formatGemWithdrawalBankerNotification({nickname:"Steve",username:"steve_123",territoryName:"Северный город",personal:false,amount:25,balance:75}), "💎 Снятие самоцветов\n\nКто: [<code>Steve</code>] @steve_123\nОткуда: Казна Северный город\nСумма: 25 сц\nОстаток: 75 сц");
   assert.equal(formatGemWithdrawalBankerNotification({nickname:"Alex",username:"alex",personal:true,amount:10,balance:90}), "💎 Снятие самоцветов\n\nКто: [<code>Alex</code>] @alex\nОткуда: Личный счёт\nСумма: 10 сц\nОстаток: 90 сц");
-  assert.match(formatGemWithdrawalBankerNotification({nickname:"<Alex>",username:"alex",personal:true,amount:10,balance:90}), /<code>&lt;Alex&gt;<\\/code>/);
+  assert.ok(formatGemWithdrawalBankerNotification({nickname:"<Alex>",username:"alex",personal:true,amount:10,balance:90}).includes("<code>&lt;Alex&gt;</code>"));
 });
 test("bank commands are accepted only from the configured user in a private bot chat", () => {
   const bankerId = "7966858383";
