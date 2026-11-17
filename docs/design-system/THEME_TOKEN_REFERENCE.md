@@ -30,39 +30,39 @@ Recipes are component-level visual decisions; semantic tokens remain the color s
 | `--theme-color-surface-elevated` | `#1D2230` | Surface hierarchy; keep elevation levels distinct. |
 | `--theme-color-surface-overlay` | `rgba(5, 7, 12, .78)` | Surface hierarchy; keep elevation levels distinct. |
 | `--theme-color-overlay-scrim` | `rgba(0, 0, 0, .82)` | Theme value; tune only when the corresponding component contract is understood. |
-| `--theme-color-navigation-surface` | `rgba(10, 11, 16, .94)` | Surface hierarchy; keep elevation levels distinct. |
-| `--theme-color-image-control-surface` | `rgba(11, 13, 16, .58)` | Surface hierarchy; keep elevation levels distinct. |
-| `--theme-color-text-primary` | `#F7F8FC` | Text hierarchy; preserve readable contrast. |
-| `--theme-color-text-secondary` | `#B5BBCB` | Text hierarchy; preserve readable contrast. |
+| `--theme-color-navigation-surface` | `rgba(13, 15, 20, .94)` | Surface hierarchy; keep elevation levels distinct. |
+| `--theme-color-image-control-surface` | `rgba(13, 15, 20, .58)` | Surface hierarchy; keep elevation levels distinct. |
+| `--theme-color-text-primary` | `#F4F5FA` | Text hierarchy; preserve readable contrast. |
+| `--theme-color-text-secondary` | `#A5ABBA` | Text hierarchy; preserve readable contrast. |
 | `--theme-color-text-muted` | `#7F879A` | Text hierarchy; preserve readable contrast. |
 | `--theme-color-text-subtle` | `#636B7E` | Text hierarchy; preserve readable contrast. |
-| `--theme-color-border` | `rgba(181, 187, 203, .12)` | Theme value; tune only when the corresponding component contract is understood. |
-| `--theme-color-border-strong` | `rgba(181, 187, 203, .22)` | Theme value; tune only when the corresponding component contract is understood. |
-| `--theme-color-action-primary` | `#8B5CF6` | Primary action/selection; contrast token is paired foreground. |
+| `--theme-color-border` | `rgba(255, 255, 255, .07)` | Theme value; tune only when the corresponding component contract is understood. |
+| `--theme-color-border-strong` | `rgba(255, 255, 255, .14)` | Theme value; tune only when the corresponding component contract is understood. |
+| `--theme-color-action-primary` | `#A78BFA` | Primary action/selection; contrast token is paired foreground. |
 | `--theme-color-action-primary-contrast` | `#FFFFFF` | Primary action/selection; contrast token is paired foreground. |
-| `--theme-color-action-primary-soft` | `rgba(139, 92, 246, .14)` | Primary action/selection; contrast token is paired foreground. |
-| `--theme-color-action-primary-strong` | `rgba(139, 92, 246, .30)` | Primary action/selection; contrast token is paired foreground. |
-| `--theme-color-action-primary-border` | `rgba(139, 92, 246, .28)` | Primary action/selection; contrast token is paired foreground. |
-| `--theme-color-action-primary-focus` | `rgba(139, 92, 246, .13)` | Primary action/selection; contrast token is paired foreground. |
-| `--theme-color-status-success` | `#41FFA7` | Positive state (not warning or danger). |
+| `--theme-color-action-primary-soft` | `rgba(167, 139, 250, .14)` | Primary action/selection; contrast token is paired foreground. |
+| `--theme-color-action-primary-strong` | `rgba(167, 139, 250, .30)` | Primary action/selection; contrast token is paired foreground. |
+| `--theme-color-action-primary-border` | `rgba(167, 139, 250, .28)` | Primary action/selection; contrast token is paired foreground. |
+| `--theme-color-action-primary-focus` | `rgba(167, 139, 250, .13)` | Primary action/selection; contrast token is paired foreground. |
+| `--theme-color-status-success` | `#55D6AE` | Positive state; approved Vox mint accent. |
 | `--theme-color-status-success-contrast` | `#06120D` | Positive state (not warning or danger). |
-| `--theme-color-status-success-soft` | `rgba(65, 255, 167, .11)` | Positive state (not warning or danger). |
-| `--theme-color-status-success-border` | `rgba(65, 255, 167, .28)` | Positive state (not warning or danger). |
-| `--theme-color-status-warning` | `#B69CFF` | Violet caution state; distinct from mint success. |
-| `--theme-color-status-warning-contrast` | `#130D24` | Foreground paired with the violet warning surface. |
-| `--theme-glow-warning` | `0 14px 34px rgba(182, 156, 255, .12)` | Violet warning depth/effect role. |
-| `--theme-color-status-warning-soft` | `rgba(182, 156, 255, .12)` | Violet caution surface; distinct from success. |
-| `--theme-color-status-warning-border` | `rgba(182, 156, 255, .28)` | Violet caution border. |
+| `--theme-color-status-success-soft` | `rgba(85, 214, 174, .11)` | Positive state surface. |
+| `--theme-color-status-success-border` | `rgba(85, 214, 174, .28)` | Positive state border. |
+| `--theme-color-status-warning` | `var(--theme-color-status-success)` | Caution uses the same mint accent by Vox palette rule. |
+| `--theme-color-status-warning-contrast` | `var(--theme-color-status-success-contrast)` | Contrast foreground for the shared mint state. |
+| `--theme-glow-warning` | `var(--theme-glow-success)` | Warning glow aliases the mint success glow. |
+| `--theme-color-status-warning-soft` | `var(--theme-color-status-success-soft)` | Caution surface uses mint; distinguish by copy/icon. |
+| `--theme-color-status-warning-border` | `var(--theme-color-status-success-border)` | Caution border uses mint; distinguish by copy/icon. |
 | `--theme-color-status-danger` | `#FF5D73` | Error/destructive state. |
 | `--theme-color-status-danger-soft` | `rgba(255, 93, 115, .12)` | Error/destructive state. |
 | `--theme-color-status-danger-border` | `rgba(255, 93, 115, .28)` | Error/destructive state. |
-| `--theme-color-status-info` | `#67B7FF` | Theme value; tune only when the corresponding component contract is understood. |
+| `--theme-color-status-info` | `var(--theme-color-text-secondary)` | Neutral informational emphasis; cyan remains reserved for gems. |
 
 ## Typography
 
 | Token | Vox default | Role / guidance |
 |---|---|---|
-| `--theme-font-display` | `'Manrope', ui-sans-serif, system-ui, sans-serif` | Font role; verify Cyrillic and fallback. |
+| `--theme-font-display` | `'Unbounded', ui-sans-serif, system-ui, sans-serif` | Display headings; verify Cyrillic and fallback. |
 | `--theme-font-body` | `'Inter', ui-sans-serif, system-ui, sans-serif` | Font role; verify Cyrillic and fallback. |
 | `--theme-font-technical` | `'IBM Plex Mono', ui-monospace, monospace` | Font role; verify Cyrillic and fallback. |
 | `--theme-type-display-size` | `30px` | Typography scale/rhythm. |
@@ -218,8 +218,8 @@ Recipes are component-level visual decisions; semantic tokens remain the color s
 | `--theme-color-sheen-strong` | `rgba(255, 255, 255, .055)` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-color-highlight-inset-subtle` | `rgba(255, 255, 255, .018)` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-color-highlight-inset-soft` | `rgba(255, 255, 255, .02)` | Theme value; tune only when the corresponding component contract is understood. |
-| `--theme-glow-primary` | `0 14px 34px rgba(139, 92, 246, .17)` | Depth/effect role. |
-| `--theme-glow-success` | `0 14px 34px rgba(65, 255, 167, .12)` | Depth/effect role. |
+| `--theme-glow-primary` | `0 14px 34px rgba(167, 139, 250, .17)` | Depth/effect role. |
+| `--theme-glow-success` | `0 14px 34px rgba(85, 214, 174, .12)` | Depth/effect role. |
 | `--theme-backdrop-blur` | `18px` | Depth/effect role. |
 | `--theme-toast-bottom-offset` | `calc(76px + env(safe-area-inset-bottom))` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-toast-max-width` | `420px` | Theme value; tune only when the corresponding component contract is understood. |
