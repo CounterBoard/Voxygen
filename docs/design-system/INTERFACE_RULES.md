@@ -513,7 +513,7 @@ The scan below counts inline style declarations, not necessarily unique visual d
 | Local value | Observed frequency | Example locations / patterns | Recommendation |
 |---:|---:|---|---|
 | 4 px | 26 | field labels/hints and compact metadata; some local bottom margins | Prefer `space-1` / field gap tokens |
-| 5 px | 12 | small local vertical offsets and compact row gaps | Review individually; usually consolidate to 4 or 8 |
+| 5 px | 11 | event-card place row: location icon → place label (`gap: 5`); other remaining uses are local compact offsets | Keep only where the icon/label grouping looks intentional; otherwise consolidate to 4 or 8 |
 | 6 px | 35 | compact action/metadata gaps and local margins | Review; map to 4 or 8 depending on visual relationship |
 | 7 px | 36 | compact list/card gaps and local margins | Review; most likely 8, but inspect alignment before changing |
 | 8 px | 96 | many button/action gaps and vertical margins | Prefer `space-2` when it represents a related group |
