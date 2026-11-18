@@ -409,12 +409,12 @@ panel/card inline style has been migrated.
 
 ### Base surface panels
 
-Repeated standard surface panels share `--theme-radius-card` and `--theme-space-4` for radius and inner spacing. Compact variants (12/14 px) remain intentionally distinct until their density and layout are reviewed.
+Repeated standard surface panels share `--theme-radius-card` and `--theme-recipe-surface-padding` (10 px) for radius and inner spacing. Individual visual-item cards retain their own existing composition and padding.
 
 
 ### Compact raised panels
 
-Three compact raised panels use `--theme-radius-control` and `--theme-space-3` (preserving the former 14/12 px geometry). Other raised panel variants remain scoped for later review.
+Territory-management raised panels use `--theme-radius-control` and 10 px inner padding. Other raised panel variants remain screen-specific and should be reviewed before migration.
 
 
 ## Theme authoring workflow
@@ -465,7 +465,7 @@ baseline. They preserve behavior while standardizing repeated visual patterns.
 
 ### Section rhythm
 
-Use `--theme-layout-section-gap: 12px` between adjacent independent
+Use `--theme-layout-section-gap: 8px` between adjacent independent
 cards/sections at the same hierarchy level. Do not use it for label-to-field
 spacing, inline control gaps, or content padding inside a card. The searchable
 token index in `THEME_TOKEN_REFERENCE.md` lists this role.
