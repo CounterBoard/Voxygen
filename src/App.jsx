@@ -1948,7 +1948,55 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
     {managers.length>0&&<div style={{background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-control)',padding:'var(--theme-space-3)',marginBottom:'var(--theme-layout-section-gap)'}}><div style={{fontSize:13,fontWeight:700,marginBottom:8}}>Основатели/мэры</div>{managers.map(m=><div key={m.telegram_id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderTop:'1px solid var(--theme-color-border)'}}><AvatarHead nickname={m.mc_nickname} skinUrl={m.skin_url} size={32}/><div style={{flex:1,minWidth:0}}><MinecraftText as="div" text={m.mc_nickname||'Без ника'} style={{fontSize:12.5,fontWeight:700}}/><div style={{fontSize:10.5,color:'var(--theme-color-text-muted)'}}>{m.telegram_username?`@${String(m.telegram_username).replace(/^@/,'')}`:'Username не указан'}</div></div>{!readOnly&&managers.length>1&&<button onClick={()=>demoteManager(m.telegram_id)} className="press" style={{border:'none',background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',borderRadius:8,padding:'6px 8px',fontSize:10.5}}>Понизить</button>}{!readOnly&&managers.length>1&&(()=>{const currentContact=String(newRecruitmentUsername||'').replace(/^@/,'').trim().toLowerCase();const managerUsername=String(m.telegram_username||'').replace(/^@/,'').trim().toLowerCase();const inAnnouncement=Boolean(currentContact&&managerUsername&&currentContact===managerUsername);return <button onClick={()=>!inAnnouncement&&setRecruitmentUsername(m.telegram_id)} disabled={inAnnouncement} className="press" style={{border:'1px solid var(--theme-color-border)',background:inAnnouncement?'var(--theme-color-surface-elevated)':'var(--theme-color-action-primary)',color:inAnnouncement?'var(--theme-color-text-muted)':'var(--theme-color-action-primary-contrast)',borderRadius:8,padding:'6px 8px',fontSize:10.5,opacity:inAnnouncement?1:.98}}>{inAnnouncement?'В объявлении':'В объявление'}</button>})()}</div>)}</div>}
     <div style={{background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-control)',padding:'var(--theme-space-3)',marginBottom:'var(--theme-layout-section-gap)'}}>
       <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>Жители</div>
-      {!readOnly&&<div className="atlas-resident-add-row" style={{display:'flex',alignItems:'stretch',gap:8,width:'100%',boxSizing:'border-box',marginBottom:10}}><div style={{flex:1,minWidth:0,marginBottom:0}}><Field value={residentNick} onChange={e=>setResidentNick(e.target.value)} placeholder="Ник Minecraft" style={{width:'100%',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding:'9px 12px',color:'var(--theme-color-text-primary)',fontSize:13}}/></div><button onClick={addResident} className="press" style={{width:44,height:44,flex:'0 0 44px',padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--theme-color-action-primary-border)',borderRadius:12,background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast')}}><UserPlus size={16}/></button></div>}
+      {!readOnly && (
+        <div
+          className="atlas-resident-add-row"
+          style={{
+            display: 'flex',
+            alignItems: 'stretch',
+            gap: 8,
+            width: '100%',
+            boxSizing: 'border-box',
+            marginBottom: 10,
+          }}
+        >
+          <div style={{ flex: '1 1 auto', minWidth: 0, marginBottom: 0 }}>
+            <Field
+              value={residentNick}
+              onChange={(e) => setResidentNick(e.target.value)}
+              placeholder="Ник Minecraft"
+              style={{
+                width: '100%',
+                background: 'var(--theme-color-surface-raised)',
+                border: '1px solid var(--theme-color-border)',
+                borderRadius: 10,
+                padding: '9px 12px',
+                color: 'var(--theme-color-text-primary)',
+                fontSize: 13,
+              }}
+            />
+          </div>
+          <button
+            onClick={addResident}
+            className="press"
+            style={{
+              width: 44,
+              height: 44,
+              flex: '0 0 44px',
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid var(--theme-color-action-primary-border)',
+              borderRadius: 12,
+              background: 'var(--theme-color-action-primary)',
+              color: 'var(--theme-color-action-primary-contrast)',
+            }}
+          >
+            <UserPlus size={16} />
+          </button>
+        </div>
+      )}
       <div style={{display:'flex',flexDirection:'column',gap:7}}>{members.map(m=><div key={m.telegram_id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderTop:'1px solid var(--theme-color-border)'}}><AvatarHead nickname={m.mc_nickname} skinUrl={m.skin_url} size={32}/><div style={{flex:1,minWidth:0}}><MinecraftText as="div" text={m.mc_nickname||'Без ника'} style={{fontSize:12.5,fontWeight:700}}/><div style={{fontSize:10.5,color:'var(--theme-color-text-muted)'}}>{m.telegram_username?`@${String(m.telegram_username).replace(/^@/,'')}`:'Username не указан'}</div></div>{!readOnly&&<><button onClick={()=>promoteResident(m.telegram_id)} className="press" title="Повысить до основателя/мэра" style={{width:34,height:34,flex:'0 0 34px',padding:0,border:'none',background:'var(--theme-color-status-success-soft)',color:'var(--theme-color-status-success)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center'}}><ChevronUp size={15}/></button><button onClick={()=>removeResident(m.telegram_id)} className="press" title="Удалить" style={{width:34,height:34,flex:'0 0 34px',padding:0,border:'none',background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center'}}><X size={14}/></button></>}</div>)}{invites.map(inv=><div key={inv.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderTop:'1px solid var(--theme-color-border)'}}><div style={{width:32,height:32,borderRadius:'50%',background:'var(--theme-color-status-warning-soft)',display:'flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto'}}><Clock size={14} color="var(--theme-color-status-warning)"/></div><div style={{flex:1,minWidth:0}}><MinecraftText as="div" text={inv.target_nickname} style={{fontSize:12.5,fontWeight:700}}/><div style={{fontSize:10.5,color:'var(--theme-color-status-warning)'}}>Ожидает ответа</div></div>{!readOnly&&<button onClick={()=>cancelInvite(inv.id)} className="press" style={{border:'none',background:'transparent',color:'var(--theme-color-status-danger)',padding:6}}><X size={14}/></button>}</div>)}{!members.length&&!invites.length&&<div style={{fontSize:12,color:'var(--theme-color-text-muted)',paddingTop:4}}>Жителей и приглашений пока нет.</div>}</div>
     </div>
     <div style={{background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-control)',padding:'var(--theme-space-3)',marginBottom:'var(--theme-layout-section-gap)'}}>
