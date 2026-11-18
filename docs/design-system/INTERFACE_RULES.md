@@ -532,7 +532,7 @@ The values 24 and 32 px remain approved, but they are not defaults. Do not add t
 - A resident's read-only “Название” and “Набор” fields must not expose a text caret or I-beam pointer. Keep their content readable, but disable pointer interaction, text selection and keyboard tab focus for those read-only controls. Editable manager controls retain normal text interaction.
 - The resident-facing “Доп. информация” block has a **12 px** bottom separation before the next independent territory section, matching the field-group rhythm.
 - “Оформление территории” uses the same faint top divider and **8 px** divider-to-content inset as the first rows under “Основатели/мэры” and “Жители”.
-- The profile page reserves **100 px plus the device safe-area inset** below its content so the final territory action remains scrollable above the fixed bottom navigation. This applies to resident “Покинуть территорию” and manager “Запросить оценку инспектора”; it does not change navigation position or action behavior.
+- The profile page reserves **90 px plus the device safe-area inset** below its content so the final territory action remains scrollable above the fixed bottom navigation. This applies to resident “Покинуть территорию” and manager “Запросить оценку инспектора”; it does not change navigation position or action behavior.
 
 
 ## 11. Field border and focus states
