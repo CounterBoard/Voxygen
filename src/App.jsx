@@ -671,9 +671,9 @@ function FontsAndTheme() {
         .atlas-fixed-toast--warning{background:var(--theme-color-status-warning-soft);border-color:var(--theme-color-status-warning-border);color:var(--theme-color-status-warning);box-shadow:var(--theme-shadow-toast);}
         .atlas-root input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]),.atlas-root textarea,.atlas-root select{border-color:var(--theme-recipe-field-border)!important;transition:var(--theme-recipe-field-transition);}
         .atlas-root input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):focus:not([aria-invalid="true"]),.atlas-root textarea:focus:not([aria-invalid="true"]),.atlas-root select:focus:not([aria-invalid="true"]){border-color:var(--theme-recipe-field-focus-border)!important;box-shadow:0 0 0 3px var(--theme-color-status-success-soft),var(--theme-shadow-focus-field);outline:none;}
-        .atlas-root input[aria-invalid="true"],.atlas-root textarea[aria-invalid="true"]{border-color:var(--theme-color-status-danger)!important;}
-        .atlas-root .atlas-review-compose-field{border-color:var(--theme-recipe-field-inspector-border)!important;}
-        .atlas-root .atlas-review-compose-field:focus{border-color:var(--theme-recipe-field-inspector-focus-border)!important;box-shadow:0 0 0 3px var(--theme-color-action-primary-focus),var(--theme-shadow-focus-field);outline:none;}
+        #root .atlas-root input[aria-invalid="true"],#root .atlas-root textarea[aria-invalid="true"]{border-color:var(--theme-color-status-danger)!important;}
+        #root .atlas-root input.atlas-review-compose-field{border-color:var(--theme-recipe-field-inspector-border)!important;}
+        #root .atlas-root input.atlas-review-compose-field:focus{border-color:var(--theme-recipe-field-inspector-focus-border)!important;box-shadow:0 0 0 3px var(--theme-color-action-primary-focus),var(--theme-shadow-focus-field);outline:none;}
 
         /* More consistent control geometry. */
         .atlas-segmented{
