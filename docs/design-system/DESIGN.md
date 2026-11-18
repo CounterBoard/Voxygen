@@ -51,7 +51,7 @@ permissions and business behavior.
 ## 3. Vox baseline
 
 Vox is the first active theme. It uses a dark neutral foundation, purple
-primary action, mint positive/curator accent, violet warning treatment, red
+primary action, mint positive/curator accent and warning treatment, red
 destructive states and a neutral informational role. Cyan is reserved for gem
 currency. The theme uses Manrope display typography and
 Inter reading/control typography.
@@ -240,7 +240,7 @@ unchanged.
 spacing and bottom rhythm, and semantic primary/muted text roles.
 `reactBtn` uses tokens for icon/label gap, label size and active/idle weight.
 The active reaction keeps its warning semantic role; Vox renders that role
-with the theme's violet warning treatment rather than an extra gold accent.
+with the theme's mint warning treatment rather than an extra gold or violet accent.
 
 ## 14. Theme-tokenized player avatar
 
