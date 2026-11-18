@@ -13,7 +13,7 @@ Button and IconButton variant recipes are intentionally separate from semantic c
 | Button | `--theme-recipe-button-{primary,neutral,success,danger,ghost}-{bg,fg,border}` | Semantic action/status colors or neutral surface/text/border |
 | IconButton | `--theme-recipe-icon-{neutral,primary,success,danger,ghost}-{bg,fg,border}` | Same semantic mapping, compact icon control |
 | Segmented | `--theme-recipe-segmented-{active,idle}-{bg,fg}` | Primary action/contrast for active; transparent/muted for idle |
-| Field controls | `--theme-recipe-field-{bg,fg,border,radius,padding}` | Shared input surface, typography, border and geometry for text/select/textarea |
+| Field controls | `--theme-recipe-field-{bg,fg,border,focus-border,inspector-border,inspector-focus-border,transition,radius,padding}` | Shared input surface, typography, border and geometry for text/select/textarea |
 | SurfaceCard | `--theme-recipe-surface-{base-bg,raised-bg,elevated-bg,border,fg,shadow,radius,padding}` | Shared surface tones, border, text, elevation and default geometry |
 | ScoreBadge | `--theme-recipe-badge-{neutral,primary,success,warning,danger}-{bg,fg,border}` | Semantic status/identity badge colors; current community/curator scoring uses primary/success |
 | ToggleField | `--theme-recipe-toggle-{track-on,track-off}-{bg,border}`, `--theme-recipe-toggle-thumb-{on,off}-bg` | Independent checked/unchecked switch track and thumb colors |
@@ -227,7 +227,7 @@ Recipes are component-level visual decisions; semantic tokens remain the color s
 | `--theme-toast-max-width` | `420px` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-toast-viewport-gutter-total` | `32px` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-toast-padding-block` | `8px` | Compact vertical inset around the notification text. |
-| `--theme-toast-padding-inline` | `10px` | Compact horizontal inset around the notification text. |
+| `--theme-toast-padding-inline` | `16px` | Horizontal inset around content-sized notification text. |
 | `--theme-toast-radius` | `var(--theme-radius-pill)` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-toast-font-size` | `12.5px` | Font role; verify Cyrillic and fallback. |
 | `--theme-toast-font-weight` | `700` | Font role; verify Cyrillic and fallback. |
@@ -306,3 +306,13 @@ The current Vox pack contains **307 scoped declarations**. The protected `--cont
 ## Pack completeness
 
 The baseline Vox pack defines the minimum token contract for every shipped theme. Additional themes may add specialized roles, but must retain all baseline declarations. Run `npm run theme:check` (or `npm test`) after editing the catalog or token packs.
+
+## Field interaction recipe additions
+
+| Token | Vox mapping |
+|---|---|
+| `--theme-recipe-field-border` | `--theme-color-action-primary` (Purple) |
+| `--theme-recipe-field-focus-border` | `--theme-color-status-success` (Mint) |
+| `--theme-recipe-field-inspector-border` | `--theme-color-status-success` (Mint) |
+| `--theme-recipe-field-inspector-focus-border` | `--theme-color-action-primary` (Purple) |
+| `--theme-recipe-field-transition` | `border-color 180ms ease, box-shadow 180ms ease` |
