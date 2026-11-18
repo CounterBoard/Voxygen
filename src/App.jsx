@@ -861,7 +861,7 @@ function Lightbox({ shots = [], index = 0, mode, onClose, onApprove, onReject, o
       className={`atlas-overlay${closing ? ' atlas-closing' : ''}`}
       style={{ position:'fixed', inset:0, background:'var(--theme-color-canvas)', zIndex:80, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', overflow:'hidden', padding:0 }}
     >
-      <button onClick={requestClose} className="press" aria-label="Закрыть" style={{ ...iconBtn('var(--theme-color-surface-raised)','var(--theme-color-text-primary)'), position:'fixed', top:12, right:12, width:44, height:44, zIndex:5 }}><X size={20}/></button>
+      <button onClick={requestClose} className="press" aria-label="Закрыть" style={{ ...iconBtn('var(--theme-color-surface-raised)','var(--theme-color-text-primary)'), position:'fixed', top:14, right:14, width:44, height:44, zIndex:5 }}><X size={20}/></button>
       <div
         onClick={e=>e.stopPropagation()}
         onTouchStart={handleTouchStart}
@@ -884,7 +884,6 @@ function Lightbox({ shots = [], index = 0, mode, onClose, onApprove, onReject, o
         )}
       </div>
       <MinecraftText text={shot.author || shot.mc_nickname || shot.telegram_username || ''} style={{position:'fixed',bottom:'calc(38px + env(safe-area-inset-bottom))',left:'50%',transform:'translateX(-50%)',zIndex:8,maxWidth:'80vw',fontSize:12,color:'var(--theme-color-text-muted)',textAlign:'center',pointerEvents:'none',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}/>
-      {safeShots.length>1&&<div onClick={e=>e.stopPropagation()} style={{position:'fixed',bottom:'calc(14px + env(safe-area-inset-bottom))',left:'50%',transform:'translateX(-50%)',display:'flex',alignItems:'center',gap:5,zIndex:8,pointerEvents:'auto'}}>{safeShots.map((_,i)=><span key={i} style={{width:i===safeIndex?14:6,height:6,borderRadius:999,background:i===safeIndex?'var(--theme-color-action-primary)':'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)'}} />)}</div>}
       {mode==='moderate'&&<div style={{position:'absolute',left:12,right:12,bottom:14,display:'flex',gap:10}} onClick={e=>e.stopPropagation()}>
         <Button onClick={onApprove} variant="success" style={{flex:1}}>Одобрить</Button>
         <Button onClick={onReject} variant="danger" style={{flex:1}}>Отклонить</Button>
