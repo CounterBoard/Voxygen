@@ -184,7 +184,7 @@ Specific action shapes matter: an icon-only review publish button remains square
 |---|---|---|---|
 | Primary / purple | `#8B5CF6` | Main actions, selected states, active navigation, focus | success confirmation or destructive action |
 | Success / mint | `#41FFA7` | Successful completion, positive state, inspector/curator-positive accent, approved/selected positive affordance | warning or danger |
-| Warning / violet | `#B69CFF` | Caution, pending/attention state | mint success or destructive error |
+| Warning / mint | aliases success mint tokens | Caution, pending/attention state | purple primary or destructive error |
 | Danger / red | `#FF5D73` | Errors, destructive actions, remove/delete | ordinary neutral actions |
 | Info | `#67B7FF` | Neutral informational emphasis | protected gem currency or automatic replacement of content colors |
 | Gem / cyan | `#38BDF8` | Gem currency/content marker | generic interface accent |
@@ -227,7 +227,7 @@ Use paired background, foreground, border and focus/glow roles. Do not select on
 - **Danger button/state:** danger soft/background + danger foreground + danger border.
 - **Ghost action:** transparent background/border with secondary or muted foreground.
 
-Vox warning is violet, not mint. The two roles are intentionally distinct even though both may appear as accents.
+Warning and success remain different semantic states, but both use the requested mint color family. Warning must never introduce a separate violet hue.
 
 ### 4.5 Protected content colors
 
@@ -460,9 +460,9 @@ Incorrect: force the button and input to equal widths simply because they share 
 
 ### Example E — status colors
 
-Correct: primary save action = purple; confirmed success = mint; caution/pending = violet warning; delete/error = red; gem amount = protected cyan.
+Correct: primary save action = purple; confirmed success = mint; caution/pending = mint warning; delete/error = red; gem amount = protected cyan.
 
-Incorrect: use mint for warning, violet warning for positive confirmation, red for neutral controls, or recolor the gem because the theme palette changed.
+Incorrect: use purple for warning, violet for any Vox UI status, red for neutral controls, or recolor the gem because the theme palette changed.
 
 ### Example F — notification vs inline error
 
@@ -489,3 +489,68 @@ Before changing a component:
 ### Current migration caveat
 
 The design system is not yet a claim that every pixel in the 510 KB App.jsx is tokenized. Legacy inline styles and screen-specific local values remain. For a new change, the contract above is authoritative; for an existing untouched legacy component, inspect its implementation before assuming it already follows the contract. Migrate incrementally and test adjacent screens to avoid layout regressions.
+
+## 2.7 Spacing inventory: current values, locations and consolidation candidates
+
+This section distinguishes **tokenized spacing** from **legacy local spacing**. The values below are observed in the current `App.jsx`; they are not all approved global tokens. Repeated local values are candidates for migration to the shared scale.
+
+### A. Tokenized values and concrete locations
+
+| Distance | Where it is used in the current app | Why it exists | Standardization decision |
+|---:|---|---|---|
+| 4 px | Field label → input (`Field`); hint/error → field; SectionTitle/reaction icon → label; compact segmented controls | Immediate parent/child relationship | Keep as the universal micro-gap |
+| 8 px | Button icon → label; SectionTitle icon → title and title → content; compact field/action rows; profile peer sections use 12 px separately | Closely related controls/content | Keep as the default compact group gap |
+| 12 px | `--theme-layout-section-gap` between profile page peer cards; field wrapper bottom rhythm; toggle row gap | Standard field/section rhythm | Keep as default vertical rhythm between separate field groups and peer sections |
+| 16 px | Standard SurfaceCard inner padding; modal overlay inset | Content inset from surface edge | Keep as standard card/page inset |
+| 20 px | Larger button horizontal padding and display-level spacing | Spacious emphasis | Keep for larger/hero controls, not ordinary form rhythm |
+| 24 px | Spacious modal grouping | Separate groups within a large modal | Keep as modal-only spacious rhythm |
+| 32 px | Available spacing scale step | Large separation | Reserve for deliberate page-level composition; avoid ordinary forms |
+
+### B. Current hard-coded local values found in App.jsx
+
+The scan below counts inline style declarations, not necessarily unique visual distances. The same value may occur for different reasons.
+
+| Local value | Observed frequency | Example locations / patterns | Recommendation |
+|---:|---:|---|---|
+| 4 px | 13 | field labels/hints and compact metadata; some local bottom margins | Prefer `space-1` / field gap tokens |
+| 5 px | 7 | small local vertical offsets and compact row gaps | Review individually; usually consolidate to 4 or 8 |
+| 6 px | 27 | compact action/metadata gaps and local margins | Review; map to 4 or 8 depending on visual relationship |
+| 7 px | 36 | compact list/card gaps and local margins | Review; most likely 8, but inspect alignment before changing |
+| 8 px | 93 | many button/action gaps and vertical margins | Prefer `space-2` when it represents a related group |
+| 9 px | 20 | legacy compact card/control gaps | Review; usually normalize to 8 or 12 |
+| 10 px | 47 | compact controls, text blocks and form margins | Keep only where component geometry requires it; otherwise 8 or 12 |
+| 12 px | 45 | field rhythm, card spacing, action groups | Prefer `space-3` / section gap where semantic role matches |
+| 14 px | 15 | paragraph/card and content spacing | Usually map to 12 or 16 after visual review |
+| 15 px | 9 | local offsets and margins | Avoid as a general spacing step; map to 12 or 16 |
+| 16 px | 8 | card/content padding and larger groups | Prefer `space-4` |
+| 18 px | 8 | local form/card spacing | Review; map to 16 or 20 |
+| 20 px | 6 | larger separation and control padding | Prefer `space-5` where role matches |
+| 22 px | 1 | isolated local offset | Keep only if geometry-specific; otherwise normalize |
+
+Counts are a static scan of numeric `gap`, `margin*` and `padding*` declarations in the fetched App.jsx snapshot. They are a prioritization aid, not a pixel-perfect runtime measurement. Some occurrences are intentional component geometry, not vertical rhythm.
+
+### C. Named examples to use as migration anchors
+
+- **Profile card stack:** `.atlas-page--profile` uses `gap: var(--theme-layout-section-gap)`; direct children have bottom margins reset to zero. This is the canonical 12 px peer-section rhythm.
+- **Field label and hint:** `Field` uses `--theme-field-label-gap` and `--theme-field-message-gap`, both 4 px. Use this instead of local label/hint margins.
+- **Button contents:** shared `Button` uses `--theme-button-gap` (8 px). Do not independently adjust every button's icon/text distance.
+- **Section heading:** `SectionTitle` uses 8 px icon/title gap and 8 px bottom gap. Treat it as one reusable heading pattern.
+- **Toggle:** `ToggleField` uses a 12 px row gap and 4 px description gap.
+- **Reaction action:** `reactBtn` uses a 4 px icon/label gap.
+- **Territory recruitment and additional information textareas:** wrapper bottom margin is set to 0; the action row is separated by 8 px. Do not stack the default 12 px field wrapper margin on top of the action-row gap.
+- **Review compose, resident-add and treasury rows:** CSS resets nested field wrapper margins to 0 so the row itself controls alignment. Keep row-level spacing as the single owner.
+- **SurfaceCard:** standard padding 16 px; compact raised panels may use 12 px. Do not add a second padding layer unless it is a genuinely nested surface.
+
+### D. Recommended simplified spacing vocabulary
+
+For the next migration pass, use only these defaults unless a documented component contract requires otherwise:
+
+1. **4 px — micro:** label/control, icon/text, hint/error/control.
+2. **8 px — related group:** buttons next to fields, compact action rows, heading/content.
+3. **12 px — separate groups:** consecutive fields, peer cards/sections, standard vertical rhythm.
+4. **16 px — surface inset:** standard card padding and normal content edge.
+5. **24 px — spacious modal group:** only when a modal needs a clear larger grouping.
+6. **32 px — exceptional large separation:** rare, deliberate composition.
+
+Treat 5, 6, 7, 9, 10, 14, 15, 18 and 20 px local margins/gaps as **audit candidates**, not automatically wrong. During visual audit, map each to 4/8/12/16/24 based on whether the relationship is micro, related, separate, surface inset or spacious modal grouping. Do not perform a blind global replace.
+
