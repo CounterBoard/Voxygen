@@ -24,23 +24,25 @@ A theme changes visual values, not component meaning, behavior, permissions, API
 
 ### 2.1 Shared spacing scale
 
-The Vox spacing scale is:
+The approved Vox spacing values are **4, 6, 8, 10, 12, 15, 18, 20, 24 and 32 px**. Use only these values for new or changed spacing declarations. Do not add intermediate values. The token mapping is:
 
-| Token | Value | Typical role |
-|---|---:|---|
-| `--theme-space-1` | 4 px | Very close relationship: icon/text micro-gap, label-to-field, compact inner details |
-| `--theme-space-2` | 8 px | Related controls, button icon/text gap, compact field/action rhythm, section heading gaps |
-| `--theme-space-3` | 12 px | Default field wrapper bottom rhythm; compact card padding; standard section-to-section gap where specified |
-| `--theme-space-4` | 16 px | Standard card/surface inner padding; normal horizontal content inset |
-| `--theme-space-5` | 20 px | Larger heading/display separation and larger button horizontal padding |
-| `--theme-space-6` | 24 px | Spacious modal content grouping |
-| `--theme-space-8` | 32 px | Available scale step; no broad usage was established in the inspected App.jsx |
+| Token / value | Typical role |
+|---|---|
+| `--theme-space-1` — 4 px | Micro-gap: icon/text, label/control, hint/control |
+| 6 px | Tight related items and compact metadata |
+| `--theme-space-2` — 8 px | Related controls, compact action rows and independent card/section gap |
+| 10 px | Standard inner padding for ordinary cards and compact panels |
+| `--theme-space-3` — 12 px | Field-group rhythm and selected internal group separation |
+| `--theme-space-4` — 15 px | Page horizontal inset, event-form inset and modal content inset |
+| `--theme-space-5` — 20 px | Larger local grouping where the composition already calls for it |
+| `--theme-space-6` — 24 px | Existing spacious grouping only where justified |
+| `--theme-space-8` — 32 px | Existing large separation only where justified |
 
-These are a scale, not a rule that every distance must be one of these values. A component-specific token or documented screen composition can take precedence.
+The approved list is the only spacing scale. Use the smallest value that preserves clear grouping; do not enlarge a layout simply because a larger value exists.
 
 ### 2.2 Standardized gap between independent sections
 
-`--theme-layout-section-gap` = **12 px**.
+`--theme-layout-section-gap` = **8 px**.
 
 Use this between adjacent independent cards or sections at the same hierarchy level. Examples:
 
@@ -102,17 +104,17 @@ Do not copy this exception to every textarea. Other forms retain the default wra
 | Toggle description gap | `--theme-toggle-description-gap` = 4 px |
 | Reaction icon ↔ label | `--theme-react-action-gap` = 4 px |
 | ScoreBadge gaps | 4 px for small/default/recruitment; 8 px for large |
-| Standard SurfaceCard padding | space-4 = 16 px |
+| Standard SurfaceCard padding | 10 px (`--theme-recipe-surface-padding`) |
 | Compact raised panels | radius-control + space-3 = 12 px padding |
 | Repeated list/recruitment cards | spacing uses space-2/3/4 according to the card composition |
 
 ### 2.5 Card and surface padding
 
-- Standard `SurfaceCard`: default inner padding **16 px** (`--theme-space-4`).
+- Standard `SurfaceCard`: default inner padding **10 px** (`--theme-recipe-surface-padding`).
 - Base card radius: **16 px** (`--theme-radius-card`).
-- Compact raised panels documented in the design architecture: **12 px** padding and **12 px** control radius.
+- Compact raised panels: **10 px** padding and the existing control radius.
 - Modal overlay default outer inset: **16 px** (`--theme-modal-overlay-padding`).
-- Modal content padding: **18 px** (`--theme-modal-content-padding`).
+- Modal content padding: **15 px** (`--theme-modal-content-padding`).
 - Account switcher padding: **14 px 16 px**.
 - Individual older panels may still use local values. Do not assume every inline-styled panel has already migrated to SurfaceCard.
 
@@ -298,7 +300,7 @@ Keep Cyrillic glyph coverage and line wrapping in view when changing fonts. Text
 
 - Use SurfaceCard or documented surface recipes for repeated cards.
 - Base, raised and elevated surfaces must retain their hierarchy.
-- Standard card padding is 16 px; compact panels may use 12 px.
+- Standard ordinary-card padding is 10 px; visual-item cards retain their existing padding and are not changed by this rule.
 - SectionTitle uses 8 px icon/title gap and 8 px bottom rhythm.
 - Do not nest a second card surface around a block unless the hierarchy requires a distinct panel.
 
@@ -436,7 +438,7 @@ There is not yet one central notification service or one exhaustive action-to-me
 
 ### Example A — card stack
 
-Correct: account card, Purchases card, Treasury card, territory-management card are peer sections with a 12 px vertical gap. Each card owns its own 16 px inner padding.
+Correct: account card, Purchases card, Treasury card and territory-management card are peer sections with an 8 px vertical gap. Each ordinary card owns 10 px inner padding.
 
 Incorrect: add 12 px bottom margin to each card and also a 12 px parent gap; the visible distance becomes doubled.
 
@@ -492,58 +494,33 @@ The design system is not yet a claim that every pixel in the 510 KB App.jsx is t
 
 ## 2.7 Spacing inventory: approved values and migration rules
 
-The approved local spacing values for the Vox interface are **4, 6, 8, 10, 12, 15, 18 and 20 px**. These values may be used for spacing properties (gap, row-gap, column-gap, margin* and padding*) when they fit the component relationship. Do not change element dimensions, positional coordinates, typography, border radii, animation values or other non-spacing properties as part of spacing normalization.
+The only approved local spacing values are **4, 6, 8, 10, 12, 15, 18, 20, 24 and 32 px**. Use them for `gap`, `row-gap`, `column-gap`, `margin*` and `padding*`. Do not introduce any other spacing value. This restriction does not apply to element dimensions, positional coordinates, typography, border radii, animation values or data.
 
-### A. Approved spacing values
+### A. Shared layout decisions
 
-| Value | Intended use |
-|---:|---|
-| 4 px | Micro-spacing: icon/text, label/control, hint/control |
-| 6 px | Tight related items and compact metadata |
-| 8 px | Related controls, button contents, compact action rows |
-| 10 px | Intermediate compact grouping where 8 px is too tight |
-| 12 px | Separate field groups, peer cards/sections, compact surface inset |
-| 15 px | Standard surface inset and larger content spacing |
-| 18 px | Spacious local grouping |
-| 20 px | Large grouping and deliberate display/control spacing |
+| Relationship | Current value |
+|---|---:|
+| Independent cards / peer sections | 8 px |
+| Ordinary card inner padding | 10 px |
+| Visual item card padding | Preserve current component value |
+| Page horizontal content inset | 15 px |
+| Form label → field | 4 px |
+| Hint/error → field | 4 px |
+| Separate field groups | 12 px |
+| Event create/edit form inner inset | 15 px |
+| Modal content inset | 15 px |
 
-### B. Required normalization
+### B. Token alignment
 
-| Existing value | New value |
-|---:|---:|
-| 5 px | 4 px |
-| 7 px | 6 px |
-| 9 px | 8 px |
-| 14 px | 12 px |
-| 16 px | 15 px |
-| 22 px | 20 px |
+- `--theme-space-1` = 4 px.
+- `--theme-space-2` = 8 px.
+- `--theme-space-3` = 12 px.
+- `--theme-space-4` = 15 px.
+- `--theme-space-5` = 20 px.
+- `--theme-space-6` = 24 px.
+- `--theme-space-8` = 32 px.
+- `--theme-layout-section-gap` = 8 px.
+- `--theme-recipe-surface-padding` = 10 px.
+- `--theme-modal-content-padding` = 15 px.
 
-Values already in the approved list remain unchanged. The mapping applies only when a number is used as a spacing value, not when the same number represents width, height, position, font size, radius, timing, data, or another non-spacing property.
-
-### C. Current hard-coded local spacing inventory
-
-The following counts are a static scan of numeric spacing declarations in the current App.jsx snapshot after normalization. They count numeric occurrences inside spacing-property values; a shorthand such as padding: '8px 12px' contributes two occurrences. They are not a count of unique visual distances.
-
-| Approved value | Occurrences |
-|---:|---:|
-| 4 px | 44 |
-| 6 px | 101 |
-| 8 px | 182 |
-| 10 px | 134 |
-| 12 px | 145 |
-| 15 px | 31 |
-| 18 px | 14 |
-| 20 px | 3 |
-
-The counts are an inventory aid, not a requirement to replace every local declaration with a token. Preserve component-specific composition when it already uses an approved value appropriately.
-
-### D. Token alignment
-
-- --theme-space-1 remains 4 px.
-- --theme-space-2 remains 8 px.
-- --theme-space-3 remains 12 px.
-- --theme-space-4 is now 15 px, matching the approved 16 → 15 px normalization.
-- --theme-space-5 remains 20 px.
-- --theme-layout-section-gap remains 12 px.
-
-The 24 px and 32 px legacy scale tokens are not part of the approved local spacing list. Do not introduce them into new local spacing declarations; their existing token usages require separate component-level review before removal or remapping.
+The values 24 and 32 px remain approved, but they are not defaults. Do not add them to ordinary page/card spacing without a clear composition need. The main-inspector interface keeps its current sufficient large-scale spacing; this compacting pass does not enlarge it.
