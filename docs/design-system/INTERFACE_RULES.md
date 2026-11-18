@@ -315,7 +315,7 @@ Keep Cyrillic glyph coverage and line wrapping in view when changing fonts. Text
 ### 6.6 Review compose and territory management examples
 
 - Review publication action: square 44 × 44 px, 12 px radius. Resident = primary/purple; inspector = success/mint. Existing role predicate and publish action stay authoritative.
-- Event reminder value input and unit-switch shell share the same `--theme-radius-control` outer radius. The two unit options use the smaller `--theme-radius-xs` inset radius; do not override these with arbitrary per-screen corner values.
+- Event reminder unit switch: one `--theme-radius-control` outer shell, **zero inner padding and zero gap**. The two equal-width options fill the shell edge-to-edge; the selected half is primary purple and the unselected half uses the raised/dark surface. Both halves have `border-radius: 0`; do not add rounded inner pills or an inset gutter.
 - Resident add row: full available width; input flexes; add action fixed 44 × 44 px.
 - Resident promote/remove actions: fixed 34 × 34 px with centered glyphs; promote = success/mint, remove = danger/red.
 - Treasury row: flexible amount field + fixed-width 120 px “Пополнить” action; same control height; no layout shift on press.
@@ -361,7 +361,7 @@ Geometry tokens:
 - bottom offset: `calc(76px + env(safe-area-inset-bottom))`;
 - max width: 420 px;
 - total horizontal viewport gutter: 32 px;
-- padding: 11 px vertical / 16 px horizontal;
+- padding: **8 px vertical / 10 px horizontal**; toast width is content-driven (`max-content`) plus this padding;
 - radius: pill;
 - text: 12.5 px / weight 700 / line-height 1.3;
 - z-index: 1200.
@@ -510,6 +510,7 @@ The only approved local spacing values are **4, 6, 8, 10, 12, 15, 18, 20, 24 and
 | Separate field groups | 12 px |
 | Event create/edit form inner inset | 15 px |
 | Modal content inset | 15 px |
+| Events page top inset before “Создать ивент” | 15 px (same as page horizontal inset) |
 
 ### B. Token alignment
 
@@ -525,3 +526,11 @@ The only approved local spacing values are **4, 6, 8, 10, 12, 15, 18, 20, 24 and
 - `--theme-modal-content-padding` = 15 px.
 
 The values 24 and 32 px remain approved, but they are not defaults. Do not add them to ordinary page/card spacing without a clear composition need. The main-inspector interface keeps its current sufficient large-scale spacing; this compacting pass does not enlarge it.
+
+### Profile and territory-specific behavior
+
+- A resident's read-only “Название” and “Набор” fields must not expose a text caret or I-beam pointer. Keep their content readable, but disable pointer interaction, text selection and keyboard tab focus for those read-only controls. Editable manager controls retain normal text interaction.
+- The resident-facing “Доп. информация” block has a **12 px** bottom separation before the next independent territory section, matching the field-group rhythm.
+- “Оформление территории” uses the same faint top divider and **8 px** divider-to-content inset as the first rows under “Основатели/мэры” and “Жители”.
+- The profile page reserves **100 px plus the device safe-area inset** below its content so the final territory action remains scrollable above the fixed bottom navigation. This applies to resident “Покинуть территорию” and manager “Запросить оценку инспектора”; it does not change navigation position or action behavior.
+
