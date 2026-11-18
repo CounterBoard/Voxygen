@@ -560,12 +560,12 @@ test('Vox profile textarea rhythm and action states follow the shared UI contrac
   assert.match(textarea, /marginBottom: 'var\(--theme-space-3\)', \.\.\.containerStyle/);
 
   const recruitment = app.slice(app.indexOf('function RecruitmentManagement('), app.indexOf('function CityManagementProfile('));
-  assert.match(recruitment, /containerStyle=\{\{marginBottom:0\}\}/);
-  assert.match(recruitment, /display:'flex',gap:8,marginTop:8/);
+  assert.match(recruitment, /containerStyle=\{\{marginBottom:\s*0\}\}/);
+  assert.match(recruitment, /display:'flex',gap:\s*8,marginTop:\s*8/);
   assert.doesNotMatch(recruitment, /fontSize:13,marginBottom:8,cursor:/);
 
   const cityProfile = app.slice(app.indexOf('function CityManagementProfile('), app.indexOf('\nfunction ', app.indexOf('function CityManagementProfile(') + 10));
-  assert.match(cityProfile, /containerStyle=\{\{marginBottom:0\}\}/);
+  assert.match(cityProfile, /containerStyle=\{\{marginBottom:\s*0\}\}/);
   assert.doesNotMatch(cityProfile, /fontSize:13,marginBottom:4\}\}\/>/);
 
   const lightbox = app.slice(app.indexOf('function Lightbox('), app.indexOf('\nfunction ', app.indexOf('function Lightbox(') + 10));
