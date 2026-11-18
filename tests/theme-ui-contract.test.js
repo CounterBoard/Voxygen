@@ -478,7 +478,7 @@ test('repeated base surface panels use shared card radius and spacing tokens', (
 
 test('compact raised panels use control radius and space-3 geometry roles', () => {
   assert.ok(app.includes("background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-control)',padding:'var(--theme-space-3)'"));
-  assert.equal(app.split("borderRadius:'var(--theme-radius-control)',padding:'var(--theme-space-3)'" ).length - 1, 3);
+  assert.equal(app.split("borderRadius:'var(--theme-radius-control)',padding:'var(--theme-space-3)'" ).length - 1, 4);
 });
 
 
