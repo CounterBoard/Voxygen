@@ -595,7 +595,7 @@ test('events page starts at the same 15px inset as its horizontal content', () =
 
 test('fixed toast uses compact content-sized padding', () => {
   assert.match(tokens, /--theme-toast-padding-block:\s*8px/);
-  assert.match(tokens, /--theme-toast-padding-inline:\s*10px/);
+  assert.match(tokens, /--theme-toast-padding-inline:\s*16px/);
   assert.match(app, /width:max-content;[\s\S]*padding: var\(--theme-toast-padding-block\) var\(--theme-toast-padding-inline\);/);
 });
 
@@ -608,9 +608,9 @@ test('resident read-only territory fields do not expose an I-beam or keyboard fo
   assert.match(cityProfile, /pointerEvents:readOnly\?'none':'auto',userSelect:readOnly\?'none':'auto',caretColor:readOnly\?'transparent':'auto'/);
 });
 
-test('resident additional information has a 12px bottom group separation', () => {
+test('resident additional information matches the 8px profile card rhythm', () => {
   const cityProfile = app.slice(app.indexOf('function CityManagementProfile('), app.indexOf('function ProfileInventory('));
-  assert.match(cityProfile, /fontSize:13,marginBottom: 12,minHeight:72/);
+  assert.match(cityProfile, /fontSize:13,marginBottom: 8,minHeight:72/);
 });
 
 test('territory customization section has the same subtle divider rhythm as member sections', () => {
@@ -619,5 +619,44 @@ test('territory customization section has the same subtle divider rhythm as memb
 });
 
 test('profile bottom padding clears the fixed navigation and safe area', () => {
-  assert.ok(app.includes("className=\"atlas-page atlas-page--profile\" style={{padding: '18px 15px calc(100px + env(safe-area-inset-bottom))',minHeight:'60vh'}}"));
+  assert.ok(app.includes("className=\"atlas-page atlas-page--profile\" style={{padding: '18px 15px calc(90px + env(safe-area-inset-bottom))',minHeight:'60vh'}}"));
+});
+
+test('reminder amount label and all three control radii are consistent', () => {
+  assert.ok(app.includes('placeholder="Количество"'));
+  assert.match(app, /event-reminder-unit-switch[\s\S]*?borderRadius:'var\(--theme-radius-control\)'/);
+  assert.match(app, /Подтвердить напоминание[\s\S]*?borderRadius:'var\(--theme-radius-control\)'/);
+});
+
+test('field borders transition from Purple to Mint, with the inspector review inverse', () => {
+  for (const token of [
+    '--theme-recipe-field-border:', '--theme-recipe-field-focus-border:',
+    '--theme-recipe-field-inspector-border:', '--theme-recipe-field-inspector-focus-border:',
+    '--theme-recipe-field-transition:',
+  ]) assert.ok(tokens.includes(token), `Missing field interaction token: ${token}`);
+  assert.match(tokens, /--theme-recipe-field-border:\s*var\(--theme-color-action-primary\)/);
+  assert.match(tokens, /--theme-recipe-field-focus-border:\s*var\(--theme-color-status-success\)/);
+  assert.match(tokens, /--theme-recipe-field-inspector-border:\s*var\(--theme-color-status-success\)/);
+  assert.match(tokens, /--theme-recipe-field-inspector-focus-border:\s*var\(--theme-color-action-primary\)/);
+  assert.ok(app.includes('transition:var(--theme-recipe-field-transition)')));
+  assert.ok(app.includes('.atlas-review-compose-field:focus{border-color:var(--theme-recipe-field-inspector-focus-border)')));
+  assert.ok(app.includes("className={isInspectorRole?'atlas-review-compose-field':''}"));
+});
+
+test('theme picker removes the one-theme notice and uses Purple arrow outlines', () => {
+  assert.doesNotMatch(app, /Сейчас доступна только тема Vox/);
+  assert.ok(app.includes("whiteSpace:'pre-line'"));
+  assert.equal((app.match(/border:'1px solid var\(--theme-color-action-primary-border\)',color:'var\(--theme-color-action-primary\)'/g)||[]).length, 2);
+});
+
+test('profile and Visual bottom clearance is 90px and final territory actions keep 15px', () => {
+  assert.ok(app.includes("className=\"atlas-page atlas-page--profile\" style={{padding: '18px 15px calc(90px + env(safe-area-inset-bottom))',minHeight:'60vh'}}"));
+  assert.ok(app.includes("className=\"atlas-page atlas-page--customization\" style={{padding: '18px 15px 90px'}}"));
+  assert.match(app, /fontWeight:800,marginBottom: 15\}\}>\{leaveBusy\?'Выход…':'Покинуть территорию'\}/);
+  assert.match(app, /fontWeight:700,marginBottom: 15,minHeight:44\}\}>Запросить оценку инспектора/);
+});
+
+test('toast remains content-sized with restored 16px horizontal padding', () => {
+  assert.match(tokens, /--theme-toast-padding-inline:\s*16px/);
+  assert.match(app, /width:max-content;[\s\S]*max-width:min\(calc\(100vw - var\(--theme-toast-viewport-gutter-total\)\),var\(--theme-toast-max-width\)\)/);
 });
