@@ -2260,7 +2260,7 @@ function GlobalSettingsPanel({ initData, onSettingsChanged, onClose, timezoneOff
   }
   const status=entry=>!entry?'Не задано':!entry.active?'Срок действия истёк':entry.expiresAt==null?'Действует постоянно':'До '+new Date(Number(entry.expiresAt)).toLocaleString('ru-RU');
   const zoomRow=entries.find(item=>item.key==='map_zoom'),themeRow=entries.find(item=>item.key==='theme');
-  const sectionStyle={background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:13,padding: 10,marginBottom: 8};
+  const sectionStyle={background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:13,padding: 12,marginBottom: 12};
   const actionStyle={minHeight:38,border:0,borderRadius:9,padding: '0 11px',background:'var(--theme-color-status-success)',color:'var(--theme-color-status-success-contrast)',fontWeight:800,fontSize:12};
   const secondaryStyle={minHeight:38,border:'1px solid var(--theme-color-border)',borderRadius:9,padding: '0 11px',background:'var(--theme-color-surface)',color:'var(--theme-color-text-primary)',fontWeight:700,fontSize:12};
   return <div className={'atlas-overlay'+(closing?' atlas-closing':'')} style={{position:'fixed',inset:0,zIndex:140,background:'var(--theme-color-overlay-scrim)',display:'flex',alignItems:'center',justifyContent:'center',padding: '18px 12px'}} onClick={requestClose}>
@@ -2906,7 +2906,7 @@ function EventsScreen({ initData, territories = [], onSelectTerritory, isMainIns
     {pastEvents.length>0 && <section style={{marginTop: 8}}><div style={{display:'flex',alignItems:'center',gap: 8,margin: '0 0 8px'}}><Check size={18} color="var(--theme-color-text-muted)"/><div className="atlas-display" style={{fontSize:19,fontWeight:800}}>Прошедшие ивенты</div><span style={{marginLeft: 'auto',fontSize:12,color:'var(--theme-color-text-muted)'}}>{pastEvents.length}</span></div><div style={{display:'flex',flexDirection:'column',gap: 8}}>{pastEvents.map(event=>renderEventCard(event,true))}</div></section>}
     {error && <div role="status" style={{marginTop: 10,background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-status-danger)',borderRadius:12,padding: 10,color:'var(--theme-color-status-danger)',fontSize:12.5}}>{error}<button onClick={load} className="press" style={{marginLeft: 8,border:0,background:'transparent',color:'var(--theme-color-action-primary)',fontWeight:800}}>Повторить</button></div>}
     {notice && <FixedToast key={notice} message={notice} type={notice==='Это время напоминания уже прошло'?'warning':null}/>}
-    {isMainInspector && <div style={{marginTop: 8}}><EventManagementPanel initData={initData} territories={territories} timezoneOffset={timezoneOffset} timezoneReady={timezoneReady}/></div>}
+    {isMainInspector && <div style={{marginTop: 0}}><EventManagementPanel initData={initData} territories={territories} timezoneOffset={timezoneOffset} timezoneReady={timezoneReady}/></div>}
   </div>;
 }
 
