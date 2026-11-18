@@ -638,8 +638,8 @@ test('field borders transition from Purple to Mint, with the inspector review in
   assert.match(tokens, /--theme-recipe-field-focus-border:\s*var\(--theme-color-status-success\)/);
   assert.match(tokens, /--theme-recipe-field-inspector-border:\s*var\(--theme-color-status-success\)/);
   assert.match(tokens, /--theme-recipe-field-inspector-focus-border:\s*var\(--theme-color-action-primary\)/);
-  assert.ok(app.includes('transition:var(--theme-recipe-field-transition)')));
-  assert.ok(app.includes('.atlas-review-compose-field:focus{border-color:var(--theme-recipe-field-inspector-focus-border)')));
+  assert.ok(app.includes('transition:var(--theme-recipe-field-transition)'));
+  assert.ok(app.includes('input.atlas-review-compose-field:focus{border-color:var(--theme-recipe-field-inspector-focus-border)'));
   assert.ok(app.includes("className={isInspectorRole?'atlas-review-compose-field':''}"));
 });
 
