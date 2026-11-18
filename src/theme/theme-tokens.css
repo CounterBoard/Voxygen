@@ -283,8 +283,8 @@
   --theme-toast-bottom-offset: calc(76px + env(safe-area-inset-bottom));
   --theme-toast-max-width: 420px;
   --theme-toast-viewport-gutter-total: 32px;
-  --theme-toast-padding-block: 11px;
-  --theme-toast-padding-inline: 16px;
+  --theme-toast-padding-block: 8px;
+  --theme-toast-padding-inline: 10px;
   --theme-toast-radius: var(--theme-radius-pill);
   --theme-toast-font-size: 12.5px;
   --theme-toast-font-weight: 700;
