@@ -111,6 +111,8 @@ Recipes are component-level visual decisions; semantic tokens remain the color s
 | `--theme-space-5` | `20px` | Shared spacing scale. |
 | `--theme-space-6` | `24px` | Shared spacing scale. |
 | `--theme-space-8` | `32px` | Shared spacing scale. |
+| `--theme-layout-section-gap` | `8px` | Gap between independent peer cards/sections. |
+| `--theme-recipe-surface-padding` | `10px` | Default inner padding for ordinary SurfaceCard panels. |
 | `--theme-radius-xs` | `8px` | Shared shape scale. |
 | `--theme-radius-sm` | `10px` | Shared shape scale. |
 | `--theme-radius-control` | `12px` | Shared shape scale. |
@@ -190,7 +192,7 @@ Recipes are component-level visual decisions; semantic tokens remain the color s
 | `--theme-content-max-width` | `448px` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-modal-max-width` | `448px` | Dialog/viewport geometry. |
 | `--theme-modal-overlay-padding` | `var(--theme-space-4)` | Dialog/viewport geometry. |
-| `--theme-modal-content-padding` | `18px` | Dialog/viewport geometry. |
+| `--theme-modal-content-padding` | `15px` | Dialog/viewport geometry. |
 | `--theme-modal-viewport-inset-total` | `48px` | Dialog/viewport geometry. |
 | `--theme-modal-viewport-safe-height` | `calc(100vh - var(--theme-modal-viewport-inset-total))` | Dialog/viewport geometry. |
 | `--theme-modal-max-height-compact` | `70vh` | Dialog/viewport geometry. |
