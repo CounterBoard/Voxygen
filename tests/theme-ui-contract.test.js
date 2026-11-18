@@ -550,3 +550,33 @@ test('ToggleField track and thumb states use independent theme recipes', () => {
     assert.ok(toggle.includes(`var(--theme-recipe-toggle-${role})`),`ToggleField bypasses ${role}`);
   }
 });
+
+
+test('Vox profile textarea rhythm and action states follow the shared UI contract', () => {
+  const textarea = app.slice(app.indexOf('function TextAreaField('), app.indexOf('function SelectField('));
+  assert.match(textarea, /containerStyle = \{\}/);
+  assert.match(textarea, /marginBottom: 'var\(--theme-space-3\)', \.\.\.containerStyle/);
+
+  const recruitment = app.slice(app.indexOf('function RecruitmentManagement('), app.indexOf('function CityManagementProfile('));
+  assert.match(recruitment, /containerStyle=\{\{marginBottom:0\}\}/);
+  assert.match(recruitment, /display:'flex',gap:8,marginTop:8/);
+  assert.doesNotMatch(recruitment, /fontSize:13,marginBottom:8,cursor:/);
+
+  const cityProfile = app.slice(app.indexOf('function CityManagementProfile('), app.indexOf('function ', app.indexOf('function CityManagementProfile(') + 10));
+  assert.match(cityProfile, /containerStyle=\{\{marginBottom:0\}\}/);
+  assert.doesNotMatch(cityProfile, /fontSize:13,marginBottom:4\}\}\/>/);
+
+  const lightbox = app.slice(app.indexOf('function Lightbox('), app.indexOf('function ', app.indexOf('function Lightbox(') + 10));
+  assert.match(lightbox, /width:44, height:44/);
+  const territoryHeader = app.slice(app.indexOf('function TerritoryDetail('), app.indexOf('function ', app.indexOf('function TerritoryDetail(') + 10));
+  assert.match(territoryHeader, /width: 44, height: 44/);
+
+  const visualFilters = app.slice(app.indexOf('function CustomizationScreen('), app.indexOf('function BottomNav('));
+  assert.match(visualFilters, /var\(--theme-color-border-strong\)/);
+  assert.match(visualFilters, /var\(--theme-color-action-primary-border\)/);
+
+  const reviewCompose = app.slice(app.indexOf('className="atlas-review-compose-row"'), app.indexOf('!hasNickname', app.indexOf('className="atlas-review-compose-row"')));
+  assert.match(reviewCompose, /background:isInspectorRole\?'var\(--theme-color-status-success\)':'var\(--theme-color-action-primary\)'/);
+  assert.match(reviewCompose, /color:isInspectorRole\?'var\(--theme-color-status-success-contrast\)':'var\(--theme-color-action-primary-contrast\)'/);
+  assert.match(reviewCompose, /width:44,height:44/);
+});
