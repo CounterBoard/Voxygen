@@ -226,8 +226,8 @@ Recipes are component-level visual decisions; semantic tokens remain the color s
 | `--theme-toast-bottom-offset` | `calc(76px + env(safe-area-inset-bottom))` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-toast-max-width` | `420px` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-toast-viewport-gutter-total` | `32px` | Theme value; tune only when the corresponding component contract is understood. |
-| `--theme-toast-padding-block` | `11px` | Theme value; tune only when the corresponding component contract is understood. |
-| `--theme-toast-padding-inline` | `16px` | Theme value; tune only when the corresponding component contract is understood. |
+| `--theme-toast-padding-block` | `8px` | Compact vertical inset around the notification text. |
+| `--theme-toast-padding-inline` | `10px` | Compact horizontal inset around the notification text. |
 | `--theme-toast-radius` | `var(--theme-radius-pill)` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-toast-font-size` | `12.5px` | Font role; verify Cyrillic and fallback. |
 | `--theme-toast-font-weight` | `700` | Font role; verify Cyrillic and fallback. |
