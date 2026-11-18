@@ -387,7 +387,7 @@ selectors.
 
 The fixed toast's bottom offset (including the device safe area), maximum
 width, horizontal viewport gutter, compact content padding (**8 px vertical /
-10 px horizontal**), pill radius and text metrics are controlled by dedicated
+16 px horizontal**), pill radius and text metrics are controlled by dedicated
 theme roles. Its width is content-driven (message width plus padding), with the
 maximum width and viewport gutter acting only as safety caps. This allows the
 notification treatment to adapt without changing timing, priority, accessibility
@@ -514,3 +514,11 @@ selection state, a separate territory-appearance surface, interactive
 Telegram usernames in additional information, root-portal FixedToast
 notifications, and a 44×44 review-compose button. Their exact scope and
 preserved behavior are recorded in Functional_System.txt sections 56–58.
+
+## Field interaction colors
+
+Editable text, numeric and select fields use Purple borders at rest and transition to Mint border/focus halo while focused. The inspector review field reverses that mapping: Mint at rest, Purple while focused. The mapping is expressed through shared field recipe tokens, including a transition role; invalid fields retain danger semantics.
+
+## Reminder, profile and theme picker details
+
+The event reminder unit switch, amount field and confirmation action share the same control radius. The switch keeps two flush, square inner halves. Profile and Visual bottom clearance is 90 px plus safe area; the final territory actions keep 15 px below. The theme picker uses a two-line Vox description, omits the one-theme availability notice, and renders arrow outlines/glyphs in Purple without a filled Purple button treatment. FixedToast remains content-width with 16 px horizontal padding.
