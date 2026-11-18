@@ -4852,7 +4852,7 @@ Worker. Она не заменяет ручную проверку реальн�
 - кнопки повышения и удаления жителя имеют фиксированную геометрию
   34×34 px, центрирование содержимого и semantic success/danger colors;
 - mint/success используется для позитивного действия повышения и отметки
-  выбранного визуала; warning-violet не используется вместо mint;
+  выбранного визуала; warning использует mint; отдельный violet-цвет не используется;
 - «Оформление территории» оформлено самостоятельной поверхностью
   с общей геометрией карточек;
 - дополнительная информация территории отображается через
@@ -4940,3 +4940,8 @@ Worker. Она не заменяет ручную проверку реальн�
 Автоматические тесты и production build не заменяют ручную проверку
 Telegram Mini App и security review. Все пункты аудита остаются pending,
 пока не выполнены и не зафиксированы фактические результаты.
+
+
+## UI spacing and color clarification (2026-11-18)
+
+The Vox theme does not introduce a separate violet status color. Warning and success are distinct semantic roles but both resolve to the mint color family through the theme tokens. See `src/theme/theme-tokens.css` and `docs/design-system/INTERFACE_RULES.md`. The spacing inventory in that guide identifies tokenized values, concrete App.jsx anchors and legacy numeric values to audit before consolidation; local values must not be globally replaced without checking their layout role.
