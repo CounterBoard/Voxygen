@@ -1083,7 +1083,7 @@ function TextAreaField({ label, hint, error, id, className = '', style = {}, con
 }
 
 
-function SelectField({ label, id, className = '', style = {}, children, ...props }) {
+function SelectField({ label, id, className = '', style = {}, containerStyle = {}, children, ...props }) {
   const generatedId = useId();
   const controlId = id || generatedId;
   return (
