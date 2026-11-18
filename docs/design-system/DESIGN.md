@@ -386,10 +386,12 @@ selectors.
 ## Toast geometry and viewport spacing
 
 The fixed toast's bottom offset (including the device safe area), maximum
-width, horizontal viewport gutter, internal padding, pill radius and text
-metrics are controlled by dedicated theme roles. This allows the notification
-treatment to adapt as a component without changing its timing, priority,
-accessibility announcement or status colors.
+width, horizontal viewport gutter, compact content padding (**8 px vertical /
+10 px horizontal**), pill radius and text metrics are controlled by dedicated
+theme roles. Its width is content-driven (message width plus padding), with the
+maximum width and viewport gutter acting only as safety caps. This allows the
+notification treatment to adapt without changing timing, priority, accessibility
+announcement or status colors.
 
 
 The account switcher's inset highlight now uses the shared soft surface
@@ -464,6 +466,8 @@ The following implementation details are part of the current default Vox
 baseline. They preserve behavior while standardizing repeated visual patterns.
 
 ### Section rhythm
+
+Event reminder unit switch uses one rounded outer shell with no inset padding or gap. Two equal halves fill the shell edge-to-edge; the selected half uses primary purple, the unselected half uses the raised surface, and neither inner half has rounded corners.
 
 Use `--theme-layout-section-gap: 8px` between adjacent independent
 cards/sections at the same hierarchy level. Do not use it for label-to-field
