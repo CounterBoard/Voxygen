@@ -562,13 +562,13 @@ test('Vox profile textarea rhythm and action states follow the shared UI contrac
   assert.match(recruitment, /display:'flex',gap:8,marginTop:8/);
   assert.doesNotMatch(recruitment, /fontSize:13,marginBottom:8,cursor:/);
 
-  const cityProfile = app.slice(app.indexOf('function CityManagementProfile('), app.indexOf('\\nfunction ', app.indexOf('function CityManagementProfile(') + 10));
+  const cityProfile = app.slice(app.indexOf('function CityManagementProfile('), app.indexOf('\nfunction ', app.indexOf('function CityManagementProfile(') + 10));
   assert.match(cityProfile, /containerStyle=\{\{marginBottom:0\}\}/);
   assert.doesNotMatch(cityProfile, /fontSize:13,marginBottom:4\}\}\/>/);
 
-  const lightbox = app.slice(app.indexOf('function Lightbox('), app.indexOf('\\nfunction ', app.indexOf('function Lightbox(') + 10));
+  const lightbox = app.slice(app.indexOf('function Lightbox('), app.indexOf('\nfunction ', app.indexOf('function Lightbox(') + 10));
   assert.match(lightbox, /width:44, height:44/);
-  const territoryHeader = app.slice(app.indexOf('function TerritoryDetail('), app.indexOf('\\nfunction ', app.indexOf('function TerritoryDetail(') + 10));
+  const territoryHeader = app.slice(app.indexOf('function TerritoryDetail('), app.indexOf('\nfunction ', app.indexOf('function TerritoryDetail(') + 10));
   assert.match(territoryHeader, /width: 44, height: 44/);
 
   const visualFilters = app.slice(app.indexOf('function CustomizationScreen('), app.indexOf('function BottomNav('));
