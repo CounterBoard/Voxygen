@@ -454,3 +454,57 @@ map back to semantic surface, border, text and elevation roles.
 thumb colors using `--theme-recipe-toggle-*` roles. This lets themes tune switch
 contrast and checked-state emphasis independently while preserving the switch
 semantics, dimensions and interaction behavior.
+
+
+## Shared Vox component geometry and state contracts
+
+The following implementation details are part of the current default Vox
+baseline. They preserve behavior while standardizing repeated visual patterns.
+
+### Section rhythm
+
+Use `--theme-layout-section-gap: 12px` between adjacent independent
+cards/sections at the same hierarchy level. Do not use it for label-to-field
+spacing, inline control gaps, or content padding inside a card. The searchable
+token index in `THEME_TOKEN_REFERENCE.md` lists this role.
+
+### Textarea composition
+
+`TextAreaField` keeps its default bottom wrapper spacing
+(`--theme-space-3`). A local composition may pass the optional
+`containerStyle` prop to tune the wrapper without changing the textarea
+styles or leaking the prop onto the native element. Avoid stacking wrapper
+margin, textarea margin and the next action's top margin. The territory
+recruitment and additional-information forms use a compact 8 px gap before
+their action row.
+
+### Tags and selected states
+
+Visual category filter chips use a neutral border
+(`--theme-color-border-strong`) while unselected. The selected chip uses
+the primary border/background/foreground roles. Selection remains a state
+of the filter model, not a separate visual-only toggle.
+
+### Icon controls and screenshot overlay
+
+The screenshot Lightbox close control and territory-page back/exit control
+share a 44×44 px touch target. Icon glyphs are centered inside their controls.
+The Lightbox close control retains its own overlay positioning and close
+handler.
+
+### Review publication
+
+The review-compose action remains a 44×44 px square with a 12 px radius.
+Its background and icon contrast are role-aware: primary/purple for a resident
+and success/mint for an inspector. The existing role predicate and publish
+handler remain authoritative; theme styling must not change who can publish.
+
+### Profile and territory details documented in Functional_System.txt
+
+The current Vox implementation also uses the shared section gap, a flexible
+treasury amount field with a fixed 120 px `Пополнить` action, full-width
+resident invitation row, centered resident action icons, mint/success
+selection state, a separate territory-appearance surface, interactive
+Telegram usernames in additional information, root-portal FixedToast
+notifications, and a 44×44 review-compose button. Their exact scope and
+preserved behavior are recorded in Functional_System.txt sections 56–58.
