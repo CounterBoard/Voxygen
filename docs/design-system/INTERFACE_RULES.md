@@ -370,7 +370,7 @@ If a caller passes an explicit `type`, that type wins. Otherwise FixedToast infe
 | Type | Current inference / meaning | Vox treatment |
 |---|---|---|
 | Error | Contains wording matching `ошиб`, `не удалось`, `нет соединения`, `недостаточно прав`, `не найдена`, `временно недоступен`, `не выполнена`, `не получилось` | red/danger |
-| Warning | Contains `ожидает`, `повторите`, `проверьте`, `не подтверждён` | violet/warning |
+| Warning | Contains `ожидает`, `повторите`, `проверьте`, `не подтверждён` | mint/warning semantic token |
 | Success | Default when neither error nor warning pattern matches | mint/success |
 
 This is the current implementation, not a robust semantic API. Message wording can therefore affect color/ARIA priority. Prefer passing an explicit type when the state is known and correctness matters. Do not change this behavior casually because it affects both color and assistive-technology announcement priority.
@@ -462,7 +462,7 @@ Incorrect: force the button and input to equal widths simply because they share 
 
 Correct: primary save action = purple; confirmed success = mint; caution/pending = mint warning; delete/error = red; gem amount = protected cyan.
 
-Incorrect: use purple for warning, violet for any Vox UI status, red for neutral controls, or recolor the gem because the theme palette changed.
+Incorrect: use purple for warning, invent a separate violet status color, use red for neutral controls, or recolor the gem because the theme palette changed.
 
 ### Example F — notification vs inline error
 
@@ -512,19 +512,19 @@ The scan below counts inline style declarations, not necessarily unique visual d
 
 | Local value | Observed frequency | Example locations / patterns | Recommendation |
 |---:|---:|---|---|
-| 4 px | 13 | field labels/hints and compact metadata; some local bottom margins | Prefer `space-1` / field gap tokens |
-| 5 px | 7 | small local vertical offsets and compact row gaps | Review individually; usually consolidate to 4 or 8 |
-| 6 px | 27 | compact action/metadata gaps and local margins | Review; map to 4 or 8 depending on visual relationship |
+| 4 px | 26 | field labels/hints and compact metadata; some local bottom margins | Prefer `space-1` / field gap tokens |
+| 5 px | 12 | small local vertical offsets and compact row gaps | Review individually; usually consolidate to 4 or 8 |
+| 6 px | 35 | compact action/metadata gaps and local margins | Review; map to 4 or 8 depending on visual relationship |
 | 7 px | 36 | compact list/card gaps and local margins | Review; most likely 8, but inspect alignment before changing |
-| 8 px | 93 | many button/action gaps and vertical margins | Prefer `space-2` when it represents a related group |
-| 9 px | 20 | legacy compact card/control gaps | Review; usually normalize to 8 or 12 |
-| 10 px | 47 | compact controls, text blocks and form margins | Keep only where component geometry requires it; otherwise 8 or 12 |
-| 12 px | 45 | field rhythm, card spacing, action groups | Prefer `space-3` / section gap where semantic role matches |
+| 8 px | 96 | many button/action gaps and vertical margins | Prefer `space-2` when it represents a related group |
+| 9 px | 30 | legacy compact card/control gaps | Review; usually normalize to 8 or 12 |
+| 10 px | 64 | compact controls, text blocks and form margins | Keep only where component geometry requires it; otherwise 8 or 12 |
+| 12 px | 46 | field rhythm, card spacing, action groups | Prefer `space-3` / section gap where semantic role matches |
 | 14 px | 15 | paragraph/card and content spacing | Usually map to 12 or 16 after visual review |
-| 15 px | 9 | local offsets and margins | Avoid as a general spacing step; map to 12 or 16 |
+| 15 px | 6 | local offsets and margins | Avoid as a general spacing step; map to 12 or 16 |
 | 16 px | 8 | card/content padding and larger groups | Prefer `space-4` |
-| 18 px | 8 | local form/card spacing | Review; map to 16 or 20 |
-| 20 px | 6 | larger separation and control padding | Prefer `space-5` where role matches |
+| 18 px | 6 | local form/card spacing | Review; map to 16 or 20 |
+| 20 px | 1 | larger separation and control padding | Prefer `space-5` where role matches |
 | 22 px | 1 | isolated local offset | Keep only if geometry-specific; otherwise normalize |
 
 Counts are a static scan of numeric `gap`, `margin*` and `padding*` declarations in the fetched App.jsx snapshot. They are a prioritization aid, not a pixel-perfect runtime measurement. Some occurrences are intentional component geometry, not vertical rhythm.
