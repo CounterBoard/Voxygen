@@ -426,6 +426,8 @@ For the practical step-by-step workflow, component checklist and release gate, s
 
 Use [THEME_TOKEN_REFERENCE.md](./THEME_TOKEN_REFERENCE.md) as the searchable index of the current theme-specific CSS roles and Vox baseline values. The CSS pack remains authoritative.
 
+For the complete practical rules covering spacing decisions, component geometry, semantic colors, inline feedback and FixedToast behavior, see [INTERFACE_RULES.md](./INTERFACE_RULES.md). This guide consolidates the current implementation rules and clearly marks areas that are still screen-specific or not centralized.
+
 
 ## Component recipes (first pass)
 
