@@ -79,7 +79,7 @@ test('button and icon-button typography and glyph sizing are theme-tokenized', (
   assert.match(button, /fontWeight:'var\(--theme-button-font-weight\)'/);
   assert.match(button, /lineHeight:'var\(--theme-button-line-height\)'/);
   assert.match(button, /borderRadius:'var\(--theme-button-radius\)'/);
-  assert.match(button, /gap:'var\(--theme-button-gap\)'/);
+  assert.match(button, /gap:\s*'var\(--theme-button-gap\)'/);
   const iconButton = app.slice(app.indexOf('function IconButton'), app.indexOf('function Button'));
   assert.match(iconButton, /size="var\(--theme-icon-button-glyph-size\)"/);
   assert.match(iconButton, /strokeWidth="var\(--theme-icon-button-glyph-stroke\)"/);
@@ -188,7 +188,7 @@ test('success and warning borders have distinct semantic tokens', () => {
   assert.match(tokens, /--theme-color-status-success-border:/);
   assert.match(tokens, /--theme-color-status-warning-border:/);
   assert.doesNotMatch(tokens, /--(?:emerald|gold)(?:-soft)?:/);
-  assert.match(tokens, /--theme-color-status-warning:\s*#B69CFF/);
+  assert.match(tokens, /--theme-color-status-warning:\s*var\(--theme-color-status-success\);/);
   assert.match(tokens, /--theme-color-status-info:\s*#B5BBCB/);
   assert.doesNotMatch(app, /--mint-strong/);
   assert.ok(app.includes('border-color:var(--theme-color-status-warning-border)'));
@@ -307,7 +307,7 @@ test('display and control typography details are theme roles', () => {
   ]) assert.ok(tokens.includes(token), `Missing typography token: ${token}`);
   assert.ok(app.includes('letter-spacing:var(--theme-type-display-letter-spacing)'));
   assert.ok(app.includes('font-weight:var(--theme-type-button-weight)'));
-  assert.ok(app.includes('margin:0 0 var(--theme-type-paragraph-margin-bottom)'));
+  assert.match(app, /margin:\s*0 0 var\(--theme-type-paragraph-margin-bottom\)/);
 });
 
 
@@ -328,7 +328,7 @@ test('account switcher geometry and all toast/focus depths use theme roles', () 
     '--theme-shadow-focus-field:',
     '--theme-account-switcher-padding:',
   ]) assert.ok(tokens.includes(token), `Missing theme token: ${token}`);
-  assert.ok(app.includes('border-radius:var(--theme-radius-card);padding:var(--theme-account-switcher-padding)'));
+  assert.match(app, /\.atlas-account-switcher\{[^}]*border-radius:var\(--theme-radius-card\);padding:\s*var\(--theme-account-switcher-padding\)/);
   assert.ok(app.includes('margin-bottom:var(--theme-space-3)'));
   assert.ok(app.includes('.atlas-fixed-toast--error{background:var(--theme-color-status-danger-soft);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);box-shadow:var(--theme-shadow-toast)'));
   assert.ok(app.includes('.atlas-fixed-toast--warning{background:var(--theme-color-status-warning-soft);border-color:var(--theme-color-status-warning-border);color:var(--theme-color-status-warning);box-shadow:var(--theme-shadow-toast)'));
@@ -382,7 +382,7 @@ test('bottom navigation uses safe-area-aware theme geometry and a mobile dynamic
   assert.ok(tokens.includes('--theme-navigation-padding-block-end: calc(14px + env(safe-area-inset-bottom));'));
   assert.ok(app.includes('min-height:100vh;'));
   assert.ok(app.includes('min-height:100dvh;'));
-  assert.ok(app.includes("padding:'var(--theme-navigation-padding-block-start) var(--theme-navigation-padding-inline) var(--theme-navigation-padding-block-end)'"));
+  assert.ok(app.includes("padding: 'var(--theme-navigation-padding-block-start) var(--theme-navigation-padding-inline) var(--theme-navigation-padding-block-end)'"));
   assert.ok(app.includes("minHeight:'var(--theme-navigation-item-min-height)'"));
   assert.ok(app.includes('size="var(--theme-navigation-icon-size)"'));
   assert.ok(!app.includes("data-theme={activeTheme} style={{ minHeight: '100vh'"));
@@ -410,7 +410,7 @@ test('modal shells use safe overlay spacing, theme geometry and dynamic viewport
     ...roles.map(role => `--theme-modal-max-height-${role}:`),
   ]) assert.ok(tokens.includes(token), `Missing modal token: ${token}`);
   assert.ok(tokens.includes('--theme-modal-viewport-safe-height: calc(100vh - var(--theme-modal-viewport-inset-total));'));
-  assert.ok(app.includes('.atlas-overlay{box-sizing:border-box;padding:var(--theme-modal-overlay-padding);'));
+  assert.match(app, /\.atlas-overlay\{box-sizing:border-box;padding:\s*var\(--theme-modal-overlay-padding\);/);
   assert.ok(app.includes('@supports (height:100dvh)'));
   assert.ok(app.includes('--theme-modal-viewport-safe-height:calc(100dvh - var(--theme-modal-viewport-inset-total));'));
   assert.ok(app.includes('var(--theme-modal-viewport-safe-height)'));
@@ -446,7 +446,7 @@ test('fixed toast geometry, typography and safe viewport spacing use theme token
   ]) assert.ok(tokens.includes(token), `Missing toast token: ${token}`);
   assert.ok(app.includes('bottom:var(--theme-toast-bottom-offset);'));
   assert.ok(app.includes('max-width:min(calc(100vw - var(--theme-toast-viewport-gutter-total)),var(--theme-toast-max-width));'));
-  assert.ok(app.includes('padding:var(--theme-toast-padding-block) var(--theme-toast-padding-inline);'));
+  assert.ok(app.includes('padding: var(--theme-toast-padding-block) var(--theme-toast-padding-inline);'));
   assert.ok(app.includes('border-radius:var(--theme-toast-radius);'));
   assert.ok(app.includes('font-size:var(--theme-toast-font-size);'));
   assert.ok(app.includes('line-height:var(--theme-toast-line-height);'));
@@ -464,21 +464,23 @@ test('repeated list, review and recruitment cards use theme geometry roles', () 
   for (const token of ['--theme-radius-card:', '--theme-radius-control:', '--theme-space-2:', '--theme-space-3:', '--theme-space-4:']) {
     assert.ok(tokens.includes(token), `Missing card geometry token: ${token}`);
   }
-  assert.ok(app.includes("borderRadius:'var(--theme-radius-card)',padding:'var(--theme-space-2) var(--theme-space-3)'"));
-  assert.ok(app.includes("borderRadius: 'var(--theme-radius-control)', padding: 'var(--theme-space-3)'"));
-  assert.ok(app.includes("borderRadius:'var(--theme-radius-card)',padding:'var(--theme-space-3) var(--theme-space-4)'"));
+  assert.match(app, /className="press atlas-recruitment-card" style=\{\{[^}]*borderRadius:'var\(--theme-radius-card\)',padding: 10/);
+  assert.match(app, /className="atlas-review-card" style=\{\{[^}]*borderRadius: 'var\(--theme-radius-control\)', padding: 'var\(--theme-space-3\)'/);
+  assert.match(app, /className="press atlas-list-card" style=\{\{[^}]*borderRadius:'var\(--theme-radius-card\)',padding: 10/);
 });
 
 
 test('repeated base surface panels use shared card radius and spacing tokens', () => {
-  assert.ok(app.includes("background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding:'var(--theme-space-4)'"));
-  assert.equal(app.split("borderRadius:'var(--theme-radius-card)',padding:'var(--theme-space-4)'" ).length - 1, 8);
+  const surface = app.slice(app.indexOf('function SurfaceCard'), app.indexOf('/** Theme-aware range control'));
+  assert.match(surface, /padding = 'var\(--theme-space-4\)'/);
+  assert.match(surface, /padding === 'var\(--theme-space-4\)' \? 'var\(--theme-recipe-surface-padding\)' : padding/);
+  assert.match(tokens, /--theme-recipe-surface-padding:\s*10px/);
 });
 
 
 test('compact raised panels use control radius and space-3 geometry roles', () => {
-  assert.ok(app.includes("background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-control)',padding:'var(--theme-space-3)'"));
-  assert.equal(app.split("borderRadius:'var(--theme-radius-control)',padding:'var(--theme-space-3)'" ).length - 1, 4);
+  assert.ok(app.includes("borderRadius:'var(--theme-radius-control)',padding: 10,marginBottom: 'var(--theme-layout-section-gap)'"));
+  assert.match(tokens, /--theme-layout-section-gap:\s*8px/);
 });
 
 
@@ -579,4 +581,43 @@ test('Vox profile textarea rhythm and action states follow the shared UI contrac
   assert.match(reviewCompose, /background:isInspectorRole\?'var\(--theme-color-status-success\)':'var\(--theme-color-action-primary\)'/);
   assert.match(reviewCompose, /color:isInspectorRole\?'var\(--theme-color-status-success-contrast\)':'var\(--theme-color-action-primary-contrast\)'/);
   assert.match(reviewCompose, /width:44,height:44/);
+});
+
+test('event reminder unit switch is a flush two-half segmented control', () => {
+  assert.match(app, /className="event-reminder-unit-switch" style=\{\{display:'flex',minHeight:44,padding:0,borderRadius:'var\(--theme-radius-control\)',overflow:'hidden'[^}]*gap:0\}\}/);
+  assert.match(app, /className="press event-reminder-unit-option" style=\{\{flex:'1 1 50%',minWidth:0,minHeight:42,padding:0,border:0,borderRadius:0/);
+  assert.match(app, /background:draft\.unit===unit\.value\?'var\(--theme-color-action-primary\)':'var\(--theme-color-surface-raised\)'/);
+});
+
+test('events page starts at the same 15px inset as its horizontal content', () => {
+  assert.ok(app.includes("className=\"atlas-page atlas-page--events\" style={{ padding: '15px 15px 100px' }}"));
+});
+
+test('fixed toast uses compact content-sized padding', () => {
+  assert.match(tokens, /--theme-toast-padding-block:\s*8px/);
+  assert.match(tokens, /--theme-toast-padding-inline:\s*10px/);
+  assert.match(app, /width:max-content;[\s\S]*padding: var\(--theme-toast-padding-block\) var\(--theme-toast-padding-inline\);/);
+});
+
+test('resident read-only territory fields do not expose an I-beam or keyboard focus', () => {
+  const recruitment = app.slice(app.indexOf('function RecruitmentManagement('), app.indexOf('function CityManagementProfile('));
+  const cityProfile = app.slice(app.indexOf('function CityManagementProfile('), app.indexOf('function ProfileInventory('));
+  assert.match(recruitment, /readOnly=\{readOnly\} tabIndex=\{readOnly\?-1:undefined\}/);
+  assert.match(recruitment, /pointerEvents:readOnly\?'none':'auto',userSelect:readOnly\?'none':'auto',caretColor:readOnly\?'transparent':'auto'/);
+  assert.match(cityProfile, /readOnly=\{readOnly\} tabIndex=\{readOnly\?-1:undefined\}/);
+  assert.match(cityProfile, /pointerEvents:readOnly\?'none':'auto',userSelect:readOnly\?'none':'auto',caretColor:readOnly\?'transparent':'auto'/);
+});
+
+test('resident additional information has a 12px bottom group separation', () => {
+  const cityProfile = app.slice(app.indexOf('function CityManagementProfile('), app.indexOf('function ProfileInventory('));
+  assert.match(cityProfile, /fontSize:13,marginBottom: 12,minHeight:72/);
+});
+
+test('territory customization section has the same subtle divider rhythm as member sections', () => {
+  const cityProfile = app.slice(app.indexOf('function CityManagementProfile('), app.indexOf('function ProfileInventory('));
+  assert.match(cityProfile, /Оформление территории<\/div>\s*<div style=\{\{borderTop:'1px solid var\(--theme-color-border\)',marginTop: 8,paddingTop: 8\}\}>/);
+});
+
+test('profile bottom padding clears the fixed navigation and safe area', () => {
+  assert.ok(app.includes("className=\"atlas-page atlas-page--profile\" style={{padding: '18px 15px calc(100px + env(safe-area-inset-bottom))',minHeight:'60vh'}}"));
 });
