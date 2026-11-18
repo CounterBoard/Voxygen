@@ -82,7 +82,7 @@
   --theme-recipe-surface-fg: var(--theme-color-text-primary);
   --theme-recipe-surface-shadow: var(--theme-shadow-low);
   --theme-recipe-surface-radius: var(--theme-radius-card);
-  --theme-recipe-surface-padding: var(--theme-space-4);
+  --theme-recipe-surface-padding: 10px;
 
   --theme-recipe-field-bg: var(--theme-color-surface-raised);
   --theme-recipe-field-fg: var(--theme-color-text-primary);
@@ -172,7 +172,7 @@
   --theme-space-5: 20px;
   --theme-space-6: 24px;
   --theme-space-8: 32px;
-  --theme-layout-section-gap: 12px;
+  --theme-layout-section-gap: 8px;
   --theme-radius-xs: 8px;
   --theme-radius-sm: 10px;
   --theme-radius-control: 12px;
@@ -252,7 +252,7 @@
   --theme-content-max-width: 448px;
   --theme-modal-max-width: 448px;
   --theme-modal-overlay-padding: var(--theme-space-4);
-  --theme-modal-content-padding: 18px;
+  --theme-modal-content-padding: 15px;
   --theme-modal-viewport-inset-total: 48px;
   --theme-modal-viewport-safe-height: calc(100vh - var(--theme-modal-viewport-inset-total));
   --theme-modal-max-height-compact: 70vh;
