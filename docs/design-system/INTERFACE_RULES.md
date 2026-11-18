@@ -71,7 +71,7 @@ Shared field primitives use:
 - `--theme-field-message-gap` = `--theme-space-1` = **4 px**;
 - outer `Field`, `TextAreaField` and `SelectField` wrapper bottom margin defaults to `--theme-space-3` = **12 px**.
 
-This is the default vertical rhythm between separate field groups. It is not an instruction to add another 12 px below the native input itself.
+This is the default vertical rhythm between separate field groups. It is not an instruction to add another 12 px below the native input itself. Event create/edit forms may set the field wrapper's `containerStyle={{ marginBottom: 0 }}` and then use an explicit 12 px top gap on the next field group, so the visible distance remains exactly 12 px rather than stacking two margins.
 
 **Local compact composition:** `TextAreaField` accepts optional `containerStyle` to adjust only its outer wrapper. In the territory recruitment and additional-information forms, the wrapper bottom margin is set to 0 and the following action row gets an explicit **8 px** top gap. This avoids stacking wrapper margin + textarea margin + action-row margin.
 
@@ -105,7 +105,7 @@ Do not copy this exception to every textarea. Other forms retain the default wra
 | Reaction icon ↔ label | `--theme-react-action-gap` = 4 px |
 | ScoreBadge gaps | 4 px for small/default/recruitment; 8 px for large |
 | Standard SurfaceCard padding | 10 px (`--theme-recipe-surface-padding`) |
-| Compact raised panels | radius-control + space-3 = 12 px padding |
+| Compact raised panels | 10 px padding and control radius |
 | Repeated list/recruitment cards | spacing uses space-2/3/4 according to the card composition |
 
 ### 2.5 Card and surface padding
@@ -113,9 +113,9 @@ Do not copy this exception to every textarea. Other forms retain the default wra
 - Standard `SurfaceCard`: default inner padding **10 px** (`--theme-recipe-surface-padding`).
 - Base card radius: **16 px** (`--theme-radius-card`).
 - Compact raised panels: **10 px** padding and the existing control radius.
-- Modal overlay default outer inset: **16 px** (`--theme-modal-overlay-padding`).
+- Modal overlay default outer inset: **15 px** (`--theme-modal-overlay-padding`).
 - Modal content padding: **15 px** (`--theme-modal-content-padding`).
-- Account switcher padding: **14 px 16 px**.
+- Account switcher retains its legacy component-specific padding until separately migrated.
 - Individual older panels may still use local values. Do not assume every inline-styled panel has already migrated to SurfaceCard.
 
 ### 2.6 Layout rules
@@ -315,6 +315,7 @@ Keep Cyrillic glyph coverage and line wrapping in view when changing fonts. Text
 ### 6.6 Review compose and territory management examples
 
 - Review publication action: square 44 × 44 px, 12 px radius. Resident = primary/purple; inspector = success/mint. Existing role predicate and publish action stay authoritative.
+- Event reminder value input and unit-switch shell share the same `--theme-radius-control` outer radius. The two unit options use the smaller `--theme-radius-xs` inset radius; do not override these with arbitrary per-screen corner values.
 - Resident add row: full available width; input flexes; add action fixed 44 × 44 px.
 - Resident promote/remove actions: fixed 34 × 34 px with centered glyphs; promote = success/mint, remove = danger/red.
 - Treasury row: flexible amount field + fixed-width 120 px “Пополнить” action; same control height; no layout shift on press.
