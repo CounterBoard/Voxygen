@@ -472,13 +472,13 @@ token index in `THEME_TOKEN_REFERENCE.md` lists this role.
 
 ### Textarea composition
 
-`TextAreaField` keeps its default bottom wrapper spacing
-(`--theme-space-3`). A local composition may pass the optional
-`containerStyle` prop to tune the wrapper without changing the textarea
-styles or leaking the prop onto the native element. Avoid stacking wrapper
-margin, textarea margin and the next action's top margin. The territory
-recruitment and additional-information forms use a compact 8 px gap before
-their action row.
+`Field`, `SelectField` and `TextAreaField` keep their default bottom wrapper spacing
+(`--theme-space-3`). Each accepts an optional `containerStyle` override to tune
+only the outer wrapper. Event create/edit forms set wrapper bottom margin to 0
+and apply an explicit 12 px gap before the next field group, avoiding doubled
+spacing. Avoid stacking wrapper margin, textarea margin and the next action's
+top margin. The territory recruitment and additional-information forms use a
+compact 8 px gap before their action row.
 
 ### Tags and selected states
 
