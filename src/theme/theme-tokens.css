@@ -41,11 +41,11 @@
   --theme-color-status-success-contrast: #06120D;
   --theme-color-status-success-soft: rgba(65, 255, 167, .11);
   --theme-color-status-success-border: rgba(65, 255, 167, .28);
-  --theme-color-status-warning: #B69CFF;
-  --theme-color-status-warning-contrast: #130D24;
-  --theme-glow-warning: 0 14px 34px rgba(182, 156, 255, .12);
-  --theme-color-status-warning-soft: rgba(182, 156, 255, .12);
-  --theme-color-status-warning-border: rgba(182, 156, 255, .28);
+  --theme-color-status-warning: var(--theme-color-status-success);
+  --theme-color-status-warning-contrast: var(--theme-color-status-success-contrast);
+  --theme-glow-warning: var(--theme-glow-success);
+  --theme-color-status-warning-soft: var(--theme-color-status-success-soft);
+  --theme-color-status-warning-border: var(--theme-color-status-success-border);
   --theme-color-status-danger: #FF5D73;
   --theme-color-status-danger-soft: rgba(255, 93, 115, .12);
   --theme-color-status-danger-border: rgba(255, 93, 115, .28);
