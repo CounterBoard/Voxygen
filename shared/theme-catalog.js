@@ -16,7 +16,7 @@ export const THEME_CATALOG = Object.freeze({
     name: 'Vox',
     version: 1,
     status: 'active',
-    description: 'Оригинальная тёмная тема Voxygen.',
+    description: 'Оригинальная тёмная тема\npurple + mint',
   }),
 });
 
