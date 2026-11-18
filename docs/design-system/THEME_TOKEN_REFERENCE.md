@@ -107,7 +107,7 @@ Recipes are component-level visual decisions; semantic tokens remain the color s
 | `--theme-space-1` | `4px` | Shared spacing scale. |
 | `--theme-space-2` | `8px` | Shared spacing scale. |
 | `--theme-space-3` | `12px` | Shared spacing scale. |
-| `--theme-space-4` | `16px` | Shared spacing scale. |
+| `--theme-space-4` | `15px` | Shared spacing scale. |
 | `--theme-space-5` | `20px` | Shared spacing scale. |
 | `--theme-space-6` | `24px` | Shared spacing scale. |
 | `--theme-space-8` | `32px` | Shared spacing scale. |
