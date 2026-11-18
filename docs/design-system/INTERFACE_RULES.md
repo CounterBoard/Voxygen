@@ -490,67 +490,60 @@ Before changing a component:
 
 The design system is not yet a claim that every pixel in the 510 KB App.jsx is tokenized. Legacy inline styles and screen-specific local values remain. For a new change, the contract above is authoritative; for an existing untouched legacy component, inspect its implementation before assuming it already follows the contract. Migrate incrementally and test adjacent screens to avoid layout regressions.
 
-## 2.7 Spacing inventory: current values, locations and consolidation candidates
+## 2.7 Spacing inventory: approved values and migration rules
 
-This section distinguishes **tokenized spacing** from **legacy local spacing**. The values below are observed in the current `App.jsx`; they are not all approved global tokens. Repeated local values are candidates for migration to the shared scale.
+The approved local spacing values for the Vox interface are **4, 6, 8, 10, 12, 15, 18 and 20 px**. These values may be used for spacing properties (gap, row-gap, column-gap, margin* and padding*) when they fit the component relationship. Do not change element dimensions, positional coordinates, typography, border radii, animation values or other non-spacing properties as part of spacing normalization.
 
-### A. Tokenized values and concrete locations
+### A. Approved spacing values
 
-| Distance | Where it is used in the current app | Why it exists | Standardization decision |
-|---:|---|---|---|
-| 4 px | Field label → input (`Field`); hint/error → field; SectionTitle/reaction icon → label; compact segmented controls | Immediate parent/child relationship | Keep as the universal micro-gap |
-| 8 px | Button icon → label; SectionTitle icon → title and title → content; compact field/action rows; profile peer sections use 12 px separately | Closely related controls/content | Keep as the default compact group gap |
-| 12 px | `--theme-layout-section-gap` between profile page peer cards; field wrapper bottom rhythm; toggle row gap | Standard field/section rhythm | Keep as default vertical rhythm between separate field groups and peer sections |
-| 16 px | Standard SurfaceCard inner padding; modal overlay inset | Content inset from surface edge | Keep as standard card/page inset |
-| 20 px | Larger button horizontal padding and display-level spacing | Spacious emphasis | Keep for larger/hero controls, not ordinary form rhythm |
-| 24 px | Spacious modal grouping | Separate groups within a large modal | Keep as modal-only spacious rhythm |
-| 32 px | Available spacing scale step | Large separation | Reserve for deliberate page-level composition; avoid ordinary forms |
+| Value | Intended use |
+|---:|---|
+| 4 px | Micro-spacing: icon/text, label/control, hint/control |
+| 6 px | Tight related items and compact metadata |
+| 8 px | Related controls, button contents, compact action rows |
+| 10 px | Intermediate compact grouping where 8 px is too tight |
+| 12 px | Separate field groups, peer cards/sections, compact surface inset |
+| 15 px | Standard surface inset and larger content spacing |
+| 18 px | Spacious local grouping |
+| 20 px | Large grouping and deliberate display/control spacing |
 
-### B. Current hard-coded local values found in App.jsx
+### B. Required normalization
 
-The scan below counts inline style declarations, not necessarily unique visual distances. The same value may occur for different reasons.
+| Existing value | New value |
+|---:|---:|
+| 5 px | 4 px |
+| 7 px | 6 px |
+| 9 px | 8 px |
+| 14 px | 12 px |
+| 16 px | 15 px |
+| 22 px | 20 px |
 
-| Local value | Observed frequency | Example locations / patterns | Recommendation |
-|---:|---:|---|---|
-| 4 px | 26 | field labels/hints and compact metadata; some local bottom margins | Prefer `space-1` / field gap tokens |
-| 5 px | 11 | event-card place row: location icon → place label (`gap: 5`); other remaining uses are local compact offsets | Keep only where the icon/label grouping looks intentional; otherwise consolidate to 4 or 8 |
-| 6 px | 35 | compact action/metadata gaps and local margins | Review; map to 4 or 8 depending on visual relationship |
-| 7 px | 36 | compact list/card gaps and local margins | Review; most likely 8, but inspect alignment before changing |
-| 8 px | 96 | many button/action gaps and vertical margins | Prefer `space-2` when it represents a related group |
-| 9 px | 30 | legacy compact card/control gaps | Review; usually normalize to 8 or 12 |
-| 10 px | 64 | compact controls, text blocks and form margins | Keep only where component geometry requires it; otherwise 8 or 12 |
-| 12 px | 46 | field rhythm, card spacing, action groups | Prefer `space-3` / section gap where semantic role matches |
-| 14 px | 15 | paragraph/card and content spacing | Usually map to 12 or 16 after visual review |
-| 15 px | 6 | local offsets and margins | Avoid as a general spacing step; map to 12 or 16 |
-| 16 px | 8 | card/content padding and larger groups | Prefer `space-4` |
-| 18 px | 6 | local form/card spacing | Review; map to 16 or 20 |
-| 20 px | 1 | larger separation and control padding | Prefer `space-5` where role matches |
-| 22 px | 1 | isolated local offset | Keep only if geometry-specific; otherwise normalize |
+Values already in the approved list remain unchanged. The mapping applies only when a number is used as a spacing value, not when the same number represents width, height, position, font size, radius, timing, data, or another non-spacing property.
 
-Counts are a static scan of numeric `gap`, `margin*` and `padding*` declarations in the fetched App.jsx snapshot. They are a prioritization aid, not a pixel-perfect runtime measurement. Some occurrences are intentional component geometry, not vertical rhythm.
+### C. Current hard-coded local spacing inventory
 
-### C. Named examples to use as migration anchors
+The following counts are a static scan of numeric spacing declarations in the current App.jsx snapshot after normalization. They count numeric occurrences inside spacing-property values; a shorthand such as padding: '8px 12px' contributes two occurrences. They are not a count of unique visual distances.
 
-- **Profile card stack:** `.atlas-page--profile` uses `gap: var(--theme-layout-section-gap)`; direct children have bottom margins reset to zero. This is the canonical 12 px peer-section rhythm.
-- **Field label and hint:** `Field` uses `--theme-field-label-gap` and `--theme-field-message-gap`, both 4 px. Use this instead of local label/hint margins.
-- **Button contents:** shared `Button` uses `--theme-button-gap` (8 px). Do not independently adjust every button's icon/text distance.
-- **Section heading:** `SectionTitle` uses 8 px icon/title gap and 8 px bottom gap. Treat it as one reusable heading pattern.
-- **Toggle:** `ToggleField` uses a 12 px row gap and 4 px description gap.
-- **Reaction action:** `reactBtn` uses a 4 px icon/label gap.
-- **Territory recruitment and additional information textareas:** wrapper bottom margin is set to 0; the action row is separated by 8 px. Do not stack the default 12 px field wrapper margin on top of the action-row gap.
-- **Review compose, resident-add and treasury rows:** CSS resets nested field wrapper margins to 0 so the row itself controls alignment. Keep row-level spacing as the single owner.
-- **SurfaceCard:** standard padding 16 px; compact raised panels may use 12 px. Do not add a second padding layer unless it is a genuinely nested surface.
+| Approved value | Occurrences |
+|---:|---:|
+| 4 px | 44 |
+| 6 px | 101 |
+| 8 px | 182 |
+| 10 px | 134 |
+| 12 px | 145 |
+| 15 px | 31 |
+| 18 px | 14 |
+| 20 px | 3 |
 
-### D. Recommended simplified spacing vocabulary
+The counts are an inventory aid, not a requirement to replace every local declaration with a token. Preserve component-specific composition when it already uses an approved value appropriately.
 
-For the next migration pass, use only these defaults unless a documented component contract requires otherwise:
+### D. Token alignment
 
-1. **4 px — micro:** label/control, icon/text, hint/error/control.
-2. **8 px — related group:** buttons next to fields, compact action rows, heading/content.
-3. **12 px — separate groups:** consecutive fields, peer cards/sections, standard vertical rhythm.
-4. **16 px — surface inset:** standard card padding and normal content edge.
-5. **24 px — spacious modal group:** only when a modal needs a clear larger grouping.
-6. **32 px — exceptional large separation:** rare, deliberate composition.
+- --theme-space-1 remains 4 px.
+- --theme-space-2 remains 8 px.
+- --theme-space-3 remains 12 px.
+- --theme-space-4 is now 15 px, matching the approved 16 → 15 px normalization.
+- --theme-space-5 remains 20 px.
+- --theme-layout-section-gap remains 12 px.
 
-Treat 5, 6, 7, 9, 10, 14, 15, 18 and 20 px local margins/gaps as **audit candidates**, not automatically wrong. During visual audit, map each to 4/8/12/16/24 based on whether the relationship is micro, related, separate, surface inset or spacious modal grouping. Do not perform a blind global replace.
-
+The 24 px and 32 px legacy scale tokens are not part of the approved local spacing list. Do not introduce them into new local spacing declarations; their existing token usages require separate component-level review before removal or remapping.
