@@ -93,3 +93,41 @@ Repeat the relevant visual and functional checks for each active theme, not only
 - [ ] Focus-visible, reduced-motion, safe areas, keyboard-open forms and overlay contrast remain correct.
 - [ ] Protected content colors (gem, territory/map palette, Minecraft formatting and user-generated visuals) remain unchanged.
 - [ ] Draft themes are absent from runtime selectors and rejected by API validation until explicitly published.
+
+
+## 6. Final Vox pre-theme-expansion audit (pending)
+
+The current UI corrections are documented in `DESIGN.md` and
+`Functional_System.txt`. Before treating Vox as visually finalized or
+creating additional themes, complete and record the following checks in the
+actual Telegram Mini App:
+
+- [ ] Verify compact 8 px textarea-to-action rhythm in territory recruitment
+  and additional-information forms; confirm other TextAreaField instances
+  retain their default spacing.
+- [ ] Verify unselected Visual filter tags show a neutral grey outline and
+  selected tags retain primary styling.
+- [ ] Verify Lightbox close and territory back controls are both 44×44 px.
+- [ ] Verify review publication button is primary/purple for residents and
+  success/mint for inspectors; confirm both roles retain the same action
+  availability and publish behavior.
+- [ ] Recheck previously standardized profile/territory spacing, treasury
+  button/field proportions, resident row, mint selected visual, interactive
+  Telegram usernames and FixedToast stacking.
+- [ ] Inspect every reusable UI family: cards/windows, buttons, icon buttons,
+  inputs, textareas, tags/chips, segmented controls, toggles, navigation,
+  dialogs, overlays and notifications.
+- [ ] Run complete functional regression scenarios for map, territories,
+  profiles, treasury/economy, purchases/inventory, reviews, screenshots,
+  events, settings and Telegram integration.
+- [ ] Perform a separate security review of frontend, API and Worker,
+  including authentication, authorization, input validation, financial
+  idempotency, rate limiting, error handling and personal-data exposure.
+- [ ] Run `npm test`, `npm run build`, Worker syntax check and Wrangler
+  bundle dry-run; retain the actual CI result.
+- [ ] Only after defects are resolved and manual QA is signed off, create
+  draft themes with `theme:create`, validate with `theme:check` and
+  publish explicitly with `theme:publish`.
+
+Automated checks and successful deployment do not mark the manual UI,
+functional or security checklist as complete.
