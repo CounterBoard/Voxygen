@@ -361,7 +361,7 @@ Geometry tokens:
 - bottom offset: `calc(76px + env(safe-area-inset-bottom))`;
 - max width: 420 px;
 - total horizontal viewport gutter: 32 px;
-- padding: **8 px vertical / 10 px horizontal**; toast width is content-driven (`max-content`) plus this padding;
+- padding: **8 px vertical / 16 px horizontal**; toast width is content-driven (`max-content`) plus this padding;
 - radius: pill;
 - text: 12.5 px / weight 700 / line-height 1.3;
 - z-index: 1200.
