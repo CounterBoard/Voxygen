@@ -586,7 +586,7 @@ test('Vox profile textarea rhythm and action states follow the shared UI contrac
 test('event reminder unit switch is a flush two-half segmented control', () => {
   assert.match(app, /className="event-reminder-unit-switch" style=\{\{display:'flex',minHeight:44,padding:0,borderRadius:'var\(--theme-radius-control\)',overflow:'hidden'[^}]*gap:0\}\}/);
   assert.match(app, /className="press event-reminder-unit-option" style=\{\{flex:'1 1 50%',minWidth:0,minHeight:42,padding:0,border:0,borderRadius:0/);
-  assert.ok(app.includes('.atlas-root .event-reminder-unit-switch{border-radius:var(--theme-radius-control)!important;}'));
+  assert.ok(app.includes('#root .atlas-root .event-reminder-unit-switch{border-radius:var(--theme-radius-control)!important;}'));
   assert.match(app, /background:draft\.unit===unit\.value\?'var\(--theme-color-action-primary\)':'var\(--theme-color-surface-raised\)'/);
 });
 
