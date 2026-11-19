@@ -461,14 +461,12 @@ function FontsAndTheme() {
           text-align:center;
           white-space:normal;
           pointer-events:none;
-          z-index:1200;
+          z-index:39;
           animation:atlas-toast-in .32s cubic-bezier(.2,.9,.25,1) both, atlas-toast-glow .70s ease-out both;
         }
         @keyframes atlas-toast-in{
-          0%{opacity:0;transform:translate(-50%,22px) scale(.91)}
-          68%{opacity:1;transform:translate(-50%,-3px) scale(1.025)}
-          84%{transform:translate(-50%,1px) scale(.995)}
-          100%{opacity:1;transform:translate(-50%,0) scale(1)}
+          0%{opacity:0;transform:translate(-50%,34px)}
+          100%{opacity:1;transform:translate(-50%,0)}
         }
         @keyframes atlas-toast-glow{
           0%,38%{box-shadow:0 0 0 1px var(--theme-color-status-success-border),0 0 0 5px var(--theme-color-status-success-soft),var(--theme-shadow-toast)}
@@ -516,7 +514,12 @@ function FontsAndTheme() {
           box-shadow:var(--theme-shadow-low),inset 0 1px 0 var(--theme-color-highlight-inset-soft);
           border-radius:var(--theme-radius-card)!important;
         }
-        #root .atlas-root .event-reminder-unit-switch{border-radius:var(--theme-radius-control)!important;}
+        #root .atlas-root .event-reminder-unit-switch{border-radius:var(--theme-radius-control)!important;overflow:hidden;}
+        #root .atlas-root .event-reminder-unit-switch>.event-reminder-unit-option{flex:1 1 0!important;min-width:0!important;width:50%!important;max-width:50%!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;transform:none!important;}
+        #root .atlas-root .event-reminder-unit-switch>.event-reminder-unit-option:active{transform:none!important;filter:none!important;}
+        #root .atlas-root .atlas-theme-arrow{border:1px solid var(--theme-color-action-primary-border)!important;background:var(--theme-color-action-primary-soft)!important;color:var(--theme-color-action-primary)!important;}
+        #root .atlas-root .atlas-theme-arrow svg{stroke:var(--theme-color-action-primary)!important;}
+        #root .atlas-root .atlas-theme-arrow:active{transform:scale(.98);}
         .atlas-root [style*="background: var(--theme-color-surface)"],
         .atlas-root [style*="background: var(--theme-color-surface-raised)"],
         .atlas-root [style*="background:var(--theme-color-surface)"],
@@ -596,8 +599,8 @@ function FontsAndTheme() {
         @keyframes atlas-shot-arrive{0%{opacity:0;transform:translateY(6px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}
         @keyframes atlas-cover-arrive{from{transform:scale(1.025);opacity:.75}to{transform:scale(1);opacity:1}}
         @keyframes atlas-nav-pop{0%{transform:scale(.90)}55%{transform:scale(1.08)}100%{transform:scale(1)}}
-        @keyframes atlas-toast-in{from{opacity:0;transform:translate(-50%,12px) scale(.97)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
-        @keyframes atlas-toast-out{from{opacity:1;transform:translate(-50%,0) scale(1)}to{opacity:0;transform:translate(-50%,6px) scale(.99)}}
+        @keyframes atlas-toast-in{from{opacity:0;transform:translate(-50%,34px)}to{opacity:1;transform:translate(-50%,0)}}
+        @keyframes atlas-toast-out{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,34px)}}
         @keyframes atlas-success-halo{0%{box-shadow:0 0 0 0 var(--theme-color-status-success-soft)}100%{box-shadow:0 0 0 8px transparent}}
         .atlas-screen-transition{animation:atlas-screen-in .20s ease-out both;}
         .atlas-page{animation:atlas-screen-in .20s ease-out both;}
@@ -1878,17 +1881,16 @@ function MainInspectorManagersModal({city,initData,onClose,onSaved}){
     {error&&<div style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop: 10}}>{error}</div>}
   </SimpleModal>;
 }
-function InventoryGrid({items=[],equippedId=null,onEquip,showEquip=false,emptyText='Инвентарь пуст.'}){
-  return <div>{items.length===0?<div style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>{emptyText}</div>:<div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap: 8}}>{items.map((item,i)=>{
-    const equipped=item.item_id===equippedId;
-    const style={position:'relative',border:'1px solid var(--theme-color-border)',borderRadius:12,background:'var(--theme-color-surface-raised)',padding: 6,cursor:showEquip?'pointer':'default',color:'var(--theme-color-text-primary)',animationDelay:`${Math.min(i*28,168)}ms`,textAlign:'left'};
-    const content=<><div style={{aspectRatio:'1',display:'flex',alignItems:'center',justifyContent:'center',boxSizing:'border-box',border:equipped?'2px solid var(--theme-color-status-success)':'2px solid transparent',borderRadius:10,overflow:'hidden'}}>{item.image_data?<img src={item.image_data} alt={item.name} draggable={false} style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain'}}/>:<Sparkles size={24} color="var(--theme-color-text-muted)"/>}</div><MinecraftText as="div" text={item.name} style={{fontSize:9.5,lineHeight:1.2,marginTop: 4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}/></>;
+function InventoryGrid({items=[],equippedId=null,onEquip,showEquip=false,emptyText='Инвентарь пуст.',columns=4,aspectRatio='1 / 1',imageFit='contain'}){
+  return <div>{items.length===0?<div style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>{emptyText}</div>:<div style={{display:'grid',gridTemplateColumns:`repeat(${columns},minmax(0,1fr))`,gap: 8}}>{items.map((item,i)=>{
+    const equipped=String(item.item_id)===String(equippedId);
+    const image=<div style={{width:'100%',aspectRatio,display:'flex',alignItems:'center',justifyContent:'center',boxSizing:'border-box',border:equipped?'2px solid var(--theme-color-status-success)':'1px solid var(--theme-color-border)',borderRadius:12,overflow:'hidden',background:'var(--theme-color-surface-raised)'}}>{item.image_data?<img src={item.image_data} alt="" draggable={false} style={{display:'block',width:'100%',height:'100%',objectFit:imageFit}}/>:<Sparkles size={24} color="var(--theme-color-text-muted)"/>}</div>;
+    const style={display:'block',width:'100%',minWidth:0,padding:0,margin:0,border:0,borderRadius:12,background:'transparent',cursor:showEquip?'pointer':'default',animationDelay:`${Math.min(i*28,168)}ms`};
     return showEquip
-      ? <button type="button" key={`${item.item_id}-${item.telegram_id||''}-${i}`} onClick={()=>onEquip?.(item.item_id)} className="press atlas-item-reveal atlas-inventory-item" style={{...style,borderStyle:'solid'}}>{content}</button>
-      : <div key={`${item.item_id}-${item.telegram_id||''}-${i}`} className="atlas-item-reveal atlas-inventory-item" style={style}>{content}</div>;
+      ? <button type="button" key={`${item.item_id}-${item.telegram_id||''}-${i}`} onClick={()=>onEquip?.(item.item_id)} aria-label={`Выбрать визуал: ${item.name}`} className="press atlas-item-reveal atlas-inventory-item" style={style}>{image}</button>
+      : <div key={`${item.item_id}-${item.telegram_id||''}-${i}`} className="atlas-item-reveal atlas-inventory-item" style={style} aria-label={item.name}>{image}</div>;
   })}</div>}</div>;
 }
-
 function RecruitmentManagement({territory,initData,onSaved,readOnly=false}) {
   const [description,setDescription]=useState(territory?.recruitment_description||'');
   const [enabled,setEnabled]=useState(Number(territory?.recruitment_enabled||0)===1);
@@ -1947,7 +1949,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
     <div style={{fontSize:12,color:'var(--theme-color-text-muted)',marginBottom: 6}}>Название</div><div style={{display:'flex',gap: 8,marginBottom: 4}}><input value={name} readOnly={readOnly} tabIndex={readOnly?-1:undefined} onChange={e=>setName(e.target.value)} style={{flex:1,background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding: '10px 12px',color:'var(--theme-color-text-primary)',fontSize:13,cursor:readOnly?'default':'text',pointerEvents:readOnly?'none':'auto',userSelect:readOnly?'none':'auto',caretColor:readOnly?'transparent':'auto'}}/>{!readOnly&&<button onClick={rename} className="press" style={iconBtn('var(--theme-color-action-primary)','var(--theme-color-action-primary-contrast)',true)}><Pencil size={15}/></button>}</div>
     <div style={{fontSize:12,color:'var(--theme-color-text-muted)',marginTop: 12,marginBottom: 4}}>Доп. информация</div>
     {readOnly
-      ? <TelegramMinecraftText text={additionalInfo} interactive className="atlas-readonly-field" style={{width:'100%',boxSizing:'border-box',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding: '10px 12px',color:'var(--theme-color-text-primary)',fontSize:13,marginBottom: 8,minHeight:72}}/>
+      ? <TelegramMinecraftText text={additionalInfo} interactive={false} className="atlas-readonly-field" style={{width:'100%',boxSizing:'border-box',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding: '10px 12px',color:'var(--theme-color-text-primary)',fontSize:13,marginBottom: 8,minHeight:72}}/>
       : <TextAreaField value={additionalInfo} onChange={e=>setAdditionalInfo(e.target.value.slice(0,542))} rows={4} maxLength={542} placeholder="Дополнительная информация о территории (необязательно)" containerStyle={{marginBottom: 0}} style={{width:'100%',boxSizing:'border-box',resize:'none',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding: '10px 12px',color:'var(--theme-color-text-primary)',fontSize:13}}/>}
     {!readOnly&&<button onClick={saveAdditionalInfo} disabled={additionalInfo===String(territory?.additional_info||'')} className="press" style={{width:'100%',border:'none',borderRadius:10,padding: '10px 12px',marginTop: 8,marginBottom: 8,background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:700}}>Сохранить доп. информацию</button>}
     {managers.length>0&&<div style={{background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-control)',padding: 10,marginBottom: 'var(--theme-layout-section-gap)'}}><div style={{fontSize:13,fontWeight:700,marginBottom: 8}}>Основатели/мэры</div>{managers.map(m=><div key={m.telegram_id} style={{display:'flex',alignItems:'center',gap: 8,padding: '8px 0',borderTop:'1px solid var(--theme-color-border)'}}><AvatarHead nickname={m.mc_nickname} skinUrl={m.skin_url} size={32}/><div style={{flex:1,minWidth:0}}><MinecraftText as="div" text={m.mc_nickname||'Без ника'} style={{fontSize:12.5,fontWeight:700}}/><div style={{fontSize:10.5,color:'var(--theme-color-text-muted)'}}>{m.telegram_username?`@${String(m.telegram_username).replace(/^@/,'')}`:'Username не указан'}</div></div>{!readOnly&&managers.length>1&&<button onClick={()=>demoteManager(m.telegram_id)} className="press" style={{border:'none',background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',borderRadius:8,padding: '6px 8px',fontSize:10.5}}>Понизить</button>}{!readOnly&&managers.length>1&&(()=>{const currentContact=String(newRecruitmentUsername||'').replace(/^@/,'').trim().toLowerCase();const managerUsername=String(m.telegram_username||'').replace(/^@/,'').trim().toLowerCase();const inAnnouncement=Boolean(currentContact&&managerUsername&&currentContact===managerUsername);return <button onClick={()=>!inAnnouncement&&setRecruitmentUsername(m.telegram_id)} disabled={inAnnouncement} className="press" style={{border:'1px solid var(--theme-color-border)',background:inAnnouncement?'var(--theme-color-surface-elevated)':'var(--theme-color-action-primary)',color:inAnnouncement?'var(--theme-color-text-muted)':'var(--theme-color-action-primary-contrast)',borderRadius:8,padding: '6px 8px',fontSize:10.5,opacity:inAnnouncement?1:.98}}>{inAnnouncement?'В объявлении':'В объявление'}</button>})()}</div>)}</div>}
@@ -2007,9 +2009,9 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
     <div style={{background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-control)',padding: 10,marginBottom: 'var(--theme-layout-section-gap)'}}>
       <div style={{fontSize:13,fontWeight:700,marginBottom: 8}}>Оформление территории</div>
       <div style={{borderTop:'1px solid var(--theme-color-border)',marginTop: 8,paddingTop: 8}}><div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom: 6}}>Метка</div>
-      <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='метка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('метка'))} equippedId={inventory?.equippedMarkerItemId} showEquip={!readOnly} onEquip={id=>equip(id,'marker')} emptyText="Доступных меток нет."/>
+      <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='метка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('метка'))} equippedId={inventory?.equippedMarkerItemId} showEquip={!readOnly} onEquip={id=>equip(id,'marker')} columns={4} aspectRatio="1 / 1" imageFit="contain" emptyText="Доступных меток нет."/>
       <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '12px 0 6px'}}>Обложка</div>
-      <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='обложка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('обложка'))} equippedId={inventory?.equippedBackgroundItemId} showEquip={!readOnly} onEquip={id=>equip(id,'cover')} emptyText="Доступных обложек нет."/></div>
+      <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='обложка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('обложка'))} equippedId={inventory?.equippedBackgroundItemId} showEquip={!readOnly} onEquip={id=>equip(id,'cover')} columns={2} aspectRatio="16 / 9" imageFit="cover" emptyText="Доступных обложек нет."/></div>
     </div>
     <RecruitmentManagement territory={{...territory,recruitment_username:newRecruitmentUsername}} initData={initData} onSaved={load} readOnly={readOnly}/>
     {readOnly&&<button onClick={leaveTerritory} disabled={leaveBusy} className="press" style={{width:'100%',height:48,minWidth:72,padding: '0 12px',border:'1px solid var(--theme-color-status-danger)',borderRadius:14,background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,marginBottom: 10}}>{leaveBusy?'Выход…':'Покинуть территорию'}</button>}
@@ -2033,13 +2035,21 @@ function ProfileInventory({initData,role,tgUser,territory}={}){
   }
   useEffect(()=>{load()},[initData,territory?.id]);
   const items=territory?(data?.cityInventory||[]):(data?.myItems||[]);
+  const hasCategory=(item,category)=>String(item.category_name||'').trim().toLowerCase()===category||String(item.categories_text||'').toLowerCase().split(',').map(value=>value.trim()).includes(category);
+  const markers=items.filter(item=>hasCategory(item,'метка'));
+  const covers=items.filter(item=>hasCategory(item,'обложка'));
+  const otherItems=items.filter(item=>!hasCategory(item,'метка')&&!hasCategory(item,'обложка'));
   return <div className="atlas-page-panel" style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding: 10,marginBottom: 8}}>
     <div className="atlas-display" style={{fontSize:16,fontWeight:700,marginBottom: 4}}>{territory?<>Инвентарь визуала — <MinecraftText text={territory.name}/></>:'Покупки'}</div>
     {loading&&!data?<div role="status" style={{fontSize:12,color:'var(--theme-color-text-muted)',padding: '8px 0'}}>Загрузка покупок…</div>
       : error&&!data?<div role="alert" style={{fontSize:12,color:'var(--theme-color-status-danger)',padding: '8px 0'}}>{error}</div>
-      : <InventoryGrid items={items} emptyText={territory?'Инвентарь визуала пуст.':'Покупок пока нет.'}/>}
+      : items.length===0?<div style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>{territory?'Инвентарь визуала пуст.':'Покупок пока нет.'}</div>
+      : <div style={{display:'flex',flexDirection:'column',gap: 8}}>
+          {markers.length>0&&<InventoryGrid items={markers} columns={4} aspectRatio="1 / 1" imageFit="contain"/>}
+          {covers.length>0&&<InventoryGrid items={covers} columns={2} aspectRatio="16 / 9" imageFit="cover"/>}
+          {otherItems.length>0&&<InventoryGrid items={otherItems} columns={4} aspectRatio="1 / 1" imageFit="contain"/>}
+        </div>}
   </div>;
-}
 function TreasuryCard({city,initData,tgUser}={}){
   const [data,setData]=useState(null),[amount,setAmount]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   async function load(){if(!city)return;try{setError('');const r=await fetch(`${API_BASE}/api/treasury?territoryId=${encodeURIComponent(city.id)}`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setData(d)}catch(e){setError(safeCaughtError(e, 'Не удалось загрузить казну'))}}
@@ -2166,13 +2176,13 @@ function ProfileSettingsModal({ initData, onClose, onSaved }) {
         <div style={{fontSize:15,fontWeight:750,marginBottom: 8}}>Основные</div>
         <div style={{fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginBottom: 6}}>Тема интерфейса</div>
         <div role="group" aria-label="Выбор темы интерфейса" tabIndex={0} onKeyDown={onThemeKeyDown} onTouchStart={onThemeTouchStart} onTouchEnd={onThemeTouchEnd} style={{display:'flex',alignItems:'center',gap: 8,padding: 10,marginBottom: 15,background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:14,touchAction:'pan-y',userSelect:'none'}}>
-          <button type="button" aria-label="Предыдущая тема" title="Предыдущая тема" onClick={()=>stepTheme(-1)} disabled={selectedThemeIndex<=0} className="press" style={{width:40,height:40,minWidth:40,minHeight:40,padding:0,border:'1px solid var(--theme-color-action-primary-border)',borderRadius:11,background:'var(--theme-color-action-primary-soft)',color:'var(--theme-color-action-primary)',display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0,opacity:selectedThemeIndex<=0?.5:1}}><ChevronLeft size={18} color="var(--theme-color-action-primary)"/></button>
+          <button type="button" aria-label="Предыдущая тема" title="Предыдущая тема" onClick={()=>stepTheme(-1)} disabled={selectedThemeIndex<=0} className="press" className="press atlas-theme-arrow" style={{width:40,height:40,minWidth:40,minHeight:40,padding:0,border:'1px solid var(--theme-color-action-primary-border)',borderRadius:11,background:'var(--theme-color-action-primary-soft)',color:'var(--theme-color-action-primary)',display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0,opacity:selectedThemeIndex<=0?.5:1}}><ChevronLeft size={18} color="var(--theme-color-action-primary)"/></button>
           <div aria-live="polite" style={{flex:1,minWidth:0,textAlign:'center'}}>
             <div className="atlas-display" style={{fontSize:17,fontWeight:800}}>{selectedTheme?.name||'Vox'}</div>
             <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',lineHeight:1.4,marginTop: 3,whiteSpace:'pre-line'}}>{selectedTheme?.description||'Тема интерфейса Voxygen'}</div>
             {availableThemeItems.length>1&&<div style={{display:'flex',alignItems:'center',justifyContent:'center',gap: 4,marginTop: 8}}>{availableThemeItems.map((item,index)=><span key={item.id} aria-label={item.name} style={{width:index===selectedThemeIndex?16:6,height:6,borderRadius:99,background:index===selectedThemeIndex?'var(--theme-color-action-primary)':'var(--theme-color-border-strong)',transition:'all 160ms ease'}}/>)}</div>}
           </div>
-          <button type="button" aria-label="Следующая тема" title="Следующая тема" onClick={()=>stepTheme(1)} disabled={selectedThemeIndex>=availableThemeItems.length-1} className="press" style={{width:40,height:40,minWidth:40,minHeight:40,padding:0,border:'1px solid var(--theme-color-action-primary-border)',borderRadius:11,background:'var(--theme-color-action-primary-soft)',color:'var(--theme-color-action-primary)',display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0,opacity:selectedThemeIndex>=availableThemeItems.length-1?.5:1}}><ChevronRight size={18} color="var(--theme-color-action-primary)"/></button>
+          <button type="button" aria-label="Следующая тема" title="Следующая тема" onClick={()=>stepTheme(1)} disabled={selectedThemeIndex>=availableThemeItems.length-1} className="press" className="press atlas-theme-arrow" style={{width:40,height:40,minWidth:40,minHeight:40,padding:0,border:'1px solid var(--theme-color-action-primary-border)',borderRadius:11,background:'var(--theme-color-action-primary-soft)',color:'var(--theme-color-action-primary)',display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0,opacity:selectedThemeIndex>=availableThemeItems.length-1?.5:1}}><ChevronRight size={18} color="var(--theme-color-action-primary)"/></button>
         </div>
         <div style={{fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginBottom: 6}}>Часовой пояс</div>
         <input value={settings.timezone||'UTC+3'} onChange={e=>patch({timezone:keepUtcPrefix(e.target.value)})} onBlur={()=>patch({timezone:normalizeTimezoneOffset(settings.timezone)})} placeholder="UTC+3" aria-label="Часовой пояс" style={{width:'100%',boxSizing:'border-box',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:11,padding: '11px 12px',color:'var(--theme-color-text-primary)',fontSize:14,marginBottom: 15}}/>
