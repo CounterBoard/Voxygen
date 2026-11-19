@@ -690,7 +690,7 @@ test('resident read-only additional information never turns usernames into links
 test('profile and event description textareas explicitly use the shared field recipe', () => {
   assert.ok(app.includes('className="atlas-profile-additional-field"'));
   assert.ok(app.includes('className="atlas-recruitment-description-field"'));
-  assert.ok(app.includes('className="atlas-event-description-field"'));
+  assert.equal((app.match(/className="atlas-event-description-field"/g)||[]).length,3);
   assert.ok(app.includes('#root .atlas-root textarea.atlas-profile-additional-field,#root .atlas-root textarea.atlas-recruitment-description-field,#root .atlas-root textarea.atlas-event-description-field{border-color:var(--theme-recipe-field-border)!important;}'));
 });
 
