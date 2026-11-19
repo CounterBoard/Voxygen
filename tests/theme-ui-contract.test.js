@@ -651,7 +651,13 @@ test('theme picker removes the one-theme notice and uses Purple arrow outlines',
   assert.doesNotMatch(app, /Сейчас доступна только тема Vox/);
   assert.ok(app.includes("whiteSpace:'pre-line'"));
   assert.equal((app.match(/aria-label="(?:Предыдущая|Следующая) тема"/g)||[]).length, 2);
-  assert.equal((app.match(/background:'var\(--theme-color-action-primary-soft\)',color:'var\(--theme-color-action-primary\)'/g)||[]).length, 2);
+  const arrows = [...app.matchAll(/<button type="button" aria-label="(?:Предыдущая|Следующая) тема"[\\s\\S]*?<\\/button>/g)].map(match=>match[0]);
+  assert.equal(arrows.length, 2);
+  for (const arrow of arrows) {
+    assert.ok(arrow.includes("border:'1px solid var(--theme-color-action-primary-border)'"));
+    assert.ok(arrow.includes("background:'var(--theme-color-action-primary-soft)'"));
+    assert.ok(arrow.includes("color:'var(--theme-color-action-primary)'"));
+  }
 });
 
 test('profile and Visual bottom clearance is 85px and final territory actions keep 10px', () => {
