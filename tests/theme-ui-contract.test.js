@@ -650,10 +650,11 @@ test('field borders transition from Purple to Mint, with the inspector review in
 test('theme picker removes the one-theme notice and uses Purple arrow outlines', () => {
   assert.doesNotMatch(app, /Сейчас доступна только тема Vox/);
   assert.ok(app.includes("whiteSpace:'pre-line'"));
-  assert.equal((app.match(/border:'1px solid var\(--theme-color-action-primary-border\)',color:'var\(--theme-color-action-primary\)'/g)||[]).length, 2);
+  assert.equal((app.match(/aria-label="(?:Предыдущая|Следующая) тема"/g)||[]).length, 2);
+  assert.equal((app.match(/background:'var\(--theme-color-action-primary-soft\)',color:'var\(--theme-color-action-primary\)'/g)||[]).length, 2);
 });
 
-test('profile and Visual bottom clearance is 90px and final territory actions keep 15px', () => {
+test('profile and Visual bottom clearance is 85px and final territory actions keep 10px', () => {
   assert.ok(app.includes("className=\"atlas-page atlas-page--profile\" style={{padding: '18px 15px calc(85px + env(safe-area-inset-bottom))',minHeight:'60vh'}}"));
   assert.ok(app.includes("className=\"atlas-page atlas-page--customization\" style={{padding: '18px 15px 85px'}}"));
   assert.match(app, /fontWeight:800,marginBottom: 10\}\}>\{leaveBusy\?'Выход…':'Покинуть территорию'\}/);
