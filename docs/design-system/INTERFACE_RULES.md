@@ -542,7 +542,9 @@ All editable text, numeric and select controls use the shared field recipe:
 - focused border: Mint (`--theme-recipe-field-focus-border`);
 - focus halo: Mint soft + the shared field shadow;
 - border and halo transitions use `--theme-recipe-field-transition`;
-- invalid fields retain the danger border instead of being recolored by the focus state.
+- invalid fields retain the danger border instead of being recolored by the focus state;
+- field selectors outrank generic raised-surface border rules, including inline surface backgrounds;
+- read-only territory «Доп. информация» uses the same Purple idle outline.
 
 Inspector review composition is the deliberate inverse:
 - idle review field border: Mint (`--theme-recipe-field-inspector-border`);
@@ -553,13 +555,14 @@ Range sliders, checkboxes, radio buttons, file inputs and hidden inputs are not 
 
 ## 12. Event reminder unit control
 
-The minutes/hours switch, numeric amount field and confirmation button share the same `--theme-radius-control` corner radius. The switch remains one outer shell with two flush halves: no inner padding or gap, and square internal option corners. The numeric field placeholder is «Количество». Selection and reminder persistence behavior are unchanged.
+The minutes/hours switch, numeric amount field and confirmation button share the same `--theme-radius-control` corner radius. The switch is a single clipped outer shell; the two options remain flush with no inner padding or gap. The shell must not inherit the larger generic card radius. The numeric field placeholder is «Количество». Selection and reminder persistence behavior are unchanged.
 
 ## 13. Profile and theme-settings refinements
 
 - The read-only «Доп. информация» block and its editable save action leave an 8 px separation before the next peer section, matching the profile card rhythm.
-- Profile and «Визуал» page bottom clearance is 90 px plus the device safe-area inset.
-- The final «Покинуть территорию» and «Запросить оценку инспектора» actions retain 15 px below them, matching the page's horizontal inset.
+- Profile and «Визуал» page bottom clearance is 85 px plus the device safe-area inset.
+- The final «Покинуть территорию» and «Запросить оценку инспектора» actions retain 10 px below them.
 - The theme picker does not show a one-theme availability notice. The Vox description is displayed on two lines: «Оригинальная тёмная тема» and «purple + mint».
-- Theme picker arrows use a Purple outline and Purple glyphs on the existing neutral surface; they are not filled Purple buttons.
+- Theme picker arrows use the same Purple outline, Purple glyph and soft Purple surface treatment as the «Перейти на страницу территории» action; they remain compact icon controls.
+- In the profile inventory, the equipped visual is identified by a Mint outline around its image preview, not by a Mint check badge.
 - Toast width is content-driven (`max-content`) with 16 px horizontal and 8 px vertical padding. Max-width and viewport gutter remain safety limits for long text and narrow screens.
