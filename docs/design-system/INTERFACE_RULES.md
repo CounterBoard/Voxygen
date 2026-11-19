@@ -174,7 +174,7 @@ Specific action shapes matter: an icon-only review publish button remains square
 - Modal height tiers: compact 70vh, standard 76vh, form 80vh, settings 84vh, expanded 88vh, editor 90vh, additionally bounded by safe viewport height.
 - App root uses 100vh fallback and 100dvh when supported.
 - Bottom navigation uses safe-area-aware bottom padding: `calc(14px + env(safe-area-inset-bottom))`.
-- Toast bottom offset: `calc(76px + env(safe-area-inset-bottom))`.
+- Toast bottom offset: `calc(84px + env(safe-area-inset-bottom))`, aligned with the navigation top edge.
 - Navigation item minimum height is 44 px.
 - Compact typography breakpoint documented by the design system: 380 px.
 
