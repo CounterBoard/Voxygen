@@ -467,7 +467,7 @@ baseline. They preserve behavior while standardizing repeated visual patterns.
 
 ### Section rhythm
 
-Event reminder unit switch uses one rounded outer shell with no inset padding or gap. Two equal halves fill the shell edge-to-edge; the selected half uses primary purple, the unselected half uses the raised surface, and neither inner half has rounded corners.
+Event reminder unit switch uses one clipped outer shell with the same control radius as the amount field and confirmation button. Two equal halves fill the shell edge-to-edge; the selected half uses primary purple, the unselected half uses the raised surface, and neither inner half has rounded corners. The shell is excluded from the generic card-radius override.
 
 Use `--theme-layout-section-gap: 8px` between adjacent independent
 cards/sections at the same hierarchy level. Do not use it for label-to-field
@@ -521,4 +521,4 @@ Editable text, numeric and select fields use Purple borders at rest and transiti
 
 ## Reminder, profile and theme picker details
 
-The event reminder unit switch, amount field and confirmation action share the same control radius. The switch keeps two flush, square inner halves. Profile and Visual bottom clearance is 90 px plus safe area; the final territory actions keep 15 px below. The theme picker uses a two-line Vox description, omits the one-theme availability notice, and renders arrow outlines/glyphs in Purple without a filled Purple button treatment. FixedToast remains content-width with 16 px horizontal padding.
+The event reminder unit switch, amount field and confirmation action share the same control radius. The switch keeps two flush, square inner halves. Profile and Visual bottom clearance is 85 px plus safe area; the final territory actions keep 10 px below. The theme picker uses a two-line Vox description, omits the one-theme availability notice, and renders arrow outlines/glyphs in Purple on a soft Purple surface, matching the territory-navigation action. The equipped visual uses a Mint outline around its image preview instead of a check badge. FixedToast remains content-width with 16 px horizontal padding.
