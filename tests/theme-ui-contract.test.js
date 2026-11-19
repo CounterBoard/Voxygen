@@ -595,9 +595,9 @@ test('events page starts at the same 15px inset as its horizontal content', () =
   assert.ok(app.includes("className=\"atlas-page atlas-page--events\" style={{ padding: '15px 15px 100px' }}"));
 });
 
-test('fixed toast uses compact content-sized padding', () => {
+test('fixed toast uses 24px content-sized padding', () => {
   assert.match(tokens, /--theme-toast-padding-block:\s*8px/);
-  assert.match(tokens, /--theme-toast-padding-inline:\s*16px/);
+  assert.match(tokens, /--theme-toast-padding-inline:\s*24px/);
   assert.match(app, /width:max-content;[\s\S]*padding: var\(--theme-toast-padding-block\) var\(--theme-toast-padding-inline\);/);
 });
 
@@ -669,7 +669,7 @@ test('profile and Visual bottom clearance is 85px and final territory actions ke
 });
 
 test('toast remains content-sized with 24px horizontal padding', () => {
-  assert.match(tokens, /--theme-toast-padding-inline:\s*16px/);
+  assert.match(tokens, /--theme-toast-padding-inline:\s*24px/);
   assert.match(app, /width:max-content;[\s\S]*max-width:min\(calc\(100vw - var\(--theme-toast-viewport-gutter-total\)\),var\(--theme-toast-max-width\)\)/);
 });
 
