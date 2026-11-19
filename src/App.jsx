@@ -2052,6 +2052,7 @@ function ProfileInventory({initData,role,tgUser,territory}={}){
           {otherItems.length>0&&<InventoryGrid items={otherItems} columns={4} aspectRatio="1 / 1" imageFit="contain"/>}
         </div>}
   </div>;
+}
 function TreasuryCard({city,initData,tgUser}={}){
   const [data,setData]=useState(null),[amount,setAmount]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   async function load(){if(!city)return;try{setError('');const r=await fetch(`${API_BASE}/api/treasury?territoryId=${encodeURIComponent(city.id)}`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setData(d)}catch(e){setError(safeCaughtError(e, 'Не удалось загрузить казну'))}}
