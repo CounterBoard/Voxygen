@@ -351,20 +351,20 @@ Current `FixedToast` implementation in `src/App.jsx`:
 
 - renders only when `message` is non-empty;
 - is mounted via React portal into `.atlas-root` (fallback: `document.body`), so it is not trapped inside a local card/modal clipping context;
-- is fixed horizontally centered near the bottom, above the persistent bottom navigation and safe-area inset;
+- is fixed horizontally centered and layered immediately behind the persistent bottom navigation;
 - has `pointer-events: none`, so it is informational and does not block taps;
 - uses a pill shape, shadow and entrance/exit animation;
 - announces errors with `role="alert"` and `aria-live="assertive"`;
 - announces success/warning/info-like default messages with `role="status"` and `aria-live="polite"`.
 
 Geometry tokens:
-- bottom offset: `calc(76px + env(safe-area-inset-bottom))`;
+- bottom offset: `calc(84px + env(safe-area-inset-bottom))`, matching the navigation's 84 px base height plus safe area;
 - max width: 420 px;
 - total horizontal viewport gutter: 32 px;
-- padding: **8 px vertical / 16 px horizontal**; toast width is content-driven (`max-content`) plus this padding;
+- padding: **8 px vertical / 24 px horizontal**; toast width is content-driven (`max-content`) plus this padding;
 - radius: pill;
-- text: 12.5 px / weight 700 / line-height 1.3;
-- z-index: 1200.
+- text: 15 px / weight 700 / line-height 1.3;
+- z-index: 39, directly below bottom navigation z-index 40;
 
 ### 8.2 Notification type selection
 
@@ -532,7 +532,7 @@ The values 24 and 32 px remain approved, but they are not defaults. Do not add t
 - A resident's read-only “Название” and “Набор” fields must not expose a text caret or I-beam pointer. Keep their content readable, but disable pointer interaction, text selection and keyboard tab focus for those read-only controls. Editable manager controls retain normal text interaction.
 - The resident-facing “Доп. информация” block has a **12 px** bottom separation before the next independent territory section, matching the field-group rhythm.
 - “Оформление территории” uses the same faint top divider and **8 px** divider-to-content inset as the first rows under “Основатели/мэры” and “Жители”.
-- The profile page reserves **90 px plus the device safe-area inset** below its content so the final territory action remains scrollable above the fixed bottom navigation. This applies to resident “Покинуть территорию” and manager “Запросить оценку инспектора”; it does not change navigation position or action behavior.
+- The profile and «Визуал» pages reserve **85 px plus the device safe-area inset** below their content so the final territory action remains scrollable above the fixed bottom navigation. This applies to resident “Покинуть территорию” and manager “Запросить оценку инспектора”; it does not change navigation position or action behavior.
 
 
 ## 11. Field border and focus states
@@ -555,14 +555,22 @@ Range sliders, checkboxes, radio buttons, file inputs and hidden inputs are not 
 
 ## 12. Event reminder unit control
 
-The minutes/hours switch, numeric amount field and confirmation button share the same `--theme-radius-control` corner radius. The switch is a single clipped outer shell; the two options remain flush with no inner padding or gap. The shell must not inherit the larger generic card radius. The numeric field placeholder is «Количество». Selection and reminder persistence behavior are unchanged.
+The minutes/hours switch, numeric amount field and confirmation button share the same `--theme-radius-control` corner radius. The switch is a single clipped outer shell; the two options remain flush with no inner padding or gap. The shell must not inherit the larger generic card radius. The two inner options are exactly equal-width halves, have no independent radius or border, and do not scale/shrink on press. The numeric field placeholder is «Количество». Selection and reminder persistence behavior are unchanged.
 
 ## 13. Profile and theme-settings refinements
 
 - The read-only «Доп. информация» block and its editable save action leave an 8 px separation before the next peer section, matching the profile card rhythm.
 - Profile and «Визуал» page bottom clearance is 85 px plus the device safe-area inset.
-- The final «Покинуть территорию» and «Запросить оценку инспектора» actions retain 10 px below them.
+- The final «Покинуть территорию» and «Запросить оценку инспектора» actions retain 10 px below them, matching the page's horizontal inset.
 - The theme picker does not show a one-theme availability notice. The Vox description is displayed on two lines: «Оригинальная тёмная тема» and «purple + mint».
 - Theme picker arrows use the same Purple outline, Purple glyph and soft Purple surface treatment as the «Перейти на страницу территории» action; they remain compact icon controls.
-- In the profile inventory, the equipped visual is identified by a Mint outline around its image preview, not by a Mint check badge.
-- Toast width is content-driven (`max-content`) with 16 px horizontal and 8 px vertical padding. Max-width and viewport gutter remain safety limits for long text and narrow screens.
+- In «Оформление территории» and «Покупки», visual names and padded thumbnail cards are omitted. The image itself is the tile: markers use four columns, covers use two; the equipped image has a Mint outline and no check badge.
+- Toast width is content-driven (`max-content`) with 24 px horizontal and 8 px vertical padding, 15 px text, and enters/exits vertically behind the fixed navigation. Max-width and viewport gutter remain safety limits for long text and narrow screens.
+
+### 13.1 Profile visual image tiles and read-only text
+
+- Inventory thumbnails do not render the visual's name. The image preview itself fills the tile without an extra padded card around it.
+- «Метка» grids use four equal columns; «Обложка» grids use two equal columns and a wide 16:9 image frame.
+- The Mint equipped state is an outline around the image frame, not a check glyph.
+- Resident read-only «Доп. информация» is rendered as plain text; @usernames in this field are not links and cannot open Telegram profiles.
+- The editable profile «Доп. информация», «Набор» and event «Описание» textareas explicitly use the shared Purple idle / Mint focus field recipe.
