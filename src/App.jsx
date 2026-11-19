@@ -516,7 +516,7 @@ function FontsAndTheme() {
           box-shadow:var(--theme-shadow-low),inset 0 1px 0 var(--theme-color-highlight-inset-soft);
           border-radius:var(--theme-radius-card)!important;
         }
-        .atlas-root .event-reminder-unit-switch{border-radius:var(--theme-radius-control)!important;}
+        #root .atlas-root .event-reminder-unit-switch{border-radius:var(--theme-radius-control)!important;}
         .atlas-root [style*="background: var(--theme-color-surface)"],
         .atlas-root [style*="background: var(--theme-color-surface-raised)"],
         .atlas-root [style*="background:var(--theme-color-surface)"],
