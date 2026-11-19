@@ -586,6 +586,7 @@ test('Vox profile textarea rhythm and action states follow the shared UI contrac
 test('event reminder unit switch is a flush two-half segmented control', () => {
   assert.match(app, /className="event-reminder-unit-switch" style=\{\{display:'flex',minHeight:44,padding:0,borderRadius:'var\(--theme-radius-control\)',overflow:'hidden'[^}]*gap:0\}\}/);
   assert.match(app, /className="press event-reminder-unit-option" style=\{\{flex:'1 1 50%',minWidth:0,minHeight:42,padding:0,border:0,borderRadius:0/);
+  assert.ok(app.includes('.atlas-root .event-reminder-unit-switch{border-radius:var(--theme-radius-control)!important;}'));
   assert.match(app, /background:draft\.unit===unit\.value\?'var\(--theme-color-action-primary\)':'var\(--theme-color-surface-raised\)'/);
 });
 
@@ -619,7 +620,7 @@ test('territory customization section has the same subtle divider rhythm as memb
 });
 
 test('profile bottom padding clears the fixed navigation and safe area', () => {
-  assert.ok(app.includes("className=\"atlas-page atlas-page--profile\" style={{padding: '18px 15px calc(90px + env(safe-area-inset-bottom))',minHeight:'60vh'}}"));
+  assert.ok(app.includes("className=\"atlas-page atlas-page--profile\" style={{padding: '18px 15px calc(85px + env(safe-area-inset-bottom))',minHeight:'60vh'}}"));
 });
 
 test('reminder amount label and all three control radii are consistent', () => {
@@ -640,6 +641,8 @@ test('field borders transition from Purple to Mint, with the inspector review in
   assert.match(tokens, /--theme-recipe-field-inspector-border:\s*var\(--theme-color-status-success\)/);
   assert.match(tokens, /--theme-recipe-field-inspector-focus-border:\s*var\(--theme-color-action-primary\)/);
   assert.ok(app.includes('transition:var(--theme-recipe-field-transition)'));
+  assert.ok(app.includes('#root .atlas-root textarea,#root .atlas-root select{border-color:var(--theme-recipe-field-border)!important;transition:var(--theme-recipe-field-transition);}'));
+  assert.ok(app.includes('#root .atlas-root .atlas-readonly-field{border-color:var(--theme-recipe-field-border)!important;}'));
   assert.ok(app.includes('input.atlas-review-compose-field:focus{border-color:var(--theme-recipe-field-inspector-focus-border)'));
   assert.ok(app.includes("className={isInspectorRole?'atlas-review-compose-field':''}"));
 });
@@ -651,13 +654,20 @@ test('theme picker removes the one-theme notice and uses Purple arrow outlines',
 });
 
 test('profile and Visual bottom clearance is 90px and final territory actions keep 15px', () => {
-  assert.ok(app.includes("className=\"atlas-page atlas-page--profile\" style={{padding: '18px 15px calc(90px + env(safe-area-inset-bottom))',minHeight:'60vh'}}"));
-  assert.ok(app.includes("className=\"atlas-page atlas-page--customization\" style={{padding: '18px 15px 90px'}}"));
-  assert.match(app, /fontWeight:800,marginBottom: 15\}\}>\{leaveBusy\?'Выход…':'Покинуть территорию'\}/);
-  assert.match(app, /fontWeight:700,marginBottom: 15,minHeight:44\}\}>Запросить оценку инспектора/);
+  assert.ok(app.includes("className=\"atlas-page atlas-page--profile\" style={{padding: '18px 15px calc(85px + env(safe-area-inset-bottom))',minHeight:'60vh'}}"));
+  assert.ok(app.includes("className=\"atlas-page atlas-page--customization\" style={{padding: '18px 15px 85px'}}"));
+  assert.match(app, /fontWeight:800,marginBottom: 10\}\}>\{leaveBusy\?'Выход…':'Покинуть территорию'\}/);
+  assert.match(app, /fontWeight:700,marginBottom: 10,minHeight:44\}\}>Запросить оценку инспектора/);
 });
 
 test('toast remains content-sized with restored 16px horizontal padding', () => {
   assert.match(tokens, /--theme-toast-padding-inline:\s*16px/);
   assert.match(app, /width:max-content;[\s\S]*max-width:min\(calc\(100vw - var\(--theme-toast-viewport-gutter-total\)\),var\(--theme-toast-max-width\)\)/);
+});
+
+test('equipped inventory visuals use a Mint image outline without a check badge', () => {
+  const grid = app.slice(app.indexOf('function InventoryGrid('), app.indexOf('function RecruitmentManagement('));
+  assert.ok(grid.includes("border:equipped?'2px solid var(--theme-color-status-success)':'2px solid transparent'"));
+  assert.doesNotMatch(grid, /<Check size=\{11\}\/>/);
+  assert.ok(grid.includes("border:'1px solid var(--theme-color-border)'"));
 });
