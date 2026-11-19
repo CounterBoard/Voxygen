@@ -387,7 +387,7 @@ selectors.
 
 The fixed toast's bottom offset (including the device safe area), maximum
 width, horizontal viewport gutter, compact content padding (**8 px vertical /
-16 px horizontal**), pill radius and text metrics are controlled by dedicated
+24 px horizontal**), pill radius and text metrics are controlled by dedicated
 theme roles. Its width is content-driven (message width plus padding), with the
 maximum width and viewport gutter acting only as safety caps. This allows the
 notification treatment to adapt without changing timing, priority, accessibility
@@ -521,7 +521,7 @@ Editable text, numeric and select fields use Purple borders at rest and transiti
 
 ## Reminder, profile and theme picker details
 
-The event reminder unit switch, amount field and confirmation action share the same control radius. The switch keeps two flush, square inner halves. Profile and Visual bottom clearance is 85 px plus safe area; the final territory actions keep 10 px below. The theme picker uses a two-line Vox description, omits the one-theme availability notice, and renders arrow outlines/glyphs in Purple on a soft Purple surface, matching the territory-navigation action. The equipped visual uses a Mint outline around its image preview instead of a check badge. FixedToast remains content-width with 16 px horizontal padding.
+The event reminder unit switch, amount field and confirmation action share the same control radius. The switch keeps two flush, square inner halves. Profile and Visual bottom clearance is 85 px plus safe area; the final territory actions keep 10 px below. The theme picker uses a two-line Vox description, omits the one-theme availability notice, and renders arrow outlines/glyphs in Purple on a soft Purple surface, matching the territory-navigation action. The equipped visual uses a Mint outline around its image preview instead of a check badge. FixedToast remains content-width with 24 px horizontal padding and 15 px text, entering and exiting behind the bottom navigation.
 
 ## Profile visual tiles and toast motion
 
