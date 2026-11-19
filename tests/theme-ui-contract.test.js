@@ -586,7 +586,8 @@ test('Vox profile textarea rhythm and action states follow the shared UI contrac
 test('event reminder unit switch is a flush two-half segmented control', () => {
   assert.match(app, /className="event-reminder-unit-switch" style=\{\{display:'flex',minHeight:44,padding:0,borderRadius:'var\(--theme-radius-control\)',overflow:'hidden'[^}]*gap:0\}\}/);
   assert.match(app, /className="press event-reminder-unit-option" style=\{\{flex:'1 1 50%',minWidth:0,minHeight:42,padding:0,border:0,borderRadius:0/);
-  assert.ok(app.includes('#root .atlas-root .event-reminder-unit-switch{border-radius:var(--theme-radius-control)!important;}'));
+  assert.ok(app.includes('#root .atlas-root .event-reminder-unit-switch>.event-reminder-unit-option{flex:1 1 0!important;min-width:0!important;width:50%!important;max-width:50%!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;transform:none!important;}'));
+  assert.ok(app.includes('.event-reminder-unit-switch>.event-reminder-unit-option:active{transform:none!important;filter:none!important;}'));
   assert.match(app, /background:draft\.unit===unit\.value\?'var\(--theme-color-action-primary\)':'var\(--theme-color-surface-raised\)'/);
 });
 
@@ -667,14 +668,54 @@ test('profile and Visual bottom clearance is 85px and final territory actions ke
   assert.match(app, /fontWeight:700,marginBottom: 10,minHeight:44\}\}>Запросить оценку инспектора/);
 });
 
-test('toast remains content-sized with restored 16px horizontal padding', () => {
+test('toast remains content-sized with 24px horizontal padding', () => {
   assert.match(tokens, /--theme-toast-padding-inline:\s*16px/);
   assert.match(app, /width:max-content;[\s\S]*max-width:min\(calc\(100vw - var\(--theme-toast-viewport-gutter-total\)\),var\(--theme-toast-max-width\)\)/);
 });
 
 test('equipped inventory visuals use a Mint image outline without a check badge', () => {
   const grid = app.slice(app.indexOf('function InventoryGrid('), app.indexOf('function RecruitmentManagement('));
-  assert.ok(grid.includes("border:equipped?'2px solid var(--theme-color-status-success)':'2px solid transparent'"));
+  assert.ok(grid.includes("border:equipped?'2px solid var(--theme-color-status-success)':'1px solid var(--theme-color-border)'"));
   assert.doesNotMatch(grid, /<Check size=\{11\}\/>/);
-  assert.ok(grid.includes("border:'1px solid var(--theme-color-border)'"));
+  assert.ok(grid.includes("objectFit:imageFit"));
+  assert.doesNotMatch(grid, /MinecraftText as="div" text=\{item\.name\}/);
+});
+
+
+test('resident read-only additional information never turns usernames into links', () => {
+  const cityProfile=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
+  assert.ok(cityProfile.includes('text={additionalInfo} interactive={false} className="atlas-readonly-field"'));
+});
+
+test('profile and event description textareas explicitly use the shared field recipe', () => {
+  assert.ok(app.includes('className="atlas-profile-additional-field"'));
+  assert.ok(app.includes('className="atlas-recruitment-description-field"'));
+  assert.ok(app.includes('className="atlas-event-description-field"'));
+  assert.ok(app.includes('#root .atlas-root textarea.atlas-profile-additional-field,#root .atlas-root textarea.atlas-recruitment-description-field,#root .atlas-root textarea.atlas-event-description-field{border-color:var(--theme-recipe-field-border)!important;}'));
+});
+
+test('profile and purchases use image-only marker and cover grids', () => {
+  const profile=app.slice(app.indexOf('function ProfileInventory('),app.indexOf('function TreasuryCard('));
+  const city=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
+  assert.ok(profile.includes("columns={4} aspectRatio=\"1 / 1\" imageFit=\"contain\""));
+  assert.ok(profile.includes("columns={2} aspectRatio=\"16 / 9\" imageFit=\"cover\""));
+  assert.ok(city.includes("columns={4} aspectRatio=\"1 / 1\" imageFit=\"contain\""));
+  assert.ok(city.includes("columns={2} aspectRatio=\"16 / 9\" imageFit=\"cover\""));
+});
+
+test('theme picker arrows enforce the same Purple action surface and glyph as event links', () => {
+  assert.equal((app.match(/className="press atlas-theme-arrow"/g)||[]).length,2);
+  assert.ok(app.includes('#root .atlas-root .atlas-theme-arrow{border:1px solid var(--theme-color-action-primary-border)!important;background:var(--theme-color-action-primary-soft)!important;color:var(--theme-color-action-primary)!important;}'));
+  assert.ok(app.includes('#root .atlas-root .atlas-theme-arrow svg{stroke:var(--theme-color-action-primary)!important;}'));
+});
+
+test('FixedToast emerges from behind the bottom navigation, with larger typography and red errors', () => {
+  assert.match(tokens,/--theme-toast-bottom-offset:\s*calc\(84px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(tokens,/--theme-toast-font-size:\s*15px/);
+  assert.match(tokens,/--theme-toast-padding-inline:\s*24px/);
+  assert.ok(app.includes('z-index:39;'));
+  assert.ok(app.includes('@keyframes atlas-toast-in{from{opacity:0;transform:translate(-50%,34px)}to{opacity:1;transform:translate(-50%,0)}}'));
+  assert.ok(app.includes('@keyframes atlas-toast-out{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,34px)}}'));
+  assert.ok(app.includes('type="error"/>'));
+  assert.ok(app.includes('.atlas-fixed-toast--error{background:var(--theme-color-status-danger-soft);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);'));
 });
