@@ -3538,9 +3538,9 @@ function profileAccountLabel(scope,cities,tgUser,profile){
   const id=String(scope).startsWith('treasury:')?String(scope).slice(9):'';
   return `Казна: ${(cities||[]).find(c=>String(c.id)===id)?.name||'город'}`;
 }
-function CustomizationScreen({initData,tgUser,role,territories,profile}){
+function CustomizationScreen({initData,tgUser,role,territories,profile,onToast}){
   const [data,setData]=useState(null),[error,setError]=useState(''),[filters,setFilters]=useState({tag:'all',color:'all'}),[accountScope,setAccountScope]=useState('personal'),[accountLoading,setAccountLoading]=useState(false);
-  const [form,setForm]=useState(makeVisualForm()),[saving,setSaving]=useState(false),[editingItem,setEditingItem]=useState(null),[rechecking,setRechecking]=useState(false),[recheckNotice,setRecheckNotice]=useState(''),[visibilityBusy,setVisibilityBusy]=useState(''),[purchaseToast,setPurchaseToast]=useState(null);
+  const [form,setForm]=useState(makeVisualForm()),[saving,setSaving]=useState(false),[editingItem,setEditingItem]=useState(null),[rechecking,setRechecking]=useState(false),[recheckNotice,setRecheckNotice]=useState(''),[visibilityBusy,setVisibilityBusy]=useState('');
   const isMain=role==='main_inspector';
   const managerCities=(territories||[]).filter(t=>String(t.owner_telegram_id||'')===String(tgUser?.id||'')||(Array.isArray(t.manager_telegram_ids)&&t.manager_telegram_ids.map(String).includes(String(tgUser?.id||''))));
   const managerCityKey=managerCities.map(t=>String(t.id)).sort().join('|');
@@ -3600,7 +3600,7 @@ function CustomizationScreen({initData,tgUser,role,territories,profile}){
   }
   async function pick(file){if(!file)return;try{const imageData=await readImageData(file);setForm(f=>({...f,imageData}));setError('')}catch(e){setError(safeCaughtError(e, 'Ошибка изображения'))}}
   async function buy(id){
-    try{const r=await fetch(`${API_BASE}/api/customization/purchase`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,itemId:id,accountScope})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setError('');loadFull()}catch(e){const message=safeCaughtError(e, 'Не удалось купить визуал');if(/недостаточно самоцветов/i.test(message)){setError('');setPurchaseToast({id:Date.now(),message:'Недостаточно самоцветов'});}else setError(message)}
+    try{const r=await fetch(`${API_BASE}/api/customization/purchase`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,itemId:id,accountScope})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setError('');loadFull()}catch(e){const message=safeCaughtError(e, 'Не удалось купить визуал');if(/недостаточно самоцветов/i.test(message)){setError('');onToast?.('Недостаточно самоцветов','error');}else setError(message)}
   }
   async function remove(id){
     if(!window.confirm('Удалить этот визуал?'))return;
@@ -3725,7 +3725,6 @@ function CustomizationScreen({initData,tgUser,role,territories,profile}){
     </div>
     {!filtered.length&&!error&&<div style={{fontSize:12,color:'var(--theme-color-text-muted)',padding: '20px 4px'}}>Визуалов по выбранным фильтрам нет.</div>}
     {error&&<div style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop: 10}}>{error}</div>}
-    {purchaseToast&&<FixedToast key={purchaseToast.id} message={purchaseToast.message} type="error"/>}
     {editingItem&&<VisualEditModal item={editingItem} initData={initData} onClose={()=>setEditingItem(null)} onSaved={loadFull}/>}
   </div>;
 }
@@ -3771,6 +3770,9 @@ export default function CityRatingApp() {
   const mapLoadGenerationRef = useRef(0);
   const [showAddTerritory, setShowAddTerritory] = useState(false);
   const [homeToast, setHomeToast] = useState(null);
+  const [globalToast,setGlobalToast]=useState(null);
+  const globalToastSequenceRef=useRef(0);
+  const showGlobalToast=(message,type='success')=>setGlobalToast({id:++globalToastSequenceRef.current,message,type});
   const [worldMapImage, setWorldMapImage] = useState(null);
   const [worldMapSource, setWorldMapSource] = useState(null);
   const [worldMapLoading, setWorldMapLoading] = useState(true);
@@ -4278,7 +4280,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         {screen === 'profile' ? (
           <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapLoadGenerationRef.current+=1;mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setActiveTheme(normalizeThemeId(settings.theme??settings.defaultTheme??DEFAULT_THEME_ID));const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??88);setTimezoneRetryToken(value=>value+1);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));const zoomChanged=mapZoomPreferenceRef.current===null||mapZoomPreferenceRef.current!==nextZoom;mapZoomPreferenceRef.current=nextZoom;setMapZoomPercent(nextZoom);if(zoomChanged)setVoxView({x:0,y:0,scale:mapZoomPercentToScale(nextZoom)});setMapZoomReady(true);setTimezoneReady(true);setTimezoneLoadError('');}} onOpenGlobalSettings={()=>setGlobalSettingsOpen(true)} />
         ) : screen === 'customization' ? (
-          <CustomizationScreen initData={window.Telegram?.WebApp?.initData || ''} tgUser={tgUser} role={role} territories={territories} profile={profile} />
+          <CustomizationScreen initData={window.Telegram?.WebApp?.initData || ''} tgUser={tgUser} role={role} territories={territories} profile={profile} onToast={showGlobalToast} />
         ) : screen === 'events' ? (
           <EventsScreen initData={window.Telegram?.WebApp?.initData || ''} territories={territories} tgUser={tgUser} isMainInspector={role==='main_inspector'} expandedEventId={expandedEventId} setExpandedEventId={setExpandedEventId} timezoneOffset={timezoneOffset} timezoneReady={timezoneReady} timezoneLoadError={timezoneLoadError} onRetryTimezone={()=>setTimezoneRetryToken(value=>value+1)} onSelectTerritory={id=>{setReturnToEvents(true);setScreen('cities');setMainTab('map');setSelectedId(id)}} />
         ) : selected ? (
@@ -4343,6 +4345,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
         {homeFeatureOpen&&<HomeFeatureButtonModal mode={role==='main_inspector'?'edit':'view'} config={homeFeatureButton} initData={window.Telegram?.WebApp?.initData||''} onClose={()=>setHomeFeatureOpen(false)} onSaved={setHomeFeatureButton}/>}
 
         {homeToast && <FixedToast key={homeToast} message={homeToast}/>}
+        {globalToast && <FixedToast key={globalToast.id} message={globalToast.message} type={globalToast.type}/>}
       </div>
     </div>
   );
