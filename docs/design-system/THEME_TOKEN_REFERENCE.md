@@ -223,13 +223,13 @@ Recipes are component-level visual decisions; semantic tokens remain the color s
 | `--theme-glow-primary` | `0 14px 34px rgba(139, 92, 246, .17)` | Depth/effect role. |
 | `--theme-glow-success` | `0 14px 34px rgba(65, 255, 167, .12)` | Depth/effect role. |
 | `--theme-backdrop-blur` | `18px` | Depth/effect role. |
-| `--theme-toast-bottom-offset` | `calc(84px + env(safe-area-inset-bottom))` | Theme value; tune only when the corresponding component contract is understood. |
-| `--theme-toast-max-width` | `420px` | Theme value; tune only when the corresponding component contract is understood. |
-| `--theme-toast-viewport-gutter-total` | `32px` | Theme value; tune only when the corresponding component contract is understood. |
-| `--theme-toast-padding-block` | `8px` | Compact vertical inset around the notification text. |
-| `--theme-toast-padding-inline` | `24px` | Horizontal inset around content-sized notification text. |
+| `--theme-toast-bottom-offset` | `calc(69px + env(safe-area-inset-bottom))` | Theme value; tune only when the corresponding component contract is understood. |
+| `--theme-toast-max-width` | `360px` | Maximum toast width; natural text width remains preferred. |
+| `--theme-toast-viewport-gutter-total` | `28px` | Total horizontal viewport gutter for toast. |
+| `--theme-toast-padding-block` | `7px` | Compact vertical inset around the notification text. |
+| `--theme-toast-padding-inline` | `12px` | Horizontal inset around content-sized notification text. |
 | `--theme-toast-radius` | `var(--theme-radius-pill)` | Theme value; tune only when the corresponding component contract is understood. |
-| `--theme-toast-font-size` | `15px` | Font role; verify Cyrillic and fallback. |
+| `--theme-toast-font-size` | `14px` | Font role; verify Cyrillic and fallback. |
 | `--theme-toast-font-weight` | `700` | Font role; verify Cyrillic and fallback. |
 | `--theme-toast-line-height` | `1.3` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-modal-backdrop-blur` | `4px` | Depth/effect role. |
@@ -317,4 +317,4 @@ The baseline Vox pack defines the minimum token contract for every shipped theme
 | `--theme-recipe-field-inspector-focus-border` | `--theme-color-action-primary` (Purple) |
 | `--theme-recipe-field-transition` | `border-color 180ms ease, box-shadow 180ms ease` |
 
-Toast layering and motion contract: FixedToast uses z-index 39 while the persistent bottom navigation uses z-index 40. The toast's bottom offset is 84 px plus safe area, aligned to the navigation edge. Entry and exit translate vertically by 34 px so the notification emerges from behind the navigation and returns behind it. Error toasts retain the danger/red palette.
+Toast layering and motion contract: FixedToast uses z-index 39 while the persistent bottom navigation uses z-index 40. It uses inline-block/content width, 12 px horizontal padding, 7 px vertical padding and 14 px text. Its backdrop filter slightly dims and blurs only the area directly beneath the toast. The toast's bottom offset is 69 px plus safe area, aligned to the actual navigation edge. Entry and exit translate by 100% of the toast's own height so the notification emerges from behind the navigation and returns behind it. Error toasts retain the danger/red palette.
