@@ -581,7 +581,7 @@ function FontsAndTheme() {
         html{ scroll-behavior:smooth; }
         button,input,textarea,select{ -webkit-tap-highlight-color:transparent; }
         .atlas-root{ isolation:isolate; }
-        .atlas-root > div{ width:min(100%,var(--theme-content-max-width)); }
+        .atlas-root > div:not(.atlas-fixed-toast){ width:min(100%,var(--theme-content-max-width)); }
 
         .atlas-root .atlas-display{ font-weight:700; }
         .atlas-root .atlas-display strong{ font-weight:800; }
