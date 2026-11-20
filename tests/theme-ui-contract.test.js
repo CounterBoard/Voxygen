@@ -596,7 +596,7 @@ test('events page starts at the same 15px inset as its horizontal content', () =
 });
 
 test('fixed toast uses 12px content-sized padding', () => {
-  assert.match(tokens, /--theme-toast-padding-block:\s*8px/);
+  assert.match(tokens, /--theme-toast-padding-block:\s*7px/);
   assert.match(tokens, /--theme-toast-padding-inline:\s*12px/);
   assert.match(app, /width:max-content;[\s\S]*padding: var\(--theme-toast-padding-block\) var\(--theme-toast-padding-inline\);/);
 });
@@ -664,12 +664,12 @@ test('theme picker removes the one-theme notice and uses Purple arrow outlines',
 test('profile and Visual bottom clearance is 85px and final territory actions keep 10px', () => {
   assert.ok(app.includes("className=\"atlas-page atlas-page--profile\" style={{padding: '18px 15px calc(85px + env(safe-area-inset-bottom))',minHeight:'60vh'}}"));
   assert.ok(app.includes("className=\"atlas-page atlas-page--customization\" style={{padding: '18px 15px 85px'}}"));
-  assert.match(app, /fontWeight:800,marginBottom: 10\}\}>\{leaveBusy\?'Выход…':'Покинуть территорию'\}/);
-  assert.match(app, /fontWeight:700,marginBottom: 10,minHeight:44\}\}>Запросить оценку инспектора/);
+  assert.match(app, /fontWeight:800,marginBottom: 0\}\}>\{leaveBusy\?'Выход…':'Покинуть территорию'\}/);
+  assert.match(app, /fontWeight:700,marginBottom: 0,minHeight:44\}\}>Запросить оценку инспектора/);
 });
 
 test('toast remains content-sized with 12px horizontal padding', () => {
-  assert.match(tokens, /--theme-toast-padding-inline:\s*24px/);
+  assert.match(tokens, /--theme-toast-padding-inline:\s*12px/);
   assert.match(app, /width:max-content;[\s\S]*max-width:min\(calc\(100vw - var\(--theme-toast-viewport-gutter-total\)\),var\(--theme-toast-max-width\)\)/);
 });
 
@@ -711,7 +711,7 @@ test('theme picker arrows enforce the same Purple action surface and glyph as ev
   assert.ok(app.includes('#root .atlas-root .atlas-theme-arrow:disabled{opacity:1!important;filter:none!important;}'));
 });
 
-test('FixedToast emerges from behind the bottom navigation, with larger typography and red errors', () => {
+test('FixedToast emerges from behind the bottom navigation, with compact typography and red errors', () => {
   assert.match(tokens,/--theme-toast-bottom-offset:\s*calc\(69px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(tokens,/--theme-toast-font-size:\s*14px/);
   assert.match(tokens,/--theme-toast-padding-inline:\s*12px/);
