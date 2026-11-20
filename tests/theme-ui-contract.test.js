@@ -712,7 +712,7 @@ test('theme picker arrows enforce the same Purple action surface and glyph as ev
 });
 
 test('FixedToast emerges from behind the bottom navigation, with compact typography and red errors', () => {
-  assert.match(tokens,/--theme-toast-bottom-offset:\s*calc\(69px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(tokens,/--theme-toast-bottom-offset:\s*calc\(73px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(tokens,/--theme-toast-font-size:\s*14px/);
   assert.match(tokens,/--theme-toast-padding-inline:\s*12px/);
   assert.ok(app.includes('z-index:39;'));
@@ -753,4 +753,22 @@ test('toast width follows its text and darkens only the covered backdrop', () =>
   assert.doesNotMatch(app, /\.atlas-root > div\{\s*width:min\(100%,var\(--theme-content-max-width\)\)/);
   assert.ok(css.includes('backdrop-filter:brightness(.72) blur(4px);'));
   assert.ok(css.includes('-webkit-backdrop-filter:brightness(.72) blur(4px);'));
+});
+
+
+test('insufficient-gems purchase failure uses the app-level red FixedToast', () => {
+  const customization=app.slice(app.indexOf('function CustomizationScreen('),app.indexOf('function BottomNav('));
+  assert.ok(customization.includes("function CustomizationScreen({initData,tgUser,role,territories,profile,onToast})"));
+  assert.ok(customization.includes("onToast?.('Недостаточно самоцветов','error')"));
+  assert.doesNotMatch(customization,/purchaseToast|setPurchaseToast/);
+  assert.ok(app.includes("const [globalToast,setGlobalToast]=useState(null)"));
+  assert.ok(app.includes("onToast={showGlobalToast}"));
+  assert.ok(app.includes('<FixedToast key={globalToast.id} message={globalToast.message} type={globalToast.type}/>'));
+});
+
+test('toast sits 4px above the persistent navigation strip', () => {
+  assert.match(tokens,/--theme-toast-bottom-offset:\s*calc\(73px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(tokens,/--theme-navigation-padding-block-start:\s*10px/);
+  assert.match(tokens,/--theme-navigation-item-min-height:\s*44px/);
+  assert.match(tokens,/--theme-navigation-padding-block-end:\s*calc\(14px \+ env\(safe-area-inset-bottom\)\)/);
 });
