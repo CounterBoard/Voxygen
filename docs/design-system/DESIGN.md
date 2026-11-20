@@ -527,7 +527,10 @@ The event reminder unit switch, amount field and confirmation action share the s
 
 Profile «Оформление территории» and «Покупки» grids use image-first tiles without visible item names or padded thumbnail cards. Markers use four columns; covers use two columns with a wide image frame. The equipped item is identified by a Mint outline around the image itself, never by a check badge. Resident read-only additional information renders usernames as plain text, not Telegram links.
 
-FixedToast is content-sized with 12 px horizontal padding and 14 px text. It is placed at the bottom-navigation edge (69 px plus safe area) with z-index 39 beneath navigation z-index 40; it rises from behind the bar and exits back behind it. Error notifications remain red. The reminder unit selector has two equal-width flush halves; its inner halves have no radius, border or press-scale transform.
+FixedToast is content-sized with 12 px horizontal padding and 14 px text. It sits in a clipped viewport whose bottom aligns to the navigation top (69 px plus safe area), leaving a 4 px gap. The viewport uses z-index 65 to remain visible above modal overlays and clips enter/exit motion at the navigation edge, so the toast still emerges from behind the bar. Error notifications remain red. The reminder unit selector has two equal-width flush halves; its inner halves have no radius, border or press-scale transform.
 
 
 Disabled theme-picker arrows retain their Purple outline and glyph without disabled-state desaturation. Equipped inventory tiles use a dedicated higher-specificity Mint image outline, protected from the generic raised-surface border rule. Non-interactive Telegram usernames inherit the surrounding text color instead of using the Mint link accent.
+
+
+Visual purchase, treasury deposit and territory donation all route «Недостаточно самоцветов» through the root error toast, never inline in the card or modal. The shared viewport stays above modal overlays while clipping movement at the navigation top edge.
