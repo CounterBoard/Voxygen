@@ -596,3 +596,10 @@ The minutes/hours switch, numeric amount field and confirmation button share the
 ```
 
 Do not change this back to `.atlas-root > div`: that selector also matches the portaled toast and forces it to the full content width, overriding the toast's `width: max-content`. The toast itself owns its intrinsic width, horizontal padding, and max-width safety cap. The max-width is only a cap for long text or narrow viewports, not a target width.
+
+
+### App-level insufficient-gems notification
+
+A purchase rejected for insufficient gems must call the root `onToast(message, 'error')` callback. The root app owns the notification state and renders the shared `FixedToast`; do not keep this case as local inline text or a toast state owned by the visual-card grid. This keeps the error visible independently of the purchase screen's child rendering and preserves the shared red danger variant.
+
+The bottom-navigation geometry is 69 px plus safe-area inset. The notification's bottom offset is **73 px plus safe area**, which leaves the agreed **4 px visible gap** above the navigation strip.
