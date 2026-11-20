@@ -595,9 +595,9 @@ test('events page starts at the same 15px inset as its horizontal content', () =
   assert.ok(app.includes("className=\"atlas-page atlas-page--events\" style={{ padding: '15px 15px 100px' }}"));
 });
 
-test('fixed toast uses 24px content-sized padding', () => {
+test('fixed toast uses 12px content-sized padding', () => {
   assert.match(tokens, /--theme-toast-padding-block:\s*8px/);
-  assert.match(tokens, /--theme-toast-padding-inline:\s*24px/);
+  assert.match(tokens, /--theme-toast-padding-inline:\s*12px/);
   assert.match(app, /width:max-content;[\s\S]*padding: var\(--theme-toast-padding-block\) var\(--theme-toast-padding-inline\);/);
 });
 
@@ -668,7 +668,7 @@ test('profile and Visual bottom clearance is 85px and final territory actions ke
   assert.match(app, /fontWeight:700,marginBottom: 10,minHeight:44\}\}>Запросить оценку инспектора/);
 });
 
-test('toast remains content-sized with 24px horizontal padding', () => {
+test('toast remains content-sized with 12px horizontal padding', () => {
   assert.match(tokens, /--theme-toast-padding-inline:\s*24px/);
   assert.match(app, /width:max-content;[\s\S]*max-width:min\(calc\(100vw - var\(--theme-toast-viewport-gutter-total\)\),var\(--theme-toast-max-width\)\)/);
 });
@@ -678,6 +678,7 @@ test('equipped inventory visuals use a Mint image outline without a check badge'
   assert.ok(grid.includes("border:equipped?'2px solid var(--theme-color-status-success)':'1px solid var(--theme-color-border)'"));
   assert.doesNotMatch(grid, /<Check size=\{11\}\/>/);
   assert.ok(grid.includes("objectFit:imageFit"));
+  assert.ok(app.includes('#root .atlas-root .atlas-inventory-image--equipped{border:2px solid var(--theme-color-status-success)!important;outline:2px solid var(--theme-color-status-success);outline-offset:-2px;}'));
   assert.doesNotMatch(grid, /MinecraftText as="div" text=\{item\.name\}/);
 });
 
@@ -707,15 +708,47 @@ test('theme picker arrows enforce the same Purple action surface and glyph as ev
   assert.equal((app.match(/className="press atlas-theme-arrow"/g)||[]).length,2);
   assert.ok(app.includes('#root .atlas-root .atlas-theme-arrow{border:1px solid var(--theme-color-action-primary-border)!important;background:var(--theme-color-action-primary-soft)!important;color:var(--theme-color-action-primary)!important;}'));
   assert.ok(app.includes('#root .atlas-root .atlas-theme-arrow svg{stroke:var(--theme-color-action-primary)!important;}'));
+  assert.ok(app.includes('#root .atlas-root .atlas-theme-arrow:disabled{opacity:1!important;filter:none!important;}'));
 });
 
 test('FixedToast emerges from behind the bottom navigation, with larger typography and red errors', () => {
-  assert.match(tokens,/--theme-toast-bottom-offset:\s*calc\(84px \+ env\(safe-area-inset-bottom\)\)/);
-  assert.match(tokens,/--theme-toast-font-size:\s*15px/);
-  assert.match(tokens,/--theme-toast-padding-inline:\s*24px/);
+  assert.match(tokens,/--theme-toast-bottom-offset:\s*calc\(69px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(tokens,/--theme-toast-font-size:\s*14px/);
+  assert.match(tokens,/--theme-toast-padding-inline:\s*12px/);
   assert.ok(app.includes('z-index:39;'));
-  assert.ok(app.includes('@keyframes atlas-toast-in{from{opacity:0;transform:translate(-50%,34px)}to{opacity:1;transform:translate(-50%,0)}}'));
-  assert.ok(app.includes('@keyframes atlas-toast-out{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,34px)}}'));
+  assert.ok(app.includes('@keyframes atlas-toast-in{from{opacity:0;transform:translate(-50%,100%)}to{opacity:1;transform:translate(-50%,0)}}'));
+  assert.ok(app.includes('@keyframes atlas-toast-out{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,100%)}}'));
   assert.ok(app.includes('type="error"/>'));
   assert.ok(app.includes('.atlas-fixed-toast--error{background:var(--theme-color-status-danger-soft);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);'));
+});
+
+
+test('non-interactive Telegram usernames inherit the surrounding text color', () => {
+  assert.ok(app.includes("color:interactive?'var(--theme-color-status-success)':(style.color||'inherit')"));
+  const cityProfile=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
+  assert.ok(cityProfile.includes('text={additionalInfo} interactive={false}'));
+});
+
+test('territory action spacing relies on the card inset, without extra button margin', () => {
+  const cityProfile=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
+  assert.match(cityProfile,/marginBottom: 0\}\}>\{leaveBusy\?'Выход…':'Покинуть территорию'/);
+  assert.match(cityProfile,/fontWeight:700,marginBottom: 0,minHeight:44\}\}>Запросить оценку инспектора/);
+  assert.ok(cityProfile.includes('<SurfaceCard className="atlas-page-panel" padding={10}'));
+});
+
+test('repeating the same territory action creates a fresh toast instance', () => {
+  const cityProfile=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
+  assert.ok(cityProfile.includes('[noticeRevision,setNoticeRevision]=useState(0)'));
+  assert.ok(cityProfile.includes('setNoticeRevision(value=>value+1)'));
+  assert.ok(cityProfile.includes('<FixedToast key={noticeRevision} message={notice}/>'));
+});
+
+test('toast width follows its text and darkens only the covered backdrop', () => {
+  const start=app.indexOf('.atlas-fixed-toast{');
+  const css=app.slice(start,app.indexOf('@keyframes atlas-toast-in',start));
+  assert.ok(css.includes('display:inline-block;'));
+  assert.ok(css.includes('width:max-content;'));
+  assert.ok(css.includes('min-width:0;'));
+  assert.ok(css.includes('backdrop-filter:brightness(.72) blur(4px);'));
+  assert.ok(css.includes('-webkit-backdrop-filter:brightness(.72) blur(4px);'));
 });
