@@ -718,7 +718,8 @@ test('FixedToast emerges from behind the bottom navigation, with compact typogra
   assert.ok(app.includes('z-index:39;'));
   assert.ok(app.includes('@keyframes atlas-toast-in{from{opacity:0;transform:translate(-50%,100%)}to{opacity:1;transform:translate(-50%,0)}}'));
   assert.ok(app.includes('@keyframes atlas-toast-out{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,100%)}}'));
-  assert.ok(app.includes('type="error"/>'));
+  assert.ok(app.includes("onToast?.('Недостаточно самоцветов','error')"));
+  assert.ok(app.includes('type={globalToast.type}/>'));
   assert.ok(app.includes('.atlas-fixed-toast--error{background:var(--theme-color-status-danger-soft);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);'));
 });
 
