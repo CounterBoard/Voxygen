@@ -715,7 +715,10 @@ test('FixedToast emerges from behind the bottom navigation, with compact typogra
   assert.match(tokens,/--theme-toast-bottom-offset:\s*calc\(73px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(tokens,/--theme-toast-font-size:\s*14px/);
   assert.match(tokens,/--theme-toast-padding-inline:\s*12px/);
-  assert.ok(app.includes('z-index:39;'));
+  assert.ok(app.includes('z-index:65;'));
+  assert.ok(app.includes('.atlas-toast-viewport{'));
+  assert.ok(app.includes('bottom:calc(var(--theme-toast-bottom-offset) - 4px);'));
+  assert.ok(app.includes('overflow:hidden;'));
   assert.ok(app.includes('@keyframes atlas-toast-in{from{opacity:0;transform:translate(-50%,100%)}to{opacity:1;transform:translate(-50%,0)}}'));
   assert.ok(app.includes('@keyframes atlas-toast-out{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,100%)}}'));
   assert.ok(app.includes("onToast?.('Недостаточно самоцветов','error')"));
@@ -750,7 +753,7 @@ test('toast width follows its text and darkens only the covered backdrop', () =>
   assert.ok(css.includes('display:inline-block;'));
   assert.ok(css.includes('width:max-content;'));
   assert.ok(css.includes('min-width:0;'));
-  assert.ok(app.includes('.atlas-root > div:not(.atlas-fixed-toast){ width:min(100%,var(--theme-content-max-width)); }'));
+  assert.ok(app.includes('.atlas-root > div:not(.atlas-fixed-toast):not(.atlas-toast-viewport){ width:min(100%,var(--theme-content-max-width)); }'));
   assert.doesNotMatch(app, /\.atlas-root > div\{\s*width:min\(100%,var\(--theme-content-max-width\)\)/);
   assert.ok(css.includes('backdrop-filter:brightness(.72) blur(4px);'));
   assert.ok(css.includes('-webkit-backdrop-filter:brightness(.72) blur(4px);'));
@@ -772,4 +775,25 @@ test('toast sits 4px above the persistent navigation strip', () => {
   assert.match(tokens,/--theme-navigation-padding-block-start:\s*10px/);
   assert.match(tokens,/--theme-navigation-item-min-height:\s*44px/);
   assert.match(tokens,/--theme-navigation-padding-block-end:\s*calc\(14px \+ env\(safe-area-inset-bottom\)\)/);
+});
+
+
+test('treasury deposit insufficient funds is a global error toast, not inline text', () => {
+  const treasury=app.slice(app.indexOf('function TreasuryCard('),app.indexOf('function ProfileInventory('));
+  assert.ok(treasury.includes('function TreasuryCard({city,initData,tgUser,onToast}={})'));
+  assert.ok(treasury.includes("onToast?.('Недостаточно самоцветов','error')"));
+  assert.ok(treasury.includes("if(/недостаточно самоцветов/i.test(message)){setError('');"));
+  assert.ok(app.includes('onToast={onToast}/>'));
+  assert.ok(app.includes('onOpenGlobalSettings={()=>setGlobalSettingsOpen(true)} onToast={showGlobalToast} />'));
+});
+
+test('donation modal insufficient funds uses a global toast visible above the modal layer', () => {
+  const donation=app.slice(app.indexOf('function DonationModal('),app.indexOf('function TerritoryDetail('));
+  assert.ok(donation.includes('function DonationModal({territory,initData,onClose,onSuccess,onToast})'));
+  assert.ok(donation.includes("onToast?.('Недостаточно самоцветов','error')"));
+  assert.ok(app.includes('onToast={onToast}/>'));
+  assert.ok(app.includes('onToast={showGlobalToast}'));
+  assert.ok(app.includes('.atlas-toast-viewport{'));
+  assert.ok(app.includes('z-index:65;'));
+  assert.ok(app.includes('overflow:hidden;'));
 });
