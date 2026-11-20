@@ -174,7 +174,7 @@ Specific action shapes matter: an icon-only review publish button remains square
 - Modal height tiers: compact 70vh, standard 76vh, form 80vh, settings 84vh, expanded 88vh, editor 90vh, additionally bounded by safe viewport height.
 - App root uses 100vh fallback and 100dvh when supported.
 - Bottom navigation uses safe-area-aware bottom padding: `calc(14px + env(safe-area-inset-bottom))`.
-- Toast bottom offset: `calc(84px + env(safe-area-inset-bottom))`, aligned with the navigation top edge.
+- Toast bottom offset: `calc(69px + env(safe-area-inset-bottom))`, aligned with the navigation top edge.
 - Navigation item minimum height is 44 px.
 - Compact typography breakpoint documented by the design system: 380 px.
 
@@ -358,12 +358,12 @@ Current `FixedToast` implementation in `src/App.jsx`:
 - announces success/warning/info-like default messages with `role="status"` and `aria-live="polite"`.
 
 Geometry tokens:
-- bottom offset: `calc(84px + env(safe-area-inset-bottom))`, matching the navigation's 84 px base height plus safe area;
-- max width: 420 px;
-- total horizontal viewport gutter: 32 px;
-- padding: **8 px vertical / 24 px horizontal**; toast width is content-driven (`max-content`) plus this padding;
+- bottom offset: `calc(69px + env(safe-area-inset-bottom))`, matching the navigation's 84 px base height plus safe area;
+- max width: 360 px;
+- total horizontal viewport gutter: 28 px;
+- padding: **7 px vertical / 12 px horizontal**; toast width is content-driven (`max-content`) plus this padding;
 - radius: pill;
-- text: 15 px / weight 700 / line-height 1.3;
+- text: 14 px / weight 700 / line-height 1.3;
 - z-index: 39, directly below bottom navigation z-index 40;
 
 ### 8.2 Notification type selection
@@ -561,11 +561,11 @@ The minutes/hours switch, numeric amount field and confirmation button share the
 
 - The read-only «Доп. информация» block and its editable save action leave an 8 px separation before the next peer section, matching the profile card rhythm.
 - Profile and «Визуал» page bottom clearance is 85 px plus the device safe-area inset.
-- The final «Покинуть территорию» and «Запросить оценку инспектора» actions retain 10 px below them, matching the page's horizontal inset.
+- The final «Покинуть территорию» and «Запросить оценку инспектора» actions have no extra bottom margin; the SurfaceCard's 10 px bottom padding supplies the same 10 px inset as the button's horizontal padding.
 - The theme picker does not show a one-theme availability notice. The Vox description is displayed on two lines: «Оригинальная тёмная тема» and «purple + mint».
-- Theme picker arrows use the same Purple outline, Purple glyph and soft Purple surface treatment as the «Перейти на страницу территории» action; they remain compact icon controls.
+- Theme picker arrows use the same Purple outline, Purple glyph and soft Purple surface treatment as the «Перейти на страницу территории» action; disabled arrows keep full Purple contrast and are not desaturated.
 - In «Оформление территории» and «Покупки», visual names and padded thumbnail cards are omitted. The image itself is the tile: markers use four columns, covers use two; the equipped image has a Mint outline and no check badge.
-- Toast width is content-driven (`max-content`) with 24 px horizontal and 8 px vertical padding, 15 px text, and enters/exits vertically behind the fixed navigation. Max-width and viewport gutter remain safety limits for long text and narrow screens.
+- Toast width is content-driven (`max-content`) with 12 px horizontal and 7 px vertical padding, 14 px text, and enters/exits vertically behind the fixed navigation. A subtle backdrop brightness/blur is confined to the toast footprint.
 
 ### 13.1 Profile visual image tiles and read-only text
 
@@ -574,3 +574,12 @@ The minutes/hours switch, numeric amount field and confirmation button share the
 - The Mint equipped state is an outline around the image frame, not a check glyph.
 - Resident read-only «Доп. информация» is rendered as plain text; @usernames in this field are not links and cannot open Telegram profiles.
 - The editable profile «Доп. информация», «Набор» and event «Описание» textareas explicitly use the shared Purple idle / Mint focus field recipe.
+
+
+### 13.2 Repeat notifications and non-interactive usernames
+
+- Non-interactive Telegram usernames inherit the surrounding field text color; only actionable Telegram links use the Mint accent.
+- A repeated territory action creates a new toast instance even when the resulting message text is identical. The manager profile increments a notification revision on each successful management operation, so a rapid sequence of visual-equipment changes is not suppressed by React reusing the previous toast key.
+- «Недостаточно самоцветов» is rendered as an error FixedToast and keeps the danger/red semantic treatment.
+- FixedToast uses intrinsic text width, inline-block layout, a compact 12 px horizontal inset and a 14 px font. A subtle backdrop brightness/blur improves legibility only underneath the notification itself.
+- Toast bottom offset matches the actual navigation bar height: 69 px plus the device safe-area inset. Its z-index remains one level below navigation so the message slides out from behind the bar and returns behind it.
