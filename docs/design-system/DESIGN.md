@@ -521,7 +521,7 @@ Editable text, numeric and select fields use Purple borders at rest and transiti
 
 ## Reminder, profile and theme picker details
 
-The event reminder unit switch, amount field and confirmation action share the same control radius. The switch keeps two flush, square inner halves. Profile and Visual bottom clearance is 85 px plus safe area; the final territory actions keep 10 px below. The theme picker uses a two-line Vox description, omits the one-theme availability notice, and renders arrow outlines/glyphs in Purple on a soft Purple surface, matching the territory-navigation action. The equipped visual uses a Mint outline around its image preview instead of a check badge. FixedToast remains content-width with 12 px horizontal padding and 14 px text, entering and exiting behind the bottom navigation. Repeated identical territory messages get a fresh toast instance. Its backdrop filter slightly dims only the pixels directly beneath the message.
+The event reminder unit switch, amount field and confirmation action share the same control radius. The switch keeps two flush, square inner halves. Profile and Visual bottom clearance is 85 px plus safe area; the final territory actions keep 10 px below. The theme picker uses a two-line Vox description, omits the one-theme availability notice, and renders arrow outlines/glyphs in Purple on a soft Purple surface, matching the territory-navigation action. The equipped visual uses a Mint outline around its image preview instead of a check badge. FixedToast remains content-width with 12 px horizontal padding and 14 px text, entering and exiting behind the bottom navigation. Repeated identical territory messages get a fresh toast instance. No backdrop filter or blur is used. The toast plate itself is darkened for legibility; the underlying interface remains sharp.
 
 ## Profile visual tiles and toast motion
 
@@ -534,3 +534,8 @@ Disabled theme-picker arrows retain their Purple outline and glyph without disab
 
 
 Visual purchase, treasury deposit and territory donation all route «Недостаточно самоцветов» through the root error toast, never inline in the card or modal. The shared viewport stays above modal overlays while clipping movement at the navigation top edge.
+
+
+### Toast contrast and semantic glow (20.11.2026)
+
+Error toasts use a danger/red halo and glow animation; they must not flash Mint/success. Success toasts keep Mint/success glow, and warning toasts keep warning semantics. Each toast plate is darkened by mixing its semantic soft background (88%) with black (12%). FixedToast does not blur, dim or filter the page behind it: no `backdrop-filter` or `-webkit-backdrop-filter`. This intentionally avoids a Liquid Glass treatment.
