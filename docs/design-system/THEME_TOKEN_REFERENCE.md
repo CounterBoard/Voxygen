@@ -317,7 +317,7 @@ The baseline Vox pack defines the minimum token contract for every shipped theme
 | `--theme-recipe-field-inspector-focus-border` | `--theme-color-action-primary` (Purple) |
 | `--theme-recipe-field-transition` | `border-color 180ms ease, box-shadow 180ms ease` |
 
-Toast layering and motion contract: FixedToast uses z-index 39 while the persistent bottom navigation uses z-index 40. It uses inline-block/content width, 12 px horizontal padding, 7 px vertical padding and 14 px text. Its backdrop filter slightly dims and blurs only the area directly beneath the toast. The viewport bottom is 69 px plus safe area, aligned to the actual navigation edge; the toast is 4 px above its edge. The viewport clips entry/exit with `overflow:hidden` so motion still appears from behind the navigation. Entry and exit translate by 100% of the toast's own height so the notification emerges from behind the navigation and returns behind it. Error toasts retain the danger/red palette.
+Toast layering and motion contract: FixedToast uses z-index 39 while the persistent bottom navigation uses z-index 40. It uses inline-block/content width, 12 px horizontal padding, 7 px vertical padding and 14 px text. No backdrop filter or blur is used; semantic toast surfaces are darkened directly. The viewport bottom is 69 px plus safe area, aligned to the actual navigation edge; the toast is 4 px above its edge. The viewport clips entry/exit with `overflow:hidden` so motion still appears from behind the navigation. Entry and exit translate by 100% of the toast's own height so the notification emerges from behind the navigation and returns behind it. Error toasts retain the danger/red palette.
 
 
 
@@ -326,3 +326,6 @@ Toast/navigation spacing: `--theme-toast-bottom-offset: calc(73px + env(safe-are
 
 
 Insufficient-gems failures from visual purchases, treasury deposits and territory donations all use the root app-level `FixedToast` with `type="error"`. Their local inline error text is cleared when this specific response is received.
+
+
+Toast semantic effect contract (20.11.2026): error notifications use the dedicated `atlas-toast-error-glow` animation with danger-red border/halo tokens, not the default success/Mint glow. Success retains its success/Mint glow; warning retains warning semantics. Success, warning and error surfaces are darkened using `color-mix(in srgb, <semantic-soft> 88%, #000)`. FixedToast must not use `backdrop-filter` or `-webkit-backdrop-filter`; the background behind the plate stays sharp.
