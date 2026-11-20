@@ -749,6 +749,8 @@ test('toast width follows its text and darkens only the covered backdrop', () =>
   assert.ok(css.includes('display:inline-block;'));
   assert.ok(css.includes('width:max-content;'));
   assert.ok(css.includes('min-width:0;'));
+  assert.ok(app.includes('.atlas-root > div:not(.atlas-fixed-toast){ width:min(100%,var(--theme-content-max-width)); }'));
+  assert.doesNotMatch(app, /\.atlas-root > div\{\s*width:min\(100%,var\(--theme-content-max-width\)\)/);
   assert.ok(css.includes('backdrop-filter:brightness(.72) blur(4px);'));
   assert.ok(css.includes('-webkit-backdrop-filter:brightness(.72) blur(4px);'));
 });
