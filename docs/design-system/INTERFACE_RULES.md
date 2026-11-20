@@ -565,7 +565,7 @@ The minutes/hours switch, numeric amount field and confirmation button share the
 - The theme picker does not show a one-theme availability notice. The Vox description is displayed on two lines: «Оригинальная тёмная тема» and «purple + mint».
 - Theme picker arrows use the same Purple outline, Purple glyph and soft Purple surface treatment as the «Перейти на страницу территории» action; disabled arrows keep full Purple contrast and are not desaturated.
 - In «Оформление территории» and «Покупки», visual names and padded thumbnail cards are omitted. The image itself is the tile: markers use four columns, covers use two; the equipped image has a Mint outline and no check badge.
-- Toast width is content-driven (`max-content`) with 12 px horizontal and 7 px vertical padding, 14 px text, and enters/exits vertically behind the fixed navigation. A subtle backdrop brightness/blur is confined to the toast footprint.
+- Toast width is content-driven (`max-content`) with 12 px horizontal and 7 px vertical padding, 14 px text, and enters/exits vertically behind the fixed navigation. No backdrop filter or blur is used; the toast surface itself is darkened for legibility.
 
 ### 13.1 Profile visual image tiles and read-only text
 
@@ -581,7 +581,7 @@ The minutes/hours switch, numeric amount field and confirmation button share the
 - Non-interactive Telegram usernames inherit the surrounding field text color; only actionable Telegram links use the Mint accent.
 - A repeated territory action creates a new toast instance even when the resulting message text is identical. The manager profile increments a notification revision on each successful management operation, so a rapid sequence of visual-equipment changes is not suppressed by React reusing the previous toast key.
 - «Недостаточно самоцветов» is rendered as an error FixedToast and keeps the danger/red semantic treatment.
-- FixedToast uses intrinsic text width, inline-block layout, a compact 12 px horizontal inset and a 14 px font. A subtle backdrop brightness/blur improves legibility only underneath the notification itself.
+- FixedToast uses intrinsic text width, inline-block layout, a compact 12 px horizontal inset and a 14 px font. The toast surface is darkened; the page behind it is not blurred or filtered.
 - Toast viewport bottom is aligned with the navigation's top edge (69 px plus safe area); the message sits 4 px above that edge. The viewport has z-index 65 (above modal overlays) and is clipped at the navigation edge, while the navigation remains independently layered above the page. The toast slides into and out of this clipped viewport from behind the navigation strip.
 
 
@@ -610,3 +610,12 @@ The bottom-navigation geometry is 69 px plus safe-area inset. The notification's
 - Visual purchase (`/api/customization/purchase`), territory treasury deposit (`/api/treasury/deposit`) and territory donation (`/api/treasury/donate`) all route the exact insufficient-gems response to the root `showGlobalToast(message, 'error')` callback.
 - These cases clear their local inline error state and do not leave «Недостаточно самоцветов» inside the card or modal.
 - The root FixedToast uses one shared portal viewport. Its z-index is above modal overlays; `overflow:hidden` clips the toast's enter/exit motion at the navigation top edge, leaving 4 px of visible clearance and preserving the from-behind-navigation effect.
+
+
+### 8.6 Semantic toast glow and surface contrast (20.11.2026)
+
+- Success notifications retain the Mint/success glow.
+- Error notifications (including «Недостаточно самоцветов») use a dedicated danger/red glow animation. The glow's border and halo use `--theme-color-status-danger-border` and `--theme-color-status-danger-soft`; they must never inherit the success/Mint halo.
+- Warning notifications use the warning semantic palette.
+- Toast surfaces are darkened by mixing 88% of their semantic soft color with black. This increases text contrast while preserving success/error/warning identity.
+- No `backdrop-filter` or `-webkit-backdrop-filter` is permitted on FixedToast. The area behind the notification remains sharp; only the notification plate itself is darkened. This avoids the Liquid Glass appearance.
