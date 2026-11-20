@@ -358,7 +358,7 @@ Current `FixedToast` implementation in `src/App.jsx`:
 - announces success/warning/info-like default messages with `role="status"` and `aria-live="polite"`.
 
 Geometry tokens:
-- bottom offset: `calc(69px + env(safe-area-inset-bottom))`, matching the navigation's 84 px base height plus safe area;
+- bottom offset: `calc(69px + env(safe-area-inset-bottom))`, matching the navigation's 69 px base height plus safe area;
 - max width: 360 px;
 - total horizontal viewport gutter: 28 px;
 - padding: **7 px vertical / 12 px horizontal**; toast width is content-driven (`max-content`) plus this padding;
