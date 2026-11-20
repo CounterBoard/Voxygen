@@ -583,3 +583,16 @@ The minutes/hours switch, numeric amount field and confirmation button share the
 - «Недостаточно самоцветов» is rendered as an error FixedToast and keeps the danger/red semantic treatment.
 - FixedToast uses intrinsic text width, inline-block layout, a compact 12 px horizontal inset and a 14 px font. A subtle backdrop brightness/blur improves legibility only underneath the notification itself.
 - Toast bottom offset matches the actual navigation bar height: 69 px plus the device safe-area inset. Its z-index remains one level below navigation so the message slides out from behind the bar and returns behind it.
+
+
+### FixedToast intrinsic width: portal layout exception
+
+`FixedToast` is portaled directly into `.atlas-root`. The generic root layout rule must therefore exclude it:
+
+```css
+.atlas-root > div:not(.atlas-fixed-toast) {
+  width: min(100%, var(--theme-content-max-width));
+}
+```
+
+Do not change this back to `.atlas-root > div`: that selector also matches the portaled toast and forces it to the full content width, overriding the toast's `width: max-content`. The toast itself owns its intrinsic width, horizontal padding, and max-width safety cap. The max-width is only a cap for long text or narrow viewports, not a target width.
