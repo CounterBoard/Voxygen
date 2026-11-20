@@ -330,8 +330,8 @@ test('account switcher geometry and all toast/focus depths use theme roles', () 
   ]) assert.ok(tokens.includes(token), `Missing theme token: ${token}`);
   assert.match(app, /\.atlas-account-switcher\{[^}]*border-radius:var\(--theme-radius-card\);padding:\s*var\(--theme-account-switcher-padding\)/);
   assert.ok(app.includes('margin-bottom:var(--theme-space-3)'));
-  assert.ok(app.includes('.atlas-fixed-toast--error{background:var(--theme-color-status-danger-soft);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);box-shadow:var(--theme-shadow-toast)'));
-  assert.ok(app.includes('.atlas-fixed-toast--warning{background:var(--theme-color-status-warning-soft);border-color:var(--theme-color-status-warning-border);color:var(--theme-color-status-warning);box-shadow:var(--theme-shadow-toast)'));
+  assert.ok(app.includes('.atlas-fixed-toast--error{background:color-mix(in srgb,var(--theme-color-status-danger-soft) 88%,#000);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);box-shadow:var(--theme-shadow-toast);animation:atlas-toast-in .28s cubic-bezier(.22,.72,.22,1) both,atlas-toast-error-glow .70s ease-out both;'));
+  assert.ok(app.includes('.atlas-fixed-toast--warning{background:color-mix(in srgb,var(--theme-color-status-warning-soft) 88%,#000);border-color:var(--theme-color-status-warning-border);color:var(--theme-color-status-warning);box-shadow:var(--theme-shadow-toast);'));
   assert.ok(app.includes('box-shadow:0 0 0 3px var(--theme-color-action-primary-focus),var(--theme-shadow-focus-field)'));
 });
 
@@ -723,7 +723,7 @@ test('FixedToast emerges from behind the bottom navigation, with compact typogra
   assert.ok(app.includes('@keyframes atlas-toast-out{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,100%)}}'));
   assert.ok(app.includes("onToast?.('Недостаточно самоцветов','error')"));
   assert.ok(app.includes('type={globalToast.type}/>'));
-  assert.ok(app.includes('.atlas-fixed-toast--error{background:var(--theme-color-status-danger-soft);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);'));
+  assert.ok(app.includes('.atlas-fixed-toast--error{background:color-mix(in srgb,var(--theme-color-status-danger-soft) 88%,#000);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);'));
 });
 
 
@@ -755,8 +755,11 @@ test('toast width follows its text and darkens only the covered backdrop', () =>
   assert.ok(css.includes('min-width:0;'));
   assert.ok(app.includes('.atlas-root > div:not(.atlas-fixed-toast):not(.atlas-toast-viewport){ width:min(100%,var(--theme-content-max-width)); }'));
   assert.doesNotMatch(app, /\.atlas-root > div\{\s*width:min\(100%,var\(--theme-content-max-width\)\)/);
-  assert.ok(css.includes('backdrop-filter:brightness(.72) blur(4px);'));
-  assert.ok(css.includes('-webkit-backdrop-filter:brightness(.72) blur(4px);'));
+  assert.ok(!css.includes('backdrop-filter'));
+  assert.ok(!css.includes('-webkit-backdrop-filter'));
+  assert.ok(app.includes('@keyframes atlas-toast-error-glow{'));
+  assert.ok(app.includes('0 0 0 5px var(--theme-color-status-danger-soft)'));
+  assert.ok(app.includes('background:color-mix(in srgb,var(--theme-color-status-danger-soft) 88%,#000)'));
 });
 
 
