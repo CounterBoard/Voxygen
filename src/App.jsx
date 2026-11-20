@@ -441,11 +441,22 @@ function FontsAndTheme() {
         .atlas-page--profile{display:flex;flex-direction:column;gap: var(--theme-layout-section-gap);}
         .atlas-resident-add-row>div>div,.atlas-treasury-deposit-row>div>div,.atlas-review-compose-row>div>div{margin-bottom:0!important;}
         .atlas-page--profile>*{margin-bottom:0!important;}
-        .atlas-fixed-toast{
+        .atlas-toast-viewport{
           position:fixed;
+          left:50%;
+          top:0;
+          bottom:calc(var(--theme-toast-bottom-offset) - 4px);
+          transform:translateX(-50%);
+          width:min(100%,var(--theme-content-max-width));
+          overflow:hidden;
+          z-index:65;
+          pointer-events:none;
+        }
+        .atlas-fixed-toast{
+          position:absolute;
           display:inline-block;
           left:50%;
-          bottom:var(--theme-toast-bottom-offset);
+          bottom:4px;
           transform:translateX(-50%);
           width:max-content;
           min-width:0;
@@ -463,7 +474,7 @@ function FontsAndTheme() {
           text-align:center;
           white-space:normal;
           pointer-events:none;
-          z-index:39;
+          z-index:1;
           -webkit-backdrop-filter:brightness(.72) blur(4px);
           backdrop-filter:brightness(.72) blur(4px);
           animation:atlas-toast-in .28s cubic-bezier(.2,.9,.25,1) both, atlas-toast-glow .70s ease-out both;
@@ -581,7 +592,7 @@ function FontsAndTheme() {
         html{ scroll-behavior:smooth; }
         button,input,textarea,select{ -webkit-tap-highlight-color:transparent; }
         .atlas-root{ isolation:isolate; }
-        .atlas-root > div:not(.atlas-fixed-toast){ width:min(100%,var(--theme-content-max-width)); }
+        .atlas-root > div:not(.atlas-fixed-toast):not(.atlas-toast-viewport){ width:min(100%,var(--theme-content-max-width)); }
 
         .atlas-root .atlas-display{ font-weight:700; }
         .atlas-root .atlas-display strong{ font-weight:800; }
@@ -1137,7 +1148,7 @@ function FixedToast({ message, type = null }) {
   },[message,type]);
   if(!message || !visible) return null;
   const resolvedType = type || (/ошиб|не удалось|нет соединения|недостаточно прав|не найдена|временно недоступен|не выполнена|не получилось/i.test(String(message))?'error':/ожидает|повторите|проверьте|не подтверждён/i.test(String(message))?'warning':'success');
-  const toast=<div className={`atlas-fixed-toast atlas-fixed-toast--${resolvedType}${exiting?' atlas-toast-exiting':''}`} role={resolvedType==='error'?'alert':'status'} aria-live={resolvedType==='error'?'assertive':'polite'}>{message}</div>;
+  const toast=<div className="atlas-toast-viewport"><div className={`atlas-fixed-toast atlas-fixed-toast--${resolvedType}${exiting?' atlas-toast-exiting':''}`} role={resolvedType==='error'?'alert':'status'} aria-live={resolvedType==='error'?'assertive':'polite'}>{message}</div></div>;
   return createPortal(toast,document.querySelector('.atlas-root')||document.body);
 }
 
