@@ -475,8 +475,6 @@ function FontsAndTheme() {
           white-space:normal;
           pointer-events:none;
           z-index:1;
-          -webkit-backdrop-filter:brightness(.72) blur(4px);
-          backdrop-filter:brightness(.72) blur(4px);
           animation:atlas-toast-in .28s cubic-bezier(.2,.9,.25,1) both, atlas-toast-glow .70s ease-out both;
         }
         @keyframes atlas-toast-in{
@@ -486,6 +484,10 @@ function FontsAndTheme() {
         @keyframes atlas-toast-glow{
           0%,38%{box-shadow:0 0 0 1px var(--theme-color-status-success-border),0 0 0 5px var(--theme-color-status-success-soft),var(--theme-shadow-toast)}
           100%{box-shadow:var(--theme-shadow-toast),0 0 0 1px var(--theme-color-status-success-border)}
+        }
+        @keyframes atlas-toast-error-glow{
+          0%,38%{box-shadow:0 0 0 1px var(--theme-color-status-danger-border),0 0 0 5px var(--theme-color-status-danger-soft),var(--theme-shadow-toast)}
+          100%{box-shadow:var(--theme-shadow-toast),0 0 0 1px var(--theme-color-status-danger-border)}
         }
 
         
@@ -687,9 +689,9 @@ function FontsAndTheme() {
         .atlas-success-pulse{animation:atlas-success-halo .42s ease-out both;}
         .atlas-fixed-toast{animation:atlas-toast-in .28s cubic-bezier(.22,.72,.22,1) both,atlas-toast-glow .70s ease-out both;}
         .atlas-fixed-toast.atlas-toast-exiting{animation:atlas-toast-out .17s ease-in both;}
-        .atlas-fixed-toast--success{background:var(--theme-color-status-success-soft);border-color:var(--theme-color-status-success-border);color:var(--theme-color-status-success);}
-        .atlas-fixed-toast--error{background:var(--theme-color-status-danger-soft);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);box-shadow:var(--theme-shadow-toast);}
-        .atlas-fixed-toast--warning{background:var(--theme-color-status-warning-soft);border-color:var(--theme-color-status-warning-border);color:var(--theme-color-status-warning);box-shadow:var(--theme-shadow-toast);}
+        .atlas-fixed-toast--success{background:color-mix(in srgb,var(--theme-color-status-success-soft) 88%,#000);border-color:var(--theme-color-status-success-border);color:var(--theme-color-status-success);}
+        .atlas-fixed-toast--error{background:color-mix(in srgb,var(--theme-color-status-danger-soft) 88%,#000);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);box-shadow:var(--theme-shadow-toast);animation:atlas-toast-in .28s cubic-bezier(.22,.72,.22,1) both,atlas-toast-error-glow .70s ease-out both;}
+        .atlas-fixed-toast--warning{background:color-mix(in srgb,var(--theme-color-status-warning-soft) 88%,#000);border-color:var(--theme-color-status-warning-border);color:var(--theme-color-status-warning);box-shadow:var(--theme-shadow-toast);}
         #root .atlas-root input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]),#root .atlas-root textarea,#root .atlas-root select{border-color:var(--theme-recipe-field-border)!important;transition:var(--theme-recipe-field-transition);}
         #root .atlas-root textarea.atlas-profile-additional-field,#root .atlas-root textarea.atlas-recruitment-description-field,#root .atlas-root textarea.atlas-event-description-field{border-color:var(--theme-recipe-field-border)!important;}
         #root .atlas-root textarea.atlas-profile-additional-field:focus,#root .atlas-root textarea.atlas-recruitment-description-field:focus:not([aria-invalid="true"]),#root .atlas-root textarea.atlas-event-description-field:focus:not([aria-invalid="true"]){border-color:var(--theme-recipe-field-focus-border)!important;box-shadow:0 0 0 3px var(--theme-color-status-success-soft),var(--theme-shadow-focus-field);outline:none;}
