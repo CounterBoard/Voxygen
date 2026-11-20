@@ -444,7 +444,7 @@ test('fixed toast geometry, typography and safe viewport spacing use theme token
     '--theme-toast-font-size:', '--theme-toast-font-weight:',
     '--theme-toast-line-height:',
   ]) assert.ok(tokens.includes(token), `Missing toast token: ${token}`);
-  assert.ok(app.includes('bottom:var(--theme-toast-bottom-offset);'));
+  assert.ok(app.includes('bottom:calc(var(--theme-toast-bottom-offset) - 4px);'));
   assert.ok(app.includes('max-width:min(calc(100vw - var(--theme-toast-viewport-gutter-total)),var(--theme-toast-max-width));'));
   assert.ok(app.includes('padding: var(--theme-toast-padding-block) var(--theme-toast-padding-inline);'));
   assert.ok(app.includes('border-radius:var(--theme-toast-radius);'));
@@ -779,7 +779,8 @@ test('toast sits 4px above the persistent navigation strip', () => {
 
 
 test('treasury deposit insufficient funds is a global error toast, not inline text', () => {
-  const treasury=app.slice(app.indexOf('function TreasuryCard('),app.indexOf('function ProfileInventory('));
+  const treasuryStart=app.indexOf('function TreasuryCard(');
+  const treasury=app.slice(treasuryStart,app.indexOf('function DonationModal(',treasuryStart));
   assert.ok(treasury.includes('function TreasuryCard({city,initData,tgUser,onToast}={})'));
   assert.ok(treasury.includes("onToast?.('Недостаточно самоцветов','error')"));
   assert.ok(treasury.includes("if(/недостаточно самоцветов/i.test(message)){setError('');"));
