@@ -364,7 +364,7 @@ Geometry tokens:
 - padding: **7 px vertical / 12 px horizontal**; toast width is content-driven (`max-content`) plus this padding;
 - radius: pill;
 - text: 14 px / weight 700 / line-height 1.3;
-- z-index: 39, directly below bottom navigation z-index 40;
+- toast viewport z-index: 65 so messages remain visible above modal overlays; the viewport is clipped at the navigation's top edge with `overflow:hidden`, and does not paint over the navigation;
 
 ### 8.2 Notification type selection
 
@@ -582,7 +582,7 @@ The minutes/hours switch, numeric amount field and confirmation button share the
 - A repeated territory action creates a new toast instance even when the resulting message text is identical. The manager profile increments a notification revision on each successful management operation, so a rapid sequence of visual-equipment changes is not suppressed by React reusing the previous toast key.
 - «Недостаточно самоцветов» is rendered as an error FixedToast and keeps the danger/red semantic treatment.
 - FixedToast uses intrinsic text width, inline-block layout, a compact 12 px horizontal inset and a 14 px font. A subtle backdrop brightness/blur improves legibility only underneath the notification itself.
-- Toast bottom offset matches the actual navigation bar height: 69 px plus the device safe-area inset. Its z-index remains one level below navigation so the message slides out from behind the bar and returns behind it.
+- Toast viewport bottom is aligned with the navigation's top edge (69 px plus safe area); the message sits 4 px above that edge. The viewport has z-index 65 (above modal overlays) and is clipped at the navigation edge, while the navigation remains independently layered above the page. The toast slides into and out of this clipped viewport from behind the navigation strip.
 
 
 ### FixedToast intrinsic width: portal layout exception
@@ -603,3 +603,10 @@ Do not change this back to `.atlas-root > div`: that selector also matches the p
 A purchase rejected for insufficient gems must call the root `onToast(message, 'error')` callback. The root app owns the notification state and renders the shared `FixedToast`; do not keep this case as local inline text or a toast state owned by the visual-card grid. This keeps the error visible independently of the purchase screen's child rendering and preserves the shared red danger variant.
 
 The bottom-navigation geometry is 69 px plus safe-area inset. The notification's bottom offset is **73 px plus safe area**, which leaves the agreed **4 px visible gap** above the navigation strip.
+
+
+### 13.3 Insufficient-gems errors across all payment flows
+
+- Visual purchase (`/api/customization/purchase`), territory treasury deposit (`/api/treasury/deposit`) and territory donation (`/api/treasury/donate`) all route the exact insufficient-gems response to the root `showGlobalToast(message, 'error')` callback.
+- These cases clear their local inline error state and do not leave «Недостаточно самоцветов» inside the card or modal.
+- The root FixedToast uses one shared portal viewport. Its z-index is above modal overlays; `overflow:hidden` clips the toast's enter/exit motion at the navigation top edge, leaving 4 px of visible clearance and preserving the from-behind-navigation effect.
