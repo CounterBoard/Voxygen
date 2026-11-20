@@ -524,6 +524,7 @@ function FontsAndTheme() {
         #root .atlas-root .atlas-theme-arrow{border:1px solid var(--theme-color-action-primary-border)!important;background:var(--theme-color-action-primary-soft)!important;color:var(--theme-color-action-primary)!important;}
         #root .atlas-root .atlas-theme-arrow svg{stroke:var(--theme-color-action-primary)!important;}
         #root .atlas-root .atlas-theme-arrow:active{transform:scale(.98);}
+        #root .atlas-root .atlas-theme-arrow:disabled{opacity:1!important;filter:none!important;}
         #root .atlas-root .atlas-inventory-image--equipped{border:2px solid var(--theme-color-status-success)!important;outline:2px solid var(--theme-color-status-success);outline-offset:-2px;}
         .atlas-root [style*="background: var(--theme-color-surface)"],
         .atlas-root [style*="background: var(--theme-color-surface-raised)"],
