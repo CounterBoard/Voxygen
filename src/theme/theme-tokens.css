@@ -284,7 +284,7 @@
   --theme-glow-primary: 0 14px 34px rgba(139, 92, 246, .17);
   --theme-glow-success: 0 14px 34px rgba(65, 255, 167, .12);
   --theme-backdrop-blur: 18px;
-  --theme-toast-bottom-offset: calc(69px + env(safe-area-inset-bottom));
+  --theme-toast-bottom-offset: calc(73px + env(safe-area-inset-bottom));
   --theme-toast-max-width: 360px;
   --theme-toast-viewport-gutter-total: 28px;
   --theme-toast-padding-block: 7px;
