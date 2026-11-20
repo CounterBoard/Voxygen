@@ -387,7 +387,7 @@ selectors.
 
 The fixed toast's bottom offset (including the device safe area), maximum
 width, horizontal viewport gutter, compact content padding (**8 px vertical /
-24 px horizontal**), pill radius and text metrics are controlled by dedicated
+12 px horizontal**), pill radius and text metrics are controlled by dedicated
 theme roles. Its width is content-driven (message width plus padding), with the
 maximum width and viewport gutter acting only as safety caps. This allows the
 notification treatment to adapt without changing timing, priority, accessibility
@@ -521,10 +521,13 @@ Editable text, numeric and select fields use Purple borders at rest and transiti
 
 ## Reminder, profile and theme picker details
 
-The event reminder unit switch, amount field and confirmation action share the same control radius. The switch keeps two flush, square inner halves. Profile and Visual bottom clearance is 85 px plus safe area; the final territory actions keep 10 px below. The theme picker uses a two-line Vox description, omits the one-theme availability notice, and renders arrow outlines/glyphs in Purple on a soft Purple surface, matching the territory-navigation action. The equipped visual uses a Mint outline around its image preview instead of a check badge. FixedToast remains content-width with 24 px horizontal padding and 15 px text, entering and exiting behind the bottom navigation.
+The event reminder unit switch, amount field and confirmation action share the same control radius. The switch keeps two flush, square inner halves. Profile and Visual bottom clearance is 85 px plus safe area; the final territory actions keep 10 px below. The theme picker uses a two-line Vox description, omits the one-theme availability notice, and renders arrow outlines/glyphs in Purple on a soft Purple surface, matching the territory-navigation action. The equipped visual uses a Mint outline around its image preview instead of a check badge. FixedToast remains content-width with 12 px horizontal padding and 14 px text, entering and exiting behind the bottom navigation. Repeated identical territory messages get a fresh toast instance. Its backdrop filter slightly dims only the pixels directly beneath the message.
 
 ## Profile visual tiles and toast motion
 
 Profile «Оформление территории» and «Покупки» grids use image-first tiles without visible item names or padded thumbnail cards. Markers use four columns; covers use two columns with a wide image frame. The equipped item is identified by a Mint outline around the image itself, never by a check badge. Resident read-only additional information renders usernames as plain text, not Telegram links.
 
-FixedToast is content-sized with 24 px horizontal padding and 15 px text. It is placed at the bottom-navigation edge (84 px plus safe area) with z-index 39 beneath navigation z-index 40; it rises from behind the bar and exits back behind it. Error notifications remain red. The reminder unit selector has two equal-width flush halves; its inner halves have no radius, border or press-scale transform.
+FixedToast is content-sized with 12 px horizontal padding and 14 px text. It is placed at the bottom-navigation edge (69 px plus safe area) with z-index 39 beneath navigation z-index 40; it rises from behind the bar and exits back behind it. Error notifications remain red. The reminder unit selector has two equal-width flush halves; its inner halves have no radius, border or press-scale transform.
+
+
+Disabled theme-picker arrows retain their Purple outline and glyph without disabled-state desaturation. Equipped inventory tiles use a dedicated higher-specificity Mint image outline, protected from the generic raised-surface border rule. Non-interactive Telegram usernames inherit the surrounding text color instead of using the Mint link accent.
