@@ -318,3 +318,8 @@ The baseline Vox pack defines the minimum token contract for every shipped theme
 | `--theme-recipe-field-transition` | `border-color 180ms ease, box-shadow 180ms ease` |
 
 Toast layering and motion contract: FixedToast uses z-index 39 while the persistent bottom navigation uses z-index 40. It uses inline-block/content width, 12 px horizontal padding, 7 px vertical padding and 14 px text. Its backdrop filter slightly dims and blurs only the area directly beneath the toast. The toast's bottom offset is 69 px plus safe area, aligned to the actual navigation edge. Entry and exit translate by 100% of the toast's own height so the notification emerges from behind the navigation and returns behind it. Error toasts retain the danger/red palette.
+
+
+
+
+Toast/navigation spacing: `--theme-toast-bottom-offset: calc(73px + env(safe-area-inset-bottom))`. The bottom navigation occupies 69 px plus safe area, leaving a 4 px gap above the bar. Insufficient-gems purchase errors are routed to the root app-level `FixedToast` with `type="error"`.
