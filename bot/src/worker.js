@@ -5620,7 +5620,6 @@ async function initializeEventsTables(env) {
     event_at INTEGER NOT NULL,
     coords TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
-    image_data TEXT,
     page_url TEXT,
     event_timezone TEXT NOT NULL DEFAULT 'UTC',
     created_by INTEGER NOT NULL,
@@ -5630,6 +5629,7 @@ async function initializeEventsTables(env) {
   )`).run();
   const eventCols = await env.DB.prepare(`PRAGMA table_info(events)`).all();
   const eventColumnNames = new Set((eventCols.results || []).map(row => row.name));
+  if (eventColumnNames.has('image_data')) await env.DB.prepare(`ALTER TABLE events DROP COLUMN image_data`).run();
   if (!eventColumnNames.has('event_timezone')) { try { await env.DB.prepare(`ALTER TABLE events ADD COLUMN event_timezone TEXT NOT NULL DEFAULT 'UTC'`).run(); } catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; } }
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_events_active_date ON events(active,event_at)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_events_date_cleanup ON events(event_at)`).run();
@@ -5756,7 +5756,6 @@ async function getEvents(request, env) {
   const now = Date.now();
   const viewer = await getCurrentUser(request, env);
   await purgeExpiredEvents(env, now);
-  await env.DB.prepare(`UPDATE events SET image_data=NULL WHERE image_data IS NOT NULL`).run();
   const cutoff = now - 24 * 60 * 60 * 1000;
   // Return upcoming events and events that started within the last 24 hours.
   // The frontend separates them into upcoming/past sections; older events are permanently purged above.
@@ -5786,7 +5785,7 @@ function eventMaximumTimestamp(now = Date.now()) {
 }
 
 function validateEventBody(body, { partial = false, now = Date.now() } = {}) {
-  const out = { imageData: null };
+  const out = {};
   if (!partial || body.title !== undefined) out.title = String(body?.title || '').trim();
   if (!partial || body.territoryId !== undefined) out.territoryId = String(body?.territoryId || '').trim() || null;
   if (!partial || body.place !== undefined) out.place = String(body?.place || '').trim();
@@ -5872,7 +5871,7 @@ async function createEvent(request, env) {
   if (requestKey.length < 8 || requestKey.length > 120) return json({ ok: false, error: 'Некорректный ключ отправки ивента' }, 400);
   const payloadForHash = JSON.stringify([
     e.title, e.territoryId, e.place, e.eventAt, e.coords, e.description,
-    e.imageData, e.pageUrl, e.eventTimezone,
+    e.pageUrl, e.eventTimezone,
   ]);
   const payloadDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payloadForHash));
   const payloadHash = [...new Uint8Array(payloadDigest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
@@ -5905,8 +5904,8 @@ async function createEvent(request, env) {
   let inserted;
   try{
     const batch=await env.DB.batch([
-      env.DB.prepare(`INSERT OR IGNORE INTO events(id,title,territory_id,place,event_at,coords,description,image_data,page_url,event_timezone,created_by,created_at,updated_at,active)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1)`).bind(id,e.title,e.territoryId,e.place,e.eventAt,e.coords,e.description,e.imageData,e.pageUrl,e.eventTimezone,creatorId,now,now),
+      env.DB.prepare(`INSERT OR IGNORE INTO events(id,title,territory_id,place,event_at,coords,description,page_url,event_timezone,created_by,created_at,updated_at,active)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1)`).bind(id,e.title,e.territoryId,e.place,e.eventAt,e.coords,e.description,e.pageUrl,e.eventTimezone,creatorId,now,now),
       env.DB.prepare(`UPDATE event_create_requests SET status='completed',updated_at=? WHERE telegram_id=? AND request_key=?`).bind(now,creatorId,requestKey)
     ]);
     inserted=batch[0];
@@ -5955,13 +5954,13 @@ async function updateEvent(request, env) {
   const value = {
     title: e.title ?? current.title, territoryId: nextTerritoryId,
     place: nextPlace, eventAt: e.eventAt ?? Number(current.event_at), coords: e.coords ?? current.coords,
-    description: e.description ?? current.description, imageData: null,
+    description: e.description ?? current.description,
     pageUrl: e.pageUrl !== undefined ? e.pageUrl : current.page_url,
     eventTimezone: e.eventTimezone ?? current.event_timezone ?? 'UTC',
   };
   const now = actionNow;
-  const eventUpdate = env.DB.prepare(`UPDATE events SET title=?,territory_id=?,place=?,event_at=?,coords=?,description=?,image_data=?,page_url=?,event_timezone=?,updated_at=? WHERE id=? AND active=1`)
-    .bind(value.title,value.territoryId,value.place,value.eventAt,value.coords,value.description,value.imageData,value.pageUrl,value.eventTimezone,now,id);
+  const eventUpdate = env.DB.prepare(`UPDATE events SET title=?,territory_id=?,place=?,event_at=?,coords=?,description=?,page_url=?,event_timezone=?,updated_at=? WHERE id=? AND active=1`)
+    .bind(value.title,value.territoryId,value.place,value.eventAt,value.coords,value.description,value.pageUrl,value.eventTimezone,now,id);
   if (e.eventAt !== undefined && Number(e.eventAt)!==Number(current.event_at)) {
     // Update the event and its reminder schedule atomically. Cron cannot observe a mixed state
     // with the new date but the previous remind_at (or vice versa).
