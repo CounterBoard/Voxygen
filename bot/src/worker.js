@@ -1205,7 +1205,13 @@ async function initializeWorldTables(env) {
   const bannerColumnInfo = await env.DB.prepare(`PRAGMA table_info(city_customization)`).all();
   const bannerColumnNames = new Set((bannerColumnInfo.results || []).map(row => row.name));
   if (!bannerColumnNames.has('banner_color')) {
-    await env.DB.prepare(`ALTER TABLE city_customization ADD COLUMN banner_color TEXT NOT NULL DEFAULT 'purple'`).run();
+    try {
+      await env.DB.prepare(`ALTER TABLE city_customization ADD COLUMN banner_color TEXT NOT NULL DEFAULT 'purple'`).run();
+    } catch (error) {
+      // Multiple first requests can initialize concurrently; another request may
+      // have added the column after this request's PRAGMA snapshot.
+      if (!String(error).toLowerCase().includes('duplicate column')) throw error;
+    }
   }
   if (versionRow?.value === WORLD_SCHEMA_VERSION) return;
 
