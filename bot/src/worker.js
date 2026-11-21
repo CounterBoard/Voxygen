@@ -2031,7 +2031,7 @@ async function getCustomization(request, env) {
     cityInventory=[...(cityOnly.results||[]),...(userOwned.results||[])].filter((x,i,a)=>!visualHasTag(x,'обложка')&&a.findIndex(y=>y.item_id===x.item_id)===i);
     if(!equippedMarkerItemId){const first=await ensureFirstCityMarker(env,profileTerritoryId);equippedMarkerItemId=first?.id||null;}
   }
-  const cityAwards=cityInventory.filter(item=>String(item.source||'')==='achievement');
+  const cityAwards=cityInventory.filter(item=>['achievement','main_inspector'].includes(String(item.source||'')));
   let bannerColor='purple';
   if(profileTerritoryId){const banner=await env.DB.prepare('SELECT banner_color FROM city_customization WHERE territory_id=?').bind(profileTerritoryId).first();bannerColor=String(banner?.banner_color||'purple');}
   return json({ok:true,balance,personalBalance:Number(personalBalance?.balance||0),accountScope,accountLabel:accountScope==='personal'?(currentUser?.mc_nickname||'Ник не указан'):`Казна: ${accountCity?.name||'город'}`,accountOptions:[{scope:'personal',label:currentUser?.mc_nickname||'Ник не указан'},...managerCities.map(c=>({scope:`treasury:${c.id}`,label:`Казна: ${c.name}`}))],managerCities,cityName:accountCity?.name||null,categories:cats.results||[],items:visibleItems,owned:owned.results||[],myItems,cityId:profileTerritoryId||null,cityRole:profileTerritoryId?'manager':null,cityInventory,cityAwards,bannerColor,equippedMarkerItemId});
