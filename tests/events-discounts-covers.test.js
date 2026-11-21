@@ -100,6 +100,7 @@ test("Worker initialization never caches request-scoped D1 promises across reque
     "legacyMapCleanupDone",
   ]) assert.ok(worker.includes(`const ${name} = new WeakSet();`), `${name} must cache completion only`);
   assert.ok(worker.includes("if (worldTableInitDone.has(env)) return;\n  await initializeWorldTables(env);\n  worldTableInitDone.add(env);"));
+  assert.ok(worker.includes("if (!String(error).toLowerCase().includes('duplicate column')) throw error;"));
   assert.ok(worker.includes("if (EVENT_TABLES_INIT_DONE.has(env)) return;\n  await initializeEventsTables(env);\n  EVENT_TABLES_INIT_DONE.add(env);"));
   assert.ok(!worker.includes("const worldTableInitPromises = new WeakMap();"));
   assert.ok(!worker.includes(".set(env, promise)"));
