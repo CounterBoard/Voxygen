@@ -2077,6 +2077,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin:'12px 0 6px'}}>Награды</div>
         <InventoryGrid items={inventory?.cityAwards||[]} showEquip={false} columns={4} aspectRatio="1 / 1" imageFit="contain" emptyText="Город пока не получил наград."/>
       </div>
+    </div>
     <RecruitmentManagement territory={{...territory,recruitment_username:newRecruitmentUsername}} initData={initData} onSaved={load} readOnly={readOnly}/>
     {readOnly&&<button onClick={leaveTerritory} disabled={leaveBusy} className="press" style={{width:'100%',height:48,minWidth:72,padding: '0 12px',border:'1px solid var(--theme-color-status-danger)',borderRadius:14,background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,marginBottom: 0}}>{leaveBusy?'Выход…':'Покинуть территорию'}</button>}
     {!readOnly&&<button onClick={requestInspectorRating} className="press" style={{width:'100%',border:'none',borderRadius:10,padding: '10px 12px',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:700,marginBottom: 0,minHeight:44}}>Запросить оценку инспектора</button>}
