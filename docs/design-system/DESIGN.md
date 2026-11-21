@@ -542,6 +542,10 @@ Error toasts use a danger/red halo and glow animation; they must not flash Mint/
 
 
 ### Sliding segmented selection and toast contrast (21.11.2026)
+### Profile settings viewport alignment (21.11.2026)
+
+The profile settings dialog is vertically centered in the area above the fixed bottom navigation. The overlay reserves the navigation's 69 px height plus 12 px clearance, as well as device safe areas; the dialog's maximum height is constrained to the remaining region. This removes the visual collision with bottom navigation while balancing the previously excessive top whitespace. Modal width, inner spacing, shape and scroll behavior are preserved.
+
 
 The «Набор» / «Карта» / «Рейтинг» main tabs and «По инспектору» / «По игрокам» rating selector use a shared interaction principle: one Purple selection surface physically slides to the newly selected position. The text and icon in the selected segment are white; inactive labels remain muted. The indicator uses a 280 ms ease transition and respects reduced-motion settings. Existing control dimensions, placement and pill geometry are preserved.
 
