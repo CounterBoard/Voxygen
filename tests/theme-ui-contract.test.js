@@ -415,6 +415,9 @@ test('modal shells use safe overlay spacing, theme geometry and dynamic viewport
   assert.ok(app.includes('--theme-modal-viewport-safe-height:calc(100dvh - var(--theme-modal-viewport-inset-total));'));
   assert.ok(app.includes('var(--theme-modal-viewport-safe-height)'));
   for (const role of roles) assert.ok(app.includes(`var(--theme-modal-max-height-${role})`));
+  assert.ok(app.includes("padding: 'calc(env(safe-area-inset-top) + 12px) 12px calc(69px + env(safe-area-inset-bottom) + 12px)'"));
+  assert.ok(app.includes("calc(100vh - 93px - env(safe-area-inset-top) - env(safe-area-inset-bottom))"));
+  assert.ok(app.includes("zIndex:130"));
   assert.ok(app.includes("borderRadius: 'var(--theme-radius-modal)'"));
   assert.equal(app.split("padding:'var(--theme-modal-content-padding)'").length - 1 + app.split("padding: 'var(--theme-modal-content-padding)'").length - 1, 5);
 });
