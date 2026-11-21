@@ -1430,7 +1430,6 @@ async function initializeWorldTables(env) {
     CREATE TABLE IF NOT EXISTS city_customization (
       territory_id TEXT PRIMARY KEY,
       marker_item_id TEXT,
-      background_item_id TEXT,
       banner_color TEXT NOT NULL DEFAULT 'none',
       effects_json TEXT NOT NULL DEFAULT '[]',
       updated_at INTEGER NOT NULL
@@ -1438,7 +1437,6 @@ async function initializeWorldTables(env) {
   `).run();
   const cityCustomizationCols = await env.DB.prepare(`PRAGMA table_info(city_customization)`).all();
   const cityCustomizationNames = new Set((cityCustomizationCols.results || []).map(r => r.name));
-  if (!cityCustomizationNames.has('background_item_id')) { try { await env.DB.prepare(`ALTER TABLE city_customization ADD COLUMN background_item_id TEXT`).run(); } catch (e) { if (!String(e).toLowerCase().includes('duplicate column')) throw e; } }
   if (!cityCustomizationNames.has('banner_color')) { try { await env.DB.prepare(`ALTER TABLE city_customization ADD COLUMN banner_color TEXT NOT NULL DEFAULT 'none'`).run(); } catch (e) { if (!String(e).toLowerCase().includes('duplicate column')) throw e; } }
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS comment_replies (
@@ -6460,7 +6458,7 @@ async function handleVisualDiscountMessage(env,update,message,command) {
   const reply=async value=>{try{await telegram(env,'sendMessage',{chat_id:chatId,text:value,reply_to_message_id:messageId});}catch(error){console.error('Visual discount banker reply failed:',error);}};
   const items=(await env.DB.prepare(`SELECT i.id,i.name,i.categories_text,c.name AS category_name FROM customization_items i LEFT JOIN customization_categories c ON c.id=i.category_id WHERE i.active=1`).all()).results||[];
   const selected=command.all?items:items.filter(item=>{
-    const name=String(item.name||'').trim().toLocaleLowerCase('ru-RU');
+    const name=stripMinecraftFormatting(String(item.name||'')).trim().toLocaleLowerCase('ru-RU');
     return command.targets.some(target=>target.toLocaleLowerCase('ru-RU')===name||visualHasTag(item,target));
   });
   const now=Date.now(),expiresAt=now+command.durationMs;
@@ -6469,19 +6467,23 @@ async function handleVisualDiscountMessage(env,update,message,command) {
     env.DB.prepare(`INSERT OR IGNORE INTO visual_discount_operations(update_id,actor_telegram_id,mode,target_summary,percent,expires_at,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'processing',?,?)`).bind(updateId,Number(message.from.id),command.mode,summary,command.percent,expiresAt,now,now),
     env.DB.prepare(`UPDATE visual_discount_operations SET status='applying',updated_at=? WHERE update_id=? AND status='processing' AND changes()=1`).bind(now,updateId),
   ];
-  for(const item of selected){
+  if(selected.length){
+    const placeholders=selected.map(()=>'?').join(',');
+    const itemIds=selected.map(item=>item.id);
     if(command.mode==='set'){
       statements.push(env.DB.prepare(`INSERT INTO customization_discounts(item_id,percent,expires_at,updated_at,updated_by_telegram_id)
-        SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM visual_discount_operations WHERE update_id=? AND status='applying')
+        SELECT id,?,?,?,? FROM customization_items WHERE active=1 AND id IN (${placeholders})
+          AND EXISTS(SELECT 1 FROM visual_discount_operations WHERE update_id=? AND status='applying')
         ON CONFLICT(item_id) DO UPDATE SET percent=excluded.percent,expires_at=excluded.expires_at,updated_at=excluded.updated_at,updated_by_telegram_id=excluded.updated_by_telegram_id`)
-        .bind(item.id,command.percent,expiresAt,now,Number(message.from.id),updateId));
+        .bind(command.percent,expiresAt,now,Number(message.from.id),...itemIds,updateId));
     }else{
       statements.push(env.DB.prepare(`UPDATE customization_discounts SET percent=MAX(0,percent-?),expires_at=?,updated_at=?,updated_by_telegram_id=?
-        WHERE item_id=? AND expires_at>? AND EXISTS(SELECT 1 FROM visual_discount_operations WHERE update_id=? AND status='applying')`)
-        .bind(command.percent,expiresAt,now,Number(message.from.id),item.id,now,updateId));
-      statements.push(env.DB.prepare(`DELETE FROM customization_discounts WHERE item_id=? AND (percent<=0 OR expires_at<=?)
+        WHERE item_id IN (${placeholders}) AND expires_at>?
+          AND EXISTS(SELECT 1 FROM visual_discount_operations WHERE update_id=? AND status='applying')`)
+        .bind(command.percent,expiresAt,now,Number(message.from.id),...itemIds,now,updateId));
+      statements.push(env.DB.prepare(`DELETE FROM customization_discounts WHERE item_id IN (${placeholders}) AND percent<=0
         AND EXISTS(SELECT 1 FROM visual_discount_operations WHERE update_id=? AND status='applying')`)
-        .bind(item.id,now,updateId));
+        .bind(...itemIds,updateId));
     }
   }
   statements.push(env.DB.prepare(`UPDATE visual_discount_operations SET status='completed',updated_at=? WHERE update_id=? AND status='applying'`).bind(now,updateId));
