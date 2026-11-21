@@ -3526,8 +3526,6 @@ function makeVisualForm(item={}){
   };
 }
 
-async function validateCoverDataUrl(dataUrl){if(!dataUrl)return;const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('Не удалось определить размеры изображения'));i.src=dataUrl});const ratio=img.width/img.height;if(!Number.isFinite(ratio)||Math.abs(ratio-(8/3))>0.001)throw new Error('Для визуала с тегом «Обложка» изображение должно иметь соотношение 8:3.')}
-
 function VisualEditModal({item,onClose,onSaved,initData}){
   const [form,setForm]=useState(makeVisualForm(item)),[saving,setSaving]=useState(false),[error,setError]=useState('');
   const { closing, requestClose } = useAnimatedClose(onClose, 175);
@@ -3538,7 +3536,7 @@ function VisualEditModal({item,onClose,onSaved,initData}){
       const categories=form.categories.split(',').map(x=>x.trim()).filter(Boolean);
       if(!form.name.trim()||!categories.length)throw new Error('Укажите название и хотя бы один тег');
       if(!form.imageData)throw new Error('Загрузите изображение визуала');
-      if(categories.some(x=>x.toLowerCase()==='обложка')) await validateCoverDataUrl(form.imageData);
+      if(categories.some(x=>x.toLowerCase()==='обложка')) throw new Error('Тег «Обложка» больше не поддерживается');
       const r=await fetch(`${API_BASE}/api/customization/items/${encodeURIComponent(item.id)}`,{
         method:'PATCH',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},
         body:JSON.stringify({initData,name:form.name.trim(),categories,price:Number(form.price),imageData:form.imageData,color:form.color,
@@ -3632,7 +3630,7 @@ function CustomizationScreen({initData,tgUser,role,territories,profile,onToast})
       setSaving(true);setError('');
       const categories=form.categories.split(',').map(x=>x.trim()).filter(Boolean);
       if(!form.name.trim()||!categories.length)throw new Error('Укажите название и хотя бы один тег');
-      if(categories.some(x=>x.toLowerCase()==='обложка')) await validateCoverDataUrl(form.imageData);
+      if(categories.some(x=>x.toLowerCase()==='обложка')) throw new Error('Тег «Обложка» больше не поддерживается');
       const r=await fetch(`${API_BASE}/api/customization/items`,{
         method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},
         body:JSON.stringify({initData,name:form.name.trim(),categories,price:Number(form.price),imageData:form.imageData,color:form.color,
@@ -3678,8 +3676,8 @@ function CustomizationScreen({initData,tgUser,role,territories,profile,onToast})
     }catch(e){setError(safeCaughtError(e, 'Не удалось изменить порядок тегов'));loadFull()}
   }
 
-  const allItems=(data?.items||[]).filter(item=>isMain||!item.government_marker);
-  const tagNames=data?.categories||[];
+  const allItems=(data?.items||[]).filter(item=>!String(item.category_name||'').toLowerCase().split(',').includes('обложка')&&!String(item.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('обложка')&&(isMain||!item.government_marker));
+  const tagNames=(data?.categories||[]).filter(tag=>String(tag.name||'').toLowerCase()!=='обложка');
   const filtered=allItems.filter(item=>{
     const cats=String(item.categories_text||item.category_name||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
     return (filters.tag==='all'||cats.includes(filters.tag.toLowerCase()))&&(filters.color==='all'||String(item.color||'white')===filters.color);
@@ -3764,7 +3762,7 @@ function CustomizationScreen({initData,tgUser,role,territories,profile,onToast})
           </div>}
           {item.image_data&&<div style={{height:140,display:'flex',alignItems:'center',justifyContent:'center',background:'var(--theme-color-surface-raised)',borderRadius:10}}><img src={item.image_data} alt={item.name} style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',imageRendering:'pixelated'}}/></div>}
           <MinecraftText as="div" text={item.name} style={{fontSize:13,fontWeight:700,marginTop: 6}}/>
-          <div className="atlas-display atlas-visual-price" style={{fontSize:18,fontWeight:800,color:'var(--content-color-gem)',marginTop: 6,display:'flex',alignItems:'center',gap: 6,lineHeight:1}}><span>{item.price}</span><GemHex/></div>
+          {Number(item.discount_percent||0)>0?<div className="atlas-display atlas-visual-price" style={{fontSize:18,fontWeight:800,marginTop:6,display:'flex',alignItems:'center',gap:8,lineHeight:1,flexWrap:'wrap'}}><span style={{fontSize:14,fontWeight:650,color:'var(--theme-color-text-muted)',textDecoration:'line-through',textDecorationColor:'var(--theme-color-status-danger)',textDecorationThickness:2}}>{item.price}</span><span style={{color:'var(--content-color-gem)'}}>{Math.max(0,Math.round(Number(item.price)*(100-Number(item.discount_percent))/100))}</span><GemHex/></div>:<div className="atlas-display atlas-visual-price" style={{fontSize:18,fontWeight:800,color:'var(--content-color-gem)',marginTop: 6,display:'flex',alignItems:'center',gap: 6,lineHeight:1}}><span>{item.price}</span><GemHex/></div>}
           <button disabled={owned} onClick={()=>buy(item.id)} className="press" style={{width:'100%',marginTop: 8,padding: 8,border:'none',borderRadius:10,background:owned?'var(--theme-color-surface-raised)':'var(--theme-color-action-primary)',color:owned?'var(--theme-color-text-muted)':'var(--theme-color-action-primary-contrast)',fontWeight:700}}>{owned?'Получено':'Купить'}</button>
         </div>;
       })}
