@@ -689,9 +689,9 @@ function FontsAndTheme() {
         .atlas-success-pulse{animation:atlas-success-halo .42s ease-out both;}
         .atlas-fixed-toast{animation:atlas-toast-in .28s cubic-bezier(.22,.72,.22,1) both,atlas-toast-glow .70s ease-out both;}
         .atlas-fixed-toast.atlas-toast-exiting{animation:atlas-toast-out .17s ease-in both;}
-        .atlas-fixed-toast--success{background:color-mix(in srgb,var(--theme-color-status-success-soft) 88%,#000);border-color:var(--theme-color-status-success-border);color:var(--theme-color-status-success);}
-        .atlas-fixed-toast--error{background:color-mix(in srgb,var(--theme-color-status-danger-soft) 88%,#000);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);box-shadow:var(--theme-shadow-toast);animation:atlas-toast-in .28s cubic-bezier(.22,.72,.22,1) both,atlas-toast-error-glow .70s ease-out both;}
-        .atlas-fixed-toast--warning{background:color-mix(in srgb,var(--theme-color-status-warning-soft) 88%,#000);border-color:var(--theme-color-status-warning-border);color:var(--theme-color-status-warning);box-shadow:var(--theme-shadow-toast);}
+        .atlas-fixed-toast--success{background:color-mix(in srgb,var(--theme-color-status-success-soft) 45%,#000);border-color:var(--theme-color-status-success-border);color:var(--theme-color-status-success);}
+        .atlas-fixed-toast--error{background:color-mix(in srgb,var(--theme-color-status-danger-soft) 45%,#000);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);box-shadow:var(--theme-shadow-toast);animation:atlas-toast-in .28s cubic-bezier(.22,.72,.22,1) both,atlas-toast-error-glow .70s ease-out both;}
+        .atlas-fixed-toast--warning{background:color-mix(in srgb,var(--theme-color-status-warning-soft) 45%,#000);border-color:var(--theme-color-status-warning-border);color:var(--theme-color-status-warning);box-shadow:var(--theme-shadow-toast);}
         #root .atlas-root input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]),#root .atlas-root textarea,#root .atlas-root select{border-color:var(--theme-recipe-field-border)!important;transition:var(--theme-recipe-field-transition);}
         #root .atlas-root textarea.atlas-profile-additional-field,#root .atlas-root textarea.atlas-recruitment-description-field,#root .atlas-root textarea.atlas-event-description-field{border-color:var(--theme-recipe-field-border)!important;}
         #root .atlas-root textarea.atlas-profile-additional-field:focus,#root .atlas-root textarea.atlas-recruitment-description-field:focus:not([aria-invalid="true"]),#root .atlas-root textarea.atlas-event-description-field:focus:not([aria-invalid="true"]){border-color:var(--theme-recipe-field-focus-border)!important;box-shadow:0 0 0 3px var(--theme-color-status-success-soft),var(--theme-shadow-focus-field);outline:none;}
@@ -703,34 +703,70 @@ function FontsAndTheme() {
 
         /* More consistent control geometry. */
         .atlas-segmented{
+          position:relative;
           display:flex;
-          gap: var(--theme-space-1);
-          padding: var(--theme-space-1);
+          gap:0;
+          padding:var(--theme-space-1);
           border-radius:var(--theme-radius-pill);
           background:var(--theme-color-surface-raised);
+          isolation:isolate;
+        }
+        .atlas-segmented__indicator{
+          position:absolute;
+          z-index:0;
+          top:var(--theme-space-1);
+          bottom:var(--theme-space-1);
+          left:var(--theme-space-1);
+          width:calc((100% - 2 * var(--theme-space-1)) / var(--segmented-count));
+          border-radius:var(--theme-radius-pill);
+          background:var(--theme-color-action-primary);
+          transform:translateX(calc(var(--segmented-index) * 100%));
+          transition:transform 280ms cubic-bezier(.22,.72,.22,1);
+          pointer-events:none;
         }
         .atlas-segmented__option{
+          position:relative;
+          z-index:1;
           display:flex;
+          flex:1 1 0;
+          min-width:0;
           align-items:center;
           justify-content:center;
-          gap: var(--theme-space-2);
-          padding: var(--theme-space-2) var(--theme-space-4);
+          gap:var(--theme-space-2);
+          padding:var(--theme-space-2) var(--theme-space-4);
           min-height:var(--theme-control-height-compact);
           border:0;
           border-radius:var(--theme-radius-pill);
-          background:var(--theme-recipe-segmented-idle-bg);
+          background:transparent;
           color:var(--theme-recipe-segmented-idle-fg);
           font-size:var(--theme-type-control-size);
           font-weight:var(--theme-type-label-weight);
           cursor:pointer;
+          transition:color 180ms ease,font-weight 180ms ease;
         }
         .atlas-segmented__option.is-active{
-          background:var(--theme-recipe-segmented-active-bg);
-          color:var(--theme-recipe-segmented-active-fg);
+          color:#fff;
+          font-weight:700;
         }
         .atlas-segmented__option:focus-visible{
           outline:2px solid var(--theme-color-action-primary);
           outline-offset:2px;
+        }
+        .atlas-main-tabs__indicator{
+          position:absolute;
+          z-index:0;
+          top:3px;
+          bottom:3px;
+          left:3px;
+          width:calc((100% - 6px) / 3);
+          border-radius:999px;
+          background:var(--theme-color-action-primary);
+          transform:translateX(calc(var(--main-tabs-index) * 100%));
+          transition:transform 280ms cubic-bezier(.22,.72,.22,1);
+          pointer-events:none;
+        }
+        @media (prefers-reduced-motion:reduce){
+          .atlas-segmented__indicator,.atlas-main-tabs__indicator{transition:none!important;}
         }
         .atlas-root input,.atlas-root textarea,.atlas-root select{ border-radius:var(--theme-radius-control)!important; }
         .atlas-root ::selection{ background:var(--theme-color-action-primary-soft); color:var(--theme-color-text-primary); }
@@ -782,8 +818,10 @@ function ScoreBadge({ type, value, size = 'md' }) {
 }
 
 function Segmented({ options, value, onChange }) {
+  const activeIndex=Math.max(0,options.findIndex(opt=>opt.value===value));
   return (
-    <div className="atlas-segmented" role="group">
+    <div className="atlas-segmented" role="group" style={{'--segmented-count':options.length,'--segmented-index':activeIndex}}>
+      <span className="atlas-segmented__indicator" aria-hidden="true"/>
       {options.map((opt) => {
         const active = opt.value === value;
         return (
@@ -3276,12 +3314,16 @@ function MainTabs({ tab, onChange }) {
     { key: 'map', label: 'Карта', icon: MapIcon },
     { key: 'rating', label: 'Рейтинг', icon: ListIcon },
   ];
+  const activeIndex=Math.max(0,items.findIndex(item=>item.key===tab));
 
   return (
     <div style={{ padding: '4px 15px 12px' }}>
-      <div style={{
-        background: 'var(--theme-color-surface-raised)', borderRadius: 12, padding: 3, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 4,
+      <div className="atlas-main-tabs" style={{
+        '--main-tabs-index':activeIndex,
+        background:'var(--theme-color-surface-raised)',borderRadius:12,padding:3,
+        display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:0,position:'relative',isolation:'isolate',
       }}>
+        <span className="atlas-main-tabs__indicator" aria-hidden="true"/>
         {items.map((it) => {
           const active = it.key === tab;
           const Icon = it.icon;
@@ -3289,13 +3331,14 @@ function MainTabs({ tab, onChange }) {
             <button
               key={it.key}
               onClick={() => onChange(it.key)}
-              className="press"
+              className={`press atlas-main-tabs__option${active?' is-active':''}`}
+              aria-pressed={active}
               style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                minWidth: 0, padding: '6px 6px', borderRadius: 999, fontSize: 12.5, fontWeight: active ? 700 : 600,
-                border: 'none', cursor: 'pointer',
-                background: active ? 'var(--theme-color-action-primary)' : 'transparent',
-                color: active ? 'var(--theme-color-action-primary-contrast)' : 'var(--theme-color-text-muted)',
+                position:'relative',zIndex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:4,
+                minWidth:0,padding:'6px 6px',borderRadius:999,fontSize:12.5,fontWeight:active?700:600,
+                border:'none',cursor:'pointer',background:'transparent',
+                color:active?'#fff':'var(--theme-color-text-muted)',
+                transition:'color 180ms ease,font-weight 180ms ease',
               }}
             >
               <Icon size={14} />
