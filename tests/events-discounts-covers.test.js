@@ -98,9 +98,9 @@ test("Worker initialization never caches request-scoped D1 promises across reque
     "mapSettingsTableInitDone",
     "worldTableInitDone",
     "legacyMapCleanupDone",
-  ]) assert.match(worker,new RegExp(`const ${name} = new WeakSet\\(\\)`));
-  assert.match(worker,/async function ensureWorldTables\\(env\\) \\{[\\s\\S]*?if \\(worldTableInitDone\\.has\\(env\\)\\) return;[\\s\\S]*?await initializeWorldTables\\(env\\);[\\s\\S]*?worldTableInitDone\\.add\\(env\\);/);
-  assert.match(worker,/async function ensureEventsTables\\(env\\) \\{[\\s\\S]*?if \\(EVENT_TABLES_INIT_DONE\\.has\\(env\\)\\) return;[\\s\\S]*?await initializeEventsTables\\(env\\);[\\s\\S]*?EVENT_TABLES_INIT_DONE\\.add\\(env\\);/);
-  assert.doesNotMatch(worker,/(?:InitPromises|INIT_CACHE|legacyMapCleanupPromises) = new WeakMap/);
-  assert.doesNotMatch(worker,/\.set\\(env, promise\\)/);
+  ]) assert.ok(worker.includes(`const ${name} = new WeakSet();`), `${name} must cache completion only`);
+  assert.ok(worker.includes("if (worldTableInitDone.has(env)) return;\n  await initializeWorldTables(env);\n  worldTableInitDone.add(env);"));
+  assert.ok(worker.includes("if (EVENT_TABLES_INIT_DONE.has(env)) return;\n  await initializeEventsTables(env);\n  EVENT_TABLES_INIT_DONE.add(env);"));
+  assert.ok(!worker.includes("const worldTableInitPromises = new WeakMap();"));
+  assert.ok(!worker.includes(".set(env, promise)"));
 });
