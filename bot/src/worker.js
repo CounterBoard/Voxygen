@@ -3116,9 +3116,11 @@ async function getTerritories(request, env) {
   const requestUrl = new URL(request.url);
   const detailId = String(requestUrl.searchParams.get('detail') || '').trim();
   const summaryMode = !detailId && requestUrl.searchParams.get('view') === 'summary';
+  let failureStage = 'schema';
   try {
     await Promise.all([ensureRecruitmentTable(env), ensureWorldTables(env)]);
     markTiming('schema');
+    failureStage = 'territory-query';
 
     const territorySql = `
       SELECT t.*,
@@ -3148,6 +3150,7 @@ async function getTerritories(request, env) {
       ? await env.DB.prepare(territorySql).bind(detailId).all()
       : await env.DB.prepare(territorySql).all();
     markTiming('territories');
+    failureStage = 'marker-validation';
 
     // A GET must be read-only. Previously every invalid/missing marker could launch
     // several inventory queries and writes for each territory on every refresh.
@@ -3170,6 +3173,7 @@ async function getTerritories(request, env) {
       }
     }
     markTiming('marker-checks');
+    failureStage = 'related-data';
 
     const partialFailures = [];
     const safeAll = async (component, sql, binds=[]) => {
@@ -3249,6 +3253,7 @@ async function getTerritories(request, env) {
       viewerDataPromise,
     ]);
     markTiming('related-data');
+    failureStage = 'transform';
 
     const byCity={},managersByCity={},commentsByCity={},screensByCity={},communityByCity={},curatorByCity={},votesByCity={},viewerRatingsByCity={};
     for(const m of members.results||[]) (byCity[m.territory_id]||=[]).push(m);
@@ -3291,7 +3296,17 @@ async function getTerritories(request, env) {
     response.headers.set('Server-Timing', [...timings, `total;dur=${Math.max(0, Date.now() - startedAt)}`].join(', '));
     return response;
   } catch(error) {
-    console.error(JSON.stringify({event:'territories_read_failed',code:'D1_READ_FAILED'}));
+    // Keep SQL/runtime diagnostics in Worker logs (never in the API response) so a
+    // D1 failure can be tied to the exact read/migration stage without exposing it
+    // to Mini App clients.
+    console.error(JSON.stringify({
+      event: 'territories_read_failed',
+      code: 'D1_READ_FAILED',
+      stage: failureStage,
+      errorName: String(error?.name || 'Error').slice(0, 80),
+      errorMessage: String(error?.message || error || 'Unknown D1 error').slice(0, 600),
+      timings,
+    }));
     const response=json({ok:false,error:'Database error',details:String(error)},500);
     response.headers.set('Cache-Control', 'private, no-store');
     response.headers.set('Server-Timing', [...timings, `total;dur=${Math.max(0, Date.now() - startedAt)}`].join(', '));
