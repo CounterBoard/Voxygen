@@ -329,3 +329,8 @@ Insufficient-gems failures from visual purchases, treasury deposits and territor
 
 
 Toast semantic effect contract (20.11.2026): error notifications use the dedicated `atlas-toast-error-glow` animation with danger-red border/halo tokens, not the default success/Mint glow. Success retains its success/Mint glow; warning retains warning semantics. Success, warning and error surfaces are darkened using `color-mix(in srgb, <semantic-soft> 88%, #000)`. FixedToast must not use `backdrop-filter` or `-webkit-backdrop-filter`; the background behind the plate stays sharp.
+
+
+Toast contrast update (21.11.2026): success, danger and warning FixedToast surfaces use `color-mix(in srgb, <semantic-soft> 45%, #000)` (55% black) for stronger text contrast. Do not add backdrop blur or filter the page behind the plate.
+
+Segmented selection motion: both the three-item MainTabs control and the reusable Segmented control use a single absolutely positioned Purple indicator. Its horizontal position is driven by the selected option index and animated with a 280 ms ease curve. The selected option foreground is white; inactive options keep the muted foreground. The indicator transition is disabled under `prefers-reduced-motion: reduce`.
