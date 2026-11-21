@@ -637,7 +637,7 @@ The bottom-navigation geometry is 69 px plus safe-area inset. The notification's
 
 ### 13.6 Event horizon, visual discounts and territory banners (21.11.2026)
 
-- Event creation and date edits are limited to a maximum of two calendar months ahead. The browser validates before submission and the Worker enforces the same limit.
+- Event creation and date edits are limited to a maximum of two calendar months ahead, measured from the exact moment each create/edit operation is submitted. The browser validates before submission and the Worker checks against one timestamp captured for that operation.
 - Expanding an event reveals its description, reminder controls and actions only. Title, date/time, territory and coordinates remain in the event header and are not repeated in the expanded body.
 - Event image uploads/previews and territory cover visuals are retired. Legacy event image data is cleared; legacy territory background-item assignments are nulled and cannot be equipped or recreated.
 - Territory profile «Баннер» appears above «Метка» and uses a gradient generated from the selected Visual palette color. «Награды» appears directly below «Метка» and displays achievement- and inspector-awarded visuals already granted to the territory.
