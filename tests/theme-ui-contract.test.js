@@ -330,16 +330,16 @@ test('account switcher geometry and all toast/focus depths use theme roles', () 
   ]) assert.ok(tokens.includes(token), `Missing theme token: ${token}`);
   assert.match(app, /\.atlas-account-switcher\{[^}]*border-radius:var\(--theme-radius-card\);padding:\s*var\(--theme-account-switcher-padding\)/);
   assert.ok(app.includes('margin-bottom:var(--theme-space-3)'));
-  assert.ok(app.includes('.atlas-fixed-toast--error{background:color-mix(in srgb,var(--theme-color-status-danger-soft) 88%,#000);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);box-shadow:var(--theme-shadow-toast);animation:atlas-toast-in .28s cubic-bezier(.22,.72,.22,1) both,atlas-toast-error-glow .70s ease-out both;'));
-  assert.ok(app.includes('.atlas-fixed-toast--warning{background:color-mix(in srgb,var(--theme-color-status-warning-soft) 88%,#000);border-color:var(--theme-color-status-warning-border);color:var(--theme-color-status-warning);box-shadow:var(--theme-shadow-toast);'));
+  assert.ok(app.includes('.atlas-fixed-toast--error{background:color-mix(in srgb,var(--theme-color-status-danger-soft) 45%,#000);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);box-shadow:var(--theme-shadow-toast);animation:atlas-toast-in .28s cubic-bezier(.22,.72,.22,1) both,atlas-toast-error-glow .70s ease-out both;'));
+  assert.ok(app.includes('.atlas-fixed-toast--warning{background:color-mix(in srgb,var(--theme-color-status-warning-soft) 45%,#000);border-color:var(--theme-color-status-warning-border);color:var(--theme-color-status-warning);box-shadow:var(--theme-shadow-toast);'));
   assert.ok(app.includes('box-shadow:0 0 0 3px var(--theme-color-action-primary-focus),var(--theme-shadow-focus-field)'));
 });
 
 
-test('range slider shadows and cover-title readability use theme roles', () => {
-  assert.ok(tokens.includes('--theme-shadow-cover-title:'));
+test('range slider shadows and territory banner-title readability use theme roles', () => {
+  assert.ok(tokens.includes('--theme-shadow-banner-title:'));
   assert.equal((app.match(/box-shadow:var\(--theme-shadow-slider-thumb\)/g) || []).length, 2, 'WebKit and Firefox slider thumbs must share the same shadow');
-  assert.ok(app.includes("textShadow:'var(--theme-shadow-cover-title)'"));
+  assert.ok(app.includes("textShadow:'var(--theme-shadow-banner-title)'"));
 });
 
 
@@ -507,11 +507,12 @@ test('button and icon-button variants resolve through theme-owned component reci
 });
 
 
-test('segmented control active and idle states use theme-owned recipes', () => {
-  assert.ok(app.includes('background:var(--theme-recipe-segmented-idle-bg);'));
-  assert.ok(app.includes('color:var(--theme-recipe-segmented-idle-fg);'));
-  assert.ok(app.includes('background:var(--theme-recipe-segmented-active-bg);'));
-  assert.ok(app.includes('color:var(--theme-recipe-segmented-active-fg);'));
+test('segmented controls use a sliding Purple indicator and white active labels', () => {
+  assert.ok(app.includes('.atlas-segmented__indicator{'));
+  assert.ok(app.includes('transform:translateX(calc(var(--segmented-index) * 100%));'));
+  assert.ok(app.includes('background:var(--theme-color-action-primary);'));
+  assert.ok(app.includes('.atlas-segmented__option.is-active{'));
+  assert.ok(app.includes('color:#fff;'));
 });
 
 
@@ -698,14 +699,17 @@ test('profile and event description textareas explicitly use the shared field re
   assert.ok(app.includes('#root .atlas-root textarea.atlas-profile-additional-field,#root .atlas-root textarea.atlas-recruitment-description-field,#root .atlas-root textarea.atlas-event-description-field{border-color:var(--theme-recipe-field-border)!important;}'));
 });
 
-test('profile and purchases use image-only marker and cover grids', () => {
+test('profile inventory uses marker and award grids without cover visuals', () => {
   const profile=app.slice(app.indexOf('function ProfileInventory('),app.indexOf('function TreasuryCard('));
   const city=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
   assert.ok(profile.includes("columns={4} aspectRatio=\"1 / 1\" imageFit=\"contain\""));
-  assert.ok(profile.includes("columns={2} aspectRatio=\"16 / 9\" imageFit=\"cover\""));
+  assert.doesNotMatch(profile,/columns=\{2\} aspectRatio="16 \/ 9"/);
   assert.ok(city.includes("columns={4} aspectRatio=\"1 / 1\" imageFit=\"contain\""));
-  assert.ok(city.includes("columns={2} aspectRatio=\"16 / 9\" imageFit=\"cover\""));
+  assert.ok(city.includes('Баннер'));
+  assert.ok(city.includes('Награды'));
+  assert.doesNotMatch(city,/Обложка|equippedBackgroundItemId|backgroundItemId/);
 });
+
 
 test('theme picker arrows enforce the same Purple action surface and glyph as event links', () => {
   assert.equal((app.match(/className="press atlas-theme-arrow"/g)||[]).length,2);
@@ -726,7 +730,7 @@ test('FixedToast emerges from behind the bottom navigation, with compact typogra
   assert.ok(app.includes('@keyframes atlas-toast-out{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,100%)}}'));
   assert.ok(app.includes("onToast?.('Недостаточно самоцветов','error')"));
   assert.ok(app.includes('type={globalToast.type}/>'));
-  assert.ok(app.includes('.atlas-fixed-toast--error{background:color-mix(in srgb,var(--theme-color-status-danger-soft) 88%,#000);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);'));
+  assert.ok(app.includes('.atlas-fixed-toast--error{background:color-mix(in srgb,var(--theme-color-status-danger-soft) 45%,#000);border-color:var(--theme-color-status-danger-border);color:var(--theme-color-status-danger);'));
 });
 
 
