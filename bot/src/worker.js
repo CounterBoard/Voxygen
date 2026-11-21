@@ -836,7 +836,7 @@ async function ensureMapSettingsTable(env) {
   return promise;
 }
 
-const WORLD_SCHEMA_VERSION = '2026-11-v38';
+const WORLD_SCHEMA_VERSION = '2026-11-v39';
 const worldTableInitPromises = new WeakMap();
 
 async function ensureWorldTables(env) {
@@ -1215,6 +1215,25 @@ async function initializeWorldTables(env) {
     updated_at INTEGER NOT NULL
   )`).run();
   const versionRow = await env.DB.prepare(`SELECT value FROM voxygen_schema_meta WHERE key='world_schema_version' LIMIT 1`).first();
+
+  // Critical compatibility repair: this column is required by the territories SELECT.
+  // Keep it outside the version-gated migration so a stale/mis-recorded schema version
+  // can never skip the repair. CREATE IF NOT EXISTS preserves all existing rows.
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS city_customization (
+      territory_id TEXT PRIMARY KEY,
+      marker_item_id TEXT,
+      background_item_id TEXT,
+      banner_color TEXT NOT NULL DEFAULT 'purple',
+      effects_json TEXT NOT NULL DEFAULT '[]',
+      updated_at INTEGER NOT NULL
+    )
+  `).run();
+  const bannerColumnInfo = await env.DB.prepare(`PRAGMA table_info(city_customization)`).all();
+  const bannerColumnNames = new Set((bannerColumnInfo.results || []).map(row => row.name));
+  if (!bannerColumnNames.has('banner_color')) {
+    await env.DB.prepare(`ALTER TABLE city_customization ADD COLUMN banner_color TEXT NOT NULL DEFAULT 'purple'`).run();
+  }
   if (versionRow?.value === WORLD_SCHEMA_VERSION) return;
 
   // The app is upgraded in-place. This migration runs once per schema version, not on every launch.
