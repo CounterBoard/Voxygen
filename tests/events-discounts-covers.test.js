@@ -27,7 +27,7 @@ test("event details are not repeated in expanded cards and event cover assets ar
 
 test("bankers can set and reduce timed visual discounts with compact syntax",()=>{
   assert.match(worker,/function parseVisualDiscountCommand\(raw\)/);
-  const commandPattern=/^(.+?)\\s*([-+＋−]?\\d{1,3})%\\s*(\\d+)\\s*(м|мин(?:ут(?:а|ы)?)?|ч|час(?:а|ов)?)$/i;
+  const commandPattern=/^(.+?)\s*([-+＋−]?\d{1,3})%\s*(\d+)\s*(м|мин(?:ут(?:а|ы)?)?|ч|час(?:а|ов)?)$/i;
   assert.deepEqual("Все15%2ч".match(commandPattern)?.slice(1),["Все","15","2","ч"]);
   assert.deepEqual("Все-15%2ч".match(commandPattern)?.slice(1),["Все","-15","2","ч"]);
   assert.deepEqual("Метка, Шлем 20% 30 м".match(commandPattern)?.slice(1),["Метка, Шлем","20","30","м"]);
