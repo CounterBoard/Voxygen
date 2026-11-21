@@ -126,7 +126,7 @@ function localDateTimeInput(value) {
   const pad = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-async function readEventImage(file) {
+async function readHomeFeatureImage(file) {
   if (!file) return null;
   if (!String(file.type || '').startsWith('image/')) throw new Error('Выберите файл изображения.');
   const dataUrl = await new Promise((resolve, reject) => {
@@ -3404,7 +3404,7 @@ function HomeFeatureButtonModal({mode='view',config,onClose,initData,onSaved}){
   async function chooseImage(event){
     const input=event.currentTarget,file=input.files?.[0];
     if(!file){patch({imageData:''});return;}
-    try{patch({imageData:await readEventImage(file)});setError('');}
+    try{patch({imageData:await readHomeFeatureImage(file)});setError('');}
     catch(error){input.value='';setError(safeCaughtError(error,'Не удалось подготовить изображение.'));}
   }
   async function save(){
