@@ -617,5 +617,14 @@ The bottom-navigation geometry is 69 px plus safe-area inset. The notification's
 - Success notifications retain the Mint/success glow.
 - Error notifications (including «Недостаточно самоцветов») use a dedicated danger/red glow animation. The glow's border and halo use `--theme-color-status-danger-border` and `--theme-color-status-danger-soft`; they must never inherit the success/Mint halo.
 - Warning notifications use the warning semantic palette.
-- Toast surfaces are darkened by mixing 88% of their semantic soft color with black. This increases text contrast while preserving success/error/warning identity.
+- Toast surfaces are darkened by mixing 45% of their semantic soft color with black. This increases text contrast while preserving success/error/warning identity.
 - No `backdrop-filter` or `-webkit-backdrop-filter` is permitted on FixedToast. The area behind the notification remains sharp; only the notification plate itself is darkened. This avoids the Liquid Glass appearance.
+
+
+### 13.4 Sliding Purple selectors and stronger toast contrast (21.11.2026)
+
+- Main navigation tabs «Набор», «Карта» and «Рейтинг» share one Purple indicator. It slides horizontally to the selected tab instead of replacing the background on separate buttons.
+- The «По инспектору» / «По игрокам» segmented selector uses the same moving-indicator behavior. The indicator position is derived from the selected value; the option labels remain interactive and accessible.
+- Text and icons inside the selected Purple area are white; inactive options retain muted text. The selected color change is animated together with the indicator movement.
+- Both controls keep their existing overall placement, dimensions, and rounded geometry. Reduced-motion preference disables the indicator transition.
+- Toast plates are now substantially darker: 45% semantic soft color mixed with 55% black for success, error and warning. No blur or backdrop filtering is added; the page behind the toast remains sharp.
