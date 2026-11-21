@@ -2016,11 +2016,10 @@ async function getCustomization(request, env) {
   const visibleItems=(items.results||[]).filter(i=>!visualHasTag(i,'обложка')&&(viewerRole==='main_inspector'||(Number(i.government_marker||0)!==1&&Number(i.hidden_from_users||0)!==1)));
   const itemMap=new Map(visibleItems.map(i=>[i.id,i]));
   const myItems=(personalOwned.results||[]).map(x=>({...x,...(itemMap.get(x.item_id)||{})})).filter(x=>x.item_id&&itemMap.has(x.item_id));
-  let cityInventory=[],equippedMarkerItemId=null,equippedBackgroundItemId=null;
+  let cityInventory=[],equippedMarkerItemId=null;
   if(profileTerritoryId){
-    const city=await env.DB.prepare('SELECT marker_item_id,background_item_id FROM city_customization WHERE territory_id=?').bind(profileTerritoryId).first();
+    const city=await env.DB.prepare('SELECT marker_item_id FROM city_customization WHERE territory_id=?').bind(profileTerritoryId).first();
     equippedMarkerItemId=city?.marker_item_id||null;
-    equippedBackgroundItemId=city?.background_item_id||null;
     const managerIds=(await getTerritoryManagerRows(env,profileTerritoryId)).map(x=>Number(x.telegram_id)).filter(Boolean);
     const members=await env.DB.prepare('SELECT telegram_id FROM city_memberships WHERE territory_id=?').bind(profileTerritoryId).all();
     const ids=[...managerIds,...(members.results||[]).map(x=>Number(x.telegram_id)).filter(Boolean)].filter((x,i,a)=>a.indexOf(x)===i);
@@ -2079,7 +2078,20 @@ function imageDimensions(dataUrl) {
 function isCoverTag(categories){return categories.some(x=>String(x).trim().toLowerCase()==='обложка');}
 function isMarkerTag(categories){return categories.some(x=>String(x).trim().toLowerCase()==='метка');}
 function isEightToThree(width,height){return Number.isFinite(width)&&Number.isFinite(height)&&height>0&&Math.abs((width/height)-(8/3))<=0.001;}
-async function syncGovernmentVisual(env,itemId,categories,governmentEnabled){const id=String(itemId||'').trim(),isMarker=isMarkerTag(categories),isCover=isCoverTag(categories);const govs=await env.DB.prepare(`SELECT id FROM territories WHERE status='approved' AND is_government=1`).all();if(!governmentEnabled){await env.DB.prepare(`UPDATE city_customization SET marker_item_id=NULL,updated_at=? WHERE marker_item_id=? AND territory_id IN (SELECT id FROM territories WHERE status='approved' AND is_government=1)`).bind(Date.now(),id).run();await env.DB.prepare(`UPDATE city_customization SET background_item_id=NULL,updated_at=? WHERE background_item_id=? AND territory_id IN (SELECT id FROM territories WHERE status='approved' AND is_government=1)`).bind(Date.now(),id).run();return;}for(const row of govs.results||[]){if(isMarker)await env.DB.prepare(`INSERT INTO city_customization(territory_id,marker_item_id,updated_at) VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET marker_item_id=excluded.marker_item_id,updated_at=excluded.updated_at`).bind(row.id,id,Date.now()).run();if(isCover)await env.DB.prepare(`INSERT INTO city_customization(territory_id,background_item_id,updated_at) VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET background_item_id=excluded.background_item_id,updated_at=excluded.updated_at`).bind(row.id,id,Date.now()).run();}if(!isMarker)await env.DB.prepare(`UPDATE city_customization SET marker_item_id=NULL,updated_at=? WHERE marker_item_id=? AND territory_id IN (SELECT id FROM territories WHERE status='approved' AND is_government=1)`).bind(Date.now(),id).run();if(!isCover)await env.DB.prepare(`UPDATE city_customization SET background_item_id=NULL,updated_at=? WHERE background_item_id=? AND territory_id IN (SELECT id FROM territories WHERE status='approved' AND is_government=1)`).bind(Date.now(),id).run();}
+async function syncGovernmentVisual(env,itemId,categories,governmentEnabled){
+  const id=String(itemId||'').trim(),isMarker=isMarkerTag(categories);
+  const govs=await env.DB.prepare(`SELECT id FROM territories WHERE status='approved' AND is_government=1`).all();
+  if(!governmentEnabled){
+    await env.DB.prepare(`UPDATE city_customization SET marker_item_id=NULL,updated_at=? WHERE marker_item_id=? AND territory_id IN (SELECT id FROM territories WHERE status='approved' AND is_government=1)`).bind(Date.now(),id).run();
+    await env.DB.prepare(`UPDATE city_customization SET background_item_id=NULL,updated_at=? WHERE background_item_id=?`).bind(Date.now(),id).run();
+    return;
+  }
+  for(const row of govs.results||[]){
+    if(isMarker)await env.DB.prepare(`INSERT INTO city_customization(territory_id,marker_item_id,updated_at) VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET marker_item_id=excluded.marker_item_id,updated_at=excluded.updated_at`).bind(row.id,id,Date.now()).run();
+  }
+  if(!isMarker)await env.DB.prepare(`UPDATE city_customization SET marker_item_id=NULL,updated_at=? WHERE marker_item_id=? AND territory_id IN (SELECT id FROM territories WHERE status='approved' AND is_government=1)`).bind(Date.now(),id).run();
+  await env.DB.prepare(`UPDATE city_customization SET background_item_id=NULL,updated_at=? WHERE background_item_id=?`).bind(Date.now(),id).run();
+}
 
 function normalizeTagList(value) {
   const arr = Array.isArray(value)
@@ -5207,11 +5219,8 @@ async function finalizeTerritoryApproval(env, chatId, id, name, owner, x, z, isG
         ORDER BY i.created_at DESC
       `).all();
       const marker=(governmentVisuals.results||[]).find(v=>visualHasTag(v,'метка'));
-      const cover=(governmentVisuals.results||[]).find(v=>visualHasTag(v,'обложка'));
       if(marker)await env.DB.prepare(`INSERT INTO city_customization(territory_id,marker_item_id,updated_at)
         VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET marker_item_id=excluded.marker_item_id,updated_at=excluded.updated_at`).bind(id,marker.id,Date.now()).run();
-      if(cover)await env.DB.prepare(`INSERT INTO city_customization(territory_id,background_item_id,updated_at)
-        VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET background_item_id=excluded.background_item_id,updated_at=excluded.updated_at`).bind(id,cover.id,Date.now()).run();
     }catch(error){console.error(JSON.stringify({event:'government_territory_postprocess_failed',territoryId:String(id).slice(0,80),code:'GOVERNMENT_VISUAL_INIT_FAILED'}))}
   }
   if(ownerUser?.telegram_id){
