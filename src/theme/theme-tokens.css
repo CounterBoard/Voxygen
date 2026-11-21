@@ -275,7 +275,7 @@
   --theme-shadow-navigation: 0 -16px 42px rgba(0, 0, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .035);
   --theme-shadow-map-marker-hover: 0 4px 9px rgba(0, 0, 0, .48);
   --theme-shadow-focus-field: 0 6px 18px rgba(0, 0, 0, .12);
-  --theme-shadow-cover-title: 0 2px 10px rgba(0, 0, 0, .28);
+  --theme-shadow-banner-title: 0 2px 10px rgba(0, 0, 0, .28);
   --theme-account-switcher-padding: 14px 16px;
   --theme-color-sheen-soft: rgba(255, 255, 255, .012);
   --theme-color-sheen-strong: rgba(255, 255, 255, .055);
