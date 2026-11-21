@@ -2524,7 +2524,7 @@ async function updateCityCustomization(request, env) {
   }catch(error){return json({ok:false,error:error?.message||'Не удалось обновить оформление'},400)}
 }
 
-async function inviteResident(request, env) {async function inviteResident(request, env) {
+async function inviteResident(request, env) {
   const auth = await requireUser(request, env);
   if (auth.error) return auth.error;
   await ensureWorldTables(env);
