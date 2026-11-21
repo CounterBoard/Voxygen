@@ -564,13 +564,13 @@ The minutes/hours switch, numeric amount field and confirmation button share the
 - The final «Покинуть территорию» and «Запросить оценку инспектора» actions have no extra bottom margin; the SurfaceCard's 10 px bottom padding supplies the same 10 px inset as the button's horizontal padding.
 - The theme picker does not show a one-theme availability notice. The Vox description is displayed on two lines: «Оригинальная тёмная тема» and «purple + mint».
 - Theme picker arrows use the same Purple outline, Purple glyph and soft Purple surface treatment as the «Перейти на страницу территории» action; disabled arrows keep full Purple contrast and are not desaturated.
-- In «Оформление территории» and «Покупки», visual names and padded thumbnail cards are omitted. The image itself is the tile: markers use four columns, covers use two; the equipped image has a Mint outline and no check badge.
+- In «Оформление территории» and «Покупки», visual names and padded thumbnail cards are omitted. Marker images use four columns; the equipped marker has a Mint outline and no check badge. Territory banners are color gradients, not purchasable cover images.
 - Toast width is content-driven (`max-content`) with 12 px horizontal and 7 px vertical padding, 14 px text, and enters/exits vertically behind the fixed navigation. No backdrop filter or blur is used; the toast surface itself is darkened for legibility.
 
 ### 13.1 Profile visual image tiles and read-only text
 
 - Inventory thumbnails do not render the visual's name. The image preview itself fills the tile without an extra padded card around it.
-- «Метка» grids use four equal columns; «Обложка» grids use two equal columns and a wide 16:9 image frame.
+- «Метка» and «Награды» grids use four equal columns. Territory «Баннер» is a gradient swatch selected from the same named color palette as Visual; there is no cover-image grid.
 - The Mint equipped state is an outline around the image frame, not a check glyph.
 - Resident read-only «Доп. информация» is rendered as plain text; @usernames in this field are not links and cannot open Telegram profiles.
 - The editable profile «Доп. информация», «Набор» and event «Описание» textareas explicitly use the shared Purple idle / Mint focus field recipe.
@@ -633,3 +633,12 @@ The bottom-navigation geometry is 69 px plus safe-area inset. The notification's
 - Text and icons inside the selected Purple area are white; inactive options retain muted text. The selected color change is animated together with the indicator movement.
 - Both controls keep their existing overall placement, dimensions, and rounded geometry. Reduced-motion preference disables the indicator transition.
 - Toast plates are now substantially darker: 45% semantic soft color mixed with 55% black for success, error and warning. No blur or backdrop filtering is added; the page behind the toast remains sharp.
+
+
+### 13.6 Event horizon, visual discounts and territory banners (21.11.2026)
+
+- Event creation and date edits are limited to a maximum of two calendar months ahead. The browser validates before submission and the Worker enforces the same limit.
+- Expanding an event reveals its description, reminder controls and actions only. Title, date/time, territory and coordinates remain in the event header and are not repeated in the expanded body.
+- Event image uploads/previews and territory cover visuals are retired. Legacy event image data is cleared; legacy territory background-item assignments are nulled and cannot be equipped or recreated.
+- Territory profile «Баннер» appears above «Метка» and uses a gradient generated from the selected Visual palette color. «Награды» appears directly below «Метка» and displays achievement visuals already awarded to the territory.
+- Active visual discounts show the original price in muted grey with a red strike-through, followed by the discounted price and gem icon. Checkout and the gem-spend journal use the discounted amount, not the original catalog price.
