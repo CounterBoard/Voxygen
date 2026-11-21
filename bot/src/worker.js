@@ -2140,7 +2140,6 @@ async function createCustomizationItem(request, env) {
   const allowedColors=new Set(['none','red','orange','yellow','green','turquoise','blue','purple','magenta','white','black']);
   const isMarker=isMarkerTag(categories);
   if(categories.some(x=>String(x).trim().toLowerCase()==='обложка'))return json({ok:false,error:'Тег «Обложка» больше не поддерживается'},400);
-  if(categories.some(x=>String(x).trim().toLowerCase()==='обложка'))return json({ok:false,error:'Тег «Обложка» больше не поддерживается'},400);
   if(!name||!categories.length||!Number.isSafeInteger(price)||price<0)return json({ok:false,error:'Название, теги и корректная цена обязательны'},400);
   if(!allowedColors.has(color))return json({ok:false,error:'Некорректный цвет'},400);
   if(!imageData.startsWith('data:image/'))return json({ok:false,error:'Загрузите изображение визуала'},400);
@@ -2221,6 +2220,7 @@ async function updateCustomizationItem(request,env,itemId){
   if(!achievement.enabled) {
     for(let i=categories.length-1;i>=0;i--) if(categories[i].toLowerCase()==='за достижение') categories.splice(i,1);
   }
+  if(categories.some(x=>String(x).trim().toLowerCase()==='обложка'))return json({ok:false,error:'Тег «Обложка» больше не поддерживается'},400);
   if(!name||!categories.length||!Number.isSafeInteger(price)||price<0)return json({ok:false,error:'Название, теги и корректная цена обязательны'},400);
   if(!imageData.startsWith('data:image/'))return json({ok:false,error:'Загрузите изображение визуала'},400);
   if(imageData.length>1_000_000)return json({ok:false,error:'Изображение слишком большое'},413);
