@@ -5631,7 +5631,6 @@ async function initializeEventsTables(env) {
   const eventCols = await env.DB.prepare(`PRAGMA table_info(events)`).all();
   const eventColumnNames = new Set((eventCols.results || []).map(row => row.name));
   if (!eventColumnNames.has('image_data')) { try { await env.DB.prepare(`ALTER TABLE events ADD COLUMN image_data TEXT`).run(); } catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; } }
-  if (eventColumnNames.has('image_data')) await env.DB.prepare(`ALTER TABLE events DROP COLUMN image_data`).run();
   if (!eventColumnNames.has('event_timezone')) { try { await env.DB.prepare(`ALTER TABLE events ADD COLUMN event_timezone TEXT NOT NULL DEFAULT 'UTC'`).run(); } catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; } }
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_events_active_date ON events(active,event_at)`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_events_date_cleanup ON events(event_at)`).run();
