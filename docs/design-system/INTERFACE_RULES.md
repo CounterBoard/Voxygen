@@ -640,5 +640,5 @@ The bottom-navigation geometry is 69 px plus safe-area inset. The notification's
 - Event creation and date edits are limited to a maximum of two calendar months ahead. The browser validates before submission and the Worker enforces the same limit.
 - Expanding an event reveals its description, reminder controls and actions only. Title, date/time, territory and coordinates remain in the event header and are not repeated in the expanded body.
 - Event image uploads/previews and territory cover visuals are retired. Legacy event image data is cleared; legacy territory background-item assignments are nulled and cannot be equipped or recreated.
-- Territory profile «Баннер» appears above «Метка» and uses a gradient generated from the selected Visual palette color. «Награды» appears directly below «Метка» and displays achievement visuals already awarded to the territory.
+- Territory profile «Баннер» appears above «Метка» and uses a gradient generated from the selected Visual palette color. «Награды» appears directly below «Метка» and displays achievement- and inspector-awarded visuals already granted to the territory.
 - Active visual discounts show the original price in muted grey with a red strike-through, followed by the discounted price and gem icon. Checkout and the gem-spend journal use the discounted amount, not the original catalog price.
