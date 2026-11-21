@@ -539,3 +539,10 @@ Visual purchase, treasury deposit and territory donation all route «Недос�
 ### Toast contrast and semantic glow (20.11.2026)
 
 Error toasts use a danger/red halo and glow animation; they must not flash Mint/success. Success toasts keep Mint/success glow, and warning toasts keep warning semantics. Each toast plate is darkened by mixing its semantic soft background (88%) with black (12%). FixedToast does not blur, dim or filter the page behind it: no `backdrop-filter` or `-webkit-backdrop-filter`. This intentionally avoids a Liquid Glass treatment.
+
+
+### Sliding segmented selection and toast contrast (21.11.2026)
+
+The «Набор» / «Карта» / «Рейтинг» main tabs and «По инспектору» / «По игрокам» rating selector use a shared interaction principle: one Purple selection surface physically slides to the newly selected position. The text and icon in the selected segment are white; inactive labels remain muted. The indicator uses a 280 ms ease transition and respects reduced-motion settings. Existing control dimensions, placement and pill geometry are preserved.
+
+FixedToast plates have been darkened further to 45% semantic-soft color plus 55% black. Only the plate changes; the underlying interface remains sharp and is not blurred or filtered.
