@@ -105,3 +105,9 @@ test("Worker initialization never caches request-scoped D1 promises across reque
   assert.ok(!worker.includes("const worldTableInitPromises = new WeakMap();"));
   assert.ok(!worker.includes(".set(env, promise)"));
 });
+
+test("territory summary transform does not reference the removed background image variable",()=>{
+  const handler=worker.slice(worker.indexOf("async function getTerritories"),worker.indexOf("async function ",worker.indexOf("async function getTerritories")+20));
+  assert.match(handler,/cover_url:null/);
+  assert.doesNotMatch(handler,/cover_url:backgroundImage/);
+});
