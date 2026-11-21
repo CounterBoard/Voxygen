@@ -2127,12 +2127,12 @@ async function createCustomizationItem(request, env) {
   }
   const allowedColors=new Set(['none','red','orange','yellow','green','turquoise','blue','purple','magenta','white','black']);
   const isMarker=isMarkerTag(categories), isCover=isCoverTag(categories);
+  if(categories.some(x=>String(x).trim().toLowerCase()==='обложка'))return json({ok:false,error:'Тег «Обложка» больше не поддерживается'},400);
   if(!name||!categories.length||!Number.isSafeInteger(price)||price<0)return json({ok:false,error:'Название, теги и корректная цена обязательны'},400);
   if(!allowedColors.has(color))return json({ok:false,error:'Некорректный цвет'},400);
   if(!imageData.startsWith('data:image/'))return json({ok:false,error:'Загрузите изображение визуала'},400);
-  if(governmentMarker&&!isMarker&&!isCover)return json({ok:false,error:'Для государственной метки или обложки визуал должен иметь тег «Метка» или «Обложка»'},400);
+  if(governmentMarker&&!isMarker)return json({ok:false,error:'Государственный визуал должен иметь тег «Метка»'},400);
   if(governmentMarker&&achievement.enabled)return json({ok:false,error:'Государственный визуал нельзя выдавать как достижение'},400);
-  if(isCover){const dim=imageDimensions(imageData);if(!dim||!isEightToThree(dim.width,dim.height))return json({ok:false,error:'Для визуала с тегом «Обложка» изображение должно иметь соотношение 8:3'},400);}
   if(imageData.length>1_000_000)return json({ok:false,error:'Изображение слишком большое'},413);
   if(achievement.enabled && ![achievement.residents,achievement.gems,achievement.inspectorScore,achievement.playerScore,achievement.screenshots,achievement.comments,achievement.visuals].some(v=>v!==null)){
     return json({ok:false,error:'Укажите хотя бы одно условие достижения'},400);
@@ -2193,7 +2193,7 @@ async function updateCustomizationItem(request,env,itemId){
   const enabled=body?.achievementEnabled===undefined?!!current.achievement_enabled:!!body.achievementEnabled;
   const governmentMarker=body?.governmentMarker===undefined?!!current.government_marker:!!body.governmentMarker;
   const isMarker=isMarkerTag(categories), isCover=isCoverTag(categories);
-  if(governmentMarker&&!isMarker&&!isCover)return json({ok:false,error:'Для государственной метки или обложки визуал должен иметь тег «Метка» или «Обложка»'},400);
+  if(governmentMarker&&!isMarker)return json({ok:false,error:'Государственный визуал должен иметь тег «Метка»'},400);
   if(governmentMarker&&enabled)return json({ok:false,error:'Государственный визуал нельзя выдавать как достижение'},400);
   const achievement=achievementPayload({...body,achievementEnabled:enabled,
     achievementResidents:body?.achievementResidents??current.achievement_residents,
@@ -3001,7 +3001,7 @@ async function deliverPendingInviteNotifications(env) {
 
 async function territoryCanUseVisual(env, territoryId, itemId, requiredTag) {
   const cityId=String(territoryId||'').trim(),visualId=String(itemId||'').trim();
-  if(!cityId||!visualId)return false;
+  if(!cityId||!visualId||String(requiredTag||'').trim().toLowerCase()==='обложка')return false;
   const [territory,visual]=await Promise.all([
     env.DB.prepare(`SELECT is_government,status FROM territories WHERE id=? LIMIT 1`).bind(cityId).first(),
     env.DB.prepare(`SELECT i.id,i.active,i.government_marker,i.categories_text,c.name AS category_name FROM customization_items i LEFT JOIN customization_categories c ON c.id=i.category_id WHERE i.id=? LIMIT 1`).bind(visualId).first()
