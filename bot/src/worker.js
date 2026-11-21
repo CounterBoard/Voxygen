@@ -1423,6 +1423,7 @@ async function initializeWorldTables(env) {
       territory_id TEXT PRIMARY KEY,
       marker_item_id TEXT,
       background_item_id TEXT,
+      banner_color TEXT NOT NULL DEFAULT 'purple',
       effects_json TEXT NOT NULL DEFAULT '[]',
       updated_at INTEGER NOT NULL
     )
@@ -1430,6 +1431,8 @@ async function initializeWorldTables(env) {
   const cityCustomizationCols = await env.DB.prepare(`PRAGMA table_info(city_customization)`).all();
   const cityCustomizationNames = new Set((cityCustomizationCols.results || []).map(r => r.name));
   if (!cityCustomizationNames.has('background_item_id')) { try { await env.DB.prepare(`ALTER TABLE city_customization ADD COLUMN background_item_id TEXT`).run(); } catch (e) { if (!String(e).toLowerCase().includes('duplicate column')) throw e; } }
+  if (!cityCustomizationNames.has('banner_color')) { try { await env.DB.prepare(`ALTER TABLE city_customization ADD COLUMN banner_color TEXT NOT NULL DEFAULT 'purple'`).run(); } catch (e) { if (!String(e).toLowerCase().includes('duplicate column')) throw e; } }
+  await env.DB.prepare(`UPDATE city_customization SET background_item_id=NULL WHERE background_item_id IS NOT NULL`).run();
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS comment_replies (
       comment_id TEXT PRIMARY KEY,
@@ -2472,18 +2475,21 @@ async function updateCityCustomization(request, env) {
   let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim();
   const hasMarkerField=Object.prototype.hasOwnProperty.call(body,'markerItemId');
-  const hasBackgroundField=Object.prototype.hasOwnProperty.call(body,'backgroundItemId');
-  const markerItemId=hasMarkerField && body?.markerItemId ? String(body.markerItemId) : null;
-  const backgroundItemId=hasBackgroundField && body?.backgroundItemId ? String(body.backgroundItemId) : null;
+  const hasBannerField=Object.prototype.hasOwnProperty.call(body,'bannerColor');
+  const markerItemId=hasMarkerField&&body?.markerItemId?String(body.markerItemId):null;
+  const bannerColor=String(body?.bannerColor||'').trim().toLowerCase();
+  const allowedBannerColors=new Set(['red','orange','yellow','green','turquoise','blue','purple','magenta','white']);
+  if(!territoryId||(!hasMarkerField&&!hasBannerField))return json({ok:false,error:'Укажите метку или цвет баннера'},400);
+  if(hasBannerField&&!allowedBannerColors.has(bannerColor))return json({ok:false,error:'Выберите цвет баннера из палитры'},400);
   const territory=await env.DB.prepare(`SELECT id,owner_telegram_id,is_government FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first();
   if(!territory)return json({ok:false,error:'City not found'},404);
   if(Number(territory.is_government||0)===1)return json({ok:false,error:'Государственной территорией нельзя управлять через оформление города'},403);
   if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Только основатель/мэр может менять оформление города'},403);
-  async function validateItem(itemId,tag,label){
-    const item=await env.DB.prepare(`SELECT i.id,i.categories_text,c.name AS category_name,i.government_marker,i.hidden_from_users FROM customization_items i LEFT JOIN customization_categories c ON c.id=i.category_id WHERE i.id=? AND i.active=1`).bind(itemId).first();
-    if(!item)throw new Error(`${label} не найден`);
-    if(Number(item.government_marker||0)===1)throw new Error('Государственный визуал нельзя экипировать на обычный город');
-    if(!visualHasTag(item,tag))throw new Error(`${label} должен иметь тег «${tag}»`);
+  async function validateMarker(itemId){
+    const item=await env.DB.prepare(`SELECT i.id,i.categories_text,c.name AS category_name,i.government_marker FROM customization_items i LEFT JOIN customization_categories c ON c.id=i.category_id WHERE i.id=? AND i.active=1`).bind(itemId).first();
+    if(!item)throw new Error('Метка не найдена');
+    if(Number(item.government_marker||0)===1)throw new Error('Государственную метку нельзя экипировать на обычный город');
+    if(!visualHasTag(item,'метка'))throw new Error('Визуал должен иметь тег «Метка»');
     const allowed=await env.DB.prepare(`
       SELECT 1 FROM city_items WHERE territory_id=? AND item_id=?
       UNION SELECT 1 FROM user_items WHERE telegram_id=? AND item_id=?
@@ -2492,28 +2498,21 @@ async function updateCityCustomization(request, env) {
       UNION SELECT 1 FROM user_items ui JOIN territories ot ON ot.owner_telegram_id=ui.telegram_id WHERE ot.id=? AND ot.status='approved' AND ui.item_id=?
       LIMIT 1
     `).bind(territoryId,itemId,Number(auth.user.id),itemId,territoryId,itemId,territoryId,itemId,territoryId,itemId).first();
-    if(!allowed)throw new Error(`${label} недоступен вашему городу`);
+    if(!allowed)throw new Error('Метка недоступна вашему городу');
   }
   try{
-    if(!hasMarkerField&&!hasBackgroundField)return json({ok:false,error:'Нужно выбрать метку или обложку'},400);
-    const columns=['territory_id'];
-    const values=['?'];
-    const insertBinds=[territoryId];
-    const updates=[];
-    if(hasMarkerField){
-      if(markerItemId)await validateItem(markerItemId,'метка','Метка');
-      columns.push('marker_item_id'); values.push('?'); insertBinds.push(markerItemId); updates.push('marker_item_id=excluded.marker_item_id');
-    }
-    if(hasBackgroundField){
-      if(backgroundItemId)await validateItem(backgroundItemId,'обложка','Обложка');
-      columns.push('background_item_id'); values.push('?'); insertBinds.push(backgroundItemId); updates.push('background_item_id=excluded.background_item_id');
-    }
-    columns.push('updated_at'); values.push('?'); insertBinds.push(Date.now()); updates.push('updated_at=excluded.updated_at');
-    await env.DB.prepare(`INSERT INTO city_customization(${columns.join(',')}) VALUES(${values.join(',')}) ON CONFLICT(territory_id) DO UPDATE SET ${updates.join(',')}`).bind(...insertBinds).run();
-    return json({ok:true,markerItemId:markerItemId,backgroundItemId:backgroundItemId});
+    if(hasMarkerField&&markerItemId)await validateMarker(markerItemId);
+    const columns=['territory_id'],values=['?'],binds=[territoryId],updates=[];
+    if(hasMarkerField){columns.push('marker_item_id');values.push('?');binds.push(markerItemId);updates.push('marker_item_id=excluded.marker_item_id');}
+    if(hasBannerField){columns.push('banner_color');values.push('?');binds.push(bannerColor);updates.push('banner_color=excluded.banner_color');}
+    columns.push('background_item_id');values.push('NULL');
+    columns.push('updated_at');values.push('?');binds.push(Date.now());updates.push('background_item_id=NULL','updated_at=excluded.updated_at');
+    await env.DB.prepare(`INSERT INTO city_customization(${columns.join(',')}) VALUES(${values.join(',')}) ON CONFLICT(territory_id) DO UPDATE SET ${updates.join(',')}`).bind(...binds).run();
+    return json({ok:true,markerItemId:hasMarkerField?markerItemId:undefined,bannerColor:hasBannerField?bannerColor:undefined});
   }catch(error){return json({ok:false,error:error?.message||'Не удалось обновить оформление'},400)}
 }
-async function inviteResident(request, env) {
+
+async function inviteResident(request, env) {async function inviteResident(request, env) {
   const auth = await requireUser(request, env);
   if (auth.error) return auth.error;
   await ensureWorldTables(env);
@@ -3038,14 +3037,13 @@ async function reconcileTerritoryVisualEquipment(env, territoryId) {
   const current=await env.DB.prepare(`SELECT marker_item_id,background_item_id FROM city_customization WHERE territory_id=?`).bind(cityId).first();
   if(!current)return;
   const markerAvailable=current.marker_item_id ? await territoryCanUseVisual(env,cityId,current.marker_item_id,'метка') : false;
-  const coverAvailable=current.background_item_id ? await territoryCanUseVisual(env,cityId,current.background_item_id,'обложка') : false;
   let marker=markerAvailable?current.marker_item_id:null;
-  let background=coverAvailable?current.background_item_id:null;
+  const background=null;
   // When an equipped marker becomes unavailable, use the earliest city-owned
   // marker carrying the achievement tag; never substitute a resident's personal visual.
   if(!marker) marker=await firstAchievementCityMarker(env,cityId);
   // NULL intentionally restores the city's automatically generated accent gradient.
-  if(marker!==current.marker_item_id || background!==current.background_item_id){
+  if(marker!==current.marker_item_id || current.background_item_id!==null){
     await env.DB.prepare(`UPDATE city_customization SET marker_item_id=?,background_item_id=?,updated_at=? WHERE territory_id=?`).bind(marker,background,Date.now(),cityId).run();
   }
 }
@@ -3054,7 +3052,7 @@ async function getCityCustomizationData(request, env, url) {
   const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env);
   const territoryId=String(url.searchParams.get('territoryId')||'').trim(); const territory=await env.DB.prepare(`SELECT id,owner_telegram_id FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404);
   if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403);
-  const city=await env.DB.prepare('SELECT marker_item_id,background_item_id FROM city_customization WHERE territory_id=?').bind(territoryId).first();
+  const city=await env.DB.prepare('SELECT marker_item_id,banner_color FROM city_customization WHERE territory_id=?').bind(territoryId).first();
   const managers=await getTerritoryManagerRows(env,territoryId); const members=await env.DB.prepare('SELECT telegram_id FROM city_memberships WHERE territory_id=?').bind(territoryId).all();
   const ids=[...managers.map(r=>Number(r.telegram_id)),...(members.results||[]).map(r=>Number(r.telegram_id))].filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i),ph=ids.map(()=>'?').join(',')||'NULL';
   const [cityItems,userItems]=await Promise.all([
@@ -3062,7 +3060,7 @@ async function getCityCustomizationData(request, env, url) {
     env.DB.prepare(`SELECT ui.telegram_id,ui.item_id,i.name,i.image_data,c.name AS category_name,i.hidden_from_users,ui.source FROM user_items ui JOIN customization_items i ON i.id=ui.item_id LEFT JOIN customization_categories c ON c.id=i.category_id WHERE ui.telegram_id IN (${ph})`).bind(...ids).all(),
   ]);
   let recruitmentUsername=''; try{const r=await env.DB.prepare(`SELECT contact_username,enabled FROM recruitment WHERE territory_id=?`).bind(territoryId).first(); recruitmentUsername=Number(r?.enabled||0)===1?(r?.contact_username||''):'';}catch{}
-  const availableMarkers=[...(cityItems.results||[]),...(userItems.results||[])]; return json({ok:true,markerItemId:city?.marker_item_id||null,backgroundItemId:city?.background_item_id||null,availableMarkers,recruitmentUsername});
+  const availableMarkers=[...(cityItems.results||[]),...(userItems.results||[])]; return json({ok:true,markerItemId:city?.marker_item_id||null,bannerColor:city?.banner_color||'purple',availableMarkers,recruitmentUsername});
 }
 
 async function serveCustomizationItemImage(request, env, itemId) {
@@ -3121,9 +3119,7 @@ async function getTerritories(request, env) {
         mi.categories_text AS marker_categories_text,
         mi.government_marker AS marker_government_marker,
         mic.name AS marker_category_name,
-        cc.background_item_id,
-        bi.name AS background_name,
-        bi.id AS background_source_item_id,
+        cc.banner_color,
         ou.mc_nickname AS owner_mc_nickname,
         ou.xuid AS owner_xuid,
         ou.skin_texture_id AS owner_skin_texture_id
@@ -3132,7 +3128,6 @@ async function getTerritories(request, env) {
       LEFT JOIN city_customization cc ON cc.territory_id=t.id
       LEFT JOIN customization_items mi ON mi.id=cc.marker_item_id AND mi.active=1
       LEFT JOIN customization_categories mic ON mic.id=mi.category_id
-      LEFT JOIN customization_items bi ON bi.id=cc.background_item_id
       LEFT JOIN users ou ON ou.telegram_id=t.owner_telegram_id
       WHERE t.status='approved' ${detailId ? 'AND t.id=?' : ''}
       ORDER BY t.created_at DESC
@@ -3276,8 +3271,7 @@ async function getTerritories(request, env) {
       // Never embed the full Base64 asset into the territories JSON. Fetch selected marker
       // and cover images through the dedicated image endpoint so summary payloads stay small.
       const markerImage=assetUrl(row.marker_source_item_id);
-      const backgroundImage=assetUrl(row.background_source_item_id);
-      return {...row,marker_image:markerImage,background_image:backgroundImage,x,y,vox_x:parsed?.x??null,vox_z:parsed?.z??null,curator:curatorByCity[row.id]||0,community:communityByCity[row.id]||0,votes:votesByCity[row.id]||0,my_rating:myRating,owner:isGovernment?'':(ownerNickname||'Ник не указан'),owner_mc_nickname:isGovernment?null:ownerNickname,founder_mc_nickname:isGovernment?null:ownerNickname,managers,manager_telegram_ids:managerIds,manager_count:managerIds.length,is_manager:isManagerViewer,residents:summaryMode?[]:(isGovernment?[]:ms.map(m=>m.mc_nickname).filter(Boolean)),resident_rows:residentRows,resident_telegram_ids:isGovernment?[]:ms.map(m=>Number(m.telegram_id)),resident_count:isGovernment?0:ms.length+managerIds.length,recruitment_contact_username:isGovernment?null:(row.recruitment_contact_username||null),reviews:commentsByCity[row.id]||[],screenshots:screensByCity[row.id]||[],marker_url:markerImage,cover_url:backgroundImage,is_government:isGovernment};
+      return {...row,marker_image:markerImage,x,y,vox_x:parsed?.x??null,vox_z:parsed?.z??null,curator:curatorByCity[row.id]||0,community:communityByCity[row.id]||0,votes:votesByCity[row.id]||0,my_rating:myRating,owner:isGovernment?'':(ownerNickname||'Ник не указан'),owner_mc_nickname:isGovernment?null:ownerNickname,founder_mc_nickname:isGovernment?null:ownerNickname,managers,manager_telegram_ids:managerIds,manager_count:managerIds.length,is_manager:isManagerViewer,residents:summaryMode?[]:(isGovernment?[]:ms.map(m=>m.mc_nickname).filter(Boolean)),resident_rows:residentRows,resident_telegram_ids:isGovernment?[]:ms.map(m=>Number(m.telegram_id)),resident_count:isGovernment?0:ms.length+managerIds.length,recruitment_contact_username:isGovernment?null:(row.recruitment_contact_username||null),reviews:commentsByCity[row.id]||[],screenshots:screensByCity[row.id]||[],marker_url:markerImage,cover_url:backgroundImage,is_government:isGovernment};
     });
     markTiming('transform');
     const response=json({ok:true,territories,degraded:partialFailures.length>0,degradedAreas:[...new Set(partialFailures)]});
