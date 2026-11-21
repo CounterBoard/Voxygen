@@ -6429,7 +6429,7 @@ function isPrivateBankerMessage(message, bankerId) {
 
 function parseVisualDiscountCommand(raw) {
   const text=normalizeVisualCommandText(raw);
-  const match=text.match(/^(.+)\s*([-+＋−]?\d{1,3})%\s*(\d+)\s*(м|мин(?:ут(?:а|ы)?)?|ч|час(?:а|ов)?)$/i);
+  const match=text.match(/^(.+?)\s*([-+＋−]?\d{1,3})%\s*(\d+)\s*(м|мин(?:ут(?:а|ы)?)?|ч|час(?:а|ов)?)$/i);
   if(!match)return null;
   const selectorText=match[1].trim().replace(/[;,\s]+$/,'');
   const rawPercent=match[2].replace('−','-').replace('＋','+');
