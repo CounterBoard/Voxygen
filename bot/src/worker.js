@@ -5785,7 +5785,7 @@ function eventMaximumTimestamp(now = Date.now()) {
   return date.getTime();
 }
 
-function validateEventBody(body, { partial = false } = {}) {
+function validateEventBody(body, { partial = false, now = Date.now() } = {}) {
   const out = { imageData: null };
   if (!partial || body.title !== undefined) out.title = String(body?.title || '').trim();
   if (!partial || body.territoryId !== undefined) out.territoryId = String(body?.territoryId || '').trim() || null;
@@ -5797,8 +5797,8 @@ function validateEventBody(body, { partial = false } = {}) {
   if (!partial || body.eventTimezone !== undefined) out.eventTimezone = String(body?.eventTimezone || 'UTC').trim() || 'UTC';
   if (out.title !== undefined && (!out.title || out.title.length > 160)) return { error: 'Название события должно содержать 1–160 символов' };
   if (out.place !== undefined && out.place.length > 200) return { error: 'Место проведения не должно превышать 200 символов' };
-  if (out.eventAt !== undefined && (!Number.isSafeInteger(out.eventAt) || ((!partial || body?.eventAt !== undefined) && out.eventAt <= Date.now()))) return { error: 'Укажите дату и время в будущем' };
-  if (out.eventAt !== undefined && out.eventAt > eventMaximumTimestamp()) return { error: 'Ивент можно создать или перенести не более чем на два месяца вперёд' };
+  if (out.eventAt !== undefined && (!Number.isSafeInteger(out.eventAt) || ((!partial || body?.eventAt !== undefined) && out.eventAt <= now))) return { error: 'Укажите дату и время в будущем' };
+  if (out.eventAt !== undefined && out.eventAt > eventMaximumTimestamp(now)) return { error: 'Ивент можно создать или перенести не более чем на два месяца вперёд' };
   if (out.coords !== undefined && out.coords.length > 180) return { error: 'Координаты слишком длинные' };
   if (out.description !== undefined && out.description.length > 542) return { error: 'Описание ивента не должно превышать 542 символа' };
   if (out.pageUrl && (out.pageUrl.length > 1000 || !/^https?:\/\//i.test(out.pageUrl))) return { error: 'Ссылка должна начинаться с http:// или https://' };
@@ -5841,7 +5841,8 @@ async function createEvent(request, env) {
   if (auth.error) return auth.error;
   await ensureWorldTables(env);
   let body; try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
-  const parsed = validateEventBody(body);
+  const actionNow=Date.now();
+  const parsed = validateEventBody(body,{now:actionNow});
   if (parsed.error) return json({ ok: false, error: parsed.error }, 400);
   const e = parsed.value;
   const creatorId = Number(auth.user.id);
@@ -5865,7 +5866,7 @@ async function createEvent(request, env) {
   // The venue is always derived from a verified, allowed territory; otherwise it is explicitly unset.
   e.place = selectedCity ? String(selectedCity.name || '') : 'Не указано';
   if (!e.place) e.place = 'Не указано';
-  const now = Date.now();
+  const now = actionNow;
   await ensureEventsTables(env);
   const requestKey = String(body?.requestKey || '').trim() || crypto.randomUUID();
   if (requestKey.length < 8 || requestKey.length > 120) return json({ ok: false, error: 'Некорректный ключ отправки ивента' }, 400);
@@ -5928,15 +5929,16 @@ async function updateEvent(request, env) {
   await ensureEventsTables(env);
   const current = await env.DB.prepare(`SELECT * FROM events WHERE id=? AND active=1 LIMIT 1`).bind(id).first();
   if (!current) return json({ ok: false, error: 'Событие не найдено' }, 404);
-  if (Number(current.event_at) <= Date.now()) return json({ ok:false, error:'Прошедшие ивенты нельзя редактировать' },403);
+  const actionNow=Date.now();
+  if (Number(current.event_at) <= actionNow) return json({ ok:false, error:'Прошедшие ивенты нельзя редактировать' },403);
   const creatorId=Number(auth.user.id),creatorRole=await getRoleByTelegramId(env,creatorId,auth.user.username||'');
   const isMainInspector=creatorRole==='main_inspector';
   if (!isMainInspector && Number(current.created_by)!==creatorId) return json({ ok:false,error:'Редактировать ивент может только его создатель' },403);
-  const parsed = validateEventBody(body, { partial: true });
+  const parsed = validateEventBody(body, { partial: true, now: actionNow });
   if (parsed.error) return json({ ok: false, error: parsed.error }, 400);
   const e = parsed.value;
   const effectiveEventAt=e.eventAt??Number(current.event_at);
-  if(effectiveEventAt>eventMaximumTimestamp())return json({ok:false,error:'Ивент можно создать или перенести не более чем на два месяца вперёд'},400);
+  if(effectiveEventAt>eventMaximumTimestamp(actionNow))return json({ok:false,error:'Ивент можно создать или перенести не более чем на два месяца вперёд'},400);
   let selectedCity=null;
   if (e.territoryId) {
     selectedCity = await env.DB.prepare(`SELECT id,name,is_government FROM territories WHERE id=? AND status='approved' LIMIT 1`).bind(e.territoryId).first();
@@ -5957,7 +5959,7 @@ async function updateEvent(request, env) {
     pageUrl: e.pageUrl !== undefined ? e.pageUrl : current.page_url,
     eventTimezone: e.eventTimezone ?? current.event_timezone ?? 'UTC',
   };
-  const now = Date.now();
+  const now = actionNow;
   const eventUpdate = env.DB.prepare(`UPDATE events SET title=?,territory_id=?,place=?,event_at=?,coords=?,description=?,image_data=?,page_url=?,event_timezone=?,updated_at=? WHERE id=? AND active=1`)
     .bind(value.title,value.territoryId,value.place,value.eventAt,value.coords,value.description,value.imageData,value.pageUrl,value.eventTimezone,now,id);
   if (e.eventAt !== undefined && Number(e.eventAt)!==Number(current.event_at)) {
