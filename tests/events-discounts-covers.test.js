@@ -22,8 +22,11 @@ test("event details are not repeated in expanded cards and event cover assets ar
   assert.doesNotMatch(expanded,/Координаты:/);
   assert.doesNotMatch(app,/event\.image_data/);
   assert.doesNotMatch(app,/Выбрать файл обложки|Изменить обложку/);
-  assert.match(worker,/UPDATE events SET image_data=NULL WHERE image_data IS NOT NULL/);
-  assert.match(worker,/imageData: null/);
+  const eventSchema=worker.slice(worker.indexOf("async function initializeEventsTables"),worker.indexOf("async function getEvents"));
+  assert.doesNotMatch(eventSchema,/image_data TEXT/);
+  assert.match(eventSchema,/ALTER TABLE events DROP COLUMN image_data/);
+  const eventApi=worker.slice(worker.indexOf("function eventMaximumTimestamp"),worker.indexOf("async function notifyUsersOfNewEvent"));
+  assert.doesNotMatch(eventApi,/imageData|image_data/);
 });
 
 test("bankers can set and reduce timed visual discounts with compact syntax",()=>{
