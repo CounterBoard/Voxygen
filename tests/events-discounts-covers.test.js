@@ -87,3 +87,20 @@ test("territory D1 read failures log a safe stage and the underlying database er
   assert.match(handler,/timings,/);
   assert.match(handler,/details:String\(error\)/);
 });
+
+
+test("Worker initialization never caches request-scoped D1 promises across requests",()=>{
+  for (const name of [
+    "EVENT_TABLES_INIT_DONE",
+    "USER_PREFERENCE_TABLES_INIT_DONE",
+    "GLOBAL_SETTINGS_INIT_DONE",
+    "recruitmentTableInitDone",
+    "mapSettingsTableInitDone",
+    "worldTableInitDone",
+    "legacyMapCleanupDone",
+  ]) assert.match(worker,new RegExp(`const ${name} = new WeakSet\\(\\)`));
+  assert.match(worker,/async function ensureWorldTables\\(env\\) \\{[\\s\\S]*?if \\(worldTableInitDone\\.has\\(env\\)\\) return;[\\s\\S]*?await initializeWorldTables\\(env\\);[\\s\\S]*?worldTableInitDone\\.add\\(env\\);/);
+  assert.match(worker,/async function ensureEventsTables\\(env\\) \\{[\\s\\S]*?if \\(EVENT_TABLES_INIT_DONE\\.has\\(env\\)\\) return;[\\s\\S]*?await initializeEventsTables\\(env\\);[\\s\\S]*?EVENT_TABLES_INIT_DONE\\.add\\(env\\);/);
+  assert.doesNotMatch(worker,/(?:InitPromises|INIT_CACHE|legacyMapCleanupPromises) = new WeakMap/);
+  assert.doesNotMatch(worker,/\.set\\(env, promise\\)/);
+});
