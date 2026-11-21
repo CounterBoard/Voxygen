@@ -558,4 +558,4 @@ Event cards keep their identifying information in the collapsed header. Expandin
 
 Temporary visual discounts are reflected in the displayed catalog price and in the actual purchase debit. The original amount is muted and struck through in danger red; the discounted amount uses the existing gem color and gem icon. Banker commands can set a percentage for all visuals, exact visual names or tags, then reduce the active percentage by percentage points or remove it when it reaches zero.
 
-The territory «Баннер» replaces the former cover-image slot. It is a gradient generated from one selected color in the existing Visual palette. In the profile layout it sits above «Метка»; earned «Награды» are shown directly below the marker inventory.
+The territory «Баннер» replaces the former cover-image slot. It is a gradient generated from one selected color in the existing Visual palette. In the profile layout it sits above «Метка»; earned and inspector-awarded «Награды» are shown directly below the marker inventory.
