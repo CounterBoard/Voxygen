@@ -3172,7 +3172,7 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
     const saved=restoredDraft.form;
     return {...defaults,...saved,imageData:null,requestAttempted:typeof saved.requestAttempted==='boolean'?saved.requestAttempted:Boolean(saved.requestKey)};
   });
-  const [busy,setBusy]=useState(false),[imageBusy,setImageBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(restoredDraft?'Черновик ивента восстановлен после перезапуска.':'');
+  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(restoredDraft?'Черновик ивента восстановлен после перезапуска.':'');
   useEffect(()=>{
     if(dateTimezoneRef.current!==eventInputTimezone){
       if(!dateEdited)setDateParts(defaultEventDateParts(eventInputTimezone));
@@ -3206,7 +3206,7 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
       const response=await fetch(`${API_BASE}/api/events`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify(payload)});
       const data=await response.json().catch(()=>null);if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось опубликовать ивент.'));
       try{localStorage.removeItem(draftStorageKey);}catch{}
-      setForm({title:'',coords:'',description:'',requestKey:null,requestAttempted:false});setPlaceId('');setDateParts(defaultEventDateParts(eventInputTimezone));setDateEdited(false)setNotice(data?.replayed?'Ивент уже был создан ранее. Повтор не создал копию.':'Ивент создан');await onPublished?.(data);
+      setForm({title:'',coords:'',description:'',requestKey:null,requestAttempted:false});setPlaceId('');setDateParts(defaultEventDateParts(eventInputTimezone));setDateEdited(false);setNotice(data?.replayed?'Ивент уже был создан ранее. Повтор не создал копию.':'Ивент создан');await onPublished?.(data);
     }catch(e){setError(safeCaughtError(e,'Не удалось опубликовать ивент.'));}finally{setBusy(false);}
   }
   const selectBtn=(active)=>({display:'flex',alignItems:'center',gap: 6,minHeight:42,maxWidth:'100%',border:active?'1px solid var(--theme-color-action-primary)':'1px solid var(--theme-color-border)',borderRadius:11,padding: '8px 11px',background:active?'var(--theme-color-action-primary-soft)':'var(--theme-color-surface-raised)',color:active?'var(--theme-color-action-primary)':'var(--theme-color-text-primary)',fontSize:12.5,fontWeight:750,textAlign:'left'});
@@ -3225,7 +3225,7 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
     <input value={formatEventCoords(form.coords)} onChange={e=>patch('coords',sanitizeEventCoords(e.target.value))} type="text" autoCapitalize="off" autoCorrect="off" placeholder="X / Z" style={inputStyle}/>
     <label style={{display:'block',fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:750,marginTop: 12}}>Описание</label>
     <TextAreaField value={form.description} onChange={e=>patch('description',e.target.value.slice(0,542))} rows={4} maxLength={542} placeholder="Расскажите о событии" className="atlas-event-description-field" containerStyle={{marginBottom:0}} style={{...inputStyle,minHeight:104,resize:'none'}}/>
-    <button onClick={publish} disabled={busy||imageBusy} className="press event-publish-button" style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap: 8,minHeight:47,marginTop: 12,border:0,borderRadius:11,padding: '12px 12px',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:800,fontSize:14,opacity:1,filter:'none'}}><CalendarDays size={17}/>{busy?'Публикация…':'Опубликовать ивент'}</button>
+    <button onClick={publish} disabled={busy} className="press event-publish-button" style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap: 8,minHeight:47,marginTop: 12,border:0,borderRadius:11,padding: '12px 12px',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:800,fontSize:14,opacity:1,filter:'none'}}><CalendarDays size={17}/>{busy?'Публикация…':'Опубликовать ивент'}</button>
     {error&&<div role="alert" style={{marginTop: 8,border:'1px solid var(--theme-color-status-danger-border)',background:'var(--theme-color-status-danger-soft)',borderRadius:10,padding: 10,fontSize:12.5,color:'var(--theme-color-status-danger)'}}>{error}</div>}
     {notice&&<FixedToast key={notice} message={notice}/>}
   </section>;
