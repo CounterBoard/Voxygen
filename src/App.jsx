@@ -1995,13 +1995,13 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
       await onChanged?.();
     }catch(error){setError(safeCaughtError(error,'Не удалось покинуть территорию.'));}finally{setLeaveBusy(false)}
   }
-  async function equip(itemId,mode='marker'){
-    const equippedId=mode==='cover'?inventory?.equippedBackgroundItemId:inventory?.equippedMarkerItemId;
-    const nextId=mode==='cover' && String(equippedId||'')===String(itemId||'') ? null : itemId;
-    const body=mode==='cover'?{backgroundItemId:nextId}:{markerItemId:nextId};
-    await post('/api/customization/city',{territoryId:territory.id,...body},mode==='cover'?(nextId?'Обложка города обновлена':'Обложка снята'):(nextId?'Метка города обновлена':'Метка города снята'));
-    setInventory(v=>v?{...v,...(mode==='cover'?{equippedBackgroundItemId:nextId}:{equippedMarkerItemId:nextId})}:v);
+  async function equip(itemId){
+    const equippedId=inventory?.equippedMarkerItemId;
+    const nextId=String(equippedId||'')===String(itemId||'')?null:itemId;
+    await post('/api/customization/city',{territoryId:territory.id,markerItemId:nextId},nextId?'Метка города обновлена':'Метка города снята');
+    setInventory(v=>v?{...v,equippedMarkerItemId:nextId}:v);
   }
+  async function saveBannerColor(value){await post('/api/customization/city',{territoryId:territory.id,bannerColor:value},'Баннер территории обновлён');}
   if(!territory)return null;
   return <SurfaceCard className="atlas-page-panel" padding={10} style={{marginBottom: 8}}>
     <MinecraftText text={territory.name} as="div" className="atlas-display" style={{fontSize:16,fontWeight:700,marginBottom: 12}}/>
@@ -2067,11 +2067,18 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
     </div>
     <div style={{background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-control)',padding: 10,marginBottom: 'var(--theme-layout-section-gap)'}}>
       <div style={{fontSize:13,fontWeight:700,marginBottom: 8}}>Оформление территории</div>
-      <div style={{borderTop:'1px solid var(--theme-color-border)',marginTop: 8,paddingTop: 8}}><div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom: 6}}>Метка</div>
-      <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='метка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('метка'))} equippedId={inventory?.equippedMarkerItemId} showEquip={!readOnly} onEquip={id=>equip(id,'marker')} columns={4} aspectRatio="1 / 1" imageFit="contain" emptyText="Доступных меток нет."/>
-      <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '12px 0 6px'}}>Обложка</div>
-      <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='обложка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('обложка'))} equippedId={inventory?.equippedBackgroundItemId} showEquip={!readOnly} onEquip={id=>equip(id,'cover')} columns={2} aspectRatio="16 / 9" imageFit="cover" emptyText="Доступных обложек нет."/></div>
-    </div>
+      <div style={{borderTop:'1px solid var(--theme-color-border)',marginTop: 8,paddingTop: 8}}>
+        <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom:6}}>Баннер</div>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+          <div aria-label="Предпросмотр градиента баннера" style={{height:34,flex:1,borderRadius:9,border:'1px solid var(--theme-color-border)',background:(()=>{const hex=VISUAL_COLORS.find(([key])=>key===(inventory?.bannerColor||territory?.banner_color||'purple'))?.[1]||'#8B5CF6';return `linear-gradient(110deg, ${hex} 0%, ${hex}66 55%, var(--theme-color-surface) 100%)`;})()}}/>
+          <span style={{fontSize:11,color:'var(--theme-color-text-muted)'}}>{inventory?.bannerColor||territory?.banner_color||'purple'}</span>
+        </div>
+        {!readOnly&&<div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}}>{VISUAL_COLORS.filter(([value])=>value!=='none').map(([value])=><ColorDot key={value} value={value} selected={(inventory?.bannerColor||territory?.banner_color||'purple')===value} title={value} onClick={()=>saveBannerColor(value)}/>)}</div>}
+        <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom:6}}>Метка</div>
+        <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='метка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('метка'))} equippedId={inventory?.equippedMarkerItemId} showEquip={!readOnly} onEquip={equip} columns={4} aspectRatio="1 / 1" imageFit="contain" emptyText="Доступных меток нет."/>
+        <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin:'12px 0 6px'}}>Награды</div>
+        <InventoryGrid items={inventory?.cityAwards||[]} showEquip={false} columns={4} aspectRatio="1 / 1" imageFit="contain" emptyText="Город пока не получил наград."/>
+      </div>
     <RecruitmentManagement territory={{...territory,recruitment_username:newRecruitmentUsername}} initData={initData} onSaved={load} readOnly={readOnly}/>
     {readOnly&&<button onClick={leaveTerritory} disabled={leaveBusy} className="press" style={{width:'100%',height:48,minWidth:72,padding: '0 12px',border:'1px solid var(--theme-color-status-danger)',borderRadius:14,background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,marginBottom: 0}}>{leaveBusy?'Выход…':'Покинуть территорию'}</button>}
     {!readOnly&&<button onClick={requestInspectorRating} className="press" style={{width:'100%',border:'none',borderRadius:10,padding: '10px 12px',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:700,marginBottom: 0,minHeight:44}}>Запросить оценку инспектора</button>}
@@ -2710,10 +2717,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
   const canDeleteShot = isMainInspector || (!isGovernment && isOwner);
   return (
     <div className="atlas-page atlas-page--territory" style={{ paddingBottom: 90, position: 'relative' }}>
-      <div style={{ position: 'relative', height: 150, overflow:'hidden', background: t.cover_url ? 'var(--theme-color-canvas)' : `linear-gradient(160deg, ${t.accent}66, var(--theme-color-surface) 85%)` }}>
-        {t.cover_url && mapImage && <img src={mapImage} alt="" aria-hidden="true" draggable={false} className="atlas-cover-image" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',objectPosition:'center',display:'block'}}/>}
-        {t.cover_url && !mapImage && <div aria-hidden="true" style={{position:'absolute',inset:0,background:'var(--theme-color-canvas)'}}/>}
-        {t.cover_url && <img src={t.cover_url} alt="" aria-hidden="true" draggable={false} className="atlas-cover-image" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>}
+      <div style={{ position: 'relative', height: 150, overflow:'hidden', background:(()=>{const hex=VISUAL_COLORS.find(([key])=>key===(t.banner_color||'purple'))?.[1]||t.accent||'#8B5CF6';return `linear-gradient(160deg, ${hex}88 0%, ${hex}44 52%, var(--theme-color-surface) 100%)`;})() }}>
         <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: '50%', background: 'var(--theme-color-image-control-surface)', border: '1px solid var(--theme-color-border-strong)', color: 'var(--theme-color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}><ChevronLeft size={20} /></button>
         <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, zIndex: 3, textShadow:'var(--theme-shadow-cover-title)' }}>
           <MinecraftText as="div" text={t.name} className="atlas-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.16 }} />
@@ -4183,8 +4187,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
           owner_mc_nickname: row.owner_mc_nickname || null,
           founder_mc_nickname: row.founder_mc_nickname || row.owner_mc_nickname || null,
           marker_url: row.marker_url || null,
-          cover_url: row.cover_url || row.background_image || null,
-          background_item_id: row.background_item_id || null,
+          banner_color: row.banner_color || 'purple',
           resident_count: preservePrevious(['members', 'managers'], 'resident_count', Number(row.resident_count ?? ((row.residents || []).length + (row.managers || []).length))),
           resident_telegram_ids: preservePrevious(['members'], 'resident_telegram_ids', Array.isArray(row.resident_telegram_ids) ? row.resident_telegram_ids : []),
           resident_rows: preservePrevious(['members'], 'resident_rows', Array.isArray(row.resident_rows) ? row.resident_rows : []),
