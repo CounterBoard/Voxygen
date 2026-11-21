@@ -616,7 +616,6 @@ function FontsAndTheme() {
         @keyframes atlas-score-arrive{0%{opacity:0;transform:translateY(5px) scale(.94)}100%{opacity:1;transform:translateY(0) scale(1)}}
         @keyframes atlas-review-arrive{0%{opacity:0;transform:translateY(7px)}100%{opacity:1;transform:translateY(0)}}
         @keyframes atlas-shot-arrive{0%{opacity:0;transform:translateY(6px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}
-        @keyframes atlas-cover-arrive{from{transform:scale(1.025);opacity:.75}to{transform:scale(1);opacity:1}}
         @keyframes atlas-nav-pop{0%{transform:scale(.90)}55%{transform:scale(1.08)}100%{transform:scale(1)}}
         @keyframes atlas-toast-in{from{opacity:0;transform:translate(-50%,100%)}to{opacity:1;transform:translate(-50%,0)}}
         @keyframes atlas-toast-out{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,100%)}}
@@ -675,7 +674,6 @@ function FontsAndTheme() {
         .atlas-inventory-item{transition:transform var(--theme-motion-standard) var(--theme-ease-standard),border-color var(--theme-motion-standard) ease,box-shadow var(--theme-motion-standard) ease;}
         .atlas-visual-card{transition:transform var(--theme-motion-standard) var(--theme-ease-standard),border-color var(--theme-motion-standard) ease,box-shadow var(--theme-motion-standard) ease;}
         .atlas-visual-card .atlas-visual-price{color:var(--content-color-gem);text-shadow:0 0 18px rgba(56,189,248,.10);}
-        .atlas-cover-image{animation:atlas-cover-arrive .32s ease-out both;}
         .atlas-panel-reveal{animation:atlas-soft-pop .22s ease-out both;}
         .atlas-nav-active svg{animation:atlas-nav-pop .2s ease-out both;}
         @media (hover:hover) and (pointer:fine){
@@ -1995,12 +1993,11 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
       await onChanged?.();
     }catch(error){setError(safeCaughtError(error,'Не удалось покинуть территорию.'));}finally{setLeaveBusy(false)}
   }
-  async function equip(itemId,mode='marker'){
-    const equippedId=mode==='cover'?inventory?.equippedBackgroundItemId:inventory?.equippedMarkerItemId;
-    const nextId=mode==='cover' && String(equippedId||'')===String(itemId||'') ? null : itemId;
-    const body=mode==='cover'?{backgroundItemId:nextId}:{markerItemId:nextId};
-    await post('/api/customization/city',{territoryId:territory.id,...body},mode==='cover'?(nextId?'Обложка города обновлена':'Обложка снята'):(nextId?'Метка города обновлена':'Метка города снята'));
-    setInventory(v=>v?{...v,...(mode==='cover'?{equippedBackgroundItemId:nextId}:{equippedMarkerItemId:nextId})}:v);
+  async function equip(itemId){
+    const equippedId=inventory?.equippedMarkerItemId;
+    const nextId=String(equippedId||'')===String(itemId||'')?null:itemId;
+    await post('/api/customization/city',{territoryId:territory.id,markerItemId:nextId},nextId?'Метка города обновлена':'Метка города снята');
+    setInventory(v=>v?{...v,equippedMarkerItemId:nextId}:v);
   }
   if(!territory)return null;
   return <SurfaceCard className="atlas-page-panel" padding={10} style={{marginBottom: 8}}>
@@ -2067,10 +2064,16 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
     </div>
     <div style={{background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-control)',padding: 10,marginBottom: 'var(--theme-layout-section-gap)'}}>
       <div style={{fontSize:13,fontWeight:700,marginBottom: 8}}>Оформление территории</div>
-      <div style={{borderTop:'1px solid var(--theme-color-border)',marginTop: 8,paddingTop: 8}}><div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom: 6}}>Метка</div>
-      <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='метка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('метка'))} equippedId={inventory?.equippedMarkerItemId} showEquip={!readOnly} onEquip={id=>equip(id,'marker')} columns={4} aspectRatio="1 / 1" imageFit="contain" emptyText="Доступных меток нет."/>
-      <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '12px 0 6px'}}>Обложка</div>
-      <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='обложка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('обложка'))} equippedId={inventory?.equippedBackgroundItemId} showEquip={!readOnly} onEquip={id=>equip(id,'cover')} columns={2} aspectRatio="16 / 9" imageFit="cover" emptyText="Доступных обложек нет."/></div>
+      <div style={{borderTop:'1px solid var(--theme-color-border)',marginTop: 8,paddingTop: 8}}>
+        <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom: 7}}>Баннер</div>
+        <div style={{display:'flex',alignItems:'center',gap: 8,flexWrap:'wrap'}}>
+          {VISUAL_COLORS.map(([value])=><ColorDot key={`banner-${value}`} value={value} selected={String(inventory?.bannerColor||'none')===value} title={({none:'Автоматический цвет',red:'Красный',orange:'Оранжевый',yellow:'Жёлтый',green:'Зелёный',turquoise:'Бирюзовый',blue:'Синий',purple:'Фиолетовый',magenta:'Пурпурный',white:'Белый'})[value]||value} onClick={()=>{if(!readOnly&&String(inventory?.bannerColor||'none')!==value)post('/api/customization/city',{territoryId:territory.id,bannerColor:value},'Баннер территории обновлён');}}/>)}
+        </div>
+        <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '14px 0 6px'}}>Метка</div>
+        <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='метка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('метка'))} equippedId={inventory?.equippedMarkerItemId} showEquip={!readOnly} onEquip={id=>equip(id)} columns={4} aspectRatio="1 / 1" imageFit="contain" emptyText="Доступных меток нет."/>
+        <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '14px 0 6px'}}>Награды</div>
+        <div style={{fontSize:12,color:'var(--theme-color-text-muted)',padding:'8px 0'}}>Награды появятся здесь позже.</div>
+      </div>
     </div>
     <RecruitmentManagement territory={{...territory,recruitment_username:newRecruitmentUsername}} initData={initData} onSaved={load} readOnly={readOnly}/>
     {readOnly&&<button onClick={leaveTerritory} disabled={leaveBusy} className="press" style={{width:'100%',height:48,minWidth:72,padding: '0 12px',border:'1px solid var(--theme-color-status-danger)',borderRadius:14,background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,marginBottom: 0}}>{leaveBusy?'Выход…':'Покинуть территорию'}</button>}
@@ -2096,8 +2099,7 @@ function ProfileInventory({initData,role,tgUser,territory}={}){
   const items=territory?(data?.cityInventory||[]):(data?.myItems||[]);
   const hasCategory=(item,category)=>String(item.category_name||'').trim().toLowerCase()===category||String(item.categories_text||'').toLowerCase().split(',').map(value=>value.trim()).includes(category);
   const markers=items.filter(item=>hasCategory(item,'метка'));
-  const covers=items.filter(item=>hasCategory(item,'обложка'));
-  const otherItems=items.filter(item=>!hasCategory(item,'метка')&&!hasCategory(item,'обложка'));
+  const otherItems=items.filter(item=>!hasCategory(item,'метка'));
   return <div className="atlas-page-panel" style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding: 10,marginBottom: 8}}>
     <div className="atlas-display" style={{fontSize:16,fontWeight:700,marginBottom: 4}}>{territory?<>Инвентарь визуала — <MinecraftText text={territory.name}/></>:'Покупки'}</div>
     {loading&&!data?<div role="status" style={{fontSize:12,color:'var(--theme-color-text-muted)',padding: '8px 0'}}>Загрузка покупок…</div>
@@ -2105,7 +2107,6 @@ function ProfileInventory({initData,role,tgUser,territory}={}){
       : items.length===0?<div style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>{territory?'Инвентарь визуала пуст.':'Покупок пока нет.'}</div>
       : <div style={{display:'flex',flexDirection:'column',gap: 8}}>
           {markers.length>0&&<InventoryGrid items={markers} columns={4} aspectRatio="1 / 1" imageFit="contain"/>}
-          {covers.length>0&&<InventoryGrid items={covers} columns={2} aspectRatio="16 / 9" imageFit="cover"/>}
           {otherItems.length>0&&<InventoryGrid items={otherItems} columns={4} aspectRatio="1 / 1" imageFit="contain"/>}
         </div>}
   </div>;
@@ -2710,10 +2711,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
   const canDeleteShot = isMainInspector || (!isGovernment && isOwner);
   return (
     <div className="atlas-page atlas-page--territory" style={{ paddingBottom: 90, position: 'relative' }}>
-      <div style={{ position: 'relative', height: 150, overflow:'hidden', background: t.cover_url ? 'var(--theme-color-canvas)' : `linear-gradient(160deg, ${t.accent}66, var(--theme-color-surface) 85%)` }}>
-        {t.cover_url && mapImage && <img src={mapImage} alt="" aria-hidden="true" draggable={false} className="atlas-cover-image" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',objectPosition:'center',display:'block'}}/>}
-        {t.cover_url && !mapImage && <div aria-hidden="true" style={{position:'absolute',inset:0,background:'var(--theme-color-canvas)'}}/>}
-        {t.cover_url && <img src={t.cover_url} alt="" aria-hidden="true" draggable={false} className="atlas-cover-image" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>}
+      <div style={{ position: 'relative', height: 150, overflow:'hidden', background:(()=>{const selected=VISUAL_COLORS.find(([value])=>value===String(t.banner_color||'none').toLowerCase())?.[1];return selected&&selected!=='none'? `linear-gradient(160deg, ${selected}99, ${selected}22 72%, var(--theme-color-surface) 100%)` : `linear-gradient(160deg, ${t.accent}66, var(--theme-color-surface) 85%)`;})() }}>
         <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: '50%', background: 'var(--theme-color-image-control-surface)', border: '1px solid var(--theme-color-border-strong)', color: 'var(--theme-color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}><ChevronLeft size={20} /></button>
         <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, zIndex: 3, textShadow:'var(--theme-shadow-cover-title)' }}>
           <MinecraftText as="div" text={t.name} className="atlas-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.16 }} />
@@ -2940,12 +2938,6 @@ function EventsScreen({ initData, territories = [], onSelectTerritory, isMainIns
       </button>
       {open && <div style={{padding: '0 12px 12px'}}>
         {event.image_data && <img src={event.image_data} alt={`Ивент: ${event.title}`} style={{display:'block',width:'100%',maxHeight:220,objectFit:'cover',borderRadius:12,margin: '0 0 12px'}}/>}
-        <MinecraftText as="div" text={event.title} className="atlas-display" style={{fontSize:21,fontWeight:800,lineHeight:1.2,marginBottom: 10}}/>
-        <div style={{display:'flex',flexDirection:'column',gap: 8,fontSize:13,marginBottom: 12}}>
-          <div style={{display:'flex',gap: 8,alignItems:'flex-start'}}><CalendarDays size={15} color="var(--theme-color-action-primary)"/><span>{eventDateLabel(event.event_at, timezoneOffset)}</span></div>
-          {hasPlace&&<div style={{display:'flex',gap: 8,alignItems:'flex-start'}}><MapPin size={15} color="var(--theme-color-action-primary)"/><div style={{minWidth:0}}><MinecraftText text={place}/></div></div>}
-          <div style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>{eventCoords?<>Координаты: <MinecraftText text={eventCoords}/></>:'Координаты не указаны'}</div>
-        </div>
         {event.description && <MinecraftText as="div" text={event.description} style={{fontSize:13.5,lineHeight:1.55,marginBottom: 12,whiteSpace:'pre-wrap'}}/>}
         {!isPast && <div style={{background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:13,padding: 10,marginBottom: 8}}>
           <div style={{display:'flex',alignItems:'center',gap: 6,fontSize:13,fontWeight:800,marginBottom: 8}}><Bell size={15} color="var(--theme-color-action-primary)"/>Напомнить об ивенте за</div>
@@ -3045,6 +3037,14 @@ function globalExpiryPartsTimestamp(parts, timeZone = EVENT_TIME_ZONE) {
   const check=eventZonedParts(candidate,timeZone);
   if(!check||check.year!==year||check.month!==month||check.day!==day||check.hour!==hour||check.minute!==minute||candidate<=Date.now())return null;
   return candidate;
+}
+const EVENT_DATE_LIMIT_MESSAGE='Создавать ивенты можно максимум за 2 месяца до начала';
+function addUtcCalendarMonths(timestamp,months=2){
+  const date=new Date(Number(timestamp));
+  if(!Number.isFinite(date.getTime()))return NaN;
+  const day=date.getUTCDate();date.setUTCDate(1);date.setUTCMonth(date.getUTCMonth()+months);
+  const lastDay=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,0)).getUTCDate();
+  date.setUTCDate(Math.min(day,lastDay));return date.getTime();
 }
 function eventDatePartsTimestamp(parts, timeZone = EVENT_TIME_ZONE) {
   const day=Number(parts?.day), month=Number(parts?.month), hour=Number(parts?.hour), minute=Number(parts?.minute);
@@ -3159,6 +3159,7 @@ function reminderUnitLabel(value, unit) { return unit==='hours'?pluralRu(value,'
 function ProfileEventCreateForm({ initData, territories = [], isMainInspector = false, tgUser = null, embedded = false, timezoneOffset = 'UTC+3', onPublished = () => {} }) {
   const userId=String(tgUser?.id||'');
   const eventInputTimezone=normalizeTimezoneOffset(timezoneOffset);
+  const creationWindowStartedAt=useRef(Date.now());
   const draftStorageKey=`voxygen:event-create-draft:${userId||'anonymous'}`;
   const [restoredDraft]=useState(()=>{try{const raw=localStorage.getItem(draftStorageKey);const value=raw?JSON.parse(raw):null;return value&&typeof value==='object'?value:null;}catch{return null;}});
   const userTerritories=(territories||[]).filter(city=>isMainInspector || String(city.owner_telegram_id||'')===userId || (Array.isArray(city.manager_telegram_ids)&&city.manager_telegram_ids.map(String).includes(userId)) || (Array.isArray(city.resident_telegram_ids)&&city.resident_telegram_ids.map(String).includes(userId)));
@@ -3173,7 +3174,7 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
     const saved=restoredDraft.form;
     return {...defaults,...saved,requestAttempted:typeof saved.requestAttempted==='boolean'?saved.requestAttempted:Boolean(saved.requestKey)};
   });
-  const [busy,setBusy]=useState(false),[imageBusy,setImageBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(restoredDraft?'Черновик ивента восстановлен после перезапуска.':'');
+  const [busy,setBusy]=useState(false),[imageBusy,setImageBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(restoredDraft?'Черновик ивента восстановлен после перезапуска.':''),[dateLimitToast,setDateLimitToast]=useState(0);
   const fileRef=useRef(null);
   useEffect(()=>{
     if(dateTimezoneRef.current!==eventInputTimezone){
@@ -3198,6 +3199,7 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
     const title=String(form.title||'').trim(),eventAt=eventDatePartsTimestamp(dateParts, eventInputTimezone);
     if(!title||!eventAt){setError('Укажите название, дату и время начала.');return;}
     if(eventAt<=Date.now()){setError('Выберите дату и время в будущем.');return;}
+    if(eventAt>addUtcCalendarMonths(creationWindowStartedAt.current,2)){setDateLimitToast(value=>value+1);return;}
     try{
       setBusy(true);setError('');setNotice('');
       const requestKey=ensureRequestKey();
@@ -3209,7 +3211,7 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
       const data=await response.json().catch(()=>null);if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось опубликовать ивент.'));
       try{localStorage.removeItem(draftStorageKey);}catch{}
       setForm({title:'',coords:'',description:'',imageData:null,requestKey:null,requestAttempted:false});setPlaceId('');setDateParts(defaultEventDateParts(eventInputTimezone));setDateEdited(false);if(fileRef.current)fileRef.current.value='';setNotice(data?.replayed?'Ивент уже был создан ранее. Повтор не создал копию.':'Ивент создан');await onPublished?.(data);
-    }catch(e){setError(safeCaughtError(e,'Не удалось опубликовать ивент.'));}finally{setBusy(false);}
+    }catch(e){const message=safeCaughtError(e,'Не удалось опубликовать ивент.');if(message===EVENT_DATE_LIMIT_MESSAGE)setDateLimitToast(value=>value+1);else setError(message);}finally{setBusy(false);}
   }
   const selectBtn=(active)=>({display:'flex',alignItems:'center',gap: 6,minHeight:42,maxWidth:'100%',border:active?'1px solid var(--theme-color-action-primary)':'1px solid var(--theme-color-border)',borderRadius:11,padding: '8px 11px',background:active?'var(--theme-color-action-primary-soft)':'var(--theme-color-surface-raised)',color:active?'var(--theme-color-action-primary)':'var(--theme-color-text-primary)',fontSize:12.5,fontWeight:750,textAlign:'left'});
   return <section style={{marginTop: embedded?8:18,marginBottom: embedded?0:20,padding: embedded?0:15,background:embedded?'transparent':'var(--theme-color-surface)',border:embedded?'none':'1px solid var(--theme-color-border)',borderRadius:embedded?0:17,boxShadow:embedded?'none':'var(--theme-shadow-low)'}}>
@@ -3235,6 +3237,7 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
     <button onClick={publish} disabled={busy||imageBusy} className="press event-publish-button" style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap: 8,minHeight:47,marginTop: 12,border:0,borderRadius:11,padding: '12px 12px',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:800,fontSize:14,opacity:1,filter:'none'}}><CalendarDays size={17}/>{busy?'Публикация…':'Опубликовать ивент'}</button>
     {error&&<div role="alert" style={{marginTop: 8,border:'1px solid var(--theme-color-status-danger-border)',background:'var(--theme-color-status-danger-soft)',borderRadius:10,padding: 10,fontSize:12.5,color:'var(--theme-color-status-danger)'}}>{error}</div>}
     {notice&&<FixedToast key={notice} message={notice}/>}
+     {dateLimitToast>0&&<FixedToast key={dateLimitToast} message={EVENT_DATE_LIMIT_MESSAGE} type="error"/>}
   </section>;
 }
 
@@ -3248,7 +3251,8 @@ function EventInlineEditor({ initData, event, territories = [], tgUser = null, i
     (Array.isArray(city.resident_telegram_ids)&&city.resident_telegram_ids.map(String).includes(userId))
   ));
   const [form,setForm]=useState(()=>({title:event.title||'',territoryId:String(event.territory_id||''),coords:formatEventCoords(event.coords||''),description:String(event.description||'').slice(0,542),imageData:event.image_data||null,dateParts:eventDatePartsFromTimestamp(event.event_at,timezoneOffset),dateChanged:false,editorTimezone:normalizeTimezoneOffset(timezoneOffset)}));
-  const [busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[dateLimitToast,setDateLimitToast]=useState(0);
+  const editWindowStartedAt=useRef(Date.now());
   const fileRef=useRef(null);
   const inputStyle={width:'100%',boxSizing:'border-box',minHeight:43,background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding: '8px 12px',color:'var(--theme-color-text-primary)',fontSize:13,marginTop: 4};
   function patch(key,value){setForm(v=>({...v,[key]:value}));}
@@ -3257,6 +3261,7 @@ function EventInlineEditor({ initData, event, territories = [], tgUser = null, i
     const title=String(form.title||'').trim(),eventAt=form.dateChanged?eventDatePartsTimestamp(form.dateParts,form.editorTimezone||timezoneOffset):Number(event.event_at);
     if(!title||title.length>160||!Number.isSafeInteger(eventAt)){setError('Укажите название, дату и время ивента.');return;}
     if(form.dateChanged&&eventAt<=Date.now()){setError('Выберите дату и время в будущем.');return;}
+    if(form.dateChanged&&eventAt>addUtcCalendarMonths(editWindowStartedAt.current,2)){setDateLimitToast(value=>value+1);return;}
     const city=selectable.find(t=>String(t.id)===String(form.territoryId));
     if(form.territoryId&&!city){setError('Выберите доступную территорию или «Не указано».');return;}
     try{
@@ -3266,7 +3271,7 @@ function EventInlineEditor({ initData, event, territories = [], tgUser = null, i
       const data=await response.json().catch(()=>null);
       if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось сохранить ивент.'));
       onSaved?.();
-    }catch(err){setError(safeCaughtError(err,'Не удалось сохранить ивент.'));}finally{setBusy(false);}
+    }catch(err){const message=safeCaughtError(err,'Не удалось сохранить ивент.');if(message===EVENT_DATE_LIMIT_MESSAGE)setDateLimitToast(value=>value+1);else setError(message);}finally{setBusy(false);}
   }
   async function removeEvent(){
     if(!window.confirm(`Удалить ивент «${event.title}»?`))return;
@@ -3283,27 +3288,29 @@ function EventInlineEditor({ initData, event, territories = [], tgUser = null, i
     <label style={{display:'block',fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:750,marginTop: 12}}>Описание</label><textarea value={form.description} onChange={e=>patch('description',e.target.value.slice(0,542))} rows={4} maxLength={542} placeholder="Расскажите о событии" className="atlas-event-description-field" style={{...inputStyle,resize:'none',minHeight:95}}/>
     <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseImage} style={{display:'none'}}/><button type="button" onClick={()=>fileRef.current?.click()} className="press" style={{display:'flex',alignItems:'center',justifyContent:'center',gap: 6,width:'100%',minHeight:42,marginTop: 4,border:'1px solid var(--theme-color-action-primary-border)',borderRadius:10,background:'var(--theme-color-action-primary-soft)',color:'var(--theme-color-action-primary)',fontWeight:800}}><ImagePlus size={16}/>Изменить обложку</button>{form.imageData&&<div style={{marginTop: 8}}><img src={form.imageData} alt="Обложка" style={{display:'block',width:'100%',maxHeight:150,objectFit:'cover',borderRadius:10}}/><button type="button" onClick={()=>patch('imageData',null)} className="press" style={{border:0,background:'transparent',color:'var(--theme-color-status-danger)',padding: '8px 0',fontWeight:700}}>Убрать обложку</button></div>}
     {error&&<div role="alert" style={{border:'1px solid var(--theme-color-status-danger-border)',background:'var(--theme-color-status-danger-soft)',borderRadius:10,padding: 8,marginTop: 8,fontSize:12,color:'var(--theme-color-status-danger)'}}>{error}</div>}
+    {dateLimitToast>0&&<FixedToast key={dateLimitToast} message={EVENT_DATE_LIMIT_MESSAGE} type="error"/>}
     <div style={{display:'flex',gap: 8,marginTop: 12}}><button onClick={save} disabled={busy||!form.title.trim()} className="press" style={{flex:1,border:0,borderRadius:10,minHeight:42,background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:800}}>Сохранить</button><button onClick={onCancel} disabled={busy} className="press" style={{border:'1px solid var(--theme-color-border)',borderRadius:10,padding: '0 12px',background:'var(--theme-color-surface)',color:'var(--theme-color-text-primary)',fontWeight:700}}>Отмена</button></div>
   </div>;
 }
 
 function EventManagementPanel({ initData, territories = [], timezoneOffset = 'UTC+3', timezoneReady = true }) {
-  const [events,setEvents]=useState([]),[editingId,setEditingId]=useState(null),[form,setForm]=useState(null),[loading,setLoading]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+  const [events,setEvents]=useState([]),[editingId,setEditingId]=useState(null),[form,setForm]=useState(null),[loading,setLoading]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[dateLimitToast,setDateLimitToast]=useState(0);
   const fileRef=useRef(null);
   const inputStyle={width:'100%',boxSizing:'border-box',minHeight:43,background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding: '8px 12px',color:'var(--theme-color-text-primary)',fontSize:13,marginTop: 4};
   async function load(){try{setLoading(true);setError('');const r=await fetch(`${API_BASE}/api/events?manage=1`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(apiErrorMessage(r,d,'Не удалось загрузить события.'));setEvents(d.events||[]);}catch(e){setError(safeCaughtError(e,'Не удалось загрузить события.'));}finally{setLoading(false);}}
   useEffect(()=>{if(initData)load();},[initData]);
-  function startEdit(event){if(Number(event.event_at)<=Date.now()){setError('Прошедшие ивенты нельзя редактировать.');return;}setEditingId(event.id);setForm({title:event.title||'',territoryId:String(event.territory_id||''),legacyPlace:event.place||'',coords:formatEventCoords(event.coords||''),description:event.description||'',imageData:event.image_data||null,dateParts:eventDatePartsFromTimestamp(event.event_at,timezoneOffset),dateChanged:false,eventAtOriginal:Number(event.event_at),eventTimezoneOriginal:event.event_timezone||'UTC',editorTimezone:normalizeTimezoneOffset(timezoneOffset)});setError('');setNotice('');}
+  function startEdit(event){if(Number(event.event_at)<=Date.now()){setError('Прошедшие ивенты нельзя редактировать.');return;}setEditingId(event.id);setForm({title:event.title||'',territoryId:String(event.territory_id||''),legacyPlace:event.place||'',coords:formatEventCoords(event.coords||''),description:event.description||'',imageData:event.image_data||null,dateParts:eventDatePartsFromTimestamp(event.event_at,timezoneOffset),dateChanged:false,eventAtOriginal:Number(event.event_at),eventTimezoneOriginal:event.event_timezone||'UTC',editorTimezone:normalizeTimezoneOffset(timezoneOffset),dateWindowStartedAt:Date.now()});setError('');setNotice('');}
   function patch(key,value){setForm(v=>v?({...v,[key]:value}):v);}
   function cancelEdit(){setEditingId(null);setForm(null);if(fileRef.current)fileRef.current.value='';}
   async function chooseImage(event){const input=event.currentTarget,file=input.files?.[0];if(!file)return;try{patch('imageData',await readEventImage(file));}catch(e){input.value='';setError(safeCaughtError(e,'Не удалось подготовить изображение.'));}}
-  async function save(){if(!form)return;const title=String(form.title||'').trim();const eventAt=form.dateChanged?eventDatePartsTimestamp(form.dateParts,form.editorTimezone||timezoneOffset):Number(form.eventAtOriginal);if(!title||!Number.isSafeInteger(eventAt)){setError('Укажите название, дату и время ивента.');return;}const city=territories.find(t=>String(t.id)===String(form.territoryId));const place=city?String(city.name||''):String(form.legacyPlace||'Не указано');try{setBusy(true);setError('');setNotice('');const body={initData,id:editingId,title,territoryId:city?String(city.id):null,place,eventAt,eventTimezone:form.dateChanged?(form.editorTimezone||timezoneOffset):(form.eventTimezoneOriginal||'UTC'),coords:formatEventCoords(form.coords),description:String(form.description||'').trim(),imageData:form.imageData||null};const r=await fetch(`${API_BASE}/api/events`,{method:'PATCH',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify(body)}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(apiErrorMessage(r,d,'Не удалось сохранить ивент.'));setNotice('Ивент обновлён');cancelEdit();await load();}catch(e){setError(safeCaughtError(e,'Не удалось сохранить ивент.'));}finally{setBusy(false);}}
+  async function save(){if(!form)return;const title=String(form.title||'').trim();const eventAt=form.dateChanged?eventDatePartsTimestamp(form.dateParts,form.editorTimezone||timezoneOffset):Number(form.eventAtOriginal);if(!title||!Number.isSafeInteger(eventAt)){setError('Укажите название, дату и время ивента.');return;}if(form.dateChanged&&eventAt<=Date.now()){setError('Выберите дату и время в будущем.');return;}if(form.dateChanged&&eventAt>addUtcCalendarMonths(form.dateWindowStartedAt||Date.now(),2)){setDateLimitToast(value=>value+1);return;}const city=territories.find(t=>String(t.id)===String(form.territoryId));const place=city?String(city.name||''):String(form.legacyPlace||'Не указано');try{setBusy(true);setError('');setNotice('');const body={initData,id:editingId,title,territoryId:city?String(city.id):null,place,eventAt,eventTimezone:form.dateChanged?(form.editorTimezone||timezoneOffset):(form.eventTimezoneOriginal||'UTC'),coords:formatEventCoords(form.coords),description:String(form.description||'').trim(),imageData:form.imageData||null};const r=await fetch(`${API_BASE}/api/events`,{method:'PATCH',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify(body)}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(apiErrorMessage(r,d,'Не удалось сохранить ивент.'));setNotice('Ивент обновлён');cancelEdit();await load();}catch(e){const message=safeCaughtError(e,'Не удалось сохранить ивент.');if(message===EVENT_DATE_LIMIT_MESSAGE)setDateLimitToast(value=>value+1);else setError(message);}finally{setBusy(false);}}
   async function remove(event){if(!window.confirm(`Удалить ивент «${event.title}»?`))return;try{setBusy(true);setError('');const r=await fetch(`${API_BASE}/api/events`,{method:'DELETE',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,id:event.id})}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(apiErrorMessage(r,d,'Не удалось удалить ивент.'));if(editingId===event.id)cancelEdit();setNotice('Ивент удалён');await load();}catch(e){setError(safeCaughtError(e,'Не удалось удалить ивент.'));}finally{setBusy(false);}}
   return <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding: 10,marginTop: 8,marginBottom: 8}}>
     <div style={{display:'flex',alignItems:'center',gap: 8,marginBottom: 8}}><CalendarDays size={17} color="var(--theme-color-action-primary)"/><div className="atlas-display" style={{fontSize:16,fontWeight:800}}>Управление ивентами</div><span style={{marginLeft: 'auto',fontSize:11,color:'var(--theme-color-text-muted)'}}>{events.length}</span></div>
     {loading&&!events.length?null:!events.length?<div style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>Опубликованных ивентов нет.</div>:events.map(event=><div key={event.id} style={{display:'flex',alignItems:'center',gap: 8,padding: '8px 0',borderBottom:'1px solid var(--theme-color-border)'}}><div style={{flex:1,minWidth:0}}><MinecraftText text={event.title} as="div" style={{fontSize:13,fontWeight:750}}/><div style={{fontSize:11,color:'var(--theme-color-text-muted)',marginTop: 3}}>{eventDateLabel(event.event_at,timezoneOffset)}</div></div>{Number(event.event_at)>Date.now()&&<button onClick={()=>startEdit(event)} disabled={!timezoneReady} className="press" style={{border:'1px solid var(--theme-color-action-primary-border)',borderRadius:9,background:'var(--theme-color-action-primary-soft)',color:'var(--theme-color-action-primary)',padding: 8,minWidth:42,minHeight:42,opacity:timezoneReady?1:.55}} title="Изменить"><Pencil size={14}/></button>}<button onClick={()=>remove(event)} disabled={busy} className="press" style={{border:'1px solid var(--theme-color-status-danger-border)',borderRadius:9,background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',padding: 8,minWidth:42,minHeight:42}} title="Удалить"><Trash2 size={14}/></button></div>)}
     {form&&<div style={{borderTop:'1px solid var(--theme-color-border)',marginTop: 12,paddingTop: 12}}><div style={{display:'flex',alignItems:'center',gap: 8,marginBottom: 8}}><div style={{fontSize:13,fontWeight:800,flex:1,minWidth:0}}>Редактировать ивент</div><button type="button" onClick={()=>{const event=events.find(item=>String(item.id)===String(editingId));if(event)remove(event);}} disabled={busy} title="Удалить ивент" aria-label="Удалить ивент" className="press" style={{width:36,height:36,flex:'0 0 auto',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--theme-color-status-danger-border)',borderRadius:10,background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)'}}><Trash2 size={15}/></button></div><label style={{fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700}}>Название</label><Field value={form.title} onChange={e=>patch('title',e.target.value)} maxLength={160} containerStyle={{marginBottom:0}} style={inputStyle}/><label style={{display:'block',fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginTop: 12}}>Место проведения</label><div style={{display:'flex',flexWrap:'wrap',gap: 6,marginTop: 4}}><button type="button" onClick={()=>{patch('territoryId','');patch('legacyPlace','Не указано')}} className="press" style={{...eventManagePlaceStyle(!form.territoryId),minHeight:40}}>Не указано</button>{territories.filter(t=>!Number(t.is_government||0)).map(t=><button key={t.id} type="button" onClick={()=>{patch('territoryId',String(t.id));patch('legacyPlace',t.name||'');}} className="press" style={{...eventManagePlaceStyle(String(form.territoryId)===String(t.id)),minHeight:40}}><MinecraftText text={t.name}/></button>)}</div><label style={{display:'block',fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginTop: 12}}>Дата и время начала</label><EventDateTimeFields parts={form.dateParts} onChange={parts=>setForm(v=>({...v,dateParts:parts,dateChanged:true}))}/><label style={{display:'block',fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginTop: 12}}>Координаты</label><input value={formatEventCoords(form.coords)} onChange={e=>patch('coords',sanitizeEventCoords(e.target.value))} type="text" autoCapitalize="off" autoCorrect="off" placeholder="X / Z" style={inputStyle}/><label style={{display:'block',fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginTop: 12}}>Описание</label><textarea value={form.description} onChange={e=>patch('description',e.target.value.slice(0,542))} rows={4} maxLength={542} className="atlas-event-description-field" style={{...inputStyle,resize:'none'}}/><input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseImage} style={{display:'none'}}/><button type="button" onClick={()=>fileRef.current?.click()} className="press" style={{display:'flex',alignItems:'center',justifyContent:'center',gap: 6,width:'100%',minHeight:42,marginTop: 4,border:'1px solid var(--theme-color-action-primary-border)',borderRadius:10,background:'var(--theme-color-action-primary-soft)',color:'var(--theme-color-action-primary)',fontWeight:800}}><ImagePlus size={16}/>Выбрать файл обложки</button>{form.imageData&&<img src={form.imageData} alt="Обложка" style={{width:'100%',maxHeight:140,objectFit:'cover',borderRadius:10,marginTop: 8}}/>}<div style={{display:'flex',gap: 8,marginTop: 12}}><button onClick={save} disabled={busy||!form.title.trim()} className="press" style={{flex:1,border:0,borderRadius:10,minHeight:43,background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:800}}>{busy?'Сохранение…':'Сохранить изменения'}</button><button onClick={cancelEdit} disabled={busy} className="press" style={{border:'1px solid var(--theme-color-border)',borderRadius:10,padding: '0 12px',background:'var(--theme-color-surface-raised)',color:'var(--theme-color-text-primary)',fontWeight:700}}>Отмена</button></div></div>}
     {error&&<div role="alert" style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop: 8}}>{error}</div>}{notice&&<div role="status" style={{fontSize:12,color:'var(--theme-color-status-success)',marginTop: 8}}>{notice}</div>}
+    {dateLimitToast>0&&<FixedToast key={dateLimitToast} message={EVENT_DATE_LIMIT_MESSAGE} type="error"/>}
   </div>;
 }
 function eventManagePlaceStyle(active){return {border:active?'1px solid var(--theme-color-action-primary)':'1px solid var(--theme-color-border)',borderRadius:10,padding: '8px 10px',background:active?'var(--theme-color-action-primary-soft)':'var(--theme-color-surface-raised)',color:active?'var(--theme-color-action-primary)':'var(--theme-color-text-primary)',fontSize:12,fontWeight:700};}
@@ -3536,8 +3543,6 @@ function makeVisualForm(item={}){
   };
 }
 
-async function validateCoverDataUrl(dataUrl){if(!dataUrl)return;const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error('Не удалось определить размеры изображения'));i.src=dataUrl});const ratio=img.width/img.height;if(!Number.isFinite(ratio)||Math.abs(ratio-(8/3))>0.001)throw new Error('Для визуала с тегом «Обложка» изображение должно иметь соотношение 8:3.')}
-
 function VisualEditModal({item,onClose,onSaved,initData}){
   const [form,setForm]=useState(makeVisualForm(item)),[saving,setSaving]=useState(false),[error,setError]=useState('');
   const { closing, requestClose } = useAnimatedClose(onClose, 175);
@@ -3548,7 +3553,6 @@ function VisualEditModal({item,onClose,onSaved,initData}){
       const categories=form.categories.split(',').map(x=>x.trim()).filter(Boolean);
       if(!form.name.trim()||!categories.length)throw new Error('Укажите название и хотя бы один тег');
       if(!form.imageData)throw new Error('Загрузите изображение визуала');
-      if(categories.some(x=>x.toLowerCase()==='обложка')) await validateCoverDataUrl(form.imageData);
       const r=await fetch(`${API_BASE}/api/customization/items/${encodeURIComponent(item.id)}`,{
         method:'PATCH',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},
         body:JSON.stringify({initData,name:form.name.trim(),categories,price:Number(form.price),imageData:form.imageData,color:form.color,
@@ -3642,7 +3646,6 @@ function CustomizationScreen({initData,tgUser,role,territories,profile,onToast})
       setSaving(true);setError('');
       const categories=form.categories.split(',').map(x=>x.trim()).filter(Boolean);
       if(!form.name.trim()||!categories.length)throw new Error('Укажите название и хотя бы один тег');
-      if(categories.some(x=>x.toLowerCase()==='обложка')) await validateCoverDataUrl(form.imageData);
       const r=await fetch(`${API_BASE}/api/customization/items`,{
         method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},
         body:JSON.stringify({initData,name:form.name.trim(),categories,price:Number(form.price),imageData:form.imageData,color:form.color,
@@ -3774,7 +3777,10 @@ function CustomizationScreen({initData,tgUser,role,territories,profile,onToast})
           </div>}
           {item.image_data&&<div style={{height:140,display:'flex',alignItems:'center',justifyContent:'center',background:'var(--theme-color-surface-raised)',borderRadius:10}}><img src={item.image_data} alt={item.name} style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',imageRendering:'pixelated'}}/></div>}
           <MinecraftText as="div" text={item.name} style={{fontSize:13,fontWeight:700,marginTop: 6}}/>
-          <div className="atlas-display atlas-visual-price" style={{fontSize:18,fontWeight:800,color:'var(--content-color-gem)',marginTop: 6,display:'flex',alignItems:'center',gap: 6,lineHeight:1}}><span>{item.price}</span><GemHex/></div>
+          <div className="atlas-display atlas-visual-price" style={{fontSize:18,fontWeight:800,color:'var(--content-color-gem)',marginTop: 6,display:'flex',alignItems:'center',gap: 6,lineHeight:1}}>
+            {Number(item.discount_percent||0)>0&&<span style={{fontSize:14,fontWeight:650,color:'var(--theme-color-text-muted)',textDecoration:'line-through',textDecorationColor:'#EF4444',textDecorationThickness:2}}>{item.price}</span>}
+            <span>{Number(item.discount_percent||0)>0?item.discounted_price:item.price}</span><GemHex/>
+          </div>
           <button disabled={owned} onClick={()=>buy(item.id)} className="press" style={{width:'100%',marginTop: 8,padding: 8,border:'none',borderRadius:10,background:owned?'var(--theme-color-surface-raised)':'var(--theme-color-action-primary)',color:owned?'var(--theme-color-text-muted)':'var(--theme-color-action-primary-contrast)',fontWeight:700}}>{owned?'Получено':'Купить'}</button>
         </div>;
       })}
@@ -4197,8 +4203,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
           owner_mc_nickname: row.owner_mc_nickname || null,
           founder_mc_nickname: row.founder_mc_nickname || row.owner_mc_nickname || null,
           marker_url: row.marker_url || null,
-          cover_url: row.cover_url || row.background_image || null,
-          background_item_id: row.background_item_id || null,
+          banner_color: row.banner_color || 'none',
           resident_count: preservePrevious(['members', 'managers'], 'resident_count', Number(row.resident_count ?? ((row.residents || []).length + (row.managers || []).length))),
           resident_telegram_ids: preservePrevious(['members'], 'resident_telegram_ids', Array.isArray(row.resident_telegram_ids) ? row.resident_telegram_ids : []),
           resident_rows: preservePrevious(['members'], 'resident_rows', Array.isArray(row.resident_rows) ? row.resident_rows : []),

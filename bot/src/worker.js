@@ -1407,6 +1407,16 @@ async function initializeWorldTables(env) {
     updated_at INTEGER NOT NULL
   )`).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_financial_operations_user_created ON financial_operations(telegram_id,created_at)`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS customization_discounts (
+    item_id TEXT PRIMARY KEY, percent INTEGER NOT NULL, expires_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL, updated_by_telegram_id INTEGER
+  )`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_customization_discounts_expires ON customization_discounts(expires_at)`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS visual_discount_operations (
+    update_id INTEGER PRIMARY KEY, actor_telegram_id INTEGER NOT NULL, mode TEXT NOT NULL,
+    target_summary TEXT NOT NULL, percent INTEGER NOT NULL, expires_at INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'processing', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+  )`).run();
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS user_items (
       telegram_id INTEGER NOT NULL,
@@ -1421,6 +1431,7 @@ async function initializeWorldTables(env) {
       territory_id TEXT PRIMARY KEY,
       marker_item_id TEXT,
       background_item_id TEXT,
+      banner_color TEXT NOT NULL DEFAULT 'none',
       effects_json TEXT NOT NULL DEFAULT '[]',
       updated_at INTEGER NOT NULL
     )
@@ -1428,6 +1439,7 @@ async function initializeWorldTables(env) {
   const cityCustomizationCols = await env.DB.prepare(`PRAGMA table_info(city_customization)`).all();
   const cityCustomizationNames = new Set((cityCustomizationCols.results || []).map(r => r.name));
   if (!cityCustomizationNames.has('background_item_id')) { try { await env.DB.prepare(`ALTER TABLE city_customization ADD COLUMN background_item_id TEXT`).run(); } catch (e) { if (!String(e).toLowerCase().includes('duplicate column')) throw e; } }
+  if (!cityCustomizationNames.has('banner_color')) { try { await env.DB.prepare(`ALTER TABLE city_customization ADD COLUMN banner_color TEXT NOT NULL DEFAULT 'none'`).run(); } catch (e) { if (!String(e).toLowerCase().includes('duplicate column')) throw e; } }
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS comment_replies (
       comment_id TEXT PRIMARY KEY,
@@ -1646,7 +1658,7 @@ async function ensureFirstCityMarker(env, territoryId) {
   const territory = await env.DB.prepare(`SELECT id,is_government FROM territories WHERE id=? AND status='approved'`).bind(id).first();
   if (!territory) return null;
   const isGovernment = Number(territory.is_government || 0) === 1;
-  const current = await env.DB.prepare(`SELECT marker_item_id,background_item_id FROM city_customization WHERE territory_id=?`).bind(id).first();
+  const current = await env.DB.prepare(`SELECT marker_item_id FROM city_customization WHERE territory_id=?`).bind(id).first();
 
   const managers = await getTerritoryManagerRows(env, id);
   const managerIds = managers.map(m => Number(m.telegram_id)).filter(Boolean);
@@ -1998,7 +2010,7 @@ async function getCustomization(request, env) {
   await cleanupCustomizationCategories(env);
   const [cats,items,personalOwned,owned,personalBalance]=await Promise.all([
     env.DB.prepare('SELECT id,name,sort_order FROM customization_categories ORDER BY sort_order ASC, created_at ASC, name ASC').all(),
-    env.DB.prepare(`SELECT i.id,i.category_id,c.name AS category_name,i.name,i.price,i.image_data,i.categories_text,i.color,i.active,i.sort_order,i.achievement_enabled,i.achievement_residents,i.achievement_gems,i.achievement_inspector_score,i.achievement_player_score,i.achievement_screenshots,i.achievement_comments,i.achievement_visuals,i.government_marker,i.hidden_from_users FROM customization_items i LEFT JOIN customization_categories c ON c.id=i.category_id WHERE i.active=1 ORDER BY i.sort_order ASC, i.created_at ASC`).all(),
+    env.DB.prepare(`SELECT i.id,i.category_id,c.name AS category_name,i.name,i.price,i.image_data,i.categories_text,i.color,i.active,i.sort_order,i.achievement_enabled,i.achievement_residents,i.achievement_gems,i.achievement_inspector_score,i.achievement_player_score,i.achievement_screenshots,i.achievement_comments,i.achievement_visuals,i.government_marker,i.hidden_from_users,d.percent AS discount_percent,d.expires_at AS discount_expires_at FROM customization_items i LEFT JOIN customization_categories c ON c.id=i.category_id LEFT JOIN customization_discounts d ON d.item_id=i.id AND d.expires_at>? WHERE i.active=1 ORDER BY i.sort_order ASC, i.created_at ASC`).bind(Date.now()).all(),
     env.DB.prepare('SELECT item_id,source,acquired_at FROM user_items WHERE telegram_id=?').bind(userId).all(),
     accountCity
       ? env.DB.prepare('SELECT item_id,source,acquired_at FROM city_items WHERE territory_id=?').bind(accountCity.id).all()
@@ -2008,14 +2020,17 @@ async function getCustomization(request, env) {
   let balance=Number(personalBalance?.balance||0);
   if(accountCity){ const row=await env.DB.prepare('SELECT balance FROM city_treasury WHERE territory_id=?').bind(accountCity.id).first(); balance=Number(row?.balance||0); }
   const viewerRole=await getRoleByTelegramId(env,userId,auth.user.username);
-  const visibleItems=viewerRole==='main_inspector' ? (items.results||[]) : (items.results||[]).filter(i=>Number(i.government_marker||0)!==1 && Number(i.hidden_from_users||0)!==1);
+  const visibleItems=(viewerRole==='main_inspector' ? (items.results||[]) : (items.results||[]).filter(i=>Number(i.government_marker||0)!==1 && Number(i.hidden_from_users||0)!==1)).map(item=>{
+    const discountPercent=Math.max(0,Math.min(100,Math.floor(Number(item.discount_percent)||0)));
+    return {...item,discount_percent:discountPercent,discounted_price:discountPercent>0?calculateDiscountedPrice(item.price,discountPercent):Number(item.price||0)};
+  });
   const itemMap=new Map(visibleItems.map(i=>[i.id,i]));
   const myItems=(personalOwned.results||[]).map(x=>({...x,...(itemMap.get(x.item_id)||{})})).filter(x=>x.item_id&&itemMap.has(x.item_id));
-  let cityInventory=[],equippedMarkerItemId=null,equippedBackgroundItemId=null;
+  let cityInventory=[],equippedMarkerItemId=null,bannerColor='none';
   if(profileTerritoryId){
-    const city=await env.DB.prepare('SELECT marker_item_id,background_item_id FROM city_customization WHERE territory_id=?').bind(profileTerritoryId).first();
+    const city=await env.DB.prepare('SELECT marker_item_id,banner_color FROM city_customization WHERE territory_id=?').bind(profileTerritoryId).first();
     equippedMarkerItemId=city?.marker_item_id||null;
-    equippedBackgroundItemId=city?.background_item_id||null;
+    bannerColor=city?.banner_color||'none';
     const managerIds=(await getTerritoryManagerRows(env,profileTerritoryId)).map(x=>Number(x.telegram_id)).filter(Boolean);
     const members=await env.DB.prepare('SELECT telegram_id FROM city_memberships WHERE territory_id=?').bind(profileTerritoryId).all();
     const ids=[...managerIds,...(members.results||[]).map(x=>Number(x.telegram_id)).filter(Boolean)].filter((x,i,a)=>a.indexOf(x)===i);
@@ -2027,7 +2042,7 @@ async function getCustomization(request, env) {
     cityInventory=[...(cityOnly.results||[]),...(userOwned.results||[])].filter((x,i,a)=>a.findIndex(y=>y.item_id===x.item_id)===i);
     if(!equippedMarkerItemId){const first=await ensureFirstCityMarker(env,profileTerritoryId);equippedMarkerItemId=first?.id||null;}
   }
-  return json({ok:true,balance,personalBalance:Number(personalBalance?.balance||0),accountScope,accountLabel:accountScope==='personal'?(currentUser?.mc_nickname||'Ник не указан'):`Казна: ${accountCity?.name||'город'}`,accountOptions:[{scope:'personal',label:currentUser?.mc_nickname||'Ник не указан'},...managerCities.map(c=>({scope:`treasury:${c.id}`,label:`Казна: ${c.name}`}))],managerCities,cityName:accountCity?.name||null,categories:cats.results||[],items:visibleItems,owned:owned.results||[],myItems,cityId:profileTerritoryId||null,cityRole:profileTerritoryId?'manager':null,cityInventory,equippedMarkerItemId,equippedBackgroundItemId});
+  return json({ok:true,balance,personalBalance:Number(personalBalance?.balance||0),accountScope,accountLabel:accountScope==='personal'?(currentUser?.mc_nickname||'Ник не указан'):`Казна: ${accountCity?.name||'город'}`,accountOptions:[{scope:'personal',label:currentUser?.mc_nickname||'Ник не указан'},...managerCities.map(c=>({scope:`treasury:${c.id}`,label:`Казна: ${c.name}`}))],managerCities,cityName:accountCity?.name||null,categories:cats.results||[],items:visibleItems,owned:owned.results||[],myItems,cityId:profileTerritoryId||null,cityRole:profileTerritoryId?'manager':null,cityInventory,equippedMarkerItemId,bannerColor});
 }
 
 function decodeDataUrl(dataUrl) {
@@ -2068,10 +2083,19 @@ function imageDimensions(dataUrl) {
   return null;
 }
 
-function isCoverTag(categories){return categories.some(x=>String(x).trim().toLowerCase()==='обложка');}
 function isMarkerTag(categories){return categories.some(x=>String(x).trim().toLowerCase()==='метка');}
-function isEightToThree(width,height){return Number.isFinite(width)&&Number.isFinite(height)&&height>0&&Math.abs((width/height)-(8/3))<=0.001;}
-async function syncGovernmentVisual(env,itemId,categories,governmentEnabled){const id=String(itemId||'').trim(),isMarker=isMarkerTag(categories),isCover=isCoverTag(categories);const govs=await env.DB.prepare(`SELECT id FROM territories WHERE status='approved' AND is_government=1`).all();if(!governmentEnabled){await env.DB.prepare(`UPDATE city_customization SET marker_item_id=NULL,updated_at=? WHERE marker_item_id=? AND territory_id IN (SELECT id FROM territories WHERE status='approved' AND is_government=1)`).bind(Date.now(),id).run();await env.DB.prepare(`UPDATE city_customization SET background_item_id=NULL,updated_at=? WHERE background_item_id=? AND territory_id IN (SELECT id FROM territories WHERE status='approved' AND is_government=1)`).bind(Date.now(),id).run();return;}for(const row of govs.results||[]){if(isMarker)await env.DB.prepare(`INSERT INTO city_customization(territory_id,marker_item_id,updated_at) VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET marker_item_id=excluded.marker_item_id,updated_at=excluded.updated_at`).bind(row.id,id,Date.now()).run();if(isCover)await env.DB.prepare(`INSERT INTO city_customization(territory_id,background_item_id,updated_at) VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET background_item_id=excluded.background_item_id,updated_at=excluded.updated_at`).bind(row.id,id,Date.now()).run();}if(!isMarker)await env.DB.prepare(`UPDATE city_customization SET marker_item_id=NULL,updated_at=? WHERE marker_item_id=? AND territory_id IN (SELECT id FROM territories WHERE status='approved' AND is_government=1)`).bind(Date.now(),id).run();if(!isCover)await env.DB.prepare(`UPDATE city_customization SET background_item_id=NULL,updated_at=? WHERE background_item_id=? AND territory_id IN (SELECT id FROM territories WHERE status='approved' AND is_government=1)`).bind(Date.now(),id).run();}
+async function syncGovernmentVisual(env,itemId,categories,governmentEnabled){
+  const id=String(itemId||'').trim(),isMarker=isMarkerTag(categories);
+  const govs=await env.DB.prepare(`SELECT id FROM territories WHERE status='approved' AND is_government=1`).all();
+  if(!governmentEnabled){
+    await env.DB.prepare(`UPDATE city_customization SET marker_item_id=NULL,updated_at=? WHERE marker_item_id=? AND territory_id IN (SELECT id FROM territories WHERE status='approved' AND is_government=1)`).bind(Date.now(),id).run();
+    return;
+  }
+  for(const row of govs.results||[])if(isMarker){
+    await env.DB.prepare(`INSERT INTO city_customization(territory_id,marker_item_id,updated_at) VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET marker_item_id=excluded.marker_item_id,updated_at=excluded.updated_at`).bind(row.id,id,Date.now()).run();
+  }
+  if(!isMarker)await env.DB.prepare(`UPDATE city_customization SET marker_item_id=NULL,updated_at=? WHERE marker_item_id=? AND territory_id IN (SELECT id FROM territories WHERE status='approved' AND is_government=1)`).bind(Date.now(),id).run();
+}
 
 function normalizeTagList(value) {
   const arr = Array.isArray(value)
@@ -2118,13 +2142,13 @@ async function createCustomizationItem(request, env) {
     for(let i=categories.length-1;i>=0;i--) if(categories[i].toLowerCase()==='за достижение') categories.splice(i,1);
   }
   const allowedColors=new Set(['none','red','orange','yellow','green','turquoise','blue','purple','magenta','white','black']);
-  const isMarker=isMarkerTag(categories), isCover=isCoverTag(categories);
+  const isMarker=isMarkerTag(categories);
   if(!name||!categories.length||!Number.isSafeInteger(price)||price<0)return json({ok:false,error:'Название, теги и корректная цена обязательны'},400);
   if(!allowedColors.has(color))return json({ok:false,error:'Некорректный цвет'},400);
   if(!imageData.startsWith('data:image/'))return json({ok:false,error:'Загрузите изображение визуала'},400);
-  if(governmentMarker&&!isMarker&&!isCover)return json({ok:false,error:'Для государственной метки или обложки визуал должен иметь тег «Метка» или «Обложка»'},400);
+  if(governmentMarker&&!isMarker)return json({ok:false,error:'Для государственного визуала необходимо указать тег «Метка»'},400);
   if(governmentMarker&&achievement.enabled)return json({ok:false,error:'Государственный визуал нельзя выдавать как достижение'},400);
-  if(isCover){const dim=imageDimensions(imageData);if(!dim||!isEightToThree(dim.width,dim.height))return json({ok:false,error:'Для визуала с тегом «Обложка» изображение должно иметь соотношение 8:3'},400);}
+
   if(imageData.length>1_000_000)return json({ok:false,error:'Изображение слишком большое'},413);
   if(achievement.enabled && ![achievement.residents,achievement.gems,achievement.inspectorScore,achievement.playerScore,achievement.screenshots,achievement.comments,achievement.visuals].some(v=>v!==null)){
     return json({ok:false,error:'Укажите хотя бы одно условие достижения'},400);
@@ -2184,8 +2208,8 @@ async function updateCustomizationItem(request,env,itemId){
   if(!allowedColors.has(color))return json({ok:false,error:'Некорректный цвет'},400);
   const enabled=body?.achievementEnabled===undefined?!!current.achievement_enabled:!!body.achievementEnabled;
   const governmentMarker=body?.governmentMarker===undefined?!!current.government_marker:!!body.governmentMarker;
-  const isMarker=isMarkerTag(categories), isCover=isCoverTag(categories);
-  if(governmentMarker&&!isMarker&&!isCover)return json({ok:false,error:'Для государственной метки или обложки визуал должен иметь тег «Метка» или «Обложка»'},400);
+  const isMarker=isMarkerTag(categories);
+  if(governmentMarker&&!isMarker)return json({ok:false,error:'Для государственного визуала необходимо указать тег «Метка»'},400);
   if(governmentMarker&&enabled)return json({ok:false,error:'Государственный визуал нельзя выдавать как достижение'},400);
   const achievement=achievementPayload({...body,achievementEnabled:enabled,
     achievementResidents:body?.achievementResidents??current.achievement_residents,
@@ -2203,7 +2227,7 @@ async function updateCustomizationItem(request,env,itemId){
   if(!name||!categories.length||!Number.isSafeInteger(price)||price<0)return json({ok:false,error:'Название, теги и корректная цена обязательны'},400);
   if(!imageData.startsWith('data:image/'))return json({ok:false,error:'Загрузите изображение визуала'},400);
   if(imageData.length>1_000_000)return json({ok:false,error:'Изображение слишком большое'},413);
-  if(isCover){const dim=imageDimensions(imageData);if(!dim||!isEightToThree(dim.width,dim.height))return json({ok:false,error:'Для визуала с тегом «Обложка» изображение должно иметь соотношение 8:3'},400);}
+
   if(achievement.enabled && ![achievement.residents,achievement.gems,achievement.inspectorScore,achievement.playerScore,achievement.screenshots,achievement.comments,achievement.visuals].some(v=>v!==null)){
     return json({ok:false,error:'Укажите хотя бы одно условие достижения'},400);
   }
@@ -2219,7 +2243,7 @@ async function updateCustomizationItem(request,env,itemId){
   await syncGovernmentVisual(env,id,categories,governmentMarker).catch(error=>console.error('Government visual synchronization after item update:',error));
   // Reconcile ordinary territories too: changing a visual into a government-only
   // visual must not leave it equipped outside government territories.
-  const equippedTerritories=await env.DB.prepare(`SELECT territory_id FROM city_customization WHERE marker_item_id=? OR background_item_id=?`).bind(id,id).all();
+  const equippedTerritories=await env.DB.prepare(`SELECT territory_id FROM city_customization WHERE marker_item_id=?`).bind(id).all();
   for(const row of equippedTerritories.results||[]) {
     try { await reconcileTerritoryVisualEquipment(env,row.territory_id); }
     catch(error) { console.error('Equipment reconciliation after visual update:',error); }
@@ -2256,12 +2280,11 @@ async function deleteCustomizationItem(request,env,itemId){
   const id=String(itemId||'').trim();
   const item=await env.DB.prepare('SELECT id FROM customization_items WHERE id=? AND active=1').bind(id).first();
   if(!item)return json({ok:false,error:'Визуал не найден'},404);
-  const affected=await env.DB.prepare(`SELECT territory_id FROM city_customization WHERE marker_item_id=? OR background_item_id=?`).bind(id,id).all();
+  const affected=await env.DB.prepare(`SELECT territory_id FROM city_customization WHERE marker_item_id=?`).bind(id).all();
   const deletedAt=Date.now();
   // Keep achievement_awards history: an achievement must never notify the founder twice.
   await env.DB.batch([
     env.DB.prepare(`UPDATE city_customization SET marker_item_id=NULL,updated_at=? WHERE marker_item_id=?`).bind(deletedAt,id),
-    env.DB.prepare(`UPDATE city_customization SET background_item_id=NULL,updated_at=? WHERE background_item_id=?`).bind(deletedAt,id),
     env.DB.prepare(`DELETE FROM city_items WHERE item_id=?`).bind(id),
     env.DB.prepare(`UPDATE customization_items SET active=0 WHERE id=?`).bind(id),
   ]);
@@ -2297,31 +2320,35 @@ async function purchaseCustomizationItem(request, env, ctx = null) {
   const accountCity=managerCities.find(c=>String(c.id)===territoryId)||null; const accountScope=accountCity?`treasury:${accountCity.id}`:'personal';
   if(accountCity) await env.DB.prepare(`INSERT OR IGNORE INTO city_treasury(territory_id,balance,updated_at) VALUES(?,?,?)`).bind(accountCity.id,0,Date.now()).run();
   const item=await env.DB.prepare('SELECT id,name,price,government_marker,hidden_from_users FROM customization_items WHERE id=? AND active=1').bind(itemId).first(); if(!item)return json({ok:false,error:'Товар не найден'},404); if(!Number.isSafeInteger(Number(item.price))||Number(item.price)<0)return json({ok:false,error:'У товара некорректная цена'},500); if(Number(item.government_marker||0)===1)return json({ok:false,error:'Этот визуал недоступен для покупки'},403); const buyerRole=await getRoleByTelegramId(env,Number(auth.user.id),auth.user.username||''); if(Number(item.hidden_from_users||0)===1 && buyerRole!=='main_inspector')return json({ok:false,error:'Этот визуал недоступен для покупки'},403);
+  const purchaseNow=Date.now();
+  const activeDiscount=await env.DB.prepare('SELECT percent,expires_at FROM customization_discounts WHERE item_id=? AND expires_at>?').bind(itemId,purchaseNow).first();
+  const discountPercent=Math.max(0,Math.min(100,Math.floor(Number(activeDiscount?.percent)||0)));
+  const purchasePrice=discountPercent>0?calculateDiscountedPrice(item.price,discountPercent):Number(item.price);
   const already=accountCity
     ? await env.DB.prepare('SELECT item_id FROM city_items WHERE territory_id=? AND item_id=?').bind(accountCity.id,itemId).first()
     : await env.DB.prepare('SELECT item_id FROM user_items WHERE telegram_id=? AND item_id=?').bind(userId,itemId).first();
   if(already)return json({ok:true,alreadyOwned:true,accountScope});
   await env.DB.prepare('INSERT OR IGNORE INTO user_currency(telegram_id,balance) SELECT ?,0 WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)').bind(userId,userId).run();
   const balance=accountCity?await env.DB.prepare('SELECT balance FROM city_treasury WHERE territory_id=?').bind(accountCity.id).first():await env.DB.prepare('SELECT balance FROM user_currency WHERE telegram_id=?').bind(userId).first();
-  if(Number(balance?.balance||0)<Number(item.price))return json({ok:false,error:'Недостаточно самоцветов'},400);
+  if(Number(balance?.balance||0)<purchasePrice)return json({ok:false,error:'Недостаточно самоцветов'},400);
   const acquiredAt=Date.now();
   const attributedCity=accountCity||managerCities[0]||((await env.DB.prepare(`SELECT t.id,t.name FROM city_memberships cm JOIN territories t ON t.id=cm.territory_id WHERE cm.telegram_id=? AND t.status='approved' ORDER BY t.created_at ASC LIMIT 1`).bind(userId).first())||null);
   const spendLogId=crypto.randomUUID();
   const spendLogStatement=env.DB.prepare(`INSERT INTO gem_spend_log(id,territory_id,telegram_id,item_id,amount,created_at)
     SELECT ?,?,?,?,?,? WHERE changes()=1 AND ? IS NOT NULL AND ? > 0`)
-    .bind(spendLogId,attributedCity?.id||null,userId,itemId,Number(item.price),acquiredAt,attributedCity?.id||null,Number(item.price));
+    .bind(spendLogId,attributedCity?.id||null,userId,itemId,purchasePrice,acquiredAt,attributedCity?.id||null,purchasePrice);
   // Debit, inventory grant and achievement-spend journal are one D1 transaction.
   // The NOT EXISTS predicate makes simultaneous/retried purchases idempotent for the selected account.
   let purchaseBatch;
   try {
     purchaseBatch=accountCity
     ?await env.DB.batch([
-      env.DB.prepare(`UPDATE city_treasury SET balance=balance-?,updated_at=? WHERE territory_id=? AND balance>=? AND NOT EXISTS (SELECT 1 FROM city_items WHERE territory_id=? AND item_id=?) AND NOT EXISTS (SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(Number(item.price),acquiredAt,accountCity.id,Number(item.price),accountCity.id,itemId,userId),
+      env.DB.prepare(`UPDATE city_treasury SET balance=balance-?,updated_at=? WHERE territory_id=? AND balance>=? AND NOT EXISTS (SELECT 1 FROM city_items WHERE territory_id=? AND item_id=?) AND NOT EXISTS (SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(purchasePrice,acquiredAt,accountCity.id,purchasePrice,accountCity.id,itemId,userId),
       env.DB.prepare(`INSERT INTO city_items (territory_id,item_id,acquired_at,source) SELECT ?,?,?,'treasury_purchase' WHERE changes()=1`).bind(accountCity.id,itemId,acquiredAt),
       spendLogStatement,
     ])
     :await env.DB.batch([
-      env.DB.prepare(`UPDATE user_currency SET balance=balance-? WHERE telegram_id=? AND balance>=? AND NOT EXISTS (SELECT 1 FROM user_items WHERE telegram_id=? AND item_id=?) AND NOT EXISTS (SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(Number(item.price),userId,Number(item.price),userId,itemId,userId),
+      env.DB.prepare(`UPDATE user_currency SET balance=balance-? WHERE telegram_id=? AND balance>=? AND NOT EXISTS (SELECT 1 FROM user_items WHERE telegram_id=? AND item_id=?) AND NOT EXISTS (SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(purchasePrice,userId,purchasePrice,userId,itemId,userId),
       env.DB.prepare(`INSERT INTO user_items (telegram_id,item_id,acquired_at,source) SELECT ?,?,?,'purchase' WHERE changes()=1`).bind(userId,itemId,acquiredAt),
       spendLogStatement,
     ]);
@@ -2344,7 +2371,7 @@ async function purchaseCustomizationItem(request, env, ctx = null) {
       buyerUsername:buyer?.telegram_username || auth.user.username,
       buyerTelegramId:userId,
       itemName:item.name,
-      price:Number(item.price||0),
+      price:purchasePrice,
       territoryName:accountCity?.name || null,
     });
   })().catch(error => {
@@ -2465,18 +2492,19 @@ async function updateCityCustomization(request, env) {
   let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
   const territoryId=String(body?.territoryId||'').trim();
   const hasMarkerField=Object.prototype.hasOwnProperty.call(body,'markerItemId');
-  const hasBackgroundField=Object.prototype.hasOwnProperty.call(body,'backgroundItemId');
-  const markerItemId=hasMarkerField && body?.markerItemId ? String(body.markerItemId) : null;
-  const backgroundItemId=hasBackgroundField && body?.backgroundItemId ? String(body.backgroundItemId) : null;
+  const hasBannerColorField=Object.prototype.hasOwnProperty.call(body,'bannerColor');
+  const markerItemId=hasMarkerField&&body?.markerItemId?String(body.markerItemId):null;
+  const bannerColor=hasBannerColorField?String(body?.bannerColor||'none').trim().toLowerCase():'none';
+  const allowedBannerColors=new Set(['none','red','orange','yellow','green','turquoise','blue','purple','magenta','white']);
   const territory=await env.DB.prepare(`SELECT id,owner_telegram_id,is_government FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first();
   if(!territory)return json({ok:false,error:'City not found'},404);
   if(Number(territory.is_government||0)===1)return json({ok:false,error:'Государственной территорией нельзя управлять через оформление города'},403);
   if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Только основатель/мэр может менять оформление города'},403);
-  async function validateItem(itemId,tag,label){
+  async function validateMarker(itemId){
     const item=await env.DB.prepare(`SELECT i.id,i.categories_text,c.name AS category_name,i.government_marker,i.hidden_from_users FROM customization_items i LEFT JOIN customization_categories c ON c.id=i.category_id WHERE i.id=? AND i.active=1`).bind(itemId).first();
-    if(!item)throw new Error(`${label} не найден`);
-    if(Number(item.government_marker||0)===1)throw new Error('Государственный визуал нельзя экипировать на обычный город');
-    if(!visualHasTag(item,tag))throw new Error(`${label} должен иметь тег «${tag}»`);
+    if(!item)throw new Error('Метка не найдена');
+    if(Number(item.government_marker||0)===1)throw new Error('Государственную метку нельзя экипировать на обычный город');
+    if(!visualHasTag(item,'метка'))throw new Error('Метка должна иметь тег «метка»');
     const allowed=await env.DB.prepare(`
       SELECT 1 FROM city_items WHERE territory_id=? AND item_id=?
       UNION SELECT 1 FROM user_items WHERE telegram_id=? AND item_id=?
@@ -2485,25 +2513,22 @@ async function updateCityCustomization(request, env) {
       UNION SELECT 1 FROM user_items ui JOIN territories ot ON ot.owner_telegram_id=ui.telegram_id WHERE ot.id=? AND ot.status='approved' AND ui.item_id=?
       LIMIT 1
     `).bind(territoryId,itemId,Number(auth.user.id),itemId,territoryId,itemId,territoryId,itemId,territoryId,itemId).first();
-    if(!allowed)throw new Error(`${label} недоступен вашему городу`);
+    if(!allowed)throw new Error('Метка недоступна вашему городу');
   }
   try{
-    if(!hasMarkerField&&!hasBackgroundField)return json({ok:false,error:'Нужно выбрать метку или обложку'},400);
-    const columns=['territory_id'];
-    const values=['?'];
-    const insertBinds=[territoryId];
-    const updates=[];
+    if(!hasMarkerField&&!hasBannerColorField)return json({ok:false,error:'Выберите цвет баннера или метку'},400);
+    if(hasBannerColorField&&!allowedBannerColors.has(bannerColor))return json({ok:false,error:'Некорректный цвет баннера'},400);
+    const columns=['territory_id'],values=['?'],binds=[territoryId],updates=[];
     if(hasMarkerField){
-      if(markerItemId)await validateItem(markerItemId,'метка','Метка');
-      columns.push('marker_item_id'); values.push('?'); insertBinds.push(markerItemId); updates.push('marker_item_id=excluded.marker_item_id');
+      if(markerItemId)await validateMarker(markerItemId);
+      columns.push('marker_item_id');values.push('?');binds.push(markerItemId);updates.push('marker_item_id=excluded.marker_item_id');
     }
-    if(hasBackgroundField){
-      if(backgroundItemId)await validateItem(backgroundItemId,'обложка','Обложка');
-      columns.push('background_item_id'); values.push('?'); insertBinds.push(backgroundItemId); updates.push('background_item_id=excluded.background_item_id');
+    if(hasBannerColorField){
+      columns.push('banner_color');values.push('?');binds.push(bannerColor);updates.push('banner_color=excluded.banner_color');
     }
-    columns.push('updated_at'); values.push('?'); insertBinds.push(Date.now()); updates.push('updated_at=excluded.updated_at');
-    await env.DB.prepare(`INSERT INTO city_customization(${columns.join(',')}) VALUES(${values.join(',')}) ON CONFLICT(territory_id) DO UPDATE SET ${updates.join(',')}`).bind(...insertBinds).run();
-    return json({ok:true,markerItemId:markerItemId,backgroundItemId:backgroundItemId});
+    columns.push('updated_at');values.push('?');binds.push(Date.now());updates.push('updated_at=excluded.updated_at');
+    await env.DB.prepare(`INSERT INTO city_customization(${columns.join(',')}) VALUES(${values.join(',')}) ON CONFLICT(territory_id) DO UPDATE SET ${updates.join(',')}`).bind(...binds).run();
+    return json({ok:true,...(hasMarkerField?{markerItemId}:{}),...(hasBannerColorField?{bannerColor}:{})});
   }catch(error){return json({ok:false,error:error?.message||'Не удалось обновить оформление'},400)}
 }
 async function inviteResident(request, env) {
@@ -3028,34 +3053,33 @@ async function firstAchievementCityMarker(env, territoryId) {
 
 async function reconcileTerritoryVisualEquipment(env, territoryId) {
   const cityId=String(territoryId||'').trim(); if(!cityId)return;
-  const current=await env.DB.prepare(`SELECT marker_item_id,background_item_id FROM city_customization WHERE territory_id=?`).bind(cityId).first();
+  const current=await env.DB.prepare(`SELECT marker_item_id FROM city_customization WHERE territory_id=?`).bind(cityId).first();
   if(!current)return;
   const markerAvailable=current.marker_item_id ? await territoryCanUseVisual(env,cityId,current.marker_item_id,'метка') : false;
-  const coverAvailable=current.background_item_id ? await territoryCanUseVisual(env,cityId,current.background_item_id,'обложка') : false;
   let marker=markerAvailable?current.marker_item_id:null;
-  let background=coverAvailable?current.background_item_id:null;
-  // When an equipped marker becomes unavailable, use the earliest city-owned
-  // marker carrying the achievement tag; never substitute a resident's personal visual.
   if(!marker) marker=await firstAchievementCityMarker(env,cityId);
-  // NULL intentionally restores the city's automatically generated accent gradient.
-  if(marker!==current.marker_item_id || background!==current.background_item_id){
-    await env.DB.prepare(`UPDATE city_customization SET marker_item_id=?,background_item_id=?,updated_at=? WHERE territory_id=?`).bind(marker,background,Date.now(),cityId).run();
+  if(marker!==current.marker_item_id){
+    await env.DB.prepare(`UPDATE city_customization SET marker_item_id=?,updated_at=? WHERE territory_id=?`).bind(marker,Date.now(),cityId).run();
   }
 }
 
 async function getCityCustomizationData(request, env, url) {
   const auth=await requireUser(request,env); if(auth.error)return auth.error; await ensureWorldTables(env);
-  const territoryId=String(url.searchParams.get('territoryId')||'').trim(); const territory=await env.DB.prepare(`SELECT id,owner_telegram_id FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first(); if(!territory)return json({ok:false,error:'City not found'},404);
+  const territoryId=String(url.searchParams.get('territoryId')||'').trim();
+  const territory=await env.DB.prepare(`SELECT id,owner_telegram_id FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first();
+  if(!territory)return json({ok:false,error:'City not found'},404);
   if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Недостаточно прав'},403);
-  const city=await env.DB.prepare('SELECT marker_item_id,background_item_id FROM city_customization WHERE territory_id=?').bind(territoryId).first();
-  const managers=await getTerritoryManagerRows(env,territoryId); const members=await env.DB.prepare('SELECT telegram_id FROM city_memberships WHERE territory_id=?').bind(territoryId).all();
+  const city=await env.DB.prepare('SELECT marker_item_id,banner_color FROM city_customization WHERE territory_id=?').bind(territoryId).first();
+  const managers=await getTerritoryManagerRows(env,territoryId);
+  const members=await env.DB.prepare('SELECT telegram_id FROM city_memberships WHERE territory_id=?').bind(territoryId).all();
   const ids=[...managers.map(r=>Number(r.telegram_id)),...(members.results||[]).map(r=>Number(r.telegram_id))].filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i),ph=ids.map(()=>'?').join(',')||'NULL';
   const [cityItems,userItems]=await Promise.all([
-    env.DB.prepare(`SELECT ci.item_id,i.name,i.image_data,c.name AS category_name,i.hidden_from_users,ci.source FROM city_items ci JOIN customization_items i ON i.id=ci.item_id LEFT JOIN customization_categories c ON c.id=i.category_id WHERE ci.territory_id=?`).bind(territoryId).all(),
-    env.DB.prepare(`SELECT ui.telegram_id,ui.item_id,i.name,i.image_data,c.name AS category_name,i.hidden_from_users,ui.source FROM user_items ui JOIN customization_items i ON i.id=ui.item_id LEFT JOIN customization_categories c ON c.id=i.category_id WHERE ui.telegram_id IN (${ph})`).bind(...ids).all(),
+    env.DB.prepare(`SELECT ci.item_id,i.name,i.image_data,c.name AS category_name,i.categories_text,i.hidden_from_users,ci.source FROM city_items ci JOIN customization_items i ON i.id=ci.item_id LEFT JOIN customization_categories c ON c.id=i.category_id WHERE ci.territory_id=?`).bind(territoryId).all(),
+    env.DB.prepare(`SELECT ui.telegram_id,ui.item_id,i.name,i.image_data,c.name AS category_name,i.categories_text,i.hidden_from_users,ui.source FROM user_items ui JOIN customization_items i ON i.id=ui.item_id LEFT JOIN customization_categories c ON c.id=i.category_id WHERE ui.telegram_id IN (${ph})`).bind(...ids).all(),
   ]);
   let recruitmentUsername=''; try{const r=await env.DB.prepare(`SELECT contact_username,enabled FROM recruitment WHERE territory_id=?`).bind(territoryId).first(); recruitmentUsername=Number(r?.enabled||0)===1?(r?.contact_username||''):'';}catch{}
-  const availableMarkers=[...(cityItems.results||[]),...(userItems.results||[])]; return json({ok:true,markerItemId:city?.marker_item_id||null,backgroundItemId:city?.background_item_id||null,availableMarkers,recruitmentUsername});
+  const availableMarkers=[...(cityItems.results||[]),...(userItems.results||[])];
+  return json({ok:true,markerItemId:city?.marker_item_id||null,bannerColor:city?.banner_color||'none',availableMarkers,recruitmentUsername});
 }
 
 async function serveCustomizationItemImage(request, env, itemId) {
@@ -3114,9 +3138,7 @@ async function getTerritories(request, env) {
         mi.categories_text AS marker_categories_text,
         mi.government_marker AS marker_government_marker,
         mic.name AS marker_category_name,
-        cc.background_item_id,
-        bi.name AS background_name,
-        bi.id AS background_source_item_id,
+        cc.banner_color,
         ou.mc_nickname AS owner_mc_nickname,
         ou.xuid AS owner_xuid,
         ou.skin_texture_id AS owner_skin_texture_id
@@ -3125,7 +3147,6 @@ async function getTerritories(request, env) {
       LEFT JOIN city_customization cc ON cc.territory_id=t.id
       LEFT JOIN customization_items mi ON mi.id=cc.marker_item_id AND mi.active=1
       LEFT JOIN customization_categories mic ON mic.id=mi.category_id
-      LEFT JOIN customization_items bi ON bi.id=cc.background_item_id
       LEFT JOIN users ou ON ou.telegram_id=t.owner_telegram_id
       WHERE t.status='approved' ${detailId ? 'AND t.id=?' : ''}
       ORDER BY t.created_at DESC
@@ -3266,11 +3287,9 @@ async function getTerritories(request, env) {
       const isManagerViewer=viewer?.id ? managerIds.map(String).includes(String(viewer.id)) : false;
       const residentRows=isGovernment||summaryMode?[]:ms.map(m=>({telegram_id:Number(m.telegram_id),mc_nickname:m.mc_nickname||null,telegram_username:m.telegram_username||null,xuid:m.xuid||null,skin_texture_id:m.skin_texture_id||null,skin_url:skinUrlFromTexture(m.skin_texture_id,m.mc_nickname)}));
       const assetUrl = itemId => itemId ? `${new URL(request.url).origin}/api/customization/items/${encodeURIComponent(String(itemId))}/image` : null;
-      // Never embed the full Base64 asset into the territories JSON. Fetch selected marker
-      // and cover images through the dedicated image endpoint so summary payloads stay small.
+      // Fetch selected marker images through the dedicated image endpoint.
       const markerImage=assetUrl(row.marker_source_item_id);
-      const backgroundImage=assetUrl(row.background_source_item_id);
-      return {...row,marker_image:markerImage,background_image:backgroundImage,x,y,vox_x:parsed?.x??null,vox_z:parsed?.z??null,curator:curatorByCity[row.id]||0,community:communityByCity[row.id]||0,votes:votesByCity[row.id]||0,my_rating:myRating,owner:isGovernment?'':(ownerNickname||'Ник не указан'),owner_mc_nickname:isGovernment?null:ownerNickname,founder_mc_nickname:isGovernment?null:ownerNickname,managers,manager_telegram_ids:managerIds,manager_count:managerIds.length,is_manager:isManagerViewer,residents:summaryMode?[]:(isGovernment?[]:ms.map(m=>m.mc_nickname).filter(Boolean)),resident_rows:residentRows,resident_telegram_ids:isGovernment?[]:ms.map(m=>Number(m.telegram_id)),resident_count:isGovernment?0:ms.length+managerIds.length,recruitment_contact_username:isGovernment?null:(row.recruitment_contact_username||null),reviews:commentsByCity[row.id]||[],screenshots:screensByCity[row.id]||[],marker_url:markerImage,cover_url:backgroundImage,is_government:isGovernment};
+      return {...row,marker_image:markerImage,banner_color:row.banner_color||'none',x,y,vox_x:parsed?.x??null,vox_z:parsed?.z??null,curator:curatorByCity[row.id]||0,community:communityByCity[row.id]||0,votes:votesByCity[row.id]||0,my_rating:myRating,owner:isGovernment?'':(ownerNickname||'Ник не указан'),owner_mc_nickname:isGovernment?null:ownerNickname,founder_mc_nickname:isGovernment?null:ownerNickname,managers,manager_telegram_ids:managerIds,manager_count:managerIds.length,is_manager:isManagerViewer,residents:summaryMode?[]:(isGovernment?[]:ms.map(m=>m.mc_nickname).filter(Boolean)),resident_rows:residentRows,resident_telegram_ids:isGovernment?[]:ms.map(m=>Number(m.telegram_id)),resident_count:isGovernment?0:ms.length+managerIds.length,recruitment_contact_username:isGovernment?null:(row.recruitment_contact_username||null),reviews:commentsByCity[row.id]||[],screenshots:screensByCity[row.id]||[],marker_url:markerImage,is_government:isGovernment};
     });
     markTiming('transform');
     const response=json({ok:true,territories,degraded:partialFailures.length>0,degradedAreas:[...new Set(partialFailures)]});
@@ -3760,8 +3779,7 @@ async function rekeyManagedUserId(env,{oldId,newId,username,nickname,xuid,skinTe
     UNION SELECT territory_id FROM territory_managers WHERE telegram_id=?
     UNION SELECT id AS territory_id FROM territories WHERE owner_telegram_id=? AND status='approved'
     UNION SELECT territory_id FROM city_customization WHERE marker_item_id IN (SELECT item_id FROM user_items WHERE telegram_id=?)
-    UNION SELECT territory_id FROM city_customization WHERE background_item_id IN (SELECT item_id FROM user_items WHERE telegram_id=?)
-  `).bind(newTid,newTid,newTid,newTid,newTid).all();
+  `).bind(newTid,newTid,newTid,newTid).all();
   const targetOwned=await env.DB.prepare(`SELECT id,name,owner_telegram_username FROM territories WHERE owner_telegram_id=? AND status='approved'`).bind(newTid).all();
   const targetUsername=normalizeUsername(targetUser?.telegram_username||'');
   const targetNickname=String(targetUser?.mc_nickname||'').trim()||null;
@@ -4164,8 +4182,7 @@ async function removeManagedUserRelations(env, telegramId) {
     UNION SELECT territory_id FROM territory_managers WHERE telegram_id=?
     UNION SELECT id AS territory_id FROM territories WHERE owner_telegram_id=? AND status='approved'
     UNION SELECT territory_id FROM city_customization WHERE marker_item_id IN (SELECT item_id FROM user_items WHERE telegram_id=?)
-    UNION SELECT territory_id FROM city_customization WHERE background_item_id IN (SELECT item_id FROM user_items WHERE telegram_id=?)
-  `).bind(tid,tid,tid,tid,tid).all();
+  `).bind(tid,tid,tid,tid).all();
   const actor=await env.DB.prepare(`SELECT telegram_username,mc_nickname FROM users WHERE telegram_id=? LIMIT 1`).bind(tid).first();
   const directoryActor=await env.DB.prepare(`SELECT telegram_username,mc_nickname FROM user_directory WHERE telegram_id=? LIMIT 1`).bind(tid).first();
   const oldUsername=actor?.telegram_username||directoryActor?.telegram_username||'';
@@ -5206,11 +5223,8 @@ async function finalizeTerritoryApproval(env, chatId, id, name, owner, x, z, isG
         ORDER BY i.created_at DESC
       `).all();
       const marker=(governmentVisuals.results||[]).find(v=>visualHasTag(v,'метка'));
-      const cover=(governmentVisuals.results||[]).find(v=>visualHasTag(v,'обложка'));
       if(marker)await env.DB.prepare(`INSERT INTO city_customization(territory_id,marker_item_id,updated_at)
         VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET marker_item_id=excluded.marker_item_id,updated_at=excluded.updated_at`).bind(id,marker.id,Date.now()).run();
-      if(cover)await env.DB.prepare(`INSERT INTO city_customization(territory_id,background_item_id,updated_at)
-        VALUES(?,?,?) ON CONFLICT(territory_id) DO UPDATE SET background_item_id=excluded.background_item_id,updated_at=excluded.updated_at`).bind(id,cover.id,Date.now()).run();
     }catch(error){console.error(JSON.stringify({event:'government_territory_postprocess_failed',territoryId:String(id).slice(0,80),code:'GOVERNMENT_VISUAL_INIT_FAILED'}))}
   }
   if(ownerUser?.telegram_id){
@@ -5764,6 +5778,22 @@ async function getEvents(request, env) {
   })) });
 }
 
+function addUtcCalendarMonths(timestamp,months=2){
+  const date=new Date(Number(timestamp));
+  if(!Number.isFinite(date.getTime())||!Number.isInteger(months))return NaN;
+  const day=date.getUTCDate();date.setUTCDate(1);date.setUTCMonth(date.getUTCMonth()+months);
+  const lastDay=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,0)).getUTCDate();
+  date.setUTCDate(Math.min(day,lastDay));return date.getTime();
+}
+function eventDateExceedsTwoMonths(eventAt,now=Date.now()){
+  return Number(eventAt)>addUtcCalendarMonths(now,2);
+}
+function calculateDiscountedPrice(price,percent){
+  const base=Number(price),discount=Math.max(0,Math.min(100,Math.floor(Number(percent)||0)));
+  if(!Number.isSafeInteger(base)||base<0)return NaN;
+  return discount>0?Math.max(0,Math.round(base*(100-discount)/100)):base;
+}
+
 function validateEventBody(body, { partial = false } = {}) {
   const out = {};
   if (!partial || body.title !== undefined) out.title = String(body?.title || '').trim();
@@ -5777,7 +5807,9 @@ function validateEventBody(body, { partial = false } = {}) {
   if (!partial || body.eventTimezone !== undefined) out.eventTimezone = String(body?.eventTimezone || 'UTC').trim() || 'UTC';
   if (out.title !== undefined && (!out.title || out.title.length > 160)) return { error: 'Название события должно содержать 1–160 символов' };
   if (out.place !== undefined && out.place.length > 200) return { error: 'Место проведения не должно превышать 200 символов' };
-  if (out.eventAt !== undefined && (!Number.isSafeInteger(out.eventAt) || ((!partial || body?.eventAt !== undefined) && out.eventAt <= Date.now()))) return { error: 'Укажите дату и время в будущем' };
+  const validationNow=Date.now();
+  if (out.eventAt !== undefined && (!Number.isSafeInteger(out.eventAt) || ((!partial || body?.eventAt !== undefined) && out.eventAt <= validationNow))) return { error: 'Укажите дату и время в будущем' };
+  if (out.eventAt !== undefined && eventDateExceedsTwoMonths(out.eventAt,validationNow)) return { error: 'Создавать ивенты можно максимум за 2 месяца до начала' };
   if (out.coords !== undefined && out.coords.length > 180) return { error: 'Координаты слишком длинные' };
   if (out.description !== undefined && out.description.length > 542) return { error: 'Описание ивента не должно превышать 542 символа' };
   if (out.imageData && (!/^data:image\/(?:png|jpeg|webp);base64,/i.test(out.imageData) || out.imageData.length > 1_500_000)) return { error: 'Изображение должно быть PNG, JPG или WebP размером до 1,1 МБ' };
@@ -5912,7 +5944,10 @@ async function updateEvent(request, env) {
   const creatorId=Number(auth.user.id),creatorRole=await getRoleByTelegramId(env,creatorId,auth.user.username||'');
   const isMainInspector=creatorRole==='main_inspector';
   if (!isMainInspector && Number(current.created_by)!==creatorId) return json({ ok:false,error:'Редактировать ивент может только его создатель' },403);
-  const parsed = validateEventBody(body, { partial: true });
+  const updateBody={...body};
+  // Existing event dates remain editable when the date itself was not changed.
+  if(body?.eventAt!==undefined&&Number(body.eventAt)===Number(current.event_at))delete updateBody.eventAt;
+  const parsed = validateEventBody(updateBody, { partial: true });
   if (parsed.error) return json({ ok: false, error: parsed.error }, 400);
   const e = parsed.value;
   let selectedCity=null;
@@ -6211,8 +6246,7 @@ async function handleVisualInventoryCommand(env, message, rawText) {
       UNION SELECT territory_id FROM territory_managers WHERE telegram_id=?
       UNION SELECT id AS territory_id FROM territories WHERE owner_telegram_id=? AND status='approved'
       UNION SELECT territory_id FROM city_customization WHERE marker_item_id IN (SELECT item_id FROM user_items WHERE telegram_id=?)
-      UNION SELECT territory_id FROM city_customization WHERE background_item_id IN (SELECT item_id FROM user_items WHERE telegram_id=?)
-    `).bind(Number(target.id),Number(target.id),Number(target.id),Number(target.id),Number(target.id)).all();
+    `).bind(Number(target.id),Number(target.id),Number(target.id),Number(target.id)).all();
     const changed=await env.DB.prepare(`DELETE FROM user_items WHERE telegram_id=? AND item_id=?`).bind(Number(target.id),item.id).run();
     for(const row of affected.results||[])await reconcileTerritoryVisualEquipment(env,row.territory_id).catch(error=>console.error('Equipment reconciliation after personal visual removal:',error));
     await telegram(env,'sendMessage',{chat_id:Number(message.chat.id),text:`${changed.meta?.changes?'✅':'ℹ️'} Визуал «${dbName}» ${changed.meta?.changes?'отнят':'не найден в личном инвентаре'} у пользователя «${target.name}».`});
@@ -6405,10 +6439,85 @@ function isPrivateBankerMessage(message, bankerId) {
   );
 }
 
+function parseVisualDiscountCommand(raw) {
+  const text=String(raw||'').trim();
+  const match=text.match(/^(.+?)\s+([−-]?)(\d{1,3})%\s+(\d{1,6})\s*([мmчh])$/i);
+  if(!match)return null;
+  const percent=Number(match[3]),count=Number(match[4]),unit=String(match[5]).toLowerCase();
+  if(!Number.isSafeInteger(percent)||percent<1||percent>100||!Number.isSafeInteger(count)||count<1)return null;
+  const durationMs=count*(unit==='м'||unit==='m'?60_000:3_600_000);
+  if(!Number.isSafeInteger(Date.now()+durationMs))return null;
+  const targets=[...new Set(match[1].split(',').map(value=>stripMinecraftFormatting(value).trim()).filter(Boolean))];
+  if(!targets.length)return null;
+  const all=targets.some(value=>value.toLocaleLowerCase('ru-RU')==='все');
+  return {targets,all,percent,mode:match[2]?'decrease':'set',durationMs,durationLabel:`${count}${unit==='м'||unit==='m'?'м':'ч'}`};
+}
+
+async function handleVisualDiscountMessage(env,update,message,command) {
+  const updateId=Number(update?.update_id),chatId=Number(message.chat?.id||message.from?.id||0),messageId=Number(message.message_id||0);
+  if(!Number.isSafeInteger(updateId)||updateId<0||!chatId||!messageId)return json({ok:true,handled:'bank_discount_invalid_update'});
+  await ensureWorldTables(env);
+  const reply=async value=>{try{await telegram(env,'sendMessage',{chat_id:chatId,text:value,reply_to_message_id:messageId});}catch(error){console.error('Visual discount banker reply failed:',error);}};
+  const items=(await env.DB.prepare(`SELECT i.id,i.name,i.categories_text,c.name AS category_name FROM customization_items i LEFT JOIN customization_categories c ON c.id=i.category_id WHERE i.active=1`).all()).results||[];
+  const selected=command.all?items:items.filter(item=>{
+    const name=String(item.name||'').trim().toLocaleLowerCase('ru-RU');
+    return command.targets.some(target=>target.toLocaleLowerCase('ru-RU')===name||visualHasTag(item,target));
+  });
+  const now=Date.now(),expiresAt=now+command.durationMs;
+  const summary=command.all?'Все':command.targets.join(', ').slice(0,300);
+  const statements=[
+    env.DB.prepare(`INSERT OR IGNORE INTO visual_discount_operations(update_id,actor_telegram_id,mode,target_summary,percent,expires_at,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'processing',?,?)`).bind(updateId,Number(message.from.id),command.mode,summary,command.percent,expiresAt,now,now),
+    env.DB.prepare(`UPDATE visual_discount_operations SET status='applying',updated_at=? WHERE update_id=? AND status='processing' AND changes()=1`).bind(now,updateId),
+  ];
+  for(const item of selected){
+    if(command.mode==='set'){
+      statements.push(env.DB.prepare(`INSERT INTO customization_discounts(item_id,percent,expires_at,updated_at,updated_by_telegram_id)
+        SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM visual_discount_operations WHERE update_id=? AND status='applying')
+        ON CONFLICT(item_id) DO UPDATE SET percent=excluded.percent,expires_at=excluded.expires_at,updated_at=excluded.updated_at,updated_by_telegram_id=excluded.updated_by_telegram_id`)
+        .bind(item.id,command.percent,expiresAt,now,Number(message.from.id),updateId));
+    }else{
+      statements.push(env.DB.prepare(`UPDATE customization_discounts SET percent=MAX(0,percent-?),expires_at=?,updated_at=?,updated_by_telegram_id=?
+        WHERE item_id=? AND expires_at>? AND EXISTS(SELECT 1 FROM visual_discount_operations WHERE update_id=? AND status='applying')`)
+        .bind(command.percent,expiresAt,now,Number(message.from.id),item.id,now,updateId));
+      statements.push(env.DB.prepare(`DELETE FROM customization_discounts WHERE item_id=? AND (percent<=0 OR expires_at<=?)
+        AND EXISTS(SELECT 1 FROM visual_discount_operations WHERE update_id=? AND status='applying')`)
+        .bind(item.id,now,updateId));
+    }
+  }
+  statements.push(env.DB.prepare(`UPDATE visual_discount_operations SET status='completed',updated_at=? WHERE update_id=? AND status='applying'`).bind(now,updateId));
+  const batch=await env.DB.batch(statements);
+  const operation=await env.DB.prepare('SELECT status FROM visual_discount_operations WHERE update_id=?').bind(updateId).first();
+  const claimed=Number(batch?.[0]?.meta?.changes||0)>0&&Number(batch?.[1]?.meta?.changes||0)>0;
+  if(!claimed){
+    await reply(String(operation?.status||'')==='completed'?'🏦 Эта команда уже обработана.':'🏦 Команда скидки уже обрабатывается. Повторная обработка не запущена.');
+    return json({ok:true,handled:'bank_visual_discount_duplicate'});
+  }
+  if(String(operation?.status||'')!=='completed'){
+    await reply('🏦 Не удалось подтвердить применение скидки. Проверьте состояние операции.');
+    return json({ok:true,handled:'bank_visual_discount_pending'});
+  }
+  if(!selected.length){
+    await reply('🏦 Не найдено ни одного активного визуала по указанным названиям или тегам.');
+    return json({ok:true,handled:'bank_visual_discount_no_matches'});
+  }
+  if(command.mode==='set'){
+    await reply(`🏦 Скидка ${command.percent}% установлена для ${selected.length} визуалов на ${command.durationLabel}.`);
+  }else{
+    const placeholders=selected.map(()=>'?').join(',');
+    const active=Number((await env.DB.prepare(`SELECT COUNT(*) AS count FROM customization_discounts WHERE item_id IN (${placeholders}) AND percent>0 AND expires_at>?`).bind(...selected.map(item=>item.id),now).first())?.count||0);
+    const removed=Math.max(0,selected.length-active);
+    await reply(`🏦 Скидка уменьшена на ${command.percent} п.п. для ${selected.length} визуалов. Скидка осталась у ${active}, удалено: ${removed}. Срок новой скидки: ${command.durationLabel}.`);
+  }
+  return json({ok:true,handled:command.mode==='set'?'bank_visual_discount_set':'bank_visual_discount_decrease',count:selected.length});
+}
+
 async function handleBankMessage(env, update, message) {
   const bankerId = String(env.BANKER_TELEGRAM_ID || '').trim();
   if (!isPrivateBankerMessage(message, bankerId)) return null;
-  const command = parseBankCommand(message.text || message.caption || '');
+  const rawMessage=message.text || message.caption || '';
+  const discountCommand=parseVisualDiscountCommand(rawMessage);
+  if(discountCommand)return handleVisualDiscountMessage(env,update,message,discountCommand);
+  const command = parseBankCommand(rawMessage);
   if (!command) return null;
   const updateId = Number(update?.update_id);
   const chatId = Number(message.chat?.id || message.from?.id || 0);
@@ -6633,7 +6742,7 @@ async function getD1Diagnostics(request, env) {
     { table: "manager_change_votes", sql: `SELECT COUNT(*) AS row_count FROM manager_change_votes v LEFT JOIN manager_change_requests r ON r.id=v.request_id WHERE r.id IS NULL`, sample: `SELECT v.request_id AS id FROM manager_change_votes v LEFT JOIN manager_change_requests r ON r.id=v.request_id WHERE r.id IS NULL LIMIT 5` },
     { table: "user_items", sql: `SELECT COUNT(*) AS row_count FROM user_items u LEFT JOIN customization_items i ON i.id=u.item_id WHERE i.id IS NULL`, sample: `SELECT u.item_id AS id FROM user_items u LEFT JOIN customization_items i ON i.id=u.item_id WHERE i.id IS NULL LIMIT 5` },
     { table: "city_items", requires: ["customization_items"], sql: `SELECT COUNT(*) AS row_count FROM city_items ci LEFT JOIN customization_items i ON i.id=ci.item_id WHERE i.id IS NULL`, sample: `SELECT ci.item_id AS id FROM city_items ci LEFT JOIN customization_items i ON i.id=ci.item_id WHERE i.id IS NULL LIMIT 5` },
-    { table: "city_customization", requires: ["customization_items"], sql: `SELECT COUNT(*) AS row_count FROM city_customization cc LEFT JOIN customization_items mi ON mi.id=cc.marker_item_id LEFT JOIN customization_items bi ON bi.id=cc.background_item_id WHERE (cc.marker_item_id IS NOT NULL AND mi.id IS NULL) OR (cc.background_item_id IS NOT NULL AND bi.id IS NULL)`, sample: `SELECT cc.territory_id AS id FROM city_customization cc LEFT JOIN customization_items mi ON mi.id=cc.marker_item_id LEFT JOIN customization_items bi ON bi.id=cc.background_item_id WHERE (cc.marker_item_id IS NOT NULL AND mi.id IS NULL) OR (cc.background_item_id IS NOT NULL AND bi.id IS NULL) LIMIT 5` },
+    { table: "city_customization", requires: ["customization_items"], sql: `SELECT COUNT(*) AS row_count FROM city_customization cc LEFT JOIN customization_items mi ON mi.id=cc.marker_item_id WHERE cc.marker_item_id IS NOT NULL AND mi.id IS NULL`, sample: `SELECT cc.territory_id AS id FROM city_customization cc LEFT JOIN customization_items mi ON mi.id=cc.marker_item_id WHERE cc.marker_item_id IS NOT NULL AND mi.id IS NULL LIMIT 5` },
   ];
   for (const check of relationChecks) {
     if (!existing.has(check.table) || (check.requires || []).some(table => !existing.has(table))) continue;
@@ -7127,4 +7236,4 @@ export default {
   },
 };
 
-export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
+export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
