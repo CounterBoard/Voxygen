@@ -295,10 +295,11 @@ Reusable success, primary-action and neutral hover treatments must use theme tok
 
 ## Image overlays and bottom navigation
 
-Modal dimming, persistent bottom navigation, and controls layered over user
-cover images consume theme tokens. Cover images themselves remain user content;
-only the surrounding controls, borders, and metadata text follow the active
-theme. The visual editor's explicit palette colors remain protected content.
+Modal dimming, persistent bottom navigation, and controls layered over user-provided
+media consume theme tokens. User-provided map and screenshot imagery remains content;
+only surrounding controls, borders, and metadata text follow the active theme.
+Territory headers use a generated color gradient rather than an uploaded cover image.
+The visual editor's explicit palette colors remain protected content.
 
 
 ## Depth, elevation, and inset highlights
@@ -333,9 +334,8 @@ with a neutral theme shadow. The account switcher uses the shared card radius
 and a theme-controlled internal padding role.
 
 
-Range-slider thumb depth must match across WebKit and Firefox. Territory-cover
-titles use a theme-owned readability shadow; the underlying cover image remains
-untouched user content.
+Range-slider thumb depth must match across WebKit and Firefox. Territory banner
+titles use the theme-owned readability shadow over a generated palette gradient.
 
 
 ## Bottom navigation and mobile viewport geometry
@@ -525,7 +525,7 @@ The event reminder unit switch, amount field and confirmation action share the s
 
 ## Profile visual tiles and toast motion
 
-Profile «Оформление территории» and «Покупки» grids use image-first tiles without visible item names or padded thumbnail cards. Markers use four columns; covers use two columns with a wide image frame. The equipped item is identified by a Mint outline around the image itself, never by a check badge. Resident read-only additional information renders usernames as plain text, not Telegram links.
+Profile «Оформление территории» and «Покупки» grids use image-first tiles without visible item names or padded thumbnail cards. Markers and earned city awards use four columns. The equipped marker is identified by a Mint outline around the image itself, never by a check badge. Territory «Баннер» is a generated gradient selected from the Visual color palette; cover-image items are retired. Resident read-only additional information renders usernames as plain text, not Telegram links.
 
 FixedToast is content-sized with 12 px horizontal padding and 14 px text. It sits in a clipped viewport whose bottom aligns to the navigation top (69 px plus safe area), leaving a 4 px gap. The viewport uses z-index 65 to remain visible above modal overlays and clips enter/exit motion at the navigation edge, so the toast still emerges from behind the bar. Error notifications remain red. The reminder unit selector has two equal-width flush halves; its inner halves have no radius, border or press-scale transform.
 
@@ -550,3 +550,12 @@ The profile settings dialog is vertically centered in the area above the fixed b
 The «Набор» / «Карта» / «Рейтинг» main tabs and «По инспектору» / «По игрокам» rating selector use a shared interaction principle: one Purple selection surface physically slides to the newly selected position. The text and icon in the selected segment are white; inactive labels remain muted. The indicator uses a 280 ms ease transition and respects reduced-motion settings. Existing control dimensions, placement and pill geometry are preserved.
 
 FixedToast plates have been darkened further to 45% semantic-soft color plus 55% black. Only the plate changes; the underlying interface remains sharp and is not blurred or filtered.
+
+
+## Event cards, temporary visual discounts and territory banners
+
+Event cards keep their identifying information in the collapsed header. Expanding a card reveals only the description, reminder controls and available actions; it does not repeat the title, date, territory or coordinates. Event creation and date changes are capped at two calendar months ahead, with matching client and server validation. Event cover uploads and previews are removed.
+
+Temporary visual discounts are reflected in the displayed catalog price and in the actual purchase debit. The original amount is muted and struck through in danger red; the discounted amount uses the existing gem color and gem icon. Banker commands can set a percentage for all visuals, exact visual names or tags, then reduce the active percentage by percentage points or remove it when it reaches zero.
+
+The territory «Баннер» replaces the former cover-image slot. It is a gradient generated from one selected color in the existing Visual palette. In the profile layout it sits above «Метка»; earned «Награды» are shown directly below the marker inventory.
