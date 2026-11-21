@@ -6,7 +6,7 @@ const app=readFileSync(new URL("../src/App.jsx",import.meta.url),"utf8");
 const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8");
 
 test("event creation and editing are capped at two calendar months in both client and server",()=>{
-  assert.match(worker,/function eventMaximumTimestamp\(now = Date\.now\(\)\)/);
+  assert.match(worker,/function eventMaximumTimestamp\(now = Date\.now\(\)\)/);\n  assert.match(worker,/validateEventBody\(body,\{now:actionNow\}\)/);\n  assert.match(worker,/validateEventBody\(body, \{ partial: true, now: actionNow \}\)/);
   assert.match(worker,/out\.eventAt > eventMaximumTimestamp\(\)/);
   assert.match(app,/function eventMaximumTimestamp\(now=Date\.now\(\)\)/);
   assert.match(app,/eventDateLimitError\(eventAt\)/);
@@ -31,6 +31,11 @@ test("bankers can set and reduce timed visual discounts with compact syntax",()=
   assert.deepEqual("Все15%2ч".match(commandPattern)?.slice(1),["Все","15","2","ч"]);
   assert.deepEqual("Все-15%2ч".match(commandPattern)?.slice(1),["Все","-15","2","ч"]);
   assert.deepEqual("Метка, Шлем 20% 30 м".match(commandPattern)?.slice(1),["Метка, Шлем","20","30","м"]);
+  assert.deepEqual("Все 15% 2ч".match(commandPattern)?.slice(1),["Все","15","2","ч"]);
+  assert.deepEqual("Метка, Баннеры 20% 30 м".match(commandPattern)?.slice(1),["Метка, Баннеры","20","30","м"]);
+  assert.deepEqual("Все -15% 2ч".match(commandPattern)?.slice(1),["Все","-15","2","ч"]);
+  assert.deepEqual("Метка, Баннеры -5% 30м".match(commandPattern)?.slice(1),["Метка, Баннеры","-5","30","м"]);
+  assert.deepEqual("Метка,Баннеры-5%30м".match(commandPattern)?.slice(1),["Метка,Баннеры","-5","30","м"]);
   assert.match(worker,/text\.match\(\/\^\(\.\+\?\)\\s\*/);
   assert.match(worker,/async function applyVisualDiscountCommand/);
   assert.match(worker,/command\.delta>0\?command\.delta:Number\(current\.percent\)\+command\.delta/);
