@@ -2126,7 +2126,8 @@ async function createCustomizationItem(request, env) {
     for(let i=categories.length-1;i>=0;i--) if(categories[i].toLowerCase()==='за достижение') categories.splice(i,1);
   }
   const allowedColors=new Set(['none','red','orange','yellow','green','turquoise','blue','purple','magenta','white','black']);
-  const isMarker=isMarkerTag(categories), isCover=isCoverTag(categories);
+  const isMarker=isMarkerTag(categories);
+  if(categories.some(x=>String(x).trim().toLowerCase()==='обложка'))return json({ok:false,error:'Тег «Обложка» больше не поддерживается'},400);
   if(categories.some(x=>String(x).trim().toLowerCase()==='обложка'))return json({ok:false,error:'Тег «Обложка» больше не поддерживается'},400);
   if(!name||!categories.length||!Number.isSafeInteger(price)||price<0)return json({ok:false,error:'Название, теги и корректная цена обязательны'},400);
   if(!allowedColors.has(color))return json({ok:false,error:'Некорректный цвет'},400);
@@ -2192,7 +2193,7 @@ async function updateCustomizationItem(request,env,itemId){
   if(!allowedColors.has(color))return json({ok:false,error:'Некорректный цвет'},400);
   const enabled=body?.achievementEnabled===undefined?!!current.achievement_enabled:!!body.achievementEnabled;
   const governmentMarker=body?.governmentMarker===undefined?!!current.government_marker:!!body.governmentMarker;
-  const isMarker=isMarkerTag(categories), isCover=isCoverTag(categories);
+  const isMarker=isMarkerTag(categories);
   if(governmentMarker&&!isMarker)return json({ok:false,error:'Государственный визуал должен иметь тег «Метка»'},400);
   if(governmentMarker&&enabled)return json({ok:false,error:'Государственный визуал нельзя выдавать как достижение'},400);
   const achievement=achievementPayload({...body,achievementEnabled:enabled,
@@ -2211,7 +2212,6 @@ async function updateCustomizationItem(request,env,itemId){
   if(!name||!categories.length||!Number.isSafeInteger(price)||price<0)return json({ok:false,error:'Название, теги и корректная цена обязательны'},400);
   if(!imageData.startsWith('data:image/'))return json({ok:false,error:'Загрузите изображение визуала'},400);
   if(imageData.length>1_000_000)return json({ok:false,error:'Изображение слишком большое'},413);
-  if(isCover){const dim=imageDimensions(imageData);if(!dim||!isEightToThree(dim.width,dim.height))return json({ok:false,error:'Для визуала с тегом «Обложка» изображение должно иметь соотношение 8:3'},400);}
   if(achievement.enabled && ![achievement.residents,achievement.gems,achievement.inspectorScore,achievement.playerScore,achievement.screenshots,achievement.comments,achievement.visuals].some(v=>v!==null)){
     return json({ok:false,error:'Укажите хотя бы одно условие достижения'},400);
   }
