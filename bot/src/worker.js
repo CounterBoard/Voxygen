@@ -13,8 +13,8 @@ import {
 import { THEME_CATALOG, isSupportedTheme, normalizeThemeId as normalizeVoxygenTheme } from '../../shared/theme-catalog.js';
 
 const TELEGRAM_API = "https://api.telegram.org";
-const EVENT_TABLES_INIT_CACHE = new WeakMap();
-const USER_PREFERENCE_TABLES_INIT_CACHE = new WeakMap();
+const EVENT_TABLES_INIT_DONE = new WeakSet();
+const USER_PREFERENCE_TABLES_INIT_DONE = new WeakSet();
 
 function withCors(response) {
   const headers = new Headers(response.headers);
@@ -275,62 +275,59 @@ function formatEventTimeForUser(timestamp, timezoneOffset) {
 
 async function ensureUserPreferenceTables(env) {
   await ensureWorldTables(env);
-  let promise = USER_PREFERENCE_TABLES_INIT_CACHE.get(env);
-  if (!promise) {
-    promise = (async () => {
-      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_preferences (
-        telegram_id INTEGER PRIMARY KEY,
-        default_theme TEXT NOT NULL DEFAULT 'vox',
-        timezone TEXT NOT NULL DEFAULT 'UTC+3',
-        all_notifications INTEGER NOT NULL DEFAULT 1,
-        event_notifications INTEGER NOT NULL DEFAULT 0,
-        map_zoom_percent INTEGER NOT NULL DEFAULT 88,
-        updated_at INTEGER NOT NULL DEFAULT 0
-      )`).run();
-      const preferenceColumns = await env.DB.prepare(`PRAGMA table_info(user_preferences)`).all();
-      const preferenceColumnNames = new Set((preferenceColumns.results || []).map(column => column.name));
-      // The table can predate the user timezone preference. CREATE TABLE IF NOT EXISTS
-      // does not retrofit columns on existing installations, so migrate it in place.
-      // Reconcile every column consumed by settings/event endpoints. CREATE TABLE IF
-      // NOT EXISTS does not update an existing D1 table, so installations that
-      // skipped an earlier migration otherwise fail with "no such column".
-      const requiredPreferenceColumns = [
-        ['default_theme', "TEXT NOT NULL DEFAULT 'vox'"],
-        ['timezone', "TEXT NOT NULL DEFAULT 'UTC+3'"],
-        ['all_notifications', 'INTEGER NOT NULL DEFAULT 1'],
-        ['event_notifications', 'INTEGER NOT NULL DEFAULT 0'],
-        ['map_zoom_percent', 'INTEGER NOT NULL DEFAULT 88'],
-        ['updated_at', 'INTEGER NOT NULL DEFAULT 0'],
-        ['map_zoom_global_updated_at', 'INTEGER NOT NULL DEFAULT 0'],
-        ['theme_global_updated_at', 'INTEGER NOT NULL DEFAULT 0'],
-      ];
-      for (const [column, definition] of requiredPreferenceColumns) {
-        if (preferenceColumnNames.has(column)) continue;
-        try {
-          await env.DB.prepare(`ALTER TABLE user_preferences ADD COLUMN ${column} ${definition}`).run();
-        } catch (error) {
-          // Concurrent cold isolates may apply the same additive migration.
-          if (!String(error).toLowerCase().includes('duplicate column')) throw error;
-        }
-      }
-      // Keep the legacy default_map column in place when present. It is no longer
-      // read or written; preserving it avoids a destructive migration.
-      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS territory_notification_preferences (
-        telegram_id INTEGER NOT NULL,
-        territory_id TEXT NOT NULL,
-        enabled INTEGER NOT NULL DEFAULT 0,
-        updated_at INTEGER NOT NULL,
-        PRIMARY KEY (telegram_id, territory_id)
-      )`).run();
-      await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_territory_notification_preferences_territory ON territory_notification_preferences(territory_id)`).run();
-      await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_user_preferences_deletion_lock_insert BEFORE INSERT ON user_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
-      await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_user_preferences_deletion_lock_update BEFORE UPDATE ON user_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
-      await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_notification_preferences_deletion_lock_insert BEFORE INSERT ON territory_notification_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
-      await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_notification_preferences_deletion_lock_update BEFORE UPDATE ON territory_notification_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
-    })().catch(error => { USER_PREFERENCE_TABLES_INIT_CACHE.delete(env); throw error; });
-    USER_PREFERENCE_TABLES_INIT_CACHE.set(env, promise);
+  if (USER_PREFERENCE_TABLES_INIT_DONE.has(env)) return;
+  // Never share an in-flight D1 promise between requests in a reused Worker isolate.
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_preferences (
+    telegram_id INTEGER PRIMARY KEY,
+    default_theme TEXT NOT NULL DEFAULT 'vox',
+    timezone TEXT NOT NULL DEFAULT 'UTC+3',
+    all_notifications INTEGER NOT NULL DEFAULT 1,
+    event_notifications INTEGER NOT NULL DEFAULT 0,
+    map_zoom_percent INTEGER NOT NULL DEFAULT 88,
+    updated_at INTEGER NOT NULL DEFAULT 0
+  )`).run();
+  const preferenceColumns = await env.DB.prepare(`PRAGMA table_info(user_preferences)`).all();
+  const preferenceColumnNames = new Set((preferenceColumns.results || []).map(column => column.name));
+  // The table can predate the user timezone preference. CREATE TABLE IF NOT EXISTS
+  // does not retrofit columns on existing installations, so migrate it in place.
+  // Reconcile every column consumed by settings/event endpoints. CREATE TABLE IF
+  // NOT EXISTS does not update an existing D1 table, so installations that
+  // skipped an earlier migration otherwise fail with "no such column".
+  const requiredPreferenceColumns = [
+    ['default_theme', "TEXT NOT NULL DEFAULT 'vox'"],
+    ['timezone', "TEXT NOT NULL DEFAULT 'UTC+3'"],
+    ['all_notifications', 'INTEGER NOT NULL DEFAULT 1'],
+    ['event_notifications', 'INTEGER NOT NULL DEFAULT 0'],
+    ['map_zoom_percent', 'INTEGER NOT NULL DEFAULT 88'],
+    ['updated_at', 'INTEGER NOT NULL DEFAULT 0'],
+    ['map_zoom_global_updated_at', 'INTEGER NOT NULL DEFAULT 0'],
+    ['theme_global_updated_at', 'INTEGER NOT NULL DEFAULT 0'],
+  ];
+  for (const [column, definition] of requiredPreferenceColumns) {
+    if (preferenceColumnNames.has(column)) continue;
+    try {
+      await env.DB.prepare(`ALTER TABLE user_preferences ADD COLUMN ${column} ${definition}`).run();
+    } catch (error) {
+      // Concurrent cold isolates may apply the same additive migration.
+      if (!String(error).toLowerCase().includes('duplicate column')) throw error;
+    }
   }
-  return promise;
+  // Keep the legacy default_map column in place when present. It is no longer
+  // read or written; preserving it avoids a destructive migration.
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS territory_notification_preferences (
+    telegram_id INTEGER NOT NULL,
+    territory_id TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (telegram_id, territory_id)
+  )`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_territory_notification_preferences_territory ON territory_notification_preferences(territory_id)`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_user_preferences_deletion_lock_insert BEFORE INSERT ON user_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_user_preferences_deletion_lock_update BEFORE UPDATE ON user_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_notification_preferences_deletion_lock_insert BEFORE INSERT ON territory_notification_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+  await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_notification_preferences_deletion_lock_update BEFORE UPDATE ON territory_notification_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
+
+  USER_PREFERENCE_TABLES_INIT_DONE.add(env);
 }
 
 async function shouldReceiveTerritoryNotification(env, territoryId, telegramId) {
@@ -434,34 +431,30 @@ async function notifyMainInspectorOfPurchase(env, details) {
   }
 }
 
-const GLOBAL_SETTINGS_INIT_CACHE = new WeakMap();
+const GLOBAL_SETTINGS_INIT_DONE = new WeakSet();
 const GLOBAL_SETTING_KEYS = new Set(['theme', 'map_zoom']);
 
 async function ensureGlobalSettingsTable(env) {
-  let promise = GLOBAL_SETTINGS_INIT_CACHE.get(env);
-  if (!promise) {
-    promise = env.DB.batch([
-      env.DB.prepare(`CREATE TABLE IF NOT EXISTS theme_access_settings (
-        theme_id TEXT PRIMARY KEY,
-        visibility TEXT NOT NULL DEFAULT 'public',
-        usernames_json TEXT NOT NULL DEFAULT '[]',
-        updated_at INTEGER NOT NULL DEFAULT 0,
-        updated_by INTEGER NOT NULL DEFAULT 0
-      )`),
-      env.DB.prepare(`CREATE TABLE IF NOT EXISTS global_setting_overrides (
-        setting_key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        expires_at INTEGER,
-        updated_at INTEGER NOT NULL,
-        updated_by INTEGER NOT NULL
-      )`)
-    ]).catch(error => {
-      GLOBAL_SETTINGS_INIT_CACHE.delete(env);
-      throw error;
-    });
-    GLOBAL_SETTINGS_INIT_CACHE.set(env, promise);
-  }
-  return promise;
+  // Never cache an in-flight D1 promise at module scope: Cloudflare may reuse
+  // the isolate across requests, but a D1 promise belongs to its originating request.
+  if (GLOBAL_SETTINGS_INIT_DONE.has(env)) return;
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS theme_access_settings (
+      theme_id TEXT PRIMARY KEY,
+      visibility TEXT NOT NULL DEFAULT 'public',
+      usernames_json TEXT NOT NULL DEFAULT '[]',
+      updated_at INTEGER NOT NULL DEFAULT 0,
+      updated_by INTEGER NOT NULL DEFAULT 0
+    )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS global_setting_overrides (
+      setting_key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      expires_at INTEGER,
+      updated_at INTEGER NOT NULL,
+      updated_by INTEGER NOT NULL
+    )`)
+  ]);
+  GLOBAL_SETTINGS_INIT_DONE.add(env);
 }
 
 async function readGlobalSettingOverrides(env, at = Date.now()) {
@@ -757,16 +750,12 @@ async function getTreasuryManagerCities(env, telegramId) {
 }
 
 const RECRUITMENT_SCHEMA_VERSION = '2026-10-v25';
-const recruitmentTableInitPromises = new WeakMap();
+const recruitmentTableInitDone = new WeakSet();
 async function ensureRecruitmentTable(env) {
-  const cached = recruitmentTableInitPromises.get(env);
-  if (cached) return cached;
-  const promise = initializeRecruitmentTable(env).catch(error => {
-    recruitmentTableInitPromises.delete(env);
-    throw error;
-  });
-  recruitmentTableInitPromises.set(env, promise);
-  return promise;
+  // Cache completion only. In-flight D1 promises must never cross request boundaries.
+  if (recruitmentTableInitDone.has(env)) return;
+  await initializeRecruitmentTable(env);
+  recruitmentTableInitDone.add(env);
 }
 async function initializeRecruitmentTable(env) {
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS voxygen_schema_meta (
@@ -818,60 +807,44 @@ async function ensureApprovalSessionsTable(env) {
     ON territory_approval_sessions(inspector_chat_id)`).run();
 }
 
-const mapSettingsTableInitPromises = new WeakMap();
+const mapSettingsTableInitDone = new WeakSet();
 async function ensureMapSettingsTable(env) {
-  const cached = mapSettingsTableInitPromises.get(env);
-  if (cached) return cached;
-  const promise = env.DB.prepare(`
+  if (mapSettingsTableInitDone.has(env)) return;
+  await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
       updated_at INTEGER NOT NULL
     )
-  `).run().catch(error => {
-    mapSettingsTableInitPromises.delete(env);
-    throw error;
-  });
-  mapSettingsTableInitPromises.set(env, promise);
-  return promise;
+  `).run();
+  mapSettingsTableInitDone.add(env);
 }
 
 const WORLD_SCHEMA_VERSION = '2026-11-v39';
-const worldTableInitPromises = new WeakMap();
+const worldTableInitDone = new WeakSet();
 
 async function ensureWorldTables(env) {
-  const cached = worldTableInitPromises.get(env);
-  if (cached) return cached;
-  const promise = initializeWorldTables(env).catch(error => {
-    worldTableInitPromises.delete(env);
-    throw error;
-  });
-  worldTableInitPromises.set(env, promise);
-  return promise;
+  // D1 operations are request-scoped in Workers. Only remember completed setup,
+  // never an in-flight promise that a later request could attempt to await.
+  if (worldTableInitDone.has(env)) return;
+  await initializeWorldTables(env);
+  worldTableInitDone.add(env);
 }
 
 const mapSettingsCache = new WeakMap();
-const legacyMapCleanupPromises = new WeakMap();
+const legacyMapCleanupDone = new WeakSet();
 const MAP_SETTINGS_CACHE_TTL_MS = 30_000;
 const WORLD_MAP_MAX_BYTES = 90_000_000;
 const SUPPORTED_MAP_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const MAP_PIPELINE_REPOSITORY = 'CounterBoard/Voxygen-map-assets';
 
 async function cleanupLegacyMapStorage(env) {
-  let promise = legacyMapCleanupPromises.get(env);
-  if (!promise) {
-    promise = (async () => {
-      await ensureMapSettingsTable(env);
-      // D1 now stores only the GitHub asset URL/content type. Remove abandoned
-      // object-storage pointers and old map payloads that were stored as data URLs.
-      await env.DB.prepare(`DELETE FROM app_settings WHERE key IN ('world_map_object_key','vox_map_image','jorick_map_image')`).run();
-    })().catch(error => {
-      legacyMapCleanupPromises.delete(env);
-      throw error;
-    });
-    legacyMapCleanupPromises.set(env, promise);
-  }
-  return promise;
+  if (legacyMapCleanupDone.has(env)) return;
+  await ensureMapSettingsTable(env);
+  // D1 now stores only the GitHub asset URL/content type. Remove abandoned
+  // object-storage pointers and old map payloads that were stored as data URLs.
+  await env.DB.prepare(`DELETE FROM app_settings WHERE key IN ('world_map_object_key','vox_map_image','jorick_map_image')`).run();
+  legacyMapCleanupDone.add(env);
 }
 
 async function getMapSettings(request, env) {
@@ -5741,12 +5714,10 @@ async function initializeEventsTables(env) {
 
 
 async function ensureEventsTables(env) {
-  let promise=EVENT_TABLES_INIT_CACHE.get(env);
-  if(!promise) {
-    promise=initializeEventsTables(env).catch(error=>{EVENT_TABLES_INIT_CACHE.delete(env);throw error;});
-    EVENT_TABLES_INIT_CACHE.set(env,promise);
-  }
-  return promise;
+  // A WeakSet is safe across requests; a cached D1 promise is not.
+  if (EVENT_TABLES_INIT_DONE.has(env)) return;
+  await initializeEventsTables(env);
+  EVENT_TABLES_INIT_DONE.add(env);
 }
 
 async function saveCityAdditionalInfo(request, env) {
