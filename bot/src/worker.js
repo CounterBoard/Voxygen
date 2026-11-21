@@ -836,7 +836,7 @@ async function ensureMapSettingsTable(env) {
   return promise;
 }
 
-const WORLD_SCHEMA_VERSION = '2026-11-v37';
+const WORLD_SCHEMA_VERSION = '2026-11-v38';
 const worldTableInitPromises = new WeakMap();
 
 async function ensureWorldTables(env) {
