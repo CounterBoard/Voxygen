@@ -622,6 +622,11 @@ The bottom-navigation geometry is 69 px plus safe-area inset. The notification's
 
 
 ### 13.4 Sliding Purple selectors and stronger toast contrast (21.11.2026)
+### 13.5 Profile settings modal viewport alignment (21.11.2026)
+
+- The profile settings window is centered only in the usable area above the fixed bottom navigation, not across the full screen. Keep a 12 px top breathing space and reserve the navigation's 69 px height plus 12 px clearance and device safe areas below.
+- Cap the settings window height against that same usable viewport so its lower edge and save action remain above the navigation on short screens. Preserve the existing modal width, internal spacing, radius, and scroll behavior.
+
 
 - Main navigation tabs «Набор», «Карта» and «Рейтинг» share one Purple indicator. It slides horizontally to the selected tab instead of replacing the background on separate buttons.
 - The «По инспектору» / «По игрокам» segmented selector uses the same moving-indicator behavior. The indicator position is derived from the selected value; the option labels remain interactive and accessible.
