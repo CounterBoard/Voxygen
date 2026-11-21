@@ -1382,6 +1382,8 @@ async function initializeWorldTables(env) {
       created_at INTEGER NOT NULL
     )
   `).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS visual_discounts (item_id TEXT PRIMARY KEY, percent INTEGER NOT NULL CHECK(percent BETWEEN 1 AND 100), expires_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, updated_by INTEGER NOT NULL)`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_visual_discounts_expiry ON visual_discounts(expires_at)`).run();
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS user_currency (
       telegram_id INTEGER PRIMARY KEY,
@@ -5746,6 +5748,7 @@ async function getEvents(request, env) {
   const now = Date.now();
   const viewer = await getCurrentUser(request, env);
   await purgeExpiredEvents(env, now);
+  await env.DB.prepare(`UPDATE events SET image_data=NULL WHERE image_data IS NOT NULL`).run();
   const cutoff = now - 24 * 60 * 60 * 1000;
   // Return upcoming events and events that started within the last 24 hours.
   // The frontend separates them into upcoming/past sections; older events are permanently purged above.
@@ -5764,23 +5767,32 @@ async function getEvents(request, env) {
   })) });
 }
 
+function eventMaximumTimestamp(now = Date.now()) {
+  const date = new Date(Number(now));
+  const day = date.getUTCDate();
+  date.setUTCDate(1);
+  date.setUTCMonth(date.getUTCMonth() + 2);
+  const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+  date.setUTCDate(Math.min(day, lastDay));
+  return date.getTime();
+}
+
 function validateEventBody(body, { partial = false } = {}) {
-  const out = {};
+  const out = { imageData: null };
   if (!partial || body.title !== undefined) out.title = String(body?.title || '').trim();
   if (!partial || body.territoryId !== undefined) out.territoryId = String(body?.territoryId || '').trim() || null;
   if (!partial || body.place !== undefined) out.place = String(body?.place || '').trim();
   if (!partial || body.eventAt !== undefined) out.eventAt = Number(body?.eventAt);
   if (!partial || body.coords !== undefined) out.coords = String(body?.coords || '').trim();
   if (!partial || body.description !== undefined) out.description = String(body?.description || '').trim();
-  if (!partial || body.imageData !== undefined) out.imageData = String(body?.imageData || '').trim() || null;
   if (!partial || body.pageUrl !== undefined) out.pageUrl = String(body?.pageUrl || '').trim() || null;
   if (!partial || body.eventTimezone !== undefined) out.eventTimezone = String(body?.eventTimezone || 'UTC').trim() || 'UTC';
   if (out.title !== undefined && (!out.title || out.title.length > 160)) return { error: 'Название события должно содержать 1–160 символов' };
   if (out.place !== undefined && out.place.length > 200) return { error: 'Место проведения не должно превышать 200 символов' };
   if (out.eventAt !== undefined && (!Number.isSafeInteger(out.eventAt) || ((!partial || body?.eventAt !== undefined) && out.eventAt <= Date.now()))) return { error: 'Укажите дату и время в будущем' };
+  if (out.eventAt !== undefined && out.eventAt > eventMaximumTimestamp()) return { error: 'Ивент можно создать или перенести не более чем на два месяца вперёд' };
   if (out.coords !== undefined && out.coords.length > 180) return { error: 'Координаты слишком длинные' };
   if (out.description !== undefined && out.description.length > 542) return { error: 'Описание ивента не должно превышать 542 символа' };
-  if (out.imageData && (!/^data:image\/(?:png|jpeg|webp);base64,/i.test(out.imageData) || out.imageData.length > 1_500_000)) return { error: 'Изображение должно быть PNG, JPG или WebP размером до 1,1 МБ' };
   if (out.pageUrl && (out.pageUrl.length > 1000 || !/^https?:\/\//i.test(out.pageUrl))) return { error: 'Ссылка должна начинаться с http:// или https://' };
   if (out.eventTimezone !== undefined && out.eventTimezone.length > 80) return { error: 'Часовой пояс указан некорректно' };
   if (out.eventTimezone !== undefined) {
@@ -5931,7 +5943,7 @@ async function updateEvent(request, env) {
   const value = {
     title: e.title ?? current.title, territoryId: nextTerritoryId,
     place: nextPlace, eventAt: e.eventAt ?? Number(current.event_at), coords: e.coords ?? current.coords,
-    description: e.description ?? current.description, imageData: e.imageData !== undefined ? e.imageData : current.image_data,
+    description: e.description ?? current.description, imageData: null,
     pageUrl: e.pageUrl !== undefined ? e.pageUrl : current.page_url,
     eventTimezone: e.eventTimezone ?? current.event_timezone ?? 'UTC',
   };
