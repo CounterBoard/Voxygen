@@ -616,7 +616,6 @@ function FontsAndTheme() {
         @keyframes atlas-score-arrive{0%{opacity:0;transform:translateY(5px) scale(.94)}100%{opacity:1;transform:translateY(0) scale(1)}}
         @keyframes atlas-review-arrive{0%{opacity:0;transform:translateY(7px)}100%{opacity:1;transform:translateY(0)}}
         @keyframes atlas-shot-arrive{0%{opacity:0;transform:translateY(6px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}
-        @keyframes atlas-cover-arrive{from{transform:scale(1.025);opacity:.75}to{transform:scale(1);opacity:1}}
         @keyframes atlas-nav-pop{0%{transform:scale(.90)}55%{transform:scale(1.08)}100%{transform:scale(1)}}
         @keyframes atlas-toast-in{from{opacity:0;transform:translate(-50%,100%)}to{opacity:1;transform:translate(-50%,0)}}
         @keyframes atlas-toast-out{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,100%)}}
@@ -675,7 +674,6 @@ function FontsAndTheme() {
         .atlas-inventory-item{transition:transform var(--theme-motion-standard) var(--theme-ease-standard),border-color var(--theme-motion-standard) ease,box-shadow var(--theme-motion-standard) ease;}
         .atlas-visual-card{transition:transform var(--theme-motion-standard) var(--theme-ease-standard),border-color var(--theme-motion-standard) ease,box-shadow var(--theme-motion-standard) ease;}
         .atlas-visual-card .atlas-visual-price{color:var(--content-color-gem);text-shadow:0 0 18px rgba(56,189,248,.10);}
-        .atlas-cover-image{animation:atlas-cover-arrive .32s ease-out both;}
         .atlas-panel-reveal{animation:atlas-soft-pop .22s ease-out both;}
         .atlas-nav-active svg{animation:atlas-nav-pop .2s ease-out both;}
         @media (hover:hover) and (pointer:fine){
@@ -2103,7 +2101,6 @@ function ProfileInventory({initData,role,tgUser,territory}={}){
   const items=territory?(data?.cityInventory||[]):(data?.myItems||[]);
   const hasCategory=(item,category)=>String(item.category_name||'').trim().toLowerCase()===category||String(item.categories_text||'').toLowerCase().split(',').map(value=>value.trim()).includes(category);
   const markers=items.filter(item=>hasCategory(item,'метка'));
-  const covers=items.filter(item=>hasCategory(item,'обложка'));
   const otherItems=items.filter(item=>!hasCategory(item,'метка')&&!hasCategory(item,'обложка'));
   return <div className="atlas-page-panel" style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding: 10,marginBottom: 8}}>
     <div className="atlas-display" style={{fontSize:16,fontWeight:700,marginBottom: 4}}>{territory?<>Инвентарь визуала — <MinecraftText text={territory.name}/></>:'Покупки'}</div>
@@ -2112,7 +2109,6 @@ function ProfileInventory({initData,role,tgUser,territory}={}){
       : items.length===0?<div style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>{territory?'Инвентарь визуала пуст.':'Покупок пока нет.'}</div>
       : <div style={{display:'flex',flexDirection:'column',gap: 8}}>
           {markers.length>0&&<InventoryGrid items={markers} columns={4} aspectRatio="1 / 1" imageFit="contain"/>}
-          {covers.length>0&&<InventoryGrid items={covers} columns={2} aspectRatio="16 / 9" imageFit="cover"/>}
           {otherItems.length>0&&<InventoryGrid items={otherItems} columns={4} aspectRatio="1 / 1" imageFit="contain"/>}
         </div>}
   </div>;
@@ -2719,7 +2715,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
     <div className="atlas-page atlas-page--territory" style={{ paddingBottom: 90, position: 'relative' }}>
       <div style={{ position: 'relative', height: 150, overflow:'hidden', background:(()=>{const hex=VISUAL_COLORS.find(([key])=>key===(t.banner_color||'purple'))?.[1]||t.accent||'#8B5CF6';return `linear-gradient(160deg, ${hex}88 0%, ${hex}44 52%, var(--theme-color-surface) 100%)`;})() }}>
         <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: '50%', background: 'var(--theme-color-image-control-surface)', border: '1px solid var(--theme-color-border-strong)', color: 'var(--theme-color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}><ChevronLeft size={20} /></button>
-        <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, zIndex: 3, textShadow:'var(--theme-shadow-cover-title)' }}>
+        <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, zIndex: 3, textShadow:'var(--theme-shadow-banner-title)' }}>
           <MinecraftText as="div" text={t.name} className="atlas-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.16 }} />
           <div style={{fontSize:13,color:'var(--theme-color-text-secondary)'}}>{formatTerritoryCoords(t.coords || (t.vox_x != null && t.vox_z != null ? `${t.vox_x} / ${t.vox_z}` : ''))}</div>
         </div>
