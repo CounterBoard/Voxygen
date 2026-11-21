@@ -3167,7 +3167,7 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
     const defaults={title:'',coords:'',description:'',requestKey:null,requestAttempted:false};
     if(!restoredDraft?.form||typeof restoredDraft.form!=='object')return defaults;
     const saved=restoredDraft.form;
-    return {...defaults,...saved,imageData:null,requestAttempted:typeof saved.requestAttempted==='boolean'?saved.requestAttempted:Boolean(saved.requestKey)};
+    return {...defaults,...saved,requestAttempted:typeof saved.requestAttempted==='boolean'?saved.requestAttempted:Boolean(saved.requestKey)};
   });
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(restoredDraft?'Черновик ивента восстановлен после перезапуска.':'');
   useEffect(()=>{
