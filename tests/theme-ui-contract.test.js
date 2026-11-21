@@ -759,7 +759,7 @@ test('toast width follows its text and darkens only the covered backdrop', () =>
   assert.ok(!css.includes('-webkit-backdrop-filter'));
   assert.ok(app.includes('@keyframes atlas-toast-error-glow{'));
   assert.ok(app.includes('0 0 0 5px var(--theme-color-status-danger-soft)'));
-  assert.ok(app.includes('background:color-mix(in srgb,var(--theme-color-status-danger-soft) 88%,#000)'));
+  assert.ok(app.includes('background:color-mix(in srgb,var(--theme-color-status-danger-soft) 45%,#000)'));
 });
 
 
@@ -800,4 +800,31 @@ test('donation modal insufficient funds uses a global toast visible above the mo
   assert.ok(app.includes('.atlas-toast-viewport{'));
   assert.ok(app.includes('z-index:65;'));
   assert.ok(app.includes('overflow:hidden;'));
+});
+
+
+test('toast plates use substantially stronger darkening without filtering the page behind them', () => {
+  for (const status of ['success','danger','warning']) {
+    assert.ok(app.includes(`color-mix(in srgb,var(--theme-color-status-${status}-soft) 45%,#000)`), `Toast ${status} surface is not darkened enough`);
+  }
+  const toast=app.slice(app.indexOf('.atlas-fixed-toast{'),app.indexOf('@keyframes atlas-toast-in'));
+  assert.doesNotMatch(toast,/backdrop-filter|webkit-backdrop-filter/);
+});
+
+test('main tabs use one moving Purple indicator and white selected text', () => {
+  const tabs=app.slice(app.indexOf('function MainTabs('),app.indexOf('function SimpleModal('));
+  assert.ok(tabs.includes('atlas-main-tabs__indicator'));
+  assert.ok(tabs.includes("'--main-tabs-index':activeIndex"));
+  assert.ok(tabs.includes("color:active?'#fff':'var(--theme-color-text-muted)'"));
+  assert.ok(app.includes('transform:translateX(calc(var(--main-tabs-index) * 100%))'));
+  assert.ok(app.includes('transition:transform 280ms cubic-bezier(.22,.72,.22,1)'));
+});
+
+test('inspector/player segmented switch uses a sliding Purple indicator', () => {
+  const segmented=app.slice(app.indexOf('function Segmented('),app.indexOf('function ShotThumb('));
+  assert.ok(segmented.includes('atlas-segmented__indicator'));
+  assert.ok(segmented.includes("'--segmented-count':options.length"));
+  assert.ok(segmented.includes("'--segmented-index':activeIndex"));
+  assert.ok(app.includes('transform:translateX(calc(var(--segmented-index) * 100%))'));
+  assert.ok(app.includes('.atlas-segmented__option.is-active{\n          color:#fff;'));
 });
