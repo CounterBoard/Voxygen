@@ -5786,11 +5786,14 @@ function eventMaximumTimestamp(now = Date.now()) {
 }
 
 function validateEventBody(body, { partial = false, now = Date.now() } = {}) {
-  const out = { imageData: null };
-  if (body?.imageData !== undefined && body.imageData !== null && body.imageData !== '') {
+  const out = { imageData: partial ? undefined : null };
+  if (body?.imageData !== undefined) {
+    if (body.imageData === null || body.imageData === '') out.imageData = null;
+    else {
     const imageData = String(body.imageData);
     if (!/^data:image\/(?:png|jpe?g|webp);base64,/i.test(imageData) || imageData.length > 1_400_000) return { error: 'Обложка должна быть изображением PNG, JPEG или WebP размером до 1,4 МБ' };
     out.imageData = imageData;
+    }
   }
   if (!partial || body.title !== undefined) out.title = String(body?.title || '').trim();
   if (!partial || body.territoryId !== undefined) out.territoryId = String(body?.territoryId || '').trim() || null;
@@ -5960,7 +5963,7 @@ async function updateEvent(request, env) {
   const value = {
     title: e.title ?? current.title, territoryId: nextTerritoryId,
     place: nextPlace, eventAt: e.eventAt ?? Number(current.event_at), coords: e.coords ?? current.coords,
-    description: e.description ?? current.description, imageData: e.imageData !== null ? e.imageData : current.image_data,
+    description: e.description ?? current.description, imageData: e.imageData !== undefined ? e.imageData : current.image_data,
     pageUrl: e.pageUrl !== undefined ? e.pageUrl : current.page_url,
     eventTimezone: e.eventTimezone ?? current.event_timezone ?? 'UTC',
   };
