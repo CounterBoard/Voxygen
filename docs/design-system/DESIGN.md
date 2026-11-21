@@ -525,7 +525,7 @@ The event reminder unit switch, amount field and confirmation action share the s
 
 ## Profile visual tiles and toast motion
 
-Profile «Оформление территории» and «Покупки» grids use image-first tiles without visible item names or padded thumbnail cards. Markers and earned city awards use four columns. The equipped marker is identified by a Mint outline around the image itself, never by a check badge. Territory «Баннер» is a generated gradient selected from the Visual color palette; cover-image items are retired. Resident read-only additional information renders usernames as plain text, not Telegram links.
+Profile «Оформление территории» and «Покупки» grids use image-first tiles without visible item names or padded thumbnail cards. Markers and earned city awards use four columns. The equipped marker is identified by a Mint outline around the image itself, never by a check badge. Territory «Баннер» is a generated gradient selected from the Visual color palette; the territory gradient banner remains on the territory page and can later support additional gradient variants. Resident read-only additional information renders usernames as plain text, not Telegram links.
 
 FixedToast is content-sized with 12 px horizontal padding and 14 px text. It sits in a clipped viewport whose bottom aligns to the navigation top (69 px plus safe area), leaving a 4 px gap. The viewport uses z-index 65 to remain visible above modal overlays and clips enter/exit motion at the navigation edge, so the toast still emerges from behind the bar. Error notifications remain red. The reminder unit selector has two equal-width flush halves; its inner halves have no radius, border or press-scale transform.
 
