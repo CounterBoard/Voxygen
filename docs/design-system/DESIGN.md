@@ -554,7 +554,7 @@ FixedToast plates have been darkened further to 45% semantic-soft color plus 55%
 
 ## Event cards, temporary visual discounts and territory banners
 
-Event cards keep their identifying information in the collapsed header. Expanding a card reveals only the description, reminder controls and available actions; it does not repeat the title, date, territory or coordinates. Event creation and date changes are capped at two calendar months ahead, with matching client and server validation. Event cover uploads and previews are removed.
+Event cards keep their identifying information in the collapsed header. Expanding a card reveals only the description, reminder controls and available actions; it does not repeat the title, date, territory or coordinates. Event creation and date changes are capped at two calendar months ahead, with matching client and server validation. Event cover uploads and previews are not part of the event workflow. Territory pages retain their gradient banner; future work can expand the available gradient variants.
 
 Temporary visual discounts are reflected in the displayed catalog price and in the actual purchase debit. The original amount is muted and struck through in danger red; the discounted amount uses the existing gem color and gem icon. Banker commands can set a percentage for all visuals, exact visual names or tags, then reduce the active percentage by percentage points or remove it when it reaches zero.
 
