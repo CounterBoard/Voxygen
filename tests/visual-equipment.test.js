@@ -36,6 +36,10 @@ test("government territories can equip government visuals, but not ordinary visu
   assert.equal(await territoryCanUseVisual({ DB: new VisualEligibilityD1({ government: true, visualGovernment: false }) }, "gov-1", "visual-1", "метка"), false);
 });
 
+test("cover visuals can no longer be equipped", async () => {
+  assert.equal(await territoryCanUseVisual({ DB: new VisualEligibilityD1({ government: false, visualGovernment: false, tag: "Обложка" }) }, "city-1", "visual-1", "обложка"), false);
+});
+
 test("visual equipment requires an approved territory, active visual, matching tag and inventory ownership", async () => {
   assert.equal(await territoryCanUseVisual({ DB: new VisualEligibilityD1({ government: false, visualGovernment: false, status: "pending" }) }, "city-1", "visual-1", "метка"), false);
   const inactive = new VisualEligibilityD1({ government: false, visualGovernment: false });
