@@ -214,7 +214,7 @@ Recipes are component-level visual decisions; semantic tokens remain the color s
 | `--theme-shadow-navigation` | `0 -16px 42px rgba(0, 0, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .035)` | Depth/effect role. |
 | `--theme-shadow-map-marker-hover` | `0 4px 9px rgba(0, 0, 0, .48)` | Depth/effect role. |
 | `--theme-shadow-focus-field` | `0 6px 18px rgba(0, 0, 0, .12)` | Depth/effect role. |
-| `--theme-shadow-cover-title` | `0 2px 10px rgba(0, 0, 0, .28)` | Depth/effect role. |
+| `--theme-shadow-banner-title` | `0 2px 10px rgba(0, 0, 0, .28)` | Depth/effect role. |
 | `--theme-account-switcher-padding` | `14px 16px` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-color-sheen-soft` | `rgba(255, 255, 255, .012)` | Theme value; tune only when the corresponding component contract is understood. |
 | `--theme-color-sheen-strong` | `rgba(255, 255, 255, .055)` | Theme value; tune only when the corresponding component contract is understood. |
@@ -285,7 +285,7 @@ The current Vox pack contains **307 scoped declarations**. The protected `--cont
 
 ### Depth and effects
 
-`--theme-glow-primary`, `--theme-glow-success`, `--theme-glow-warning`, `--theme-shadow-cover-title`, `--theme-shadow-focus-field`, `--theme-shadow-high`, `--theme-shadow-low`, `--theme-shadow-map-marker-hover`, `--theme-shadow-medium`, `--theme-shadow-navigation`, `--theme-shadow-slider-thumb`, `--theme-shadow-toast`
+`--theme-glow-primary`, `--theme-glow-success`, `--theme-glow-warning`, `--theme-shadow-banner-title`, `--theme-shadow-focus-field`, `--theme-shadow-high`, `--theme-shadow-low`, `--theme-shadow-map-marker-hover`, `--theme-shadow-medium`, `--theme-shadow-navigation`, `--theme-shadow-slider-thumb`, `--theme-shadow-toast`
 
 ### Radii
 
@@ -336,3 +336,6 @@ Toast contrast update (21.11.2026): success, danger and warning FixedToast surfa
 Segmented selection motion: both the three-item MainTabs control
 Profile settings modal viewport rule (21.11.2026): the settings overlay reserves the fixed bottom navigation height (69 px), a 12 px clearance, and top/bottom device safe areas. The modal is centered within the remaining visible region and its maximum height is capped to that region. Existing modal geometry and content padding remain unchanged.
  and the reusable Segmented control use a single absolutely positioned Purple indicator. Its horizontal position is driven by the selected option index and animated with a 280 ms ease curve. The selected option foreground is white; inactive options keep the muted foreground. The indicator transition is disabled under `prefers-reduced-motion: reduce`.
+
+
+Territory banner and Visual discount presentation (21.11.2026): the territory header uses a gradient derived from the selected Visual palette color. The «Баннер» color selector reuses the same palette as Visual; do not add a separate banner-only palette. The old cover-image shadow token is now named `--theme-shadow-banner-title`. Discounted prices are content/economy data: render the original amount in muted text with a danger-red strike-through and the effective amount in the gem content color with the existing gem icon. Do not introduce a new semantic color token for the discount price.
