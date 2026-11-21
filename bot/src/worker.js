@@ -5935,6 +5935,8 @@ async function updateEvent(request, env) {
   const parsed = validateEventBody(body, { partial: true });
   if (parsed.error) return json({ ok: false, error: parsed.error }, 400);
   const e = parsed.value;
+  const effectiveEventAt=e.eventAt??Number(current.event_at);
+  if(effectiveEventAt>eventMaximumTimestamp())return json({ok:false,error:'Ивент можно создать или перенести не более чем на два месяца вперёд'},400);
   let selectedCity=null;
   if (e.territoryId) {
     selectedCity = await env.DB.prepare(`SELECT id,name,is_government FROM territories WHERE id=? AND status='approved' LIMIT 1`).bind(e.territoryId).first();
