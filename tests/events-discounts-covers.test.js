@@ -14,20 +14,23 @@ test("event creation and editing are capped at two calendar months in both clien
   assert.match(app,/eventDateLimitError\(eventAt\)/);
 });
 
-test("event details are not repeated in expanded cards and event cover assets are retired",()=>{
+test("event covers remain available while expanded cards avoid repeating identifying details",()=>{
   const start=app.indexOf("function renderEventCard(");
   const end=app.indexOf("function EventInlineEditor(",start);
   const card=app.slice(start,end);
   const expanded=card.slice(card.indexOf("{open &&"));
   assert.doesNotMatch(expanded,/eventDateLabel\(event\.event_at/);
   assert.doesNotMatch(expanded,/Координаты:/);
-  assert.doesNotMatch(app,/event\.image_data/);
-  assert.doesNotMatch(app,/Выбрать файл обложки|Изменить обложку/);
+  assert.match(app,/Выбрать файл обложки|Выбрать файл/);
+  assert.match(app,/Изменить обложку/);
+  assert.match(app,/event\.image_data/);
   const eventSchema=worker.slice(worker.indexOf("async function initializeEventsTables"),worker.indexOf("async function getEvents"));
-  assert.doesNotMatch(eventSchema,/image_data TEXT/);
-  assert.match(eventSchema,/ALTER TABLE events DROP COLUMN image_data/);
+  assert.match(eventSchema,/image_data TEXT/);
+  assert.match(eventSchema,/ALTER TABLE events ADD COLUMN image_data TEXT/);
+  assert.doesNotMatch(eventSchema,/DROP COLUMN image_data/);
   const eventApi=worker.slice(worker.indexOf("function eventMaximumTimestamp"),worker.indexOf("async function notifyUsersOfNewEvent"));
-  assert.doesNotMatch(eventApi,/imageData|image_data/);
+  assert.match(eventApi,/imageData/);
+  assert.match(eventApi,/Обложка должна быть изображением/);
 });
 
 test("bankers can set and reduce timed visual discounts with compact syntax",()=>{
