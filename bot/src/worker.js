@@ -6416,9 +6416,54 @@ function isPrivateBankerMessage(message, bankerId) {
   );
 }
 
+function parseVisualDiscountCommand(raw) {
+  const text=normalizeVisualCommandText(raw);
+  const match=text.match(/^(.+)\s*([+＋-−]?\d{1,3})%\s*(\d+)\s*(м|мин(?:ут(?:а|ы)?)?|ч|час(?:а|ов)?)$/i);
+  if(!match)return null;
+  const selectorText=match[1].trim().replace(/[;,\s]+$/,'');
+  const rawPercent=match[2].replace('−','-').replace('＋','+');
+  const delta=(rawPercent.startsWith('-')?-1:1)*Math.abs(Number(rawPercent));
+  const amount=Number(match[3]),unit=/^(?:м|мин)/i.test(match[4])?'minutes':'hours';
+  if(!selectorText||!Number.isSafeInteger(delta)||Math.abs(delta)<1||Math.abs(delta)>100||!Number.isSafeInteger(amount)||amount<1||amount>8760)return null;
+  return {selectors:selectorText.split(',').map(x=>x.trim()).filter(Boolean),delta,durationMs:amount*(unit==='hours'?3600000:60000),durationLabel:`${amount} ${unit==='hours'?'ч':'м'}`};
+}
+
+async function applyVisualDiscountCommand(env,message,command) {
+  await ensureWorldTables(env);
+  const now=Date.now();
+  const rows=await env.DB.prepare(`SELECT i.id,i.name,i.categories_text,c.name AS category_name FROM customization_items i LEFT JOIN customization_categories c ON c.id=i.category_id WHERE i.active=1 AND COALESCE(i.government_marker,0)=0 AND COALESCE(i.hidden_from_users,0)=0`).all();
+  const items=rows.results||[],selected=new Map(),unknown=[];
+  for(const selector of command.selectors){
+    const normalized=normalizeVisualCommandText(selector);
+    if(normalized==='все'){for(const item of items)selected.set(item.id,item);continue;}
+    const named=items.filter(item=>normalizeVisualCommandText(item.name)===normalized);
+    const matches=named.length?named:items.filter(item=>visualHasTag(item,normalized));
+    if(!matches.length)unknown.push(selector);
+    for(const item of matches)selected.set(item.id,item);
+  }
+  const reply=async text=>{try{await telegram(env,'sendMessage',{chat_id:Number(message.chat.id),text,reply_to_message_id:Number(message.message_id||0)||undefined});}catch(error){console.error('Visual discount reply failed:',error);}};
+  if(unknown.length){await reply(`⚠️ Не найдены визуалы или теги: ${unknown.join(', ')}.`);return json({ok:true,handled:'visual_discount_unknown'});}
+  if(!selected.size){await reply('⚠️ По команде не найдено доступных визуалов.');return json({ok:true,handled:'visual_discount_empty'});}
+  const statements=[];let changed=0,removed=0,skipped=0;
+  for(const item of selected.values()){
+    const current=await env.DB.prepare('SELECT percent FROM visual_discounts WHERE item_id=? AND expires_at>?').bind(item.id,now).first();
+    if(command.delta<0&&!current){skipped++;continue;}
+    const next=command.delta>0?command.delta:Number(current.percent)+command.delta;
+    if(next<=0){statements.push(env.DB.prepare('DELETE FROM visual_discounts WHERE item_id=?').bind(item.id));removed++;changed++;continue;}
+    statements.push(env.DB.prepare(`INSERT INTO visual_discounts(item_id,percent,expires_at,updated_at,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(item_id) DO UPDATE SET percent=excluded.percent,expires_at=excluded.expires_at,updated_at=excluded.updated_at,updated_by=excluded.updated_by`).bind(item.id,next,now+command.durationMs,now,Number(message.from.id)));
+    changed++;
+  }
+  if(statements.length)await env.DB.batch(statements);
+  const action=command.delta>0?`установлена скидка ${command.delta}%`:`скидка уменьшена на ${Math.abs(command.delta)} п.п.`;
+  await reply(`✅ ${action} для ${changed} визуалов на ${command.durationLabel}. ${removed?`Снято скидок: ${removed}. `:''}${skipped?`Без активной скидки пропущено: ${skipped}.`:''}`);
+  return json({ok:true,handled:'visual_discount_updated',changed,removed,skipped});
+}
+
 async function handleBankMessage(env, update, message) {
   const bankerId = String(env.BANKER_TELEGRAM_ID || '').trim();
   if (!isPrivateBankerMessage(message, bankerId)) return null;
+  const discountCommand=parseVisualDiscountCommand(message.text||message.caption||'');
+  if(discountCommand)return applyVisualDiscountCommand(env,message,discountCommand);
   const command = parseBankCommand(message.text || message.caption || '');
   if (!command) return null;
   const updateId = Number(update?.update_id);
