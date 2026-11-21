@@ -2934,18 +2934,11 @@ function EventsScreen({ initData, territories = [], onSelectTerritory, isMainIns
     const isCreator = Number(tgUser?.id||0)>0 && Number(event.created_by||0)===Number(tgUser.id);
     return <div key={`${isPast?'past':'upcoming'}-${event.id}`} className="atlas-recruitment-card" style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,overflow:'hidden',opacity:isPast ? .94 : 1}}>
       <button onClick={()=>setExpandedEventId(open?null:event.id)} className="press" aria-expanded={open} style={{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap: 12,padding: '12px 12px',border:0,background:'transparent',color:'var(--theme-color-text-primary)'}}>
-        {event.image_data ? <img src={event.image_data} alt="" style={{width:64,height:64,objectFit:'cover',borderRadius:11,flexShrink:0,background:'var(--theme-color-surface-raised)'}}/> : <div style={{width:64,height:64,borderRadius:11,background:'var(--theme-color-surface-raised)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Sparkles size={22} color="var(--theme-color-action-primary)"/></div>}
+        <div style={{width:64,height:64,borderRadius:11,background:'var(--theme-color-surface-raised)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Sparkles size={22} color="var(--theme-color-action-primary)"/></div>
         <div style={{flex:1,minWidth:0}}><MinecraftText as="div" text={event.title} className="atlas-display" style={{fontSize:16,fontWeight:800,lineHeight:1.25,marginBottom: 6}}/>{hasPlace&&<div style={{display:'flex',alignItems:'center',gap: 4,color:'var(--theme-color-text-muted)',fontSize:12,marginBottom: 4}}><MapPin size={12}/><MinecraftText text={place} style={{fontSize:12,overflowWrap:'anywhere'}}/></div>}<div style={{display:'flex',alignItems:'center',gap: 4,color:isPast?'var(--theme-color-text-muted)':'var(--theme-color-action-primary)',fontSize:12,fontWeight:700}}><Clock size={12}/>{eventDateLabel(event.event_at, timezoneOffset)}</div><div style={{fontSize:11,color:'var(--theme-color-text-muted)',marginTop: 4}}>{eventCoords?<>Координаты: <MinecraftText text={eventCoords}/></>:'Координаты не указаны'}</div>{!isPast&&event.reminder&&<div style={{fontSize:10.5,color:event.reminder.status==='sent'?'var(--theme-color-status-success)':'var(--theme-color-text-muted)',marginTop: 4}}>{reminderLabel}</div>}</div>
         <span style={{fontSize:19,color:'var(--theme-color-text-muted)',padding: '0 3px'}}>{open?'−':'+'}</span>
       </button>
       {open && <div style={{padding: '0 12px 12px'}}>
-        {event.image_data && <img src={event.image_data} alt={`Ивент: ${event.title}`} style={{display:'block',width:'100%',maxHeight:220,objectFit:'cover',borderRadius:12,margin: '0 0 12px'}}/>}
-        <MinecraftText as="div" text={event.title} className="atlas-display" style={{fontSize:21,fontWeight:800,lineHeight:1.2,marginBottom: 10}}/>
-        <div style={{display:'flex',flexDirection:'column',gap: 8,fontSize:13,marginBottom: 12}}>
-          <div style={{display:'flex',gap: 8,alignItems:'flex-start'}}><CalendarDays size={15} color="var(--theme-color-action-primary)"/><span>{eventDateLabel(event.event_at, timezoneOffset)}</span></div>
-          {hasPlace&&<div style={{display:'flex',gap: 8,alignItems:'flex-start'}}><MapPin size={15} color="var(--theme-color-action-primary)"/><div style={{minWidth:0}}><MinecraftText text={place}/></div></div>}
-          <div style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>{eventCoords?<>Координаты: <MinecraftText text={eventCoords}/></>:'Координаты не указаны'}</div>
-        </div>
         {event.description && <MinecraftText as="div" text={event.description} style={{fontSize:13.5,lineHeight:1.55,marginBottom: 12,whiteSpace:'pre-wrap'}}/>}
         {!isPast && <div style={{background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:13,padding: 10,marginBottom: 8}}>
           <div style={{display:'flex',alignItems:'center',gap: 6,fontSize:13,fontWeight:800,marginBottom: 8}}><Bell size={15} color="var(--theme-color-action-primary)"/>Напомнить об ивенте за</div>
@@ -3155,6 +3148,8 @@ function formatEventCoords(value) {
 }
 function pluralRu(value, one, few, many) { const n=Math.abs(Math.trunc(Number(value)||0)),lastTwo=n%100,last=n%10; if(lastTwo>=11&&lastTwo<=14)return many; if(last===1)return one; if(last>=2&&last<=4)return few; return many; }
 function reminderUnitLabel(value, unit) { return unit==='hours'?pluralRu(value,'час','часа','часов'):pluralRu(value,'минуту','минуты','минут'); }
+function eventMaximumTimestamp(now=Date.now()){const date=new Date(now),day=date.getUTCDate();date.setUTCDate(1);date.setUTCMonth(date.getUTCMonth()+2);const last=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,0)).getUTCDate();date.setUTCDate(Math.min(day,last));return date.getTime();}
+function eventDateLimitError(timestamp){return Number(timestamp)>eventMaximumTimestamp()?'Ивент можно создать или перенести не более чем на два месяца вперёд':'';}
 
 function ProfileEventCreateForm({ initData, territories = [], isMainInspector = false, tgUser = null, embedded = false, timezoneOffset = 'UTC+3', onPublished = () => {} }) {
   const userId=String(tgUser?.id||'');
@@ -3198,6 +3193,7 @@ function ProfileEventCreateForm({ initData, territories = [], isMainInspector = 
     const title=String(form.title||'').trim(),eventAt=eventDatePartsTimestamp(dateParts, eventInputTimezone);
     if(!title||!eventAt){setError('Укажите название, дату и время начала.');return;}
     if(eventAt<=Date.now()){setError('Выберите дату и время в будущем.');return;}
+    if(eventDateLimitError(eventAt)){setError(eventDateLimitError(eventAt));return;}
     try{
       setBusy(true);setError('');setNotice('');
       const requestKey=ensureRequestKey();
@@ -3256,7 +3252,8 @@ function EventInlineEditor({ initData, event, territories = [], tgUser = null, i
   async function save(){
     const title=String(form.title||'').trim(),eventAt=form.dateChanged?eventDatePartsTimestamp(form.dateParts,form.editorTimezone||timezoneOffset):Number(event.event_at);
     if(!title||title.length>160||!Number.isSafeInteger(eventAt)){setError('Укажите название, дату и время ивента.');return;}
-    if(form.dateChanged&&eventAt<=Date.now()){setError('Выберите дату и время в будущем.');return;}
+    if(eventAt<=Date.now()){setError('Выберите дату и время в будущем.');return;}
+    if(eventDateLimitError(eventAt)){setError(eventDateLimitError(eventAt));return;}
     const city=selectable.find(t=>String(t.id)===String(form.territoryId));
     if(form.territoryId&&!city){setError('Выберите доступную территорию или «Не указано».');return;}
     try{
@@ -3297,7 +3294,7 @@ function EventManagementPanel({ initData, territories = [], timezoneOffset = 'UT
   function patch(key,value){setForm(v=>v?({...v,[key]:value}):v);}
   function cancelEdit(){setEditingId(null);setForm(null);if(fileRef.current)fileRef.current.value='';}
   async function chooseImage(event){const input=event.currentTarget,file=input.files?.[0];if(!file)return;try{patch('imageData',await readEventImage(file));}catch(e){input.value='';setError(safeCaughtError(e,'Не удалось подготовить изображение.'));}}
-  async function save(){if(!form)return;const title=String(form.title||'').trim();const eventAt=form.dateChanged?eventDatePartsTimestamp(form.dateParts,form.editorTimezone||timezoneOffset):Number(form.eventAtOriginal);if(!title||!Number.isSafeInteger(eventAt)){setError('Укажите название, дату и время ивента.');return;}const city=territories.find(t=>String(t.id)===String(form.territoryId));const place=city?String(city.name||''):String(form.legacyPlace||'Не указано');try{setBusy(true);setError('');setNotice('');const body={initData,id:editingId,title,territoryId:city?String(city.id):null,place,eventAt,eventTimezone:form.dateChanged?(form.editorTimezone||timezoneOffset):(form.eventTimezoneOriginal||'UTC'),coords:formatEventCoords(form.coords),description:String(form.description||'').trim(),imageData:form.imageData||null};const r=await fetch(`${API_BASE}/api/events`,{method:'PATCH',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify(body)}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(apiErrorMessage(r,d,'Не удалось сохранить ивент.'));setNotice('Ивент обновлён');cancelEdit();await load();}catch(e){setError(safeCaughtError(e,'Не удалось сохранить ивент.'));}finally{setBusy(false);}}
+  async function save(){if(!form)return;const title=String(form.title||'').trim();const eventAt=form.dateChanged?eventDatePartsTimestamp(form.dateParts,form.editorTimezone||timezoneOffset):Number(form.eventAtOriginal);if(!title||!Number.isSafeInteger(eventAt)){setError('Укажите название, дату и время ивента.');return;}if(eventAt<=Date.now()){setError('Выберите дату и время в будущем.');return;}if(eventDateLimitError(eventAt)){setError(eventDateLimitError(eventAt));return;}const city=territories.find(t=>String(t.id)===String(form.territoryId));const place=city?String(city.name||''):String(form.legacyPlace||'Не указано');try{setBusy(true);setError('');setNotice('');const body={initData,id:editingId,title,territoryId:city?String(city.id):null,place,eventAt,eventTimezone:form.dateChanged?(form.editorTimezone||timezoneOffset):(form.eventTimezoneOriginal||'UTC'),coords:formatEventCoords(form.coords),description:String(form.description||'').trim(),imageData:form.imageData||null};const r=await fetch(`${API_BASE}/api/events`,{method:'PATCH',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify(body)}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(apiErrorMessage(r,d,'Не удалось сохранить ивент.'));setNotice('Ивент обновлён');cancelEdit();await load();}catch(e){setError(safeCaughtError(e,'Не удалось сохранить ивент.'));}finally{setBusy(false);}}
   async function remove(event){if(!window.confirm(`Удалить ивент «${event.title}»?`))return;try{setBusy(true);setError('');const r=await fetch(`${API_BASE}/api/events`,{method:'DELETE',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,id:event.id})}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(apiErrorMessage(r,d,'Не удалось удалить ивент.'));if(editingId===event.id)cancelEdit();setNotice('Ивент удалён');await load();}catch(e){setError(safeCaughtError(e,'Не удалось удалить ивент.'));}finally{setBusy(false);}}
   return <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding: 10,marginTop: 8,marginBottom: 8}}>
     <div style={{display:'flex',alignItems:'center',gap: 8,marginBottom: 8}}><CalendarDays size={17} color="var(--theme-color-action-primary)"/><div className="atlas-display" style={{fontSize:16,fontWeight:800}}>Управление ивентами</div><span style={{marginLeft: 'auto',fontSize:11,color:'var(--theme-color-text-muted)'}}>{events.length}</span></div>
