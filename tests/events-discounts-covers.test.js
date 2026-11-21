@@ -66,3 +66,17 @@ test("territory banners use the Visual color palette and city awards are display
   assert.doesNotMatch(app,/equippedBackgroundItemId|backgroundItemId/);
   assert.doesNotMatch(app,/t\.cover_url/);
 });
+
+test("territory D1 read failures log a safe stage and the underlying database error",()=>{
+  const start=worker.indexOf("async function getTerritories(");
+  const end=worker.indexOf("\nasync function createTerritory(",start);
+  const handler=worker.slice(start,end);
+  assert.match(handler,/let failureStage = 'schema'/);
+  assert.match(handler,/failureStage = 'territory-query'/);
+  assert.match(handler,/failureStage = 'marker-validation'/);
+  assert.match(handler,/failureStage = 'related-data'/);
+  assert.match(handler,/failureStage = 'transform'/);
+  assert.match(handler,/errorMessage: String\(error\?\.message/);
+  assert.match(handler,/timings,/);
+  assert.match(handler,/details:String\(error\)/);
+});
