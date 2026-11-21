@@ -7,7 +7,8 @@ const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8"
 
 test("event creation and editing are capped at two calendar months in both client and server",()=>{
   assert.match(worker,/function eventMaximumTimestamp\(now = Date\.now\(\)\)/);
-  assert.match(worker,/validateEventBody\(body,\{now:actionNow\}\)/);\n  assert.match(worker,/validateEventBody\(body, \{ partial: true, now: actionNow \}\)/);
+  assert.match(worker,/validateEventBody\(body,\{now:actionNow\}\)/);
+  assert.match(worker,/validateEventBody\(body, \{ partial: true, now: actionNow \}\)/);
   assert.match(worker,/out\.eventAt > eventMaximumTimestamp\(\)/);
   assert.match(app,/function eventMaximumTimestamp\(now=Date\.now\(\)\)/);
   assert.match(app,/eventDateLimitError\(eventAt\)/);
