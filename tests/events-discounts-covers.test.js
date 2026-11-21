@@ -57,6 +57,10 @@ test("bankers can set and reduce timed visual discounts with compact syntax",()=
 });
 
 test("territory banners use the Visual color palette and city awards are displayed below the marker",()=>{
+  assert.match(worker,/const WORLD_SCHEMA_VERSION = '2026-11-v38'/);
+  const worldMigration=worker.slice(worker.indexOf('async function initializeWorldTables'),worker.indexOf('function visualHasTag'));
+  assert.match(worldMigration,/PRAGMA table_info\(city_customization\)/);
+  assert.match(worldMigration,/ALTER TABLE city_customization ADD COLUMN banner_color TEXT NOT NULL DEFAULT 'purple'/);
   assert.match(worker,/banner_color TEXT NOT NULL DEFAULT 'purple'/);
   assert.match(worker,/bannerColor:hasBannerField\?bannerColor/);
   assert.match(worker,/cityAwards/);
