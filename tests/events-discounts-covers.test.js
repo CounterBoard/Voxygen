@@ -9,7 +9,7 @@ test("event creation and editing are capped at two calendar months in both clien
   assert.match(worker,/function eventMaximumTimestamp\(now = Date\.now\(\)\)/);
   assert.match(worker,/validateEventBody\(body,\{now:actionNow\}\)/);
   assert.match(worker,/validateEventBody\(body, \{ partial: true, now: actionNow \}\)/);
-  assert.match(worker,/out\.eventAt > eventMaximumTimestamp\(\)/);
+  assert.match(worker,/out\.eventAt > eventMaximumTimestamp\(now\)/);
   assert.match(app,/function eventMaximumTimestamp\(now=Date\.now\(\)\)/);
   assert.match(app,/eventDateLimitError\(eventAt\)/);
 });
