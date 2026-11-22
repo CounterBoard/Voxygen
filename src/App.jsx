@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { DEFAULT_THEME_ID, THEME_CATALOG, normalizeThemeId } from '../shared/theme-catalog.js';
+import { getBannerGradient, getRandomBannerGradientId, formatDiscountRemaining } from '../shared/customization-visuals.js';
 import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, isValidWorldCoordinate, coordinateGeometryMatchesManifest, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
 import {
   Map as MapIcon, List as ListIcon, Users, MessageCircle, ThumbsUp, ThumbsDown,
@@ -2067,7 +2068,11 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
       <div style={{borderTop:'1px solid var(--theme-color-border)',marginTop: 8,paddingTop: 8}}>
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom: 7}}>Баннер</div>
         <div style={{display:'flex',alignItems:'center',gap: 8,flexWrap:'wrap'}}>
-          {VISUAL_COLORS.map(([value])=><ColorDot key={`banner-${value}`} value={value} selected={String(inventory?.bannerColor||'none')===value} title={({none:'Автоматический цвет',red:'Красный',orange:'Оранжевый',yellow:'Жёлтый',green:'Зелёный',turquoise:'Бирюзовый',blue:'Синий',purple:'Фиолетовый',magenta:'Пурпурный',white:'Белый'})[value]||value} onClick={()=>{if(!readOnly&&String(inventory?.bannerColor||'none')!==value)post('/api/customization/city',{territoryId:territory.id,bannerColor:value},'Баннер территории обновлён');}}/>)}
+          {VISUAL_COLORS.filter(([value])=>value!=='none').map(([value])=><ColorDot key={`banner-${value}`} value={value} selected={String(inventory?.bannerColor||'none')===value} title={({red:'Красный',orange:'Оранжевый',yellow:'Жёлтый',green:'Зелёный',turquoise:'Бирюзовый',blue:'Синий',purple:'Фиолетовый',magenta:'Пурпурный',white:'Белый'})[value]||value} onClick={()=>{if(!readOnly)post('/api/customization/city',{territoryId:territory.id,bannerColor:value,bannerGradient:getRandomBannerGradientId()},'Баннер территории обновлён');}}/>)}
+        </div>
+        <div style={{fontSize:11,color:'var(--theme-color-text-muted)',margin:'12px 0 6px'}}>Предпросмотр текущего баннера</div>
+        <div role="img" aria-label="Предпросмотр текущего баннера территории" style={{height:72,width:'100%',borderRadius:12,border:'1px solid var(--theme-color-border)',overflow:'hidden',background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent),position:'relative'}}>
+          <div style={{position:'absolute',left:12,right:12,bottom:10,fontSize:13,fontWeight:800,color:'#fff',textShadow:'0 1px 5px rgba(0,0,0,.65)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}><MinecraftText text={territory?.name||'Название территории'}/></div>
         </div>
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '14px 0 6px'}}>Метка</div>
         <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='метка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('метка'))} equippedId={inventory?.equippedMarkerItemId} showEquip={!readOnly} onEquip={id=>equip(id)} columns={4} aspectRatio="1 / 1" imageFit="contain" emptyText="Доступных меток нет."/>
@@ -2711,7 +2716,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
   const canDeleteShot = isMainInspector || (!isGovernment && isOwner);
   return (
     <div className="atlas-page atlas-page--territory" style={{ paddingBottom: 90, position: 'relative' }}>
-      <div style={{ position: 'relative', height: 150, overflow:'hidden', background:(()=>{const selected=VISUAL_COLORS.find(([value])=>value===String(t.banner_color||'none').toLowerCase())?.[1];return selected&&selected!=='none'? `linear-gradient(160deg, ${selected}99, ${selected}22 72%, var(--theme-color-surface) 100%)` : `linear-gradient(160deg, ${t.accent}66, var(--theme-color-surface) 85%)`;})() }}>
+      <div style={{ position: 'relative', height: 150, overflow:'hidden', background:getBannerGradient(t.banner_color||'none',t.banner_gradient||'aurora',t.accent) }}>
         <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: '50%', background: 'var(--theme-color-image-control-surface)', border: '1px solid var(--theme-color-border-strong)', color: 'var(--theme-color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}><ChevronLeft size={20} /></button>
         <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, zIndex: 3, textShadow:'var(--theme-shadow-cover-title)' }}>
           <MinecraftText as="div" text={t.name} className="atlas-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.16 }} />
@@ -3500,10 +3505,10 @@ function ColorDot({value,selected,onClick,small=false,title}) {
   const isNone=value==='none';
   const c=isNone?'transparent':(VISUAL_COLORS.find(x=>x[0]===value)?.[1]||'#fff');
   return <button type="button" onClick={onClick} title={title||(isNone?'Без цвета':value)} aria-label={title||(isNone?'Без цвета':value)} className="press" style={{
-    width:24,height:24,borderRadius:'50%',border:selected?'2px solid var(--theme-color-text-primary)':'1px solid var(--theme-color-border)',
+    width:26,height:26,borderRadius:'50%',border:selected?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',
     background:c,position:'relative',padding: 0
   }}>
-    {isNone&&<span style={{position:'absolute',left:4,right:4,top:'50%',height:2,background:'#9AA2C2',transform:'rotate(-45deg)',transformOrigin:'center'}}/>}
+    {isNone&&<span style={{position:'absolute',left:'50%',top:'50%',width:17,height:2,background:'#9AA2C2',transform:'translate(-50%,-50%) rotate(-45deg)',transformOrigin:'center'}}/>}
   </button>
 }
 
@@ -3601,6 +3606,8 @@ function profileAccountLabel(scope,cities,tgUser,profile){
 function CustomizationScreen({initData,tgUser,role,territories,profile,onToast}){
   const [data,setData]=useState(null),[error,setError]=useState(''),[filters,setFilters]=useState({tag:'all',color:'all'}),[accountScope,setAccountScope]=useState('personal'),[accountLoading,setAccountLoading]=useState(false);
   const [form,setForm]=useState(makeVisualForm()),[saving,setSaving]=useState(false),[editingItem,setEditingItem]=useState(null),[rechecking,setRechecking]=useState(false),[recheckNotice,setRecheckNotice]=useState(''),[visibilityBusy,setVisibilityBusy]=useState('');
+  const [discountNow,setDiscountNow]=useState(Date.now());
+  useEffect(()=>{const timer=window.setInterval(()=>setDiscountNow(Date.now()),15000);return()=>window.clearInterval(timer)},[]);
   const isMain=role==='main_inspector';
   const managerCities=(territories||[]).filter(t=>String(t.owner_telegram_id||'')===String(tgUser?.id||'')||(Array.isArray(t.manager_telegram_ids)&&t.manager_telegram_ids.map(String).includes(String(tgUser?.id||''))));
   const managerCityKey=managerCities.map(t=>String(t.id)).sort().join('|');
@@ -3777,9 +3784,12 @@ function CustomizationScreen({initData,tgUser,role,territories,profile,onToast})
           </div>}
           {item.image_data&&<div style={{height:140,display:'flex',alignItems:'center',justifyContent:'center',background:'var(--theme-color-surface-raised)',borderRadius:10}}><img src={item.image_data} alt={item.name} style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',imageRendering:'pixelated'}}/></div>}
           <MinecraftText as="div" text={item.name} style={{fontSize:13,fontWeight:700,marginTop: 6}}/>
-          <div className="atlas-display atlas-visual-price" style={{fontSize:18,fontWeight:800,color:'var(--content-color-gem)',marginTop: 6,display:'flex',alignItems:'center',gap: 6,lineHeight:1}}>
-            {Number(item.discount_percent||0)>0&&<span style={{fontSize:14,fontWeight:650,color:'var(--theme-color-text-muted)',textDecoration:'line-through',textDecorationColor:'#EF4444',textDecorationThickness:2}}>{item.price}</span>}
-            <span>{Number(item.discount_percent||0)>0?item.discounted_price:item.price}</span><GemHex/>
+          <div className="atlas-display atlas-visual-price" style={{fontSize:18,fontWeight:800,color:'var(--content-color-gem)',marginTop:6,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,lineHeight:1,width:'100%',minWidth:0}}>
+            <span style={{display:'inline-flex',alignItems:'center',gap:6,minWidth:0}}>
+              {Number(item.discount_percent||0)>0&&Number(item.discount_expires_at||0)>discountNow&&<span style={{fontSize:14,fontWeight:650,color:'var(--theme-color-text-muted)',textDecoration:'line-through',textDecorationColor:'#9CA3AF',textDecorationThickness:2}}>{item.price}</span>}
+              <span>{Number(item.discount_percent||0)>0&&Number(item.discount_expires_at||0)>discountNow?item.discounted_price:item.price}</span><GemHex/>
+            </span>
+            {Number(item.discount_percent||0)>0&&Number(item.discount_expires_at||0)>discountNow&&<span style={{fontSize:10.5,fontWeight:650,color:'var(--theme-color-text-muted)',whiteSpace:'nowrap',flexShrink:0,marginLeft:'auto'}}>{formatDiscountRemaining(item.discount_expires_at,discountNow)}</span>}
           </div>
           <button disabled={owned} onClick={()=>buy(item.id)} className="press" style={{width:'100%',marginTop: 8,padding: 8,border:'none',borderRadius:10,background:owned?'var(--theme-color-surface-raised)':'var(--theme-color-action-primary)',color:owned?'var(--theme-color-text-muted)':'var(--theme-color-action-primary-contrast)',fontWeight:700}}>{owned?'Получено':'Купить'}</button>
         </div>;
@@ -4204,6 +4214,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
           founder_mc_nickname: row.founder_mc_nickname || row.owner_mc_nickname || null,
           marker_url: row.marker_url || null,
           banner_color: row.banner_color || 'none',
+          banner_gradient: row.banner_gradient || 'aurora',
           resident_count: preservePrevious(['members', 'managers'], 'resident_count', Number(row.resident_count ?? ((row.residents || []).length + (row.managers || []).length))),
           resident_telegram_ids: preservePrevious(['members'], 'resident_telegram_ids', Array.isArray(row.resident_telegram_ids) ? row.resident_telegram_ids : []),
           resident_rows: preservePrevious(['members'], 'resident_rows', Array.isArray(row.resident_rows) ? row.resident_rows : []),
