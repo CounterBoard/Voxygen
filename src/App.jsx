@@ -3505,10 +3505,10 @@ function ColorDot({value,selected,onClick,small=false,title}) {
   const isNone=value==='none';
   const c=isNone?'transparent':(VISUAL_COLORS.find(x=>x[0]===value)?.[1]||'#fff');
   return <button type="button" onClick={onClick} title={title||(isNone?'Без цвета':value)} aria-label={title||(isNone?'Без цвета':value)} className="press" style={{
-    width:24,height:24,borderRadius:'50%',border:selected?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',
+    width:26,height:26,borderRadius:'50%',border:selected?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',
     background:c,position:'relative',padding: 0
   }}>
-    {isNone&&<span style={{position:'absolute',left:'50%',top:'50%',width:16,height:2,background:'#9AA2C2',transform:'translate(-50%,-50%) rotate(-45deg)',transformOrigin:'center'}}/>}
+    {isNone&&<span style={{position:'absolute',left:'50%',top:'50%',width:17,height:2,background:'#9AA2C2',transform:'translate(-50%,-50%) rotate(-45deg)',transformOrigin:'center'}}/>}
   </button>
 }
 
