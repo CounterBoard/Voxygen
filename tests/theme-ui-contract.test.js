@@ -712,7 +712,7 @@ test('territory profile uses a color banner above marker and keeps rewards as a 
   const rewards=city.indexOf('>Награды</div>');
   assert.ok(banner>=0&&marker>banner&&rewards>marker,'Banner, marker and rewards must appear in that order');
   assert.ok(city.includes("VISUAL_COLORS.filter(([value])=>value!=='none').map(([value])"));
-  assert.ok(city.includes('Предпросмотр текущего баннера'));
+  assert.ok(!city.includes('Предпросмотр текущего баннера'),'The redundant banner preview panel must stay removed');
   assert.ok(city.includes('inventory?.bannerGradient'));
   assert.ok(city.includes('inventory?.bannerColor'));
   assert.ok(city.includes('Награды появятся здесь позже.'));
