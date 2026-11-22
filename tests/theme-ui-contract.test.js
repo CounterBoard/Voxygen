@@ -702,7 +702,7 @@ test('profile and event description textareas explicitly use the shared field re
   assert.ok(app.includes('#root .atlas-root textarea.atlas-profile-additional-field,#root .atlas-root textarea.atlas-recruitment-description-field,#root .atlas-root textarea.atlas-event-description-field{border-color:var(--theme-recipe-field-border)!important;}'));
 });
 
-test('territory profile includes awards inventory, a 4-slot banner and a title-free 4px-spaced preview', () => {
+test('territory profile includes awards inventory, a 4-slot banner and a title-free 6px-spaced preview', () => {
   const profile=app.slice(app.indexOf('function ProfileInventory('),app.indexOf('function TreasuryCard('));
   const city=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
   const detail=app.slice(app.indexOf('function TerritoryDetail('),app.indexOf('function TerritoryCard('));
