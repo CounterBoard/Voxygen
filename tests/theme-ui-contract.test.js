@@ -719,7 +719,7 @@ test('territory profile includes awards inventory, a 4-slot banner and a title-f
   assert.ok(city.includes('Максимум 4 награды на странице территории'));
   assert.ok(city.includes("margin: '14px 0 6px'}}>Награды</div>"));
   assert.ok(city.includes("flexWrap:'wrap',marginBottom:0"));
-  assert.ok(city.includes('marginTop:6,height:72'));
+  assert.ok(city.includes('marginTop:8,height:72'));
   assert.ok(city.includes("justifyContent:'center',gap: 8,flexWrap:'wrap',marginBottom:0"),'Profile banner colors are horizontally centered');
   assert.doesNotMatch(city, /На баннере ·/);
   assert.ok(city.includes("setNotice(`Награда установлена в слот ${nextSlot}`)"));
