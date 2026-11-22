@@ -792,7 +792,7 @@ test('repeating the same territory action creates a fresh toast instance', () =>
   const cityProfile=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
   assert.ok(cityProfile.includes('[noticeRevision,setNoticeRevision]=useState(0)'));
   assert.ok(cityProfile.includes('setNoticeRevision(value=>value+1)'));
-  assert.ok(cityProfile.includes('<FixedToast key={noticeRevision} message={notice}/>'));
+  assert.ok(cityProfile.includes('<FixedToast key={noticeRevision} message={notice} type={noticeType}/>'));
 });
 
 test('toast width follows its text and darkens only the covered backdrop', () => {
