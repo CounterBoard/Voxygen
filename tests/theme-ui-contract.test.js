@@ -727,7 +727,7 @@ test('territory profile includes awards inventory, a 4-slot banner and a title-f
   assert.ok(city.includes("gridColumn:'1 / -1'")&&city.includes("gridTemplateColumns:'48px minmax(0,1fr)'"));
   assert.ok(city.includes('WebkitLineClamp:3'));
   assert.ok(detail.includes("(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined)"));
-  assert.ok(detail.includes("top:7,right:7+index*42"),'Equipped awards are anchored at the top-right');
+  assert.ok(detail.includes("top:7,right:7+index*64,width:58,height:58"),'Award badges match the exit button plus its edge offset, with 7px outer margins');
   assert.ok(detail.includes('Number(b.slot_index)-Number(a.slot_index)'),'Most recently equipped award occupies the rightmost slot');
   assert.ok(detail.includes('setSelectedTerritoryAward(award)'));
   assert.ok(detail.includes('selectedTerritoryAward.name'));
@@ -735,6 +735,7 @@ test('territory profile includes awards inventory, a 4-slot banner and a title-f
   assert.ok(app.includes("String(date.getDate()).padStart(2,'0')"));
   assert.ok(app.includes("String(date.getMonth()+1).padStart(2,'0')"));
   assert.ok(detail.includes('formatTerritoryAwardDate(selectedTerritoryAward.awarded_at)'),'Award modal shows the date as DD.MM.YYYY');
+  assert.ok(detail.includes('fontSize:32'),'Award badge emoji scales with the 58px badge');
   assert.ok(detail.includes('fontSize:44'),'Award modal shows the emoji prominently');
 });
 test('visual color palettes are horizontally centered in editor, creation form and filters', () => {
