@@ -702,25 +702,26 @@ test('profile and event description textareas explicitly use the shared field re
   assert.ok(app.includes('#root .atlas-root textarea.atlas-profile-additional-field,#root .atlas-root textarea.atlas-recruitment-description-field,#root .atlas-root textarea.atlas-event-description-field{border-color:var(--theme-recipe-field-border)!important;}'));
 });
 
-test('territory profile uses a color banner above marker and keeps rewards as a placeholder', () => {
+test('territory profile includes awards inventory, a 4-slot banner and a title-free 4px-spaced preview', () => {
   const profile=app.slice(app.indexOf('function ProfileInventory('),app.indexOf('function TreasuryCard('));
   const city=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
+  const detail=app.slice(app.indexOf('function TerritoryDetail('),app.indexOf('function TerritoryCard('));
   assert.ok(profile.includes("columns={4} aspectRatio=\"1 / 1\" imageFit=\"contain\""));
   assert.ok(city.includes("columns={4} aspectRatio=\"1 / 1\" imageFit=\"contain\""));
   const banner=city.indexOf('>Баннер</div>');
   const marker=city.indexOf('>Метка</div>');
   const rewards=city.indexOf('>Награды</div>');
-  assert.ok(banner>=0&&marker>banner&&rewards>marker,'Banner, marker and rewards must appear in that order');
+  assert.ok(banner>=0&&marker>banner&&rewards>marker,'Banner, marker and rewards appear in the intended order');
   assert.ok(city.includes("VISUAL_COLORS.filter(([value])=>value!=='none').map(([value])"));
-  assert.ok(!city.includes('Предпросмотр текущего баннера</div>'),'The redundant banner preview caption must stay removed');
-  assert.ok(city.includes('aria-label="Предпросмотр текущего баннера территории"'),'The banner preview itself must remain visible');
-  assert.ok(city.includes('inventory?.bannerGradient'));
-  assert.ok(city.includes('inventory?.bannerColor'));
-  assert.ok(city.includes('Награды появятся здесь позже.'));
-  assert.ok(!city.includes('Обложка'));
-  assert.ok(!city.includes('columns={2} aspectRatio=\"16 / 9\" imageFit=\"cover\"'));
+  assert.ok(city.includes('inventory?.bannerGradient')&&city.includes('inventory?.bannerColor'));
+  assert.ok(city.includes('Наград пока нет'));
+  assert.ok(city.includes('inventory?.territoryAwards')&&city.includes('toggleAwardPlacement'));
+  assert.ok(city.includes('Максимум 4 награды на странице территории'));
+  assert.ok(city.includes('marginTop:4,height:72'));
+  assert.ok(!city.includes("territory?.name||'Название территории'"));
+  assert.ok(detail.includes('(t.awards||[])')&&detail.includes('setSelectedTerritoryAward(award)'));
+  assert.ok(detail.includes('selectedTerritoryAward.name'));
 });
-
 test('theme picker arrows enforce the same Purple action surface and glyph as event links', () => {
   assert.equal((app.match(/className="press atlas-theme-arrow"/g)||[]).length,2);
   assert.ok(app.includes('#root .atlas-root .atlas-theme-arrow{border:1px solid var(--theme-color-action-primary-border)!important;background:var(--theme-color-action-primary-soft)!important;color:var(--theme-color-action-primary)!important;}'));
