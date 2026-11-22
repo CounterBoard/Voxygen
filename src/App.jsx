@@ -251,6 +251,7 @@ const MAP_MARKER_HEIGHT = 14;
 const DEFAULT_CITY_MARKER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23A78BFA' stroke='%23FFFFFF' stroke-width='1.5' d='M12 23s9-8.1 9-13A9 9 0 1 0 3 10c0 4.9 9 13 9 13Z'/%3E%3Ccircle cx='12' cy='10' r='3' fill='%23101118'/%3E%3C/svg%3E";
 function pluralizeTerritories(n) { const value=Math.abs(Math.trunc(Number(n)||0)); const lastTwo=value%100,last=value%10; if(lastTwo>=11&&lastTwo<=14)return 'территорий'; if(last===1)return 'территория'; if(last>=2&&last<=4)return 'территории'; return 'территорий'; }
 function formatTerritoryCoords(raw) { const value=String(raw??'').trim().replace(/−/g,'-'); const numbers=value.match(/-?\d+(?:[.,]\d+)?/g)||[]; if(numbers.length>=2)return `${numbers[0]} / ${numbers[1]}`; return value||'Координаты не указаны'; }
+function formatTerritoryAwardDate(value) { const timestamp=Number(value); if(!Number.isFinite(timestamp)||timestamp<=0)return 'Дата не указана'; const date=new Date(timestamp); if(Number.isNaN(date.getTime()))return 'Дата не указана'; return `${String(date.getDate()).padStart(2,'0')}.${String(date.getMonth()+1).padStart(2,'0')}.${date.getFullYear()}`; }
 function pluralizeRatings(n) { const value=Math.abs(Math.trunc(Number(n)||0)); const lastTwo=value%100,last=value%10; if(lastTwo>=11&&lastTwo<=14)return 'оценок'; if(last===1)return 'оценка'; if(last>=2&&last<=4)return 'оценки'; return 'оценок'; }
 
 
@@ -2082,7 +2083,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
       <div style={{fontSize:13,fontWeight:700,marginBottom: 8}}>Оформление территории</div>
       <div style={{borderTop:'1px solid var(--theme-color-border)',marginTop: 8,paddingTop: 8}}>
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom: 7}}>Баннер</div>
-        <div style={{display:'flex',alignItems:'center',gap: 8,flexWrap:'wrap',marginBottom:6}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap: 8,flexWrap:'wrap',marginBottom:6}}>
           {VISUAL_COLORS.filter(([value])=>value!=='none').map(([value])=><ColorDot key={`banner-${value}`} value={value} selected={String(inventory?.bannerColor||'none')===value} title={({red:'Красный',orange:'Оранжевый',yellow:'Жёлтый',green:'Зелёный',turquoise:'Бирюзовый',blue:'Синий',purple:'Фиолетовый',magenta:'Пурпурный',white:'Белый'})[value]||value} onClick={()=>{if(!readOnly)post('/api/customization/city',{territoryId:territory.id,bannerColor:value,bannerGradient:getRandomBannerGradientId()},'Баннер территории обновлён');}}/>)}
         </div>
         <div role="img" aria-label="Предпросмотр текущего баннера территории" style={{marginTop:0,height:72,width:'100%',borderRadius:12,border:'1px solid var(--theme-color-border)',overflow:'hidden',background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent)}}/>
@@ -2094,7 +2095,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
           : <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:8}}>
               {(inventory?.territoryAwards||[]).map(award=>{
                 const equipped=award.slot_index!==null&&award.slot_index!==undefined;
-                return <button key={award.id} type="button" disabled={readOnly} title={award.name} aria-label={`${award.emoji} ${award.name}${equipped?', размещена на баннере':''}`} aria-pressed={equipped} onClick={()=>toggleAwardPlacement(award)} className="press" style={{gridColumn:'span 2',minWidth:0,minHeight:68,border:equipped?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:12,background:equipped?'var(--theme-color-status-success-soft)':'var(--theme-color-surface)',color:'var(--theme-color-text-primary)',display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)',alignItems:'center',gap:8,padding:6,opacity:readOnly?0.82:1}}>
+                return <button key={award.id} type="button" disabled={readOnly} title={award.name} aria-label={`${award.emoji} ${award.name}${equipped?', размещена на баннере':''}`} aria-pressed={equipped} onClick={()=>toggleAwardPlacement(award)} className="press" style={{gridColumn:'1 / -1',minWidth:0,minHeight:68,border:equipped?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:12,background:equipped?'var(--theme-color-status-success-soft)':'var(--theme-color-surface)',color:'var(--theme-color-text-primary)',display:'grid',gridTemplateColumns:'48px minmax(0,1fr)',alignItems:'center',gap:8,padding:6,opacity:readOnly?0.82:1}}>
                   <span style={{fontSize:32,lineHeight:1.1,display:'flex',alignItems:'center',justifyContent:'center',minWidth:0}}>{award.emoji}</span>
                   <span style={{fontSize:11,lineHeight:1.2,textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',width:'100%',minWidth:0}}>{award.name}</span>
                 </button>;
@@ -2742,7 +2743,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
     <div className="atlas-page atlas-page--territory" style={{ paddingBottom: 90, position: 'relative' }}>
       <div style={{ position: 'relative', height: 150, overflow:'hidden', background:getBannerGradient(t.banner_color||'none',t.banner_gradient||'aurora',t.accent) }}>
         <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: '50%', background: 'var(--theme-color-image-control-surface)', border: '1px solid var(--theme-color-border-strong)', color: 'var(--theme-color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}><ChevronLeft size={20} /></button>
-        {(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined).slice().sort((a,b)=>Number(a.slot_index)-Number(b.slot_index)).map((award,index)=><button key={award.id} type="button" onClick={()=>setSelectedTerritoryAward(award)} title={award.name} aria-label={`${award.emoji} ${award.name}`} className="press" style={{position:'absolute',top:7,right:7+index*42,width:36,height:36,padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.4)',borderRadius:10,background:'rgba(8,13,34,.72)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',fontSize:22,zIndex:4}}>{award.emoji}</button>)}
+        {(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined).slice().sort((a,b)=>Number(b.slot_index)-Number(a.slot_index)).map((award,index)=><button key={award.id} type="button" onClick={()=>setSelectedTerritoryAward(award)} title={award.name} aria-label={`${award.emoji} ${award.name}`} className="press" style={{position:'absolute',top:7,right:7+index*42,width:36,height:36,padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.4)',borderRadius:10,background:'rgba(8,13,34,.72)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',fontSize:22,zIndex:4}}>{award.emoji}</button>)}
         <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, zIndex: 3, textShadow:'var(--theme-shadow-cover-title)' }}>
           <MinecraftText as="div" text={t.name} className="atlas-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.16 }} />
           <div style={{fontSize:13,color:'var(--theme-color-text-secondary)'}}>{formatTerritoryCoords(t.coords || (t.vox_x != null && t.vox_z != null ? `${t.vox_x} / ${t.vox_z}` : ''))}</div>
@@ -2791,9 +2792,12 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
           </div>;
         })}</div>
       </div>
-      {selectedTerritoryAward&&<SimpleModal title={<span style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:24}}>{selectedTerritoryAward.emoji}</span><span>{selectedTerritoryAward.name}</span></span>} onClose={()=>setSelectedTerritoryAward(null)}>
-        <div style={{fontSize:13,color:'var(--theme-color-text-muted)',lineHeight:1.55}}>Награда территории «{t.name}».</div>
-        <div style={{fontSize:11,color:'var(--theme-color-text-muted)',marginTop:8}}>Получена {new Date(Number(selectedTerritoryAward.awarded_at||0)).toLocaleDateString('ru-RU')}</div>
+      {selectedTerritoryAward&&<SimpleModal title="Награда" onClose={()=>setSelectedTerritoryAward(null)}>
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:10,padding:'8px 4px 4px',textAlign:'center'}}>
+          <div aria-hidden="true" style={{fontSize:44,lineHeight:1.1}}>{selectedTerritoryAward.emoji}</div>
+          <div style={{fontSize:15,fontWeight:800,lineHeight:1.35,color:'var(--theme-color-text-primary)',overflowWrap:'anywhere'}}>{selectedTerritoryAward.name}</div>
+          <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)'}}>Получена {formatTerritoryAwardDate(selectedTerritoryAward.awarded_at)}</div>
+        </div>
       </SimpleModal>}
       {showResidents && <SimpleModal title="Жители" onClose={() => setShowResidents(false)}><div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{(t.managers||[]).map((m,i)=><div key={`manager-${m.telegram_id||i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--theme-color-status-success-soft)', borderRadius: 11 }}><AvatarHead nickname={m.mc_nickname} skinUrl={m.skin_url} size={40}/><div style={{ flex: 1, minWidth:0 }}><MinecraftText text={m.mc_nickname || m.telegram_username || 'Ник не указан'} style={{fontSize:13,fontWeight:700}}/><div style={{ fontSize: 10.5, color: 'var(--theme-color-status-success)' }}>Основатель/мэр</div></div><ShieldCheck size={18} color="var(--theme-color-status-success)" /></div>)}{(t.resident_rows||[]).length===0 ? ((t.residents || []).length === 0 ? <div style={{ fontSize: 12, color: 'var(--theme-color-text-muted)' }}>Кроме основателей/мэров жителей пока нет.</div> : (t.residents || []).map((r,i)=><div key={`legacy-resident-${i}`} style={{ display:'flex',alignItems:'center',gap: 8,padding: '10px 12px',background:'var(--theme-color-surface-raised)',borderRadius:11 }}><AvatarHead nickname={r} size={40}/><MinecraftText text={r} style={{fontSize:13}}/></div>)) : (t.resident_rows||[]).map((r,i)=><div key={`resident-${r.telegram_id||i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--theme-color-surface-raised)', borderRadius: 11 }}><AvatarHead nickname={r.mc_nickname} skinUrl={r.skin_url} size={40}/><div style={{flex:1,minWidth:0}}><MinecraftText text={r.mc_nickname || r.telegram_username || 'Ник не указан'} style={{fontSize:13,fontWeight:700}}/>{r.telegram_username&&<div style={{fontSize:10.5,color:'var(--theme-color-text-muted)'}}>@{String(r.telegram_username).replace(/^@/,'')}</div>}</div></div>)}</div></SimpleModal>}
       {lightbox && <Lightbox shots={approved} index={lightboxIndex} mode="view" onClose={() => setLightbox(null)} onChange={(i)=>{setLightboxIndex(i);setLightbox({shot:approved[i]});}} />}
@@ -3618,7 +3622,7 @@ function VisualEditModal({item,onClose,onSaved,initData}){
       </label>
       <AchievementFields form={form} setForm={setForm}/>
       <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom: 6}}>Цвет визуала</div>
-      <div style={{display:'flex',flexWrap:'wrap',gap: 6,marginBottom: 8}}>{VISUAL_COLORS.map(([v])=><ColorDot key={v} value={v} selected={form.color===v} onClick={()=>setForm(f=>({...f,color:v}))}/>)}</div>
+      <div style={{display:'flex',flexWrap:'wrap',justifyContent:'center',gap: 6,marginBottom: 8}}>{VISUAL_COLORS.map(([v])=><ColorDot key={v} value={v} selected={form.color===v} onClick={()=>setForm(f=>({...f,color:v}))}/>)}</div>
       <input type="file" accept="image/*" onChange={e=>pick(e.target.files?.[0])} style={{width:'100%',marginBottom: 8}}/>
       {form.imageData&&<div style={{display:'flex',justifyContent:'center',padding: 10,background:'var(--theme-color-surface-raised)',borderRadius:12,marginBottom: 8}}><img src={form.imageData} alt={form.name} style={{maxWidth:160,maxHeight:170,objectFit:'contain'}}/></div>}
       {error&&<div style={{fontSize:12,color:'var(--theme-color-status-danger)',marginBottom: 8}}>{error}</div>}
@@ -3770,7 +3774,7 @@ function CustomizationScreen({initData,tgUser,role,territories,profile,onToast})
       {form.governmentMarker&&<div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '-2px 0 10px'}}>Этот визуал будет скрыт от обычных пользователей и автоматически применится к государственным территориям по своим тегам.</div>}
       <AchievementFields form={form} setForm={setForm}/>
       <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom: 6}}>Цвет визуала</div>
-      <div style={{display:'flex',flexWrap:'wrap',gap: 6,marginBottom: 8}}>{VISUAL_COLORS.map(([v])=><ColorDot key={v} value={v} selected={form.color===v} onClick={()=>setForm(f=>({...f,color:v}))}/>)}</div>
+      <div style={{display:'flex',flexWrap:'wrap',justifyContent:'center',gap: 6,marginBottom: 8}}>{VISUAL_COLORS.map(([v])=><ColorDot key={v} value={v} selected={form.color===v} onClick={()=>setForm(f=>({...f,color:v}))}/>)}</div>
       <input type="file" accept="image/*" onChange={e=>pick(e.target.files?.[0])} style={{width:'100%',marginBottom: 8}}/>
       {form.imageData&&<div style={{display:'flex',justifyContent:'center',padding: 10,background:'var(--theme-color-surface-raised)',borderRadius:12,marginBottom: 8}}><img src={form.imageData} alt="preview" style={{maxWidth:160,maxHeight:170,objectFit:'contain'}}/></div>}
       <button onClick={create} disabled={saving} className="press" style={{width:'100%',padding: 10,border:'none',borderRadius:10,background:'var(--theme-color-status-warning)',color:'var(--theme-color-status-warning-contrast)',fontWeight:700,marginTop: 8}}>{saving?'Создание…':'Добавить визуал'}</button>
@@ -3793,7 +3797,7 @@ function CustomizationScreen({initData,tgUser,role,territories,profile,onToast})
           </span>}
         </div>)}
       </div>
-      <div style={{display:'flex',alignItems:'center',gap: 6,flexWrap:'wrap'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap: 6,flexWrap:'wrap'}}>
         <ColorDot value="none" small selected={filters.color==='all'} title="Все цвета" onClick={()=>setFilters(f=>({...f,color:'all'}))}/>
         {VISUAL_COLORS.filter(([v])=>v!=='none').map(([v])=><ColorDot key={v} value={v} small selected={filters.color===v} onClick={()=>setFilters(f=>({...f,color:v}))}/>)}
       </div>

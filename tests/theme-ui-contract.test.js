@@ -720,17 +720,30 @@ test('territory profile includes awards inventory, a 4-slot banner and a title-f
   assert.ok(city.includes("margin: '14px 0 6px'}}>Награды</div>"));
   assert.ok(city.includes("flexWrap:'wrap',marginBottom:6"));
   assert.ok(city.includes('marginTop:0,height:72'));
+  assert.ok(city.includes("justifyContent:'center',gap: 8,flexWrap:'wrap',marginBottom:6"),'Profile banner colors are horizontally centered');
   assert.doesNotMatch(city, /На баннере ·/);
   assert.doesNotMatch(city, /setNotice\(data\.equipped/);
   assert.ok(!city.includes("territory?.name||'Название территории'"));
-  assert.ok(city.includes("gridColumn:'span 2'")&&city.includes("gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)'"));
+  assert.ok(city.includes("gridColumn:'1 / -1'")&&city.includes("gridTemplateColumns:'48px minmax(0,1fr)'"));
   assert.ok(city.includes('WebkitLineClamp:3'));
   assert.ok(detail.includes("(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined)"));
-  assert.ok(detail.includes("top:7,right:7+index*42"),'Equipped awards are anchored at the top-right and ordered right-to-left');
+  assert.ok(detail.includes("top:7,right:7+index*42"),'Equipped awards are anchored at the top-right');
+  assert.ok(detail.includes('Number(b.slot_index)-Number(a.slot_index)'),'Most recently equipped award occupies the rightmost slot');
   assert.ok(detail.includes('setSelectedTerritoryAward(award)'));
   assert.ok(detail.includes('selectedTerritoryAward.name'));
-  assert.ok(detail.includes("toLocaleDateString('ru-RU')"),'Award details show a localized DD.MM.YYYY date');
+  assert.ok(app.includes('function formatTerritoryAwardDate(value)'));
+  assert.ok(app.includes("String(date.getDate()).padStart(2,'0')"));
+  assert.ok(app.includes("String(date.getMonth()+1).padStart(2,'0')"));
+  assert.ok(detail.includes('formatTerritoryAwardDate(selectedTerritoryAward.awarded_at)'),'Award modal shows the date as DD.MM.YYYY');
+  assert.ok(detail.includes('fontSize:44'),'Award modal shows the emoji prominently');
 });
+test('visual color palettes are horizontally centered in editor, creation form and filters', () => {
+  const editor=app.slice(app.indexOf('function VisualEditModal('),app.indexOf('function profileAccountLabel('));
+  const visual=app.slice(app.indexOf('function CustomizationScreen('),app.indexOf('function BottomNav('));
+  assert.equal((editor.match(/justifyContent:'center',gap: 6,marginBottom: 8/g)||[]).length,2);
+  assert.ok(visual.includes("justifyContent:'center',gap: 6,flexWrap:'wrap'"));
+});
+
 test('theme picker arrows enforce the same Purple action surface and glyph as event links', () => {
   assert.equal((app.match(/className="press atlas-theme-arrow"/g)||[]).length,2);
   assert.ok(app.includes('#root .atlas-root .atlas-theme-arrow{border:1px solid var(--theme-color-action-primary-border)!important;background:var(--theme-color-action-primary-soft)!important;color:var(--theme-color-action-primary)!important;}'));
