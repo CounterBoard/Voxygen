@@ -252,6 +252,15 @@ const DEFAULT_CITY_MARKER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 function pluralizeTerritories(n) { const value=Math.abs(Math.trunc(Number(n)||0)); const lastTwo=value%100,last=value%10; if(lastTwo>=11&&lastTwo<=14)return 'территорий'; if(last===1)return 'территория'; if(last>=2&&last<=4)return 'территории'; return 'территорий'; }
 function formatTerritoryCoords(raw) { const value=String(raw??'').trim().replace(/−/g,'-'); const numbers=value.match(/-?\d+(?:[.,]\d+)?/g)||[]; if(numbers.length>=2)return `${numbers[0]} / ${numbers[1]}`; return value||'Координаты не указаны'; }
 function formatTerritoryAwardDate(value) { const timestamp=Number(value); if(!Number.isFinite(timestamp)||timestamp<=0)return 'Дата не указана'; const date=new Date(timestamp); if(Number.isNaN(date.getTime()))return 'Дата не указана'; return `${String(date.getDate()).padStart(2,'0')}.${String(date.getMonth()+1).padStart(2,'0')}.${date.getFullYear()}`; }
+function TelegramEmoji({emoji,size=32,style={}}) {
+  const value=String(emoji||'');
+  const [loadedEmoji,setLoadedEmoji]=useState('');
+  if(!value)return null;
+  return <span role="img" aria-label={value} style={{width:size,height:size,display:'inline-flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto',position:'relative',...style}}>
+    {loadedEmoji!==value&&<span aria-hidden="true" style={{fontSize:size*.78,lineHeight:1}}>{value}</span>}
+    <img key={value} src={API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)} alt="" onLoad={()=>setLoadedEmoji(value)} style={{display:loadedEmoji===value?'block':'none',width:'100%',height:'100%',objectFit:'contain'}}/>
+  </span>;
+}
 function pluralizeRatings(n) { const value=Math.abs(Math.trunc(Number(n)||0)); const lastTwo=value%100,last=value%10; if(lastTwo>=11&&lastTwo<=14)return 'оценок'; if(last===1)return 'оценка'; if(last>=2&&last<=4)return 'оценки'; return 'оценок'; }
 
 
@@ -451,7 +460,7 @@ function FontsAndTheme() {
           transform:translateX(-50%);
           width:min(100%,var(--theme-content-max-width));
           overflow:hidden;
-          z-index:65;
+          z-index:220;
           pointer-events:none;
         }
         .atlas-fixed-toast{
@@ -2107,8 +2116,8 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
           : <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:8}}>
               {(inventory?.territoryAwards||[]).map(award=>{
                 const equipped=award.slot_index!==null&&award.slot_index!==undefined;
-                return <button key={award.id} type="button" disabled={readOnly||Boolean(awardBusyId)} title={award.name} aria-label={`${award.emoji} ${award.name}${equipped?', размещена на баннере':''}`} aria-pressed={equipped} onClick={()=>toggleAwardPlacement(award)} className="press" style={{gridColumn:'1 / -1',minWidth:0,minHeight:68,border:equipped?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:12,background:'var(--theme-color-surface-raised)',color:'var(--theme-color-text-primary)',display:'grid',gridTemplateColumns:'48px minmax(0,1fr)',alignItems:'center',gap:8,padding:6,opacity:readOnly?0.82:1}}>
-                  <span style={{fontSize:32,lineHeight:1.1,display:'flex',alignItems:'center',justifyContent:'center',minWidth:0}}>{award.emoji}</span>
+                return <button key={award.id} type="button" disabled={readOnly||Boolean(awardBusyId)} title={award.name} aria-label={`${award.emoji} ${award.name}${equipped?', размещена на баннере':''}`} aria-pressed={equipped} onClick={()=>toggleAwardPlacement(award)} className="press" style={{gridColumn:'1 / -1',minWidth:0,minHeight:68,border:equipped?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:12,background:equipped?'rgba(110,231,183,.18)':'var(--theme-color-surface-raised)',boxShadow:equipped?'inset 0 0 0 1px rgba(110,231,183,.2),0 0 0 1px rgba(110,231,183,.12)':'none',color:'var(--theme-color-text-primary)',display:'grid',gridTemplateColumns:'48px minmax(0,1fr)',alignItems:'center',gap:8,padding:6,opacity:readOnly?0.82:1}}>
+                  <span style={{fontSize:32,lineHeight:1.1,display:'flex',alignItems:'center',justifyContent:'center',minWidth:0}}><TelegramEmoji emoji={award.emoji} size={32}/></span>
                   <span style={{fontSize:11,lineHeight:1.2,textAlign:'center',overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',width:'100%',minWidth:0}}>{award.name}</span>
                 </button>;
               })}
@@ -2547,7 +2556,7 @@ function DonationModal({territory,initData,onClose,onSuccess,onToast}){
   const [amount,setAmount]=useState(''),[balance,setBalance]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
   useEffect(()=>{(async()=>{try{const r=await fetch(`${API_BASE}/api/customization?lite=1`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});const d=await r.json().catch(() => null);if(r.ok&&d.ok)setBalance(Number(d.personalBalance??0));}catch{}})()},[initData]);
   async function donate(){const n=Math.floor(Number(amount));if(!Number.isSafeInteger(n)||n<=0)return;const operation=getFinancialOperationToken('treasury-donate',territory.id,n);if(operation.blocked){setError(`Предыдущая операция на ${operation.amount} сц ещё не подтверждена. Верните прежнюю сумму и повторите попытку.`);return}try{setBusy(true);setError('');const r=await fetch(`${API_BASE}/api/treasury/donate`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,territoryId:territory.id,amount:n,operationId:operation.id})});const d=await r.json().catch(()=>null);if(!r.ok||!d?.ok){if([400,401,403,404,422].includes(r.status))clearFinancialOperationToken(operation);throw new Error(apiErrorMessage(r,d,"Операция не выполнена."));}clearFinancialOperationToken(operation);setBalance(Number(d.personal_balance??Math.max(0,(balance??0)-n)));window.dispatchEvent(new Event('voxygen:currency-changed'));onSuccess?.()}catch(e){const message=safeCaughtError(e, 'Не удалось отправить донат');if(/недостаточно самоцветов/i.test(message)){setError('');onToast?.('Недостаточно самоцветов','error');}else setError(message)}finally{setBusy(false)}}
-  return <SimpleModal title="Донат в казну" onClose={onClose}>
+  return <SimpleModal title="Донат в казну" titleGap={6} onClose={onClose}>
     <div style={{fontSize:13,color:'var(--theme-color-text-muted)',lineHeight:1.5,marginBottom: 12}}>Поддержать <b style={{color:'var(--theme-color-text-primary)'}}><MinecraftText text={territory.name}/></b> донатом</div>
     <div style={{background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:14,padding: 10,marginBottom: 12}}><div style={{fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginBottom: 4}}>Ваш баланс</div><div className="atlas-display" style={{fontSize:22,fontWeight:800,color:'var(--content-color-gem)',display:'flex',alignItems:'center',gap: 6}}>{balance??'…'}<GemHex/></div></div>
     <input value={amount} onChange={e=>setAmount(e.target.value.replace(/\D/g,''))} inputMode="numeric" placeholder="Количество сц" style={{width:'100%',boxSizing:'border-box',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:12,padding: '12px',color:'var(--theme-color-text-primary)',fontSize:15,marginBottom: 10}}/>
@@ -2756,7 +2765,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
     <div className="atlas-page atlas-page--territory" style={{ paddingBottom: 90, position: 'relative' }}>
       <div style={{ position: 'relative', height: 150, overflow:'hidden', background:getBannerGradient(t.banner_color||'none',t.banner_gradient||'aurora',t.accent) }}>
         <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: '50%', background: 'var(--theme-color-image-control-surface)', border: '1px solid var(--theme-color-border-strong)', color: 'var(--theme-color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}><ChevronLeft size={20} /></button>
-        {(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined).slice().sort((a,b)=>Number(b.slot_index)-Number(a.slot_index)).map((award,index)=><button key={award.id} type="button" onClick={()=>setSelectedTerritoryAward(award)} title={award.name} aria-label={`${award.emoji} ${award.name}`} className="press" style={{position:'absolute',top:7,right:7+index*64,width:58,height:58,padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.4)',borderRadius:10,background:'rgba(8,13,34,.72)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',fontSize:32,zIndex:4}}>{award.emoji}</button>)}
+        {(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined).slice().sort((a,b)=>Number(b.slot_index)-Number(a.slot_index)).map((award,index)=><button key={award.id} type="button" onClick={()=>setSelectedTerritoryAward(award)} title={award.name} aria-label={`${award.emoji} ${award.name}`} className="press" style={{position:'absolute',top:6,right:6+index*58,width:52,height:52,padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.4)',borderRadius:10,background:'rgba(8,13,34,.72)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',fontSize:0,zIndex:4}}><TelegramEmoji emoji={award.emoji} size={28}/></button>)}
         <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, zIndex: 3, textShadow:'var(--theme-shadow-cover-title)' }}>
           <MinecraftText as="div" text={t.name} className="atlas-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.16 }} />
           <div style={{fontSize:13,color:'var(--theme-color-text-secondary)'}}>{formatTerritoryCoords(t.coords || (t.vox_x != null && t.vox_z != null ? `${t.vox_x} / ${t.vox_z}` : ''))}</div>
@@ -2807,7 +2816,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
       </div>
       {selectedTerritoryAward&&<SimpleModal title="Награда" onClose={()=>setSelectedTerritoryAward(null)}>
         <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:10,padding:'8px 4px 4px',textAlign:'center'}}>
-          <div aria-hidden="true" style={{fontSize:44,lineHeight:1.1}}>{selectedTerritoryAward.emoji}</div>
+          <div aria-hidden="true"><TelegramEmoji emoji={selectedTerritoryAward.emoji} size={44}/></div>
           <div style={{fontSize:15,fontWeight:800,lineHeight:1.35,color:'var(--theme-color-text-primary)',overflowWrap:'anywhere'}}>{selectedTerritoryAward.name}</div>
           <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)'}}>Получена {formatTerritoryAwardDate(selectedTerritoryAward.awarded_at)}</div>
         </div>
@@ -3410,7 +3419,23 @@ function MainTabs({ tab, onChange }) {
 }
 
 
-function SimpleModal({title,children,onClose}){const {closing,requestClose}=useAnimatedClose(onClose,175);return <div className={`atlas-overlay${closing?' atlas-closing':''}`} style={{position:'fixed',inset:0,zIndex:100,background:'var(--theme-color-surface-overlay)',display:'flex',alignItems:'center',justifyContent:'center',padding: 'var(--theme-space-6) var(--theme-space-4)',backdropFilter:'blur(var(--theme-modal-backdrop-blur))',WebkitBackdropFilter:'blur(var(--theme-modal-backdrop-blur))'}} onClick={requestClose}><div onClick={e=>e.stopPropagation()} className={`atlas-modal-shell${closing?' atlas-closing':''}`} style={{width:'min(var(--theme-modal-max-width),100%)',maxHeight:'min(var(--theme-modal-max-height-standard), var(--theme-modal-viewport-safe-height))',overflowY:'auto',margin: 'auto',background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-modal)',padding: 'var(--theme-space-4)'}}><div style={{display:'flex',alignItems:'flex-start',justifyContent:title?'space-between':'flex-end',marginBottom: title?'var(--theme-space-3)':'var(--theme-space-2)'}}>{title&&<div className="atlas-display" style={{fontSize:'var(--theme-type-title-size)',fontWeight:'var(--theme-type-title-weight)',lineHeight:1.2}}>{title}</div>}<IconButton icon={X} label="Закрыть окно" onClick={requestClose} /></div>{children}</div></div>}
+function SimpleModal({title,children,onClose,titleGap}) {
+  const {closing,requestClose}=useAnimatedClose(onClose,175);
+  const portalRoot=typeof document!=="undefined"?(document.querySelector(".atlas-root")||document.body):null;
+  if(!portalRoot)return null;
+  return createPortal(
+    <div className={"atlas-overlay"+(closing?" atlas-closing":"")} style={{position:"fixed",inset:0,zIndex:200,background:"var(--theme-color-surface-overlay)",display:"flex",alignItems:"center",justifyContent:"center",padding:"var(--theme-space-6) var(--theme-space-4)",backdropFilter:"blur(var(--theme-modal-backdrop-blur))",WebkitBackdropFilter:"blur(var(--theme-modal-backdrop-blur))"}} onClick={requestClose}>
+      <div onClick={e=>e.stopPropagation()} className={"atlas-modal-shell"+(closing?" atlas-closing":"")} style={{width:"min(var(--theme-modal-max-width),100%)",maxHeight:"min(var(--theme-modal-max-height-standard), var(--theme-modal-viewport-safe-height))",overflowY:"auto",margin:"auto",background:"var(--theme-color-surface)",border:"1px solid var(--theme-color-border)",borderRadius:"var(--theme-radius-modal)",padding:"var(--theme-space-4)"}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:title?"space-between":"flex-end",marginBottom:title?(titleGap??"var(--theme-space-3)"):"var(--theme-space-2)"}}>
+          {title&&<div className="atlas-display" style={{fontSize:"var(--theme-type-title-size)",fontWeight:"var(--theme-type-title-weight)",lineHeight:1.2}}>{title}</div>}
+          <IconButton icon={X} label="Закрыть окно" onClick={requestClose}/>
+        </div>
+        {children}
+      </div>
+    </div>,
+    portalRoot
+  );
+}
 function normalizedTelegramUsername(value) {
   const username=String(value||'').trim().replace(/^@+/,'');
   return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username) ? username : '';

@@ -702,7 +702,7 @@ test('profile and event description textareas explicitly use the shared field re
   assert.ok(app.includes('#root .atlas-root textarea.atlas-profile-additional-field,#root .atlas-root textarea.atlas-recruitment-description-field,#root .atlas-root textarea.atlas-event-description-field{border-color:var(--theme-recipe-field-border)!important;}'));
 });
 
-test('territory profile includes awards inventory, a 4-slot banner and a title-free 6px-spaced preview', () => {
+test('territory profile includes awards inventory, Telegram emoji previews and 52px banner plates', () => {
   const profile=app.slice(app.indexOf('function ProfileInventory('),app.indexOf('function TreasuryCard('));
   const city=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
   const detail=app.slice(app.indexOf('function TerritoryDetail('),app.indexOf('function TerritoryCard('));
@@ -734,7 +734,7 @@ test('territory profile includes awards inventory, a 4-slot banner and a title-f
   assert.ok(city.includes('WebkitLineClamp:3'));
   assert.ok(detail.includes("awards: Array.isArray(row.awards) ? row.awards : []"),'Detailed territory loading must copy awards into the visible page state');
   assert.ok(detail.includes("(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined)"));
-  assert.ok(detail.includes("top:7,right:7+index*64,width:58,height:58"),'Award badges match the exit button plus its edge offset, with 7px outer margins');
+  assert.ok(detail.includes("top:6,right:6+index*58,width:52,height:52"),'Award badges match the exit button plus its edge offset, with 6px outer margins');
   assert.ok(detail.includes('Number(b.slot_index)-Number(a.slot_index)'),'Most recently equipped award occupies the rightmost slot');
   assert.ok(detail.includes('setSelectedTerritoryAward(award)'));
   assert.ok(detail.includes('selectedTerritoryAward.name'));
@@ -742,8 +742,8 @@ test('territory profile includes awards inventory, a 4-slot banner and a title-f
   assert.ok(app.includes("String(date.getDate()).padStart(2,'0')"));
   assert.ok(app.includes("String(date.getMonth()+1).padStart(2,'0')"));
   assert.ok(detail.includes('formatTerritoryAwardDate(selectedTerritoryAward.awarded_at)'),'Award modal shows the date as DD.MM.YYYY');
-  assert.ok(detail.includes('fontSize:32'),'Award badge emoji scales with the 58px badge');
-  assert.ok(detail.includes('fontSize:44'),'Award modal shows the emoji prominently');
+  assert.ok(detail.includes('TelegramEmoji emoji={award.emoji} size={28}'),'Banner uses Telegram emoji previews when available');
+  assert.ok(detail.includes('TelegramEmoji emoji={selectedTerritoryAward.emoji} size={44}'),'Award detail popup uses Telegram emoji previews');
 });
 test('visual color palettes are horizontally centered in editor, creation form and filters', () => {
   const editor=app.slice(app.indexOf('function VisualEditModal('),app.indexOf('function profileAccountLabel('));
@@ -763,7 +763,7 @@ test('FixedToast emerges from behind the bottom navigation, with compact typogra
   assert.match(tokens,/--theme-toast-bottom-offset:\s*calc\(73px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(tokens,/--theme-toast-font-size:\s*14px/);
   assert.match(tokens,/--theme-toast-padding-inline:\s*12px/);
-  assert.ok(app.includes('z-index:65;'));
+  assert.ok(app.includes('z-index:220;'),'Global toasts remain above the modal portal layer');
   assert.ok(app.includes('.atlas-toast-viewport{'));
   assert.ok(app.includes('bottom:calc(var(--theme-toast-bottom-offset) - 4px);'));
   assert.ok(app.includes('overflow:hidden;'));
@@ -839,6 +839,24 @@ test('treasury deposit insufficient funds is a global error toast, not inline te
   assert.ok(app.includes('onOpenGlobalSettings={()=>setGlobalSettingsOpen(true)} onToast={showGlobalToast} />'));
 });
 
+test('equipped award cards have a visible mint cover in addition to the mint border', () => {
+  const city=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
+  assert.ok(city.includes("background:equipped?'rgba(110,231,183,.18)'"));
+  assert.ok(city.includes("boxShadow:equipped?'inset 0 0 0 1px rgba(110,231,183,.2),0 0 0 1px rgba(110,231,183,.12)':'none'"));
+});
+
+test('donation modal uses a compact 6px title-to-content gap', () => {
+  const donation=app.slice(app.indexOf('function DonationModal('),app.indexOf('function TerritoryDetail('));
+  assert.ok(donation.includes('<SimpleModal title="Донат в казну" titleGap={6} onClose={onClose}>'));
+});
+
+test('SimpleModal portals above animated territory content so its blur covers the complete territory page', () => {
+  const modal=app.slice(app.indexOf('function SimpleModal('),app.indexOf('function normalizedTelegramUsername('));
+  assert.ok(modal.includes('createPortal('));
+  assert.ok(modal.includes('document.querySelector(".atlas-root")||document.body'));
+  assert.ok(modal.includes('zIndex:200'));
+});
+
 test('donation modal insufficient funds uses a global toast visible above the modal layer', () => {
   const donation=app.slice(app.indexOf('function DonationModal('),app.indexOf('function TerritoryDetail('));
   assert.ok(donation.includes('function DonationModal({territory,initData,onClose,onSuccess,onToast})'));
@@ -846,7 +864,7 @@ test('donation modal insufficient funds uses a global toast visible above the mo
   assert.ok(app.includes('onToast={onToast}/>'));
   assert.ok(app.includes('onToast={showGlobalToast}'));
   assert.ok(app.includes('.atlas-toast-viewport{'));
-  assert.ok(app.includes('z-index:65;'));
+  assert.ok(app.includes('z-index:220;'),'Global toasts remain above the modal portal layer');
   assert.ok(app.includes('overflow:hidden;'));
 });
 

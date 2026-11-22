@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseTerritoryAwardCommand } from "../bot/src/worker.js";
+import { parseTerritoryAwardCommand, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker } from "../bot/src/worker.js";
 
 const cities=[
   {id:"city-1",name:"Новая Территория"},
@@ -30,4 +30,22 @@ test("banker award parser ignores numeric bank debits, unknown and incomplete co
   assert.equal(parseTerritoryAwardCommand("🏆 Неизвестная территория Награда",cities),null);
   assert.equal(parseTerritoryAwardCommand("Новая Территория -",cities),null);
   assert.equal(parseTerritoryAwardCommand("Новая Территория",cities),null);
+});
+
+test("Telegram emoji matching normalizes presentation selectors but preserves the exact emoji sequence",()=>{
+  assert.equal(normalizeTelegramEmoji("❤️"),normalizeTelegramEmoji("❤"));
+  assert.equal(normalizeTelegramEmoji("👩‍🚀"),"👩‍🚀");
+  assert.notEqual(normalizeTelegramEmoji("👍🏻"),normalizeTelegramEmoji("👍🏿"));
+});
+
+test("Telegram emoji preview lookup selects the sticker with the matching emoji",()=>{
+  const stickers=[
+    {emoji:"❤️",file_id:"heart-red"},
+    {emoji:"🏆",file_id:"trophy-gold"},
+    {emoji:"👍🏻",file_id:"thumb-light"},
+  ];
+  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"❤")?.file_id,"heart-red");
+  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🏆")?.file_id,"trophy-gold");
+  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🏅"),null);
+  assert.equal(findTelegramAnimatedEmojiSticker([], "🏆"),null);
 });
