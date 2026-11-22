@@ -6579,7 +6579,7 @@ async function handleVisualDiscountMessage(env,update,message,command) {
   return json({ok:true,handled:command.mode==='set'?'bank_visual_discount_set':'bank_visual_discount_decrease',count:selected.length});
 }
 
-export function parseTerritoryAwardCommand(raw, territories=[]) {
+function parseTerritoryAwardCommand(raw, territories=[]) {
   const text=stripMinecraftFormatting(String(raw||'')).replace(/\s+/g,' ').trim();
   if(!text||!Array.isArray(territories)||!territories.length)return null;
   const normalize=value=>stripMinecraftFormatting(String(value||'')).replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
