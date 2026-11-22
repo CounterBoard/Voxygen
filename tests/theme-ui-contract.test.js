@@ -720,10 +720,12 @@ test('territory profile includes awards inventory, a 4-slot banner and a title-f
   assert.ok(city.includes("margin: '14px 0 6px'}}>Награды</div>"));
   assert.ok(city.includes("flexWrap:'wrap',marginBottom:0"));
   assert.ok(city.includes('marginTop:6,height:72'));
-  assert.ok(city.includes("justifyContent:'center',gap: 8,flexWrap:'wrap',marginBottom:6"),'Profile banner colors are horizontally centered');
+  assert.ok(city.includes("justifyContent:'center',gap: 8,flexWrap:'wrap',marginBottom:0"),'Profile banner colors are horizontally centered');
   assert.doesNotMatch(city, /На баннере ·/);
-  assert.ok(city.includes("setNotice(data.equipped ? `Награда установлена в слот ${nextSlot}` : 'Награда снята')"));
-  assert.ok(city.includes("setNoticeType(data.equipped ? 'success' : 'error')"));
+  assert.ok(city.includes("setNotice(`Награда установлена в слот ${nextSlot}`)"));
+  assert.ok(city.includes("setNotice('Награда снята')"));
+  assert.ok(city.includes("setNoticeType('success')"));
+  assert.ok(city.includes("setNoticeType('error')"));
   assert.ok(city.includes('<FixedToast key={noticeRevision} message={notice} type={noticeType}/>'));
   assert.ok(!city.includes("territory?.name||'Название территории'"));
   assert.ok(city.includes("gridColumn:'1 / -1'")&&city.includes("gridTemplateColumns:'48px minmax(0,1fr)'"));
