@@ -94,6 +94,89 @@ async function telegram(env, method, payload) {
   return { response, data };
 }
 
+const telegramAnimatedEmojiSetCache = new WeakMap();
+const TELEGRAM_ANIMATED_EMOJI_SET = "AnimatedEmojies";
+const TELEGRAM_ANIMATED_EMOJI_CACHE_TTL = 6 * 60 * 60 * 1000;
+
+function normalizeTelegramEmoji(value) {
+  return String(value || "").normalize("NFC").replace(/[\uFE0E\uFE0F]/g, "");
+}
+
+function findTelegramAnimatedEmojiSticker(stickers, emoji) {
+  const target = normalizeTelegramEmoji(emoji);
+  if (!target || !Array.isArray(stickers)) return null;
+  return stickers.find(sticker => normalizeTelegramEmoji(sticker?.emoji) === target) || null;
+}
+
+async function getTelegramAnimatedEmojiStickers(env) {
+  const cached = telegramAnimatedEmojiSetCache.get(env);
+  if (cached && cached.expiresAt > Date.now()) return cached.promise;
+  const promise = (async () => {
+    const result = await telegram(env, "getStickerSet", { name: TELEGRAM_ANIMATED_EMOJI_SET });
+    if (!result.response.ok || !result.data?.ok || !Array.isArray(result.data.result?.stickers)) {
+      throw new Error("Telegram animated emoji set is unavailable");
+    }
+    return result.data.result.stickers;
+  })();
+  telegramAnimatedEmojiSetCache.set(env, {
+    expiresAt: Date.now() + TELEGRAM_ANIMATED_EMOJI_CACHE_TTL,
+    promise,
+  });
+  try {
+    return await promise;
+  } catch (error) {
+    telegramAnimatedEmojiSetCache.delete(env);
+    throw error;
+  }
+}
+
+async function serveTelegramEmoji(request, env) {
+  const emoji = String(new URL(request.url).searchParams.get("emoji") || "");
+  if (!emoji || [...emoji].length > 16) {
+    return new Response(null, { status: 400, headers: { "Cache-Control": "public, max-age=300" } });
+  }
+  try {
+    const stickers = await getTelegramAnimatedEmojiStickers(env);
+    const sticker = findTelegramAnimatedEmojiSticker(stickers, emoji);
+    const preview = sticker?.thumbnail?.file_id
+      ? sticker.thumbnail
+      : (sticker && !sticker.is_animated && !sticker.is_video ? sticker : null);
+    if (!preview?.file_id) {
+      return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
+    }
+    const token = String(env.BOT_TOKEN || "").trim();
+    const fileInfo = await telegram(env, "getFile", { file_id: preview.file_id });
+    const filePath = String(fileInfo.data?.result?.file_path || "");
+    if (!fileInfo.response.ok || !fileInfo.data?.ok || !filePath || filePath.includes("..")) {
+      return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
+    }
+    const imageResponse = await fetch(TELEGRAM_API + "/file/bot" + token + "/" + filePath);
+    if (!imageResponse.ok) {
+      return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
+    }
+    const extension = filePath.toLowerCase().split(".").pop();
+    const allowedTypes = new Set(["image/webp", "image/jpeg", "image/png"]);
+    let contentType = String(imageResponse.headers.get("Content-Type") || "").split(";")[0].toLowerCase();
+    if (!allowedTypes.has(contentType)) {
+      contentType = ({ webp:"image/webp", jpg:"image/jpeg", jpeg:"image/jpeg", png:"image/png" })[extension] || "";
+    }
+    if (!allowedTypes.has(contentType)) {
+      return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
+    }
+    return new Response(imageResponse.body, {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'",
+      },
+    });
+  } catch {
+    return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=900" } });
+  }
+}
+
 async function verifyInitData(initData, botToken, now = Date.now()) {
   if (!initData || !botToken) return null;
   try {
@@ -7039,6 +7122,10 @@ export default {
       return getD1Diagnostics(request, env);
     }
 
+    if (url.pathname === "/api/telegram-emoji" && request.method === "GET") {
+      return serveTelegramEmoji(request, env);
+    }
+
     if (url.pathname === "/api/territories" && request.method === "GET") {
       return getTerritories(request, env);
     }
@@ -7382,4 +7469,4 @@ export default {
   },
 };
 
-export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTerritoryAwardCommand, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
+export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTerritoryAwardCommand, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
