@@ -17,9 +17,9 @@ test("random banner gradient selection covers the first and last template safely
 test("banner gradient uses the selected color and falls back for legacy none values",()=>{
   const red=getBannerGradient("red","prism"),blue=getBannerGradient("blue","prism");
   assert.match(red,/^linear-gradient\(180deg/);
-  assert.notEqual(red,blue);
+  assert.notEqual(red,blue);\n  assert.match(decodeURIComponent(red.match(/data:image\\/svg\\+xml,([^"]+)/)[1]),/<path d="M-80 120/);\n  assert.match(decodeURIComponent(blue.match(/data:image\\/svg\\+xml,([^"]+)/)[1]),/fill="#080D22"/);
   assert.match(getBannerGradient("none","aurora","#22C55E"),/#22C55E66/);
-  assert.match(getBannerGradient("unknown","missing"),/linear-gradient/);
+  assert.match(getBannerGradient("unknown","missing"),/^url\\("data:image\\/svg\\+xml,/);
 });
 test("discount timer uses compact hours and minutes and rounds up partial minutes",()=>{
   const now=1_000_000;
