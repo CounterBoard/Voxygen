@@ -460,7 +460,7 @@ function FontsAndTheme() {
           transform:translateX(-50%);
           width:min(100%,var(--theme-content-max-width));
           overflow:hidden;
-          z-index:65;
+          z-index:220;
           pointer-events:none;
         }
         .atlas-fixed-toast{

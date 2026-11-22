@@ -734,7 +734,7 @@ test('territory profile includes awards inventory, Telegram emoji previews and 5
   assert.ok(city.includes('WebkitLineClamp:3'));
   assert.ok(detail.includes("awards: Array.isArray(row.awards) ? row.awards : []"),'Detailed territory loading must copy awards into the visible page state');
   assert.ok(detail.includes("(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined)"));
-  assert.ok(detail.includes("top:6,right:6+index*58,width:52,height:52"),'Award badges match the exit button plus its edge offset, with 7px outer margins');
+  assert.ok(detail.includes("top:6,right:6+index*58,width:52,height:52"),'Award badges match the exit button plus its edge offset, with 6px outer margins');
   assert.ok(detail.includes('Number(b.slot_index)-Number(a.slot_index)'),'Most recently equipped award occupies the rightmost slot');
   assert.ok(detail.includes('setSelectedTerritoryAward(award)'));
   assert.ok(detail.includes('selectedTerritoryAward.name'));
@@ -763,7 +763,7 @@ test('FixedToast emerges from behind the bottom navigation, with compact typogra
   assert.match(tokens,/--theme-toast-bottom-offset:\s*calc\(73px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(tokens,/--theme-toast-font-size:\s*14px/);
   assert.match(tokens,/--theme-toast-padding-inline:\s*12px/);
-  assert.ok(app.includes('z-index:65;'));
+  assert.ok(app.includes('z-index:220;'),'Global toasts remain above the modal portal layer');
   assert.ok(app.includes('.atlas-toast-viewport{'));
   assert.ok(app.includes('bottom:calc(var(--theme-toast-bottom-offset) - 4px);'));
   assert.ok(app.includes('overflow:hidden;'));
@@ -864,7 +864,7 @@ test('donation modal insufficient funds uses a global toast visible above the mo
   assert.ok(app.includes('onToast={onToast}/>'));
   assert.ok(app.includes('onToast={showGlobalToast}'));
   assert.ok(app.includes('.atlas-toast-viewport{'));
-  assert.ok(app.includes('z-index:65;'));
+  assert.ok(app.includes('z-index:220;'),'Global toasts remain above the modal portal layer');
   assert.ok(app.includes('overflow:hidden;'));
 });
 
