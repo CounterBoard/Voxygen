@@ -717,7 +717,11 @@ test('territory profile includes awards inventory, a 4-slot banner and a title-f
   assert.ok(city.includes('Наград пока нет'));
   assert.ok(city.includes('inventory?.territoryAwards')&&city.includes('toggleAwardPlacement'));
   assert.ok(city.includes('Максимум 4 награды на странице территории'));
-  assert.ok(city.includes('marginTop:4,height:72'));
+  assert.ok(city.includes("margin: '14px 0 6px'}}>Награды</div>"));
+  assert.ok(city.includes("flexWrap:'wrap',marginBottom:6"));
+  assert.ok(city.includes('marginTop:0,height:72'));
+  assert.doesNotMatch(city, /На баннере ·/);
+  assert.doesNotMatch(city, /setNotice\(data\.equipped/);
   assert.ok(!city.includes("territory?.name||'Название территории'"));
   assert.ok(detail.includes('(t.awards||[])')&&detail.includes('setSelectedTerritoryAward(award)'));
   assert.ok(detail.includes('selectedTerritoryAward.name'));

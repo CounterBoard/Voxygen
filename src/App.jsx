@@ -2011,8 +2011,6 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
         else setError(message);
         return;
       }
-      setNotice(data.equipped?'Награда размещена на баннере':'Награда снята с баннера');
-      setNoticeRevision(value=>value+1);
       await load();
       onChanged?.();
     }catch(error){setError(safeCaughtError(error,'Не удалось изменить размещение награды.'))}
@@ -2084,10 +2082,10 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
       <div style={{fontSize:13,fontWeight:700,marginBottom: 8}}>Оформление территории</div>
       <div style={{borderTop:'1px solid var(--theme-color-border)',marginTop: 8,paddingTop: 8}}>
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom: 7}}>Баннер</div>
-        <div style={{display:'flex',alignItems:'center',gap: 8,flexWrap:'wrap'}}>
+        <div style={{display:'flex',alignItems:'center',gap: 8,flexWrap:'wrap',marginBottom:6}}>
           {VISUAL_COLORS.filter(([value])=>value!=='none').map(([value])=><ColorDot key={`banner-${value}`} value={value} selected={String(inventory?.bannerColor||'none')===value} title={({red:'Красный',orange:'Оранжевый',yellow:'Жёлтый',green:'Зелёный',turquoise:'Бирюзовый',blue:'Синий',purple:'Фиолетовый',magenta:'Пурпурный',white:'Белый'})[value]||value} onClick={()=>{if(!readOnly)post('/api/customization/city',{territoryId:territory.id,bannerColor:value,bannerGradient:getRandomBannerGradientId()},'Баннер территории обновлён');}}/>)}
         </div>
-        <div role="img" aria-label="Предпросмотр текущего баннера территории" style={{marginTop:4,height:72,width:'100%',borderRadius:12,border:'1px solid var(--theme-color-border)',overflow:'hidden',background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent)}}/>
+        <div role="img" aria-label="Предпросмотр текущего баннера территории" style={{marginTop:0,height:72,width:'100%',borderRadius:12,border:'1px solid var(--theme-color-border)',overflow:'hidden',background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent)}}/>
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '14px 0 6px'}}>Метка</div>
         <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='метка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('метка'))} equippedId={inventory?.equippedMarkerItemId} showEquip={!readOnly} onEquip={id=>equip(id)} columns={4} aspectRatio="1 / 1" imageFit="contain" emptyText="Доступных меток нет."/>
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '14px 0 6px'}}>Награды</div>
@@ -2099,7 +2097,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
                 return <button key={award.id} type="button" disabled={readOnly} title={award.name} aria-label={`${award.emoji} ${award.name}${equipped?', размещена на баннере':''}`} aria-pressed={equipped} onClick={()=>toggleAwardPlacement(award)} className="press" style={{minWidth:0,minHeight:68,border:equipped?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:12,background:equipped?'var(--theme-color-status-success-soft)':'var(--theme-color-surface)',color:'var(--theme-color-text-primary)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,padding:6,opacity:readOnly?0.82:1}}>
                   <span style={{fontSize:25,lineHeight:1.1}}>{award.emoji}</span>
                   <span style={{fontSize:10.5,lineHeight:1.2,textAlign:'center',overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',width:'100%'}}>{award.name}</span>
-                  {equipped&&<span style={{fontSize:9,color:'var(--theme-color-status-success)'}}>На баннере · {Number(award.slot_index)+1}</span>}
+                  
                 </button>;
               })}
             </div>}
