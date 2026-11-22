@@ -1970,7 +1970,7 @@ function RecruitmentManagement({territory,initData,onSaved,readOnly=false}) {
   </div>;
 }
 function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,onChanged,readOnly=false}={}){
-  const [name,setName]=useState(territory?.name||''),[additionalInfo,setAdditionalInfo]=useState(String(territory?.additional_info||'').slice(0,542)),[members,setMembers]=useState([]),[managers,setManagers]=useState([]),[invites,setInvites]=useState([]),[residentNick,setResidentNick]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[noticeRevision,setNoticeRevision]=useState(0),[inventory,setInventory]=useState(null),[newRecruitmentUsername,setNewRecruitmentUsername]=useState(''),[leaveBusy,setLeaveBusy]=useState(false);
+  const [name,setName]=useState(territory?.name||''),[additionalInfo,setAdditionalInfo]=useState(String(territory?.additional_info||'').slice(0,542)),[members,setMembers]=useState([]),[managers,setManagers]=useState([]),[invites,setInvites]=useState([]),[residentNick,setResidentNick]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[noticeRevision,setNoticeRevision]=useState(0),[inventory,setInventory]=useState(null),[newRecruitmentUsername,setNewRecruitmentUsername]=useState(''),[leaveBusy,setLeaveBusy]=useState(false),[awardLimitToast,setAwardLimitToast]=useState(0);
   useEffect(()=>{setName(territory?.name||'');setAdditionalInfo(String(territory?.additional_info||'').slice(0,542))},[territory?.name,territory?.additional_info]);
   async function load(){if(!territory)return;try{setError('');const h={'X-Telegram-Init-Data':initData};const [mr,ir]=await Promise.all([fetch(`${API_BASE}/api/city/management?territoryId=${encodeURIComponent(territory.id)}`,{headers:h,cache:'no-store'}),fetch(`${API_BASE}/api/customization?scope=profile&territoryId=${encodeURIComponent(territory.id)}`,{headers:h,cache:'no-store'})]);const md=await mr.json().catch(() => null),id=await ir.json().catch(() => null);if(!mr.ok||!md.ok)throw new Error(apiErrorMessage(mr, md, "Операция не выполнена."));if(!ir.ok||!id.ok)throw new Error(apiErrorMessage(ir, id, "Операция не выполнена."));setMembers(md.members||[]);setManagers(md.managers||[]);setInvites(md.invites||[]);setInventory(id);setNewRecruitmentUsername(md.recruitmentUsername||'')}catch(e){setError(safeCaughtError(e, 'Не удалось загрузить данные города'))}}
   useEffect(()=>{load()},[territory?.id]);
@@ -1999,6 +1999,23 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
     const nextId=String(equippedId||'')===String(itemId||'')?null:itemId;
     await post('/api/customization/city',{territoryId:territory.id,markerItemId:nextId},nextId?'Метка города обновлена':'Метка города снята');
     setInventory(v=>v?{...v,equippedMarkerItemId:nextId}:v);
+  }
+  async function toggleAwardPlacement(award){
+    if(readOnly||!award?.id)return;
+    try{
+      const response=await fetch(`${API_BASE}/api/customization/city/award`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,territoryId:territory.id,awardId:award.id})});
+      const data=await response.json().catch(()=>null);
+      if(!response.ok||!data?.ok){
+        const message=apiErrorMessage(response,data,'Не удалось изменить размещение награды.');
+        if(response.status===409)setAwardLimitToast(value=>value+1);
+        else setError(message);
+        return;
+      }
+      setNotice(data.equipped?'Награда размещена на баннере':'Награда снята с баннера');
+      setNoticeRevision(value=>value+1);
+      await load();
+      onChanged?.();
+    }catch(error){setError(safeCaughtError(error,'Не удалось изменить размещение награды.'))}
   }
   if(!territory)return null;
   return <SurfaceCard className="atlas-page-panel" padding={10} style={{marginBottom: 8}}>
@@ -2070,19 +2087,29 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
         <div style={{display:'flex',alignItems:'center',gap: 8,flexWrap:'wrap'}}>
           {VISUAL_COLORS.filter(([value])=>value!=='none').map(([value])=><ColorDot key={`banner-${value}`} value={value} selected={String(inventory?.bannerColor||'none')===value} title={({red:'Красный',orange:'Оранжевый',yellow:'Жёлтый',green:'Зелёный',turquoise:'Бирюзовый',blue:'Синий',purple:'Фиолетовый',magenta:'Пурпурный',white:'Белый'})[value]||value} onClick={()=>{if(!readOnly)post('/api/customization/city',{territoryId:territory.id,bannerColor:value,bannerGradient:getRandomBannerGradientId()},'Баннер территории обновлён');}}/>)}
         </div>
-        <div role="img" aria-label="Предпросмотр текущего баннера территории" style={{height:72,width:'100%',borderRadius:12,border:'1px solid var(--theme-color-border)',overflow:'hidden',background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent),position:'relative'}}>
-          <div style={{position:'absolute',left:12,right:12,bottom:10,fontSize:13,fontWeight:800,color:'#fff',textShadow:'0 1px 5px rgba(0,0,0,.65)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}><MinecraftText text={territory?.name||'Название территории'}/></div>
-        </div>
+        <div role="img" aria-label="Предпросмотр текущего баннера территории" style={{marginTop:4,height:72,width:'100%',borderRadius:12,border:'1px solid var(--theme-color-border)',overflow:'hidden',background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent)}}/>
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '14px 0 6px'}}>Метка</div>
         <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='метка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('метка'))} equippedId={inventory?.equippedMarkerItemId} showEquip={!readOnly} onEquip={id=>equip(id)} columns={4} aspectRatio="1 / 1" imageFit="contain" emptyText="Доступных меток нет."/>
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '14px 0 6px'}}>Награды</div>
-        <div style={{fontSize:12,color:'var(--theme-color-text-muted)',padding:'8px 0'}}>Награды появятся здесь позже.</div>
+        {(inventory?.territoryAwards||[]).length===0
+          ? <div style={{fontSize:12,color:'var(--theme-color-text-muted)',padding:'8px 0'}}>Наград пока нет</div>
+          : <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:8}}>
+              {(inventory?.territoryAwards||[]).map(award=>{
+                const equipped=award.slot_index!==null&&award.slot_index!==undefined;
+                return <button key={award.id} type="button" disabled={readOnly} title={award.name} aria-label={`${award.emoji} ${award.name}${equipped?', размещена на баннере':''}`} aria-pressed={equipped} onClick={()=>toggleAwardPlacement(award)} className="press" style={{minWidth:0,minHeight:68,border:equipped?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:12,background:equipped?'var(--theme-color-status-success-soft)':'var(--theme-color-surface)',color:'var(--theme-color-text-primary)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:4,padding:6,opacity:readOnly?0.82:1}}>
+                  <span style={{fontSize:25,lineHeight:1.1}}>{award.emoji}</span>
+                  <span style={{fontSize:10.5,lineHeight:1.2,textAlign:'center',overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',width:'100%'}}>{award.name}</span>
+                  {equipped&&<span style={{fontSize:9,color:'var(--theme-color-status-success)'}}>На баннере · {Number(award.slot_index)+1}</span>}
+                </button>;
+              })}
+            </div>}
       </div>
     </div>
     <RecruitmentManagement territory={{...territory,recruitment_username:newRecruitmentUsername}} initData={initData} onSaved={load} readOnly={readOnly}/>
     {readOnly&&<button onClick={leaveTerritory} disabled={leaveBusy} className="press" style={{width:'100%',height:48,minWidth:72,padding: '0 12px',border:'1px solid var(--theme-color-status-danger)',borderRadius:14,background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,marginBottom: 0}}>{leaveBusy?'Выход…':'Покинуть территорию'}</button>}
     {!readOnly&&<button onClick={requestInspectorRating} className="press" style={{width:'100%',border:'none',borderRadius:10,padding: '10px 12px',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:700,marginBottom: 0,minHeight:44}}>Запросить оценку инспектора</button>}
     {error&&<div style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop: 10}}>{error}</div>}
+    {awardLimitToast>0&&<FixedToast key={awardLimitToast} message="Максимум 4 награды на странице территории" type="error"/>}
     {notice&&<FixedToast key={noticeRevision} message={notice}/>}
   </SurfaceCard>;
 }
@@ -2527,6 +2554,7 @@ function TerritoryDetail({ base, onBack, profile, onGoToProfile, tgUser, role, m
   const residentCount = Number(t.resident_count ?? ((t.residents || []).length + (t.owner_telegram_id ? 1 : 0)));
   const [showResidents, setShowResidents] = useState(false);
   const [showDonation, setShowDonation] = useState(false);
+  const [selectedTerritoryAward,setSelectedTerritoryAward]=useState(null);
   const [rated, setRated] = useState(Boolean(base?.my_rating?.rated));
   const [ratingNextAt, setRatingNextAt] = useState(Number(base?.my_rating?.next_at || 0));
   const [ratingNow, setRatingNow] = useState(Date.now());
@@ -2717,6 +2745,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
     <div className="atlas-page atlas-page--territory" style={{ paddingBottom: 90, position: 'relative' }}>
       <div style={{ position: 'relative', height: 150, overflow:'hidden', background:getBannerGradient(t.banner_color||'none',t.banner_gradient||'aurora',t.accent) }}>
         <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: '50%', background: 'var(--theme-color-image-control-surface)', border: '1px solid var(--theme-color-border-strong)', color: 'var(--theme-color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}><ChevronLeft size={20} /></button>
+        {(t.awards||[]).slice().sort((a,b)=>Number(a.slot_index)-Number(b.slot_index)).map((award,index)=><button key={award.id} type="button" onClick={()=>setSelectedTerritoryAward(award)} title={award.name} aria-label={`${award.emoji} ${award.name}`} className="press" style={{position:'absolute',top:18,left:68+index*42,width:36,height:36,padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.4)',borderRadius:10,background:'rgba(8,13,34,.72)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',fontSize:22,zIndex:4}}>{award.emoji}</button>)}
         <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, zIndex: 3, textShadow:'var(--theme-shadow-cover-title)' }}>
           <MinecraftText as="div" text={t.name} className="atlas-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.16 }} />
           <div style={{fontSize:13,color:'var(--theme-color-text-secondary)'}}>{formatTerritoryCoords(t.coords || (t.vox_x != null && t.vox_z != null ? `${t.vox_x} / ${t.vox_z}` : ''))}</div>
@@ -2765,6 +2794,10 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
           </div>;
         })}</div>
       </div>
+      {selectedTerritoryAward&&<SimpleModal title={<span style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontSize:24}}>{selectedTerritoryAward.emoji}</span><span>{selectedTerritoryAward.name}</span></span>} onClose={()=>setSelectedTerritoryAward(null)}>
+        <div style={{fontSize:13,color:'var(--theme-color-text-muted)',lineHeight:1.55}}>Награда территории «{t.name}».</div>
+        <div style={{fontSize:11,color:'var(--theme-color-text-muted)',marginTop:8}}>Получена {new Date(Number(selectedTerritoryAward.awarded_at||0)).toLocaleDateString('ru-RU')}</div>
+      </SimpleModal>}
       {showResidents && <SimpleModal title="Жители" onClose={() => setShowResidents(false)}><div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{(t.managers||[]).map((m,i)=><div key={`manager-${m.telegram_id||i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--theme-color-status-success-soft)', borderRadius: 11 }}><AvatarHead nickname={m.mc_nickname} skinUrl={m.skin_url} size={40}/><div style={{ flex: 1, minWidth:0 }}><MinecraftText text={m.mc_nickname || m.telegram_username || 'Ник не указан'} style={{fontSize:13,fontWeight:700}}/><div style={{ fontSize: 10.5, color: 'var(--theme-color-status-success)' }}>Основатель/мэр</div></div><ShieldCheck size={18} color="var(--theme-color-status-success)" /></div>)}{(t.resident_rows||[]).length===0 ? ((t.residents || []).length === 0 ? <div style={{ fontSize: 12, color: 'var(--theme-color-text-muted)' }}>Кроме основателей/мэров жителей пока нет.</div> : (t.residents || []).map((r,i)=><div key={`legacy-resident-${i}`} style={{ display:'flex',alignItems:'center',gap: 8,padding: '10px 12px',background:'var(--theme-color-surface-raised)',borderRadius:11 }}><AvatarHead nickname={r} size={40}/><MinecraftText text={r} style={{fontSize:13}}/></div>)) : (t.resident_rows||[]).map((r,i)=><div key={`resident-${r.telegram_id||i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--theme-color-surface-raised)', borderRadius: 11 }}><AvatarHead nickname={r.mc_nickname} skinUrl={r.skin_url} size={40}/><div style={{flex:1,minWidth:0}}><MinecraftText text={r.mc_nickname || r.telegram_username || 'Ник не указан'} style={{fontSize:13,fontWeight:700}}/>{r.telegram_username&&<div style={{fontSize:10.5,color:'var(--theme-color-text-muted)'}}>@{String(r.telegram_username).replace(/^@/,'')}</div>}</div></div>)}</div></SimpleModal>}
       {lightbox && <Lightbox shots={approved} index={lightboxIndex} mode="view" onClose={() => setLightbox(null)} onChange={(i)=>{setLightboxIndex(i);setLightbox({shot:approved[i]});}} />}
       {showDonation && <DonationModal territory={t} initData={initData} onClose={()=>setShowDonation(false)} onSuccess={()=>{setShowDonation(false);flash('Донат отправлен');}} onToast={onToast}/>}
@@ -4214,6 +4247,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
           marker_url: row.marker_url || null,
           banner_color: row.banner_color || 'none',
           banner_gradient: row.banner_gradient || 'aurora',
+          awards: Array.isArray(row.awards) ? row.awards : [],
           resident_count: preservePrevious(['members', 'managers'], 'resident_count', Number(row.resident_count ?? ((row.residents || []).length + (row.managers || []).length))),
           resident_telegram_ids: preservePrevious(['members'], 'resident_telegram_ids', Array.isArray(row.resident_telegram_ids) ? row.resident_telegram_ids : []),
           resident_rows: preservePrevious(['members'], 'resident_rows', Array.isArray(row.resident_rows) ? row.resident_rows : []),

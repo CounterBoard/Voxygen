@@ -109,13 +109,14 @@ export function getBannerGradient(color,templateId="aurora",fallbackAccent="#8B5
     const color=tones[index+1];
     const width=[178,118,62][index];
     const opacity=[0.16,0.28,0.68][index];
-    return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round" opacity="${opacity}" filter="url(#blur)"/><path d="${d}" fill="none" stroke="url(#ribbon${index})" stroke-width="${Math.max(18,width*0.34)}" stroke-linecap="round" opacity="${[0.24,0.42,0.76][index]}"/>`;
+    return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round" opacity="${opacity}" filter="url(#blur)"/><path d="${d}" fill="none" stroke="url(#ribbon${index})" stroke-width="${Math.max(18,width*0.34)}" stroke-linecap="round" opacity="${[0.24,0.42,0.76][index]}" filter="url(#ribbonBlur)"/>`;
   }).join("");
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice"><defs>
     <linearGradient id="ribbon0" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${tones[0]}"/><stop offset=".48" stop-color="${tones[1]}"/><stop offset="1" stop-color="${tones[2]}"/></linearGradient>
     <linearGradient id="ribbon1" x1="0" y1="1" x2="1" y2="0"><stop stop-color="${tones[1]}"/><stop offset=".52" stop-color="${tones[2]}"/><stop offset="1" stop-color="${tones[3]}"/></linearGradient>
     <linearGradient id="ribbon2" x1="0" y1="0" x2="1" y2="0"><stop stop-color="${tones[0]}"/><stop offset=".5" stop-color="${tones[2]}"/><stop offset="1" stop-color="${tones[3]}"/></linearGradient>
     <filter id="blur" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="34"/></filter>
+    <filter id="ribbonBlur" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="11"/></filter>
     <radialGradient id="ambient"><stop stop-color="${tones[2]}" stop-opacity=".22"/><stop offset="1" stop-color="${tones[2]}" stop-opacity="0"/></radialGradient>
   </defs><rect width="1200" height="600" fill="#080D22"/><ellipse cx="590" cy="80" rx="720" ry="340" fill="url(#ambient)"/>${paths}<rect y="430" width="1200" height="170" fill="url(#shade)"/><defs><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#080D22" stop-opacity="0"/><stop offset="1" stop-color="#080D22" stop-opacity=".62"/></linearGradient></defs></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") center / cover no-repeat`;

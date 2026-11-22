@@ -836,7 +836,7 @@ async function ensureMapSettingsTable(env) {
   return promise;
 }
 
-const WORLD_SCHEMA_VERSION = '2026-11-v39';
+const WORLD_SCHEMA_VERSION = '2026-11-v40';
 const worldTableInitPromises = new WeakMap();
 
 async function ensureWorldTables(env) {
@@ -1417,6 +1417,21 @@ async function initializeWorldTables(env) {
     target_summary TEXT NOT NULL, percent INTEGER NOT NULL, expires_at INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'processing', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
   )`).run();
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS territory_awards (
+      id TEXT PRIMARY KEY,
+      territory_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      name_key TEXT NOT NULL,
+      emoji TEXT NOT NULL,
+      awarded_by_telegram_id INTEGER NOT NULL,
+      awarded_at INTEGER NOT NULL,
+      slot_index INTEGER,
+      UNIQUE(territory_id,name_key),
+      FOREIGN KEY (territory_id) REFERENCES territories(id) ON DELETE CASCADE
+    )
+  `).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_territory_awards_slots ON territory_awards(territory_id,slot_index)`).run();
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS user_items (
       telegram_id INTEGER NOT NULL,
@@ -2026,7 +2041,7 @@ async function getCustomization(request, env) {
   });
   const itemMap=new Map(visibleItems.map(i=>[i.id,i]));
   const myItems=(personalOwned.results||[]).map(x=>({...x,...(itemMap.get(x.item_id)||{})})).filter(x=>x.item_id&&itemMap.has(x.item_id));
-  let cityInventory=[],equippedMarkerItemId=null,bannerColor='none',bannerGradient='aurora';
+  let cityInventory=[],territoryAwards=[],equippedMarkerItemId=null,bannerColor='none',bannerGradient='aurora';
   if(profileTerritoryId){
     const city=await env.DB.prepare('SELECT marker_item_id,banner_color,banner_gradient FROM city_customization WHERE territory_id=?').bind(profileTerritoryId).first();
     equippedMarkerItemId=city?.marker_item_id||null;
@@ -2041,9 +2056,10 @@ async function getCustomization(request, env) {
       env.DB.prepare(`SELECT ui.telegram_id,ui.item_id,i.name,i.price,i.image_data,c.name AS category_name,i.categories_text,i.color,i.government_marker,i.hidden_from_users,ui.source FROM user_items ui JOIN customization_items i ON i.id=ui.item_id LEFT JOIN customization_categories c ON c.id=i.category_id WHERE ui.telegram_id IN (${ph})`).bind(...ids).all(),
     ]);
     cityInventory=[...(cityOnly.results||[]),...(userOwned.results||[])].filter((x,i,a)=>a.findIndex(y=>y.item_id===x.item_id)===i);
+    territoryAwards=(await env.DB.prepare(`SELECT id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index FROM territory_awards WHERE territory_id=? ORDER BY awarded_at DESC,id ASC`).bind(profileTerritoryId).all()).results||[];
     if(!equippedMarkerItemId){const first=await ensureFirstCityMarker(env,profileTerritoryId);equippedMarkerItemId=first?.id||null;}
   }
-  return json({ok:true,balance,personalBalance:Number(personalBalance?.balance||0),accountScope,accountLabel:accountScope==='personal'?(currentUser?.mc_nickname||'Ник не указан'):`Казна: ${accountCity?.name||'город'}`,accountOptions:[{scope:'personal',label:currentUser?.mc_nickname||'Ник не указан'},...managerCities.map(c=>({scope:`treasury:${c.id}`,label:`Казна: ${c.name}`}))],managerCities,cityName:accountCity?.name||null,categories:cats.results||[],items:visibleItems,owned:owned.results||[],myItems,cityId:profileTerritoryId||null,cityRole:profileTerritoryId?'manager':null,cityInventory,equippedMarkerItemId,bannerColor,bannerGradient});
+  return json({ok:true,balance,personalBalance:Number(personalBalance?.balance||0),accountScope,accountLabel:accountScope==='personal'?(currentUser?.mc_nickname||'Ник не указан'):`Казна: ${accountCity?.name||'город'}`,accountOptions:[{scope:'personal',label:currentUser?.mc_nickname||'Ник не указан'},...managerCities.map(c=>({scope:`treasury:${c.id}`,label:`Казна: ${c.name}`}))],managerCities,cityName:accountCity?.name||null,categories:cats.results||[],items:visibleItems,owned:owned.results||[],myItems,cityId:profileTerritoryId||null,cityRole:profileTerritoryId?'manager':null,cityInventory,territoryAwards,equippedAwards:territoryAwards.filter(award=>award.slot_index!==null&&award.slot_index!==undefined).sort((a,b)=>Number(a.slot_index)-Number(b.slot_index)),equippedMarkerItemId,bannerColor,bannerGradient});
 }
 
 function decodeDataUrl(dataUrl) {
@@ -2539,6 +2555,39 @@ async function updateCityCustomization(request, env) {
     return json({ok:true,...(hasMarkerField?{markerItemId}:{}),...(hasBannerColorField?{bannerColor}:{}),...((hasBannerGradientField||hasBannerColorField)?{bannerGradient}:{})});
   }catch(error){return json({ok:false,error:error?.message||'Не удалось обновить оформление'},400)}
 }
+async function toggleTerritoryAwardPlacement(request, env) {
+  const auth=await requireUser(request,env); if(auth.error)return auth.error;
+  await ensureWorldTables(env);
+  let body;try{body=await request.json()}catch{return json({ok:false,error:'Invalid JSON'},400)}
+  const territoryId=String(body?.territoryId||'').trim(),awardId=String(body?.awardId||'').trim();
+  if(!territoryId||!awardId)return json({ok:false,error:'Укажите территорию и награду'},400);
+  const territory=await env.DB.prepare(`SELECT id,is_government FROM territories WHERE id=? AND status='approved'`).bind(territoryId).first();
+  if(!territory)return json({ok:false,error:'Территория не найдена'},404);
+  if(Number(territory.is_government||0)===1)return json({ok:false,error:'Нельзя менять награды государственной территории'},403);
+  if(!(await isTerritoryManager(env,territoryId,auth.user.id)))return json({ok:false,error:'Только основатель/мэр может размещать награды'},403);
+  const award=await env.DB.prepare(`SELECT id,slot_index FROM territory_awards WHERE id=? AND territory_id=?`).bind(awardId,territoryId).first();
+  if(!award)return json({ok:false,error:'Награда не найдена в инвентаре территории'},404);
+  if(award.slot_index!==null&&award.slot_index!==undefined){
+    const slot=Number(award.slot_index);
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE territory_awards SET slot_index=NULL WHERE id=? AND territory_id=?`).bind(awardId,territoryId),
+      env.DB.prepare(`UPDATE territory_awards SET slot_index=slot_index-1 WHERE territory_id=? AND slot_index>?`).bind(territoryId,slot),
+    ]);
+    return json({ok:true,equipped:false,awardId});
+  }
+  const updated=await env.DB.prepare(`UPDATE territory_awards
+    SET slot_index=(SELECT COALESCE(MAX(slot_index),-1)+1 FROM territory_awards WHERE territory_id=? AND slot_index IS NOT NULL)
+    WHERE id=? AND territory_id=? AND slot_index IS NULL
+      AND (SELECT COUNT(*) FROM territory_awards WHERE territory_id=? AND slot_index IS NOT NULL)<4`).bind(territoryId,awardId,territoryId,territoryId).run();
+  if(!Number(updated.meta?.changes||0)){
+    const current=await env.DB.prepare(`SELECT slot_index FROM territory_awards WHERE id=? AND territory_id=?`).bind(awardId,territoryId).first();
+    if(current?.slot_index!==null&&current?.slot_index!==undefined)return json({ok:true,equipped:true,awardId,slotIndex:Number(current.slot_index)});
+    return json({ok:false,error:'Максимум 4 награды на странице территории'},409);
+  }
+  const placed=await env.DB.prepare(`SELECT slot_index FROM territory_awards WHERE id=? AND territory_id=?`).bind(awardId,territoryId).first();
+  return json({ok:true,equipped:true,awardId,slotIndex:Number(placed?.slot_index??0)});
+}
+
 async function inviteResident(request, env) {
   const auth = await requireUser(request, env);
   if (auth.error) return auth.error;
@@ -3087,7 +3136,8 @@ async function getCityCustomizationData(request, env, url) {
   ]);
   let recruitmentUsername=''; try{const r=await env.DB.prepare(`SELECT contact_username,enabled FROM recruitment WHERE territory_id=?`).bind(territoryId).first(); recruitmentUsername=Number(r?.enabled||0)===1?(r?.contact_username||''):'';}catch{}
   const availableMarkers=[...(cityItems.results||[]),...(userItems.results||[])];
-  return json({ok:true,markerItemId:city?.marker_item_id||null,bannerColor:city?.banner_color||'none',bannerGradient:city?.banner_gradient||'aurora',availableMarkers,recruitmentUsername});
+  const territoryAwards=(await env.DB.prepare(`SELECT id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index FROM territory_awards WHERE territory_id=? ORDER BY awarded_at DESC,id ASC`).bind(territoryId).all()).results||[];
+  return json({ok:true,markerItemId:city?.marker_item_id||null,bannerColor:city?.banner_color||'none',bannerGradient:city?.banner_gradient||'aurora',availableMarkers,territoryAwards,equippedAwards:territoryAwards.filter(award=>award.slot_index!==null&&award.slot_index!==undefined).sort((a,b)=>Number(a.slot_index)-Number(b.slot_index)),recruitmentUsername});
 }
 
 async function serveCustomizationItemImage(request, env, itemId) {
@@ -3211,6 +3261,9 @@ async function getTerritories(request, env) {
     const screensPromise = summaryMode
       ? Promise.resolve({ results: [] })
       : safeAll("screenshots", `SELECT s.id,s.territory_id,s.telegram_id,s.telegram_username,s.author_mc_nickname,s.status,s.created_at,COALESCE(s.author_mc_nickname,u.mc_nickname) AS mc_nickname,u.xuid,u.skin_texture_id FROM screenshots s LEFT JOIN users u ON u.telegram_id=s.telegram_id WHERE s.status='approved'${detailId ? ' AND s.territory_id=?' : ''} ORDER BY s.created_at DESC`, scopedBind);
+    const awardsPromise = summaryMode
+      ? Promise.resolve({ results: [] })
+      : safeAll("territory_awards", `SELECT id,territory_id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index FROM territory_awards WHERE slot_index IS NOT NULL AND territory_id IN (SELECT id FROM territories WHERE status='approved')${detailId ? ' AND territory_id=?' : ''} ORDER BY territory_id ASC,slot_index ASC`, scopedBind);
     // Aggregate ratings in D1 rather than transferring every historical rating to the Worker.
     // The calculation exactly preserves the existing weighting: top 5 community / top 2 inspector
     // ratings are averaged separately from older ratings, then combined 50/50 when history exists.
@@ -3255,22 +3308,24 @@ async function getTerritories(request, env) {
       }
       return { viewer, viewerRole, ownRatings };
     })();
-    const [members, managersRaw, comments, screens, ratings, inspectorRatings, viewerData] = await Promise.all([
+    const [members, managersRaw, comments, screens, awards, ratings, inspectorRatings, viewerData] = await Promise.all([
       safeAll("members", memberSql, detailId ? [detailId] : []),
       safeAll("managers", managerSql, detailId ? [detailId] : []),
       commentsPromise,
       screensPromise,
+      awardsPromise,
       safeAll("ratings", ratingSummarySql('ratings', 5, true), scopedBind),
       safeAll("inspector_ratings", ratingSummarySql('inspector_ratings', 2, false), scopedBind),
       viewerDataPromise,
     ]);
     markTiming('related-data');
 
-    const byCity={},managersByCity={},commentsByCity={},screensByCity={},communityByCity={},curatorByCity={},votesByCity={},viewerRatingsByCity={};
+    const byCity={},managersByCity={},commentsByCity={},screensByCity={},awardsByCity={},communityByCity={},curatorByCity={},votesByCity={},viewerRatingsByCity={};
     for(const m of members.results||[]) (byCity[m.territory_id]||=[]).push(m);
     for(const m of managersRaw.results||[]) (managersByCity[m.territory_id]||=[]).push(m);
     for(const c of comments.results||[]) (commentsByCity[c.territory_id]||=[]).push({...c,author:c.mc_nickname||`id${c.telegram_id}`,skin_url:skinUrlFromTexture(c.skin_texture_id,c.mc_nickname),reply:c.reply_text||null,likes:0,dislikes:0});
     for(const s of screens.results||[]) (screensByCity[s.territory_id]||=[]).push({...s,author:s.mc_nickname||`id${s.telegram_id}`,skin_url:skinUrlFromTexture(s.skin_texture_id,s.mc_nickname),url:`/api/screenshots/${s.id}`});
+    for(const award of awards.results||[]) (awardsByCity[award.territory_id]||=[]).push(award);
     for(const r of ratings.results||[]) { communityByCity[r.territory_id]=Number(r.average||0); votesByCity[r.territory_id]=Number(r.total_count||0); }
     for(const r of inspectorRatings.results||[]) curatorByCity[r.territory_id]=Number(r.average||0);
     const { viewer, viewerRole, ownRatings } = viewerData;
@@ -3298,7 +3353,7 @@ async function getTerritories(request, env) {
       const assetUrl = itemId => itemId ? `${new URL(request.url).origin}/api/customization/items/${encodeURIComponent(String(itemId))}/image` : null;
       // Fetch selected marker images through the dedicated image endpoint.
       const markerImage=assetUrl(row.marker_source_item_id);
-      return {...row,marker_image:markerImage,banner_color:row.banner_color||'none',x,y,vox_x:parsed?.x??null,vox_z:parsed?.z??null,curator:curatorByCity[row.id]||0,community:communityByCity[row.id]||0,votes:votesByCity[row.id]||0,my_rating:myRating,owner:isGovernment?'':(ownerNickname||'Ник не указан'),owner_mc_nickname:isGovernment?null:ownerNickname,founder_mc_nickname:isGovernment?null:ownerNickname,managers,manager_telegram_ids:managerIds,manager_count:managerIds.length,is_manager:isManagerViewer,residents:summaryMode?[]:(isGovernment?[]:ms.map(m=>m.mc_nickname).filter(Boolean)),resident_rows:residentRows,resident_telegram_ids:isGovernment?[]:ms.map(m=>Number(m.telegram_id)),resident_count:isGovernment?0:ms.length+managerIds.length,recruitment_contact_username:isGovernment?null:(row.recruitment_contact_username||null),reviews:commentsByCity[row.id]||[],screenshots:screensByCity[row.id]||[],marker_url:markerImage,is_government:isGovernment};
+      return {...row,marker_image:markerImage,banner_color:row.banner_color||'none',banner_gradient:row.banner_gradient||'aurora',awards:awardsByCity[row.id]||[],x,y,vox_x:parsed?.x??null,vox_z:parsed?.z??null,curator:curatorByCity[row.id]||0,community:communityByCity[row.id]||0,votes:votesByCity[row.id]||0,my_rating:myRating,owner:isGovernment?'':(ownerNickname||'Ник не указан'),owner_mc_nickname:isGovernment?null:ownerNickname,founder_mc_nickname:isGovernment?null:ownerNickname,managers,manager_telegram_ids:managerIds,manager_count:managerIds.length,is_manager:isManagerViewer,residents:summaryMode?[]:(isGovernment?[]:ms.map(m=>m.mc_nickname).filter(Boolean)),resident_rows:residentRows,resident_telegram_ids:isGovernment?[]:ms.map(m=>Number(m.telegram_id)),resident_count:isGovernment?0:ms.length+managerIds.length,recruitment_contact_username:isGovernment?null:(row.recruitment_contact_username||null),reviews:commentsByCity[row.id]||[],screenshots:screensByCity[row.id]||[],marker_url:markerImage,is_government:isGovernment};
     });
     markTiming('transform');
     const response=json({ok:true,territories,degraded:partialFailures.length>0,degradedAreas:[...new Set(partialFailures)]});
@@ -6524,12 +6579,87 @@ async function handleVisualDiscountMessage(env,update,message,command) {
   return json({ok:true,handled:command.mode==='set'?'bank_visual_discount_set':'bank_visual_discount_decrease',count:selected.length});
 }
 
+function parseTerritoryAwardCommand(raw, territories=[]) {
+  const text=stripMinecraftFormatting(String(raw||'')).replace(/\s+/g,' ').trim();
+  if(!text||!Array.isArray(territories)||!territories.length)return null;
+  const normalize=value=>stripMinecraftFormatting(String(value||'')).replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
+  const sorted=[...territories].filter(city=>normalize(city.name)).sort((a,b)=>normalize(b.name).length-normalize(a.name).length);
+  const firstSpace=text.indexOf(' ');
+  if(firstSpace>0){
+    const emoji=text.slice(0,firstSpace).trim();
+    const pictographic=/[\p{Extended_Pictographic}\p{Regional_Indicator}]/u.test(emoji);
+    if(pictographic){
+      const rest=text.slice(firstSpace+1).trim();
+      for(const city of sorted){
+        const name=stripMinecraftFormatting(String(city.name||'')).replace(/\s+/g,' ').trim();
+        const prefix=rest.slice(0,name.length);
+        if(normalize(prefix)===normalize(name)&&/\s/.test(rest[name.length]||'')){
+          const awardName=rest.slice(name.length).trim();
+          if(awardName)return {mode:'add',territoryId:String(city.id),territoryName:name,name:awardName,emoji};
+        }
+      }
+      return null;
+    }
+  }
+  for(const city of sorted){
+    const name=stripMinecraftFormatting(String(city.name||'')).replace(/\s+/g,' ').trim();
+    const prefix=text.slice(0,name.length);
+    if(normalize(prefix)!==normalize(name))continue;
+    const tail=text.slice(name.length).trimStart();
+    if(!tail.startsWith('-'))continue;
+    // Keep existing numeric banker balance commands out of award deletion parsing.
+    if(/^-[0-9]+$/.test(tail))return null;
+    const awardName=tail.slice(1).trim();
+    if(awardName)return {mode:'remove',territoryId:String(city.id),territoryName:name,name:awardName,emoji:null};
+  }
+  return null;
+}
+
+async function handleTerritoryAwardBankMessage(env,update,message,raw) {
+  const text=stripMinecraftFormatting(String(raw||'')).replace(/\s+/g,' ').trim();
+  const first=text.split(' ')[0]||'';
+  const addCandidate=/[\p{Extended_Pictographic}\p{Regional_Indicator}]/u.test(first);
+  const removeCandidate=/\s-[^\s]/.test(text)&&!/\s[−-]\d+\s*$/.test(text);
+  if(!addCandidate&&!removeCandidate)return null;
+  await ensureWorldTables(env);
+  const cities=(await env.DB.prepare(`SELECT id,name FROM territories WHERE status='approved'`).all()).results||[];
+  const command=parseTerritoryAwardCommand(text,cities);
+  if(!command)return null;
+  const chatId=Number(message.chat?.id||message.from?.id||0),messageId=Number(message.message_id||0);
+  const reply=async value=>{try{await telegram(env,'sendMessage',{chat_id:chatId,text:value,reply_to_message_id:messageId});}catch(error){console.error('Territory award banker reply failed:',error);}};
+  const nameKey=command.name.toLocaleLowerCase('ru-RU');
+  if(command.mode==='add'){
+    const id=crypto.randomUUID(),now=Date.now();
+    const added=await env.DB.prepare(`INSERT INTO territory_awards(id,territory_id,name,name_key,emoji,awarded_by_telegram_id,awarded_at,slot_index)
+      VALUES(?,?,?,?,?,?,?,NULL) ON CONFLICT(territory_id,name_key) DO NOTHING`)
+      .bind(id,command.territoryId,command.name,nameKey,command.emoji,Number(message.from.id),now).run();
+    if(!Number(added.meta?.changes||0)){
+      await reply(`🏦 Награда «${command.name}» уже есть в инвентаре территории «${command.territoryName}».`);
+      return json({ok:true,handled:'bank_territory_award_exists'});
+    }
+    await reply(`🏦 Награда ${command.emoji} «${command.name}» добавлена в инвентарь территории «${command.territoryName}».`);
+    return json({ok:true,handled:'bank_territory_award_added',awardId:id});
+  }
+  const existing=await env.DB.prepare(`SELECT id,slot_index FROM territory_awards WHERE territory_id=? AND name_key=?`).bind(command.territoryId,nameKey).first();
+  if(!existing){
+    await reply(`🏦 Награда «${command.name}» не найдена в инвентаре территории «${command.territoryName}».`);
+    return json({ok:true,handled:'bank_territory_award_not_found'});
+  }
+  const statements=[env.DB.prepare(`DELETE FROM territory_awards WHERE id=? AND territory_id=?`).bind(existing.id,command.territoryId)];
+  if(existing.slot_index!==null&&existing.slot_index!==undefined)statements.push(env.DB.prepare(`UPDATE territory_awards SET slot_index=slot_index-1 WHERE territory_id=? AND slot_index>?`).bind(command.territoryId,Number(existing.slot_index)));
+  await env.DB.batch(statements);
+  await reply(`🏦 Награда «${command.name}» удалена из инвентаря территории «${command.territoryName}».`);
+  return json({ok:true,handled:'bank_territory_award_removed'});
+}
+
 async function handleBankMessage(env, update, message) {
   const bankerId = String(env.BANKER_TELEGRAM_ID || '').trim();
   if (!isPrivateBankerMessage(message, bankerId)) return null;
   const rawMessage=message.text || message.caption || '';
   const discountCommand=parseVisualDiscountCommand(rawMessage);
   if(discountCommand)return handleVisualDiscountMessage(env,update,message,discountCommand);
+  const awardResult=await handleTerritoryAwardBankMessage(env,update,message,rawMessage);
+  if(awardResult)return awardResult;
   const command = parseBankCommand(rawMessage);
   if (!command) return null;
   const updateId = Number(update?.update_id);
@@ -7137,6 +7267,9 @@ export default {
     if (url.pathname === '/api/customization/purchase' && request.method === 'POST') {
       return purchaseCustomizationItem(request, env, ctx);
     }
+    if (url.pathname === '/api/customization/city/award' && request.method === 'POST') {
+      return toggleTerritoryAwardPlacement(request, env);
+    }
     if (url.pathname === '/api/customization/city' && request.method === 'POST') {
       return updateCityCustomization(request, env);
     }
@@ -7249,4 +7382,4 @@ export default {
   },
 };
 
-export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
+export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTerritoryAwardCommand, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
