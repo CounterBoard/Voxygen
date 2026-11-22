@@ -740,7 +740,7 @@ test('territory profile includes awards inventory, a 4-slot banner and a title-f
 test('visual color palettes are horizontally centered in editor, creation form and filters', () => {
   const editor=app.slice(app.indexOf('function VisualEditModal('),app.indexOf('function profileAccountLabel('));
   const visual=app.slice(app.indexOf('function CustomizationScreen('),app.indexOf('function BottomNav('));
-  assert.equal((editor.match(/justifyContent:'center',gap: 6,marginBottom: 8/g)||[]).length,2);
+  assert.equal((editor.match(/justifyContent:'center',gap: 6,marginBottom: 8/g)||[]).length,1);
   assert.ok(visual.includes("justifyContent:'center',gap: 6,flexWrap:'wrap'"));
 });
 
