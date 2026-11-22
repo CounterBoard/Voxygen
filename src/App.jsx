@@ -1971,11 +1971,11 @@ function RecruitmentManagement({territory,initData,onSaved,readOnly=false}) {
   </div>;
 }
 function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,onChanged,readOnly=false}={}){
-  const [name,setName]=useState(territory?.name||''),[additionalInfo,setAdditionalInfo]=useState(String(territory?.additional_info||'').slice(0,542)),[members,setMembers]=useState([]),[managers,setManagers]=useState([]),[invites,setInvites]=useState([]),[residentNick,setResidentNick]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[noticeRevision,setNoticeRevision]=useState(0),[inventory,setInventory]=useState(null),[newRecruitmentUsername,setNewRecruitmentUsername]=useState(''),[leaveBusy,setLeaveBusy]=useState(false),[awardLimitToast,setAwardLimitToast]=useState(0);
+  const [name,setName]=useState(territory?.name||''),[additionalInfo,setAdditionalInfo]=useState(String(territory?.additional_info||'').slice(0,542)),[members,setMembers]=useState([]),[managers,setManagers]=useState([]),[invites,setInvites]=useState([]),[residentNick,setResidentNick]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[noticeRevision,setNoticeRevision]=useState(0),[noticeType,setNoticeType]=useState('success'),[inventory,setInventory]=useState(null),[newRecruitmentUsername,setNewRecruitmentUsername]=useState(''),[leaveBusy,setLeaveBusy]=useState(false),[awardLimitToast,setAwardLimitToast]=useState(0),[awardBusyId,setAwardBusyId]=useState(null);
   useEffect(()=>{setName(territory?.name||'');setAdditionalInfo(String(territory?.additional_info||'').slice(0,542))},[territory?.name,territory?.additional_info]);
   async function load(){if(!territory)return;try{setError('');const h={'X-Telegram-Init-Data':initData};const [mr,ir]=await Promise.all([fetch(`${API_BASE}/api/city/management?territoryId=${encodeURIComponent(territory.id)}`,{headers:h,cache:'no-store'}),fetch(`${API_BASE}/api/customization?scope=profile&territoryId=${encodeURIComponent(territory.id)}`,{headers:h,cache:'no-store'})]);const md=await mr.json().catch(() => null),id=await ir.json().catch(() => null);if(!mr.ok||!md.ok)throw new Error(apiErrorMessage(mr, md, "Операция не выполнена."));if(!ir.ok||!id.ok)throw new Error(apiErrorMessage(ir, id, "Операция не выполнена."));setMembers(md.members||[]);setManagers(md.managers||[]);setInvites(md.invites||[]);setInventory(id);setNewRecruitmentUsername(md.recruitmentUsername||'')}catch(e){setError(safeCaughtError(e, 'Не удалось загрузить данные города'))}}
   useEffect(()=>{load()},[territory?.id]);
-  async function post(path,body,success){try{const r=await fetch(`${API_BASE}${path}`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,...body})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setNotice(success);setNoticeRevision(value=>value+1);await load();onChanged?.()}catch(e){setError(safeCaughtError(e, 'Операция не выполнена'))}}
+  async function post(path,body,success){try{const r=await fetch(`${API_BASE}${path}`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,...body})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setNotice(success);setNoticeType('success');setNoticeRevision(value=>value+1);await load();onChanged?.()}catch(e){setError(safeCaughtError(e, 'Операция не выполнена'))}}
   async function rename(){const n=name.trim();if(!n||n===territory.name)return;await post('/api/admin/territories/rename',{territoryId:territory.id,name:n},'Название города изменено')}
   async function saveAdditionalInfo(){await post('/api/city/additional-info',{territoryId:territory.id,additionalInfo},'Дополнительная информация сохранена')}
   async function addResident(){const n=residentNick.trim();if(!n)return;await post('/api/city/invite',{territoryId:territory.id,nickname:n},'Приглашение отправлено');setResidentNick('')}
@@ -1997,12 +1997,14 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
   }
   async function equip(itemId){
     const equippedId=inventory?.equippedMarkerItemId;
-    const nextId=String(equippedId||'')===String(itemId||'')?null:itemId;
-    await post('/api/customization/city',{territoryId:territory.id,markerItemId:nextId},nextId?'Метка города обновлена':'Метка города снята');
+    if(String(equippedId||'')===String(itemId||''))return;
+    const nextId=itemId;
+    await post('/api/customization/city',{territoryId:territory.id,markerItemId:nextId},'Метка города обновлена');
     setInventory(v=>v?{...v,equippedMarkerItemId:nextId}:v);
   }
   async function toggleAwardPlacement(award){
-    if(readOnly||!award?.id)return;
+    if(readOnly||!award?.id||awardBusyId)return;
+    setAwardBusyId(award.id);
     try{
       const response=await fetch(`${API_BASE}/api/customization/city/award`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,territoryId:territory.id,awardId:award.id})});
       const data=await response.json().catch(()=>null);
@@ -2012,9 +2014,19 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
         else setError(message);
         return;
       }
+      if(data.equipped){
+        const nextSlot=Number(data.slotIndex)+1;
+        setNotice(`Награда установлена в слот ${nextSlot}`);
+        setNoticeType('success');
+      }else{
+        setNotice('Награда снята');
+        setNoticeType('error');
+      }
+      setNoticeRevision(value=>value+1);
       await load();
       onChanged?.();
     }catch(error){setError(safeCaughtError(error,'Не удалось изменить размещение награды.'))}
+    finally{setAwardBusyId(null)}
   }
   if(!territory)return null;
   return <SurfaceCard className="atlas-page-panel" padding={10} style={{marginBottom: 8}}>
@@ -2083,10 +2095,10 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
       <div style={{fontSize:13,fontWeight:700,marginBottom: 8}}>Оформление территории</div>
       <div style={{borderTop:'1px solid var(--theme-color-border)',marginTop: 8,paddingTop: 8}}>
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom: 7}}>Баннер</div>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap: 8,flexWrap:'wrap',marginBottom:6}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap: 8,flexWrap:'wrap',marginBottom:0}}>
           {VISUAL_COLORS.filter(([value])=>value!=='none').map(([value])=><ColorDot key={`banner-${value}`} value={value} selected={String(inventory?.bannerColor||'none')===value} title={({red:'Красный',orange:'Оранжевый',yellow:'Жёлтый',green:'Зелёный',turquoise:'Бирюзовый',blue:'Синий',purple:'Фиолетовый',magenta:'Пурпурный',white:'Белый'})[value]||value} onClick={()=>{if(!readOnly)post('/api/customization/city',{territoryId:territory.id,bannerColor:value,bannerGradient:getRandomBannerGradientId()},'Баннер территории обновлён');}}/>)}
         </div>
-        <div role="img" aria-label="Предпросмотр текущего баннера территории" style={{marginTop:0,height:72,width:'100%',borderRadius:12,border:'1px solid var(--theme-color-border)',overflow:'hidden',background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent)}}/>
+        <div role="img" aria-label="Предпросмотр текущего баннера территории" style={{marginTop:8,height:72,width:'100%',borderRadius:12,border:'1px solid var(--theme-color-border)',overflow:'hidden',background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent)}}/>
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '14px 0 6px'}}>Метка</div>
         <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='метка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('метка'))} equippedId={inventory?.equippedMarkerItemId} showEquip={!readOnly} onEquip={id=>equip(id)} columns={4} aspectRatio="1 / 1" imageFit="contain" emptyText="Доступных меток нет."/>
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '14px 0 6px'}}>Награды</div>
@@ -2095,9 +2107,9 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
           : <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:8}}>
               {(inventory?.territoryAwards||[]).map(award=>{
                 const equipped=award.slot_index!==null&&award.slot_index!==undefined;
-                return <button key={award.id} type="button" disabled={readOnly} title={award.name} aria-label={`${award.emoji} ${award.name}${equipped?', размещена на баннере':''}`} aria-pressed={equipped} onClick={()=>toggleAwardPlacement(award)} className="press" style={{gridColumn:'1 / -1',minWidth:0,minHeight:68,border:equipped?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:12,background:equipped?'var(--theme-color-status-success-soft)':'var(--theme-color-surface)',color:'var(--theme-color-text-primary)',display:'grid',gridTemplateColumns:'48px minmax(0,1fr)',alignItems:'center',gap:8,padding:6,opacity:readOnly?0.82:1}}>
+                return <button key={award.id} type="button" disabled={readOnly||Boolean(awardBusyId)} title={award.name} aria-label={`${award.emoji} ${award.name}${equipped?', размещена на баннере':''}`} aria-pressed={equipped} onClick={()=>toggleAwardPlacement(award)} className="press" style={{gridColumn:'1 / -1',minWidth:0,minHeight:68,border:equipped?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:12,background:'var(--theme-color-surface-raised)',color:'var(--theme-color-text-primary)',display:'grid',gridTemplateColumns:'48px minmax(0,1fr)',alignItems:'center',gap:8,padding:6,opacity:readOnly?0.82:1}}>
                   <span style={{fontSize:32,lineHeight:1.1,display:'flex',alignItems:'center',justifyContent:'center',minWidth:0}}>{award.emoji}</span>
-                  <span style={{fontSize:11,lineHeight:1.2,textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',width:'100%',minWidth:0}}>{award.name}</span>
+                  <span style={{fontSize:11,lineHeight:1.2,textAlign:'center',overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',width:'100%',minWidth:0}}>{award.name}</span>
                 </button>;
               })}
             </div>}
@@ -2108,7 +2120,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
     {!readOnly&&<button onClick={requestInspectorRating} className="press" style={{width:'100%',border:'none',borderRadius:10,padding: '10px 12px',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:700,marginBottom: 0,minHeight:44}}>Запросить оценку инспектора</button>}
     {error&&<div style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop: 10}}>{error}</div>}
     {awardLimitToast>0&&<FixedToast key={awardLimitToast} message="Максимум 4 награды на странице территории" type="error"/>}
-    {notice&&<FixedToast key={noticeRevision} message={notice}/>}
+    {notice&&<FixedToast key={noticeRevision} message={notice} type={noticeType}/>}
   </SurfaceCard>;
 }
 
@@ -2602,6 +2614,7 @@ function TerritoryDetail({ base, onBack, profile, onGoToProfile, tgUser, role, m
       const row = data.territories.find(item => String(item.id) === territoryId);
       if (!row) throw new Error('Территория не найдена. Обновите список и попробуйте снова.');
       const payload = {
+        awards: Array.isArray(row.awards) ? row.awards : [],
         reviews: Array.isArray(row.reviews) ? row.reviews : [],
         screenshots: Array.isArray(row.screenshots) ? row.screenshots.map(shot => ({ ...shot, url: shot?.url ? (String(shot.url).startsWith('http') ? shot.url : `${API_BASE}${shot.url}`) : shot?.url })) : [],
         residents: Array.isArray(row.residents) ? row.residents : [],
