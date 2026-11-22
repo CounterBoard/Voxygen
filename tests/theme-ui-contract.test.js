@@ -718,14 +718,19 @@ test('territory profile includes awards inventory, a 4-slot banner and a title-f
   assert.ok(city.includes('inventory?.territoryAwards')&&city.includes('toggleAwardPlacement'));
   assert.ok(city.includes('Максимум 4 награды на странице территории'));
   assert.ok(city.includes("margin: '14px 0 6px'}}>Награды</div>"));
-  assert.ok(city.includes("flexWrap:'wrap',marginBottom:6"));
-  assert.ok(city.includes('marginTop:0,height:72'));
+  assert.ok(city.includes("flexWrap:'wrap',marginBottom:0"));
+  assert.ok(city.includes('marginTop:6,height:72'));
   assert.ok(city.includes("justifyContent:'center',gap: 8,flexWrap:'wrap',marginBottom:6"),'Profile banner colors are horizontally centered');
   assert.doesNotMatch(city, /На баннере ·/);
-  assert.doesNotMatch(city, /setNotice\(data\.equipped/);
+  assert.ok(city.includes("setNotice(data.equipped ? `Награда установлена в слот ${nextSlot}` : 'Награда снята')"));
+  assert.ok(city.includes("setNoticeType(data.equipped ? 'success' : 'error')"));
+  assert.ok(city.includes('<FixedToast key={noticeRevision} message={notice} type={noticeType}/>'));
   assert.ok(!city.includes("territory?.name||'Название территории'"));
   assert.ok(city.includes("gridColumn:'1 / -1'")&&city.includes("gridTemplateColumns:'48px minmax(0,1fr)'"));
+  assert.ok(city.includes("background:'var(--theme-color-surface-raised)'"),'Award cards use the same raised surface as marker tiles');
+  assert.ok(city.includes("textAlign:'center'"),'Award names are centered within their text column');
   assert.ok(city.includes('WebkitLineClamp:3'));
+  assert.ok(detail.includes("awards: Array.isArray(row.awards) ? row.awards : []"),'Detailed territory loading must copy awards into the visible page state');
   assert.ok(detail.includes("(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined)"));
   assert.ok(detail.includes("top:7,right:7+index*64,width:58,height:58"),'Award badges match the exit button plus its edge offset, with 7px outer margins');
   assert.ok(detail.includes('Number(b.slot_index)-Number(a.slot_index)'),'Most recently equipped award occupies the rightmost slot');
@@ -868,4 +873,21 @@ test('inspector/player segmented switch uses a sliding Purple indicator', () => 
   assert.ok(segmented.includes("'--segmented-index':activeIndex"));
   assert.ok(app.includes('transform:translateX(calc(var(--segmented-index) * 100%))'));
   assert.ok(app.includes('.atlas-segmented__option.is-active{\n          color:#fff;'));
+});
+
+ 
+test('territory marker selection is not a toggle and never emits a marker-removal notice', () => {
+  const city=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
+  assert.ok(city.includes("if(String(equippedId||'')===String(itemId||''))return;"));
+  assert.ok(city.includes("post('/api/customization/city',{territoryId:territory.id,markerItemId:nextId},'Метка города обновлена')"));
+  assert.doesNotMatch(city,/Метка города снята/);
+});
+
+test('equipped award feedback is one-based and removal feedback is an error toast', () => {
+  const city=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
+  assert.ok(city.includes('const nextSlot=Number(data.slotIndex)+1;'));
+  assert.ok(city.includes("`Награда установлена в слот ${nextSlot}`"));
+  assert.ok(city.includes("setNotice('Награда снята')"));
+  assert.ok(city.includes("setNoticeType('error')"));
+  assert.ok(city.includes('disabled={readOnly||Boolean(awardBusyId)}'));
 });
