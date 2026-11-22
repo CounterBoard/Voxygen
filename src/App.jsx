@@ -2070,7 +2070,6 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
         <div style={{display:'flex',alignItems:'center',gap: 8,flexWrap:'wrap'}}>
           {VISUAL_COLORS.filter(([value])=>value!=='none').map(([value])=><ColorDot key={`banner-${value}`} value={value} selected={String(inventory?.bannerColor||'none')===value} title={({red:'Красный',orange:'Оранжевый',yellow:'Жёлтый',green:'Зелёный',turquoise:'Бирюзовый',blue:'Синий',purple:'Фиолетовый',magenta:'Пурпурный',white:'Белый'})[value]||value} onClick={()=>{if(!readOnly)post('/api/customization/city',{territoryId:territory.id,bannerColor:value,bannerGradient:getRandomBannerGradientId()},'Баннер территории обновлён');}}/>)}
         </div>
-        <div style={{fontSize:11,color:'var(--theme-color-text-muted)',margin:'12px 0 6px'}}>Предпросмотр текущего баннера</div>
         <div role="img" aria-label="Предпросмотр текущего баннера территории" style={{height:72,width:'100%',borderRadius:12,border:'1px solid var(--theme-color-border)',overflow:'hidden',background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent),position:'relative'}}>
           <div style={{position:'absolute',left:12,right:12,bottom:10,fontSize:13,fontWeight:800,color:'#fff',textShadow:'0 1px 5px rgba(0,0,0,.65)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}><MinecraftText text={territory?.name||'Название территории'}/></div>
         </div>

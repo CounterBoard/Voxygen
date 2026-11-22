@@ -14,12 +14,17 @@ test("random banner gradient selection covers the first and last template safely
   assert.equal(getRandomBannerGradientId(()=>0.999999),"flare");
   assert.equal(getRandomBannerGradientId(()=>Number.NaN),"aurora");
 });
-test("banner gradient uses the selected color and falls back for legacy none values",()=>{
+test("banner gradients render flowing SVG compositions in the selected color family",()=>{
   const red=getBannerGradient("red","prism"),blue=getBannerGradient("blue","prism");
-  assert.match(red,/^linear-gradient\(180deg/);
+  assert.match(red,/^url\("data:image\/svg\+xml,/);
   assert.notEqual(red,blue);
+  const redSvg=decodeURIComponent(red.match(/data:image\/svg\+xml,([^"]+)/)[1]);
+  const blueSvg=decodeURIComponent(blue.match(/data:image\/svg\+xml,([^"]+)/)[1]);
+  assert.match(redSvg,/<path d="M-80 120/);
+  assert.match(redSvg,/feGaussianBlur/);
+  assert.match(blueSvg,/fill="#080D22"/);
   assert.match(getBannerGradient("none","aurora","#22C55E"),/#22C55E66/);
-  assert.match(getBannerGradient("unknown","missing"),/linear-gradient/);
+  assert.match(getBannerGradient("unknown","missing"),/^url\("data:image\/svg\+xml,/);
 });
 test("discount timer uses compact hours and minutes and rounds up partial minutes",()=>{
   const now=1_000_000;
