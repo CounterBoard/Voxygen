@@ -723,8 +723,13 @@ test('territory profile includes awards inventory, a 4-slot banner and a title-f
   assert.doesNotMatch(city, /На баннере ·/);
   assert.doesNotMatch(city, /setNotice\(data\.equipped/);
   assert.ok(!city.includes("territory?.name||'Название территории'"));
-  assert.ok(detail.includes('(t.awards||[])')&&detail.includes('setSelectedTerritoryAward(award)'));
+  assert.ok(city.includes("gridColumn:'span 2'")&&city.includes("gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr)'"));
+  assert.ok(city.includes('WebkitLineClamp:3'));
+  assert.ok(detail.includes("(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined)"));
+  assert.ok(detail.includes("top:7,right:7+index*42"),'Equipped awards are anchored at the top-right and ordered right-to-left');
+  assert.ok(detail.includes('setSelectedTerritoryAward(award)'));
   assert.ok(detail.includes('selectedTerritoryAward.name'));
+  assert.ok(detail.includes("toLocaleDateString('ru-RU')"),'Award details show a localized DD.MM.YYYY date');
 });
 test('theme picker arrows enforce the same Purple action surface and glyph as event links', () => {
   assert.equal((app.match(/className="press atlas-theme-arrow"/g)||[]).length,2);
