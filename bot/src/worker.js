@@ -6607,6 +6607,8 @@ function parseTerritoryAwardCommand(raw, territories=[]) {
     if(normalize(prefix)!==normalize(name))continue;
     const tail=text.slice(name.length).trimStart();
     if(!tail.startsWith('-'))continue;
+    // Keep existing numeric banker balance commands out of award deletion parsing.
+    if(/^-[0-9]+$/.test(tail))return null;
     const awardName=tail.slice(1).trim();
     if(awardName)return {mode:'remove',territoryId:String(city.id),territoryName:name,name:awardName,emoji:null};
   }
