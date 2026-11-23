@@ -4,11 +4,14 @@ import { readFileSync } from "node:fs";
 
 const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 
-test("territory award emoji render Telegram TGS animations with larger image and Unicode fallbacks",()=>{
+test("territory award emoji use AnimatedEmojies TGS or its own Telegram thumbnail",()=>{
   assert.match(app,/import lottie from ['"]lottie-web['"]/);
-  assert.match(app,/format=animation/);
+  assert.match(app,/format=animation&v=4/);
   assert.match(app,/lottie\.loadAnimation\(/);
-  assert.match(app,/fontSize:size\*\.94/);
+  assert.match(app,/function cloneTelegramEmojiAnimationData\(/);
+  assert.match(app,/loop:true/);
+  assert.match(app,/autoplay:true/);
+  assert.doesNotMatch(app,/fontSize:size\*\.94/,"device Unicode emoji font is not used for award fallback");
   assert.match(app,/<TelegramEmoji emoji=\{award\.emoji\} size=\{40\}\/\>/);
   assert.match(app,/<TelegramEmoji emoji=\{award\.emoji\} size=\{36\}\/\>/);
   assert.match(app,/<TelegramEmoji emoji=\{selectedTerritoryAward\.emoji\} size=\{56\}\/\>/);
