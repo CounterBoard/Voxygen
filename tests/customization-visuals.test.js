@@ -28,7 +28,8 @@ test("banner gradient catalogue keeps ten stable IDs with names matching the new
   assert.deepEqual(ids,["aurora","prism","nebula","sunset","crystal","horizon","ribbons","velvet","orbit","flare"]);
   assert.equal(BANNER_GRADIENT_TEMPLATES.length,10);
   assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Пиксельная мозаика"));
-  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Модульный лабиринт"));
+  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Органические формы"));
+  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Орбитальные дуги"));
 });
 test("random banner gradient selection covers the first and last template safely",()=>{
   assert.equal(getRandomBannerGradientId(()=>0),"aurora");
@@ -41,14 +42,17 @@ test("all ten templates generate distinct and detailed abstract SVG compositions
   for(const svg of svgs){
     assert.match(svg,/viewBox="0 0 1200 600"/);
     const marks=(svg.match(/<(?:path|rect|circle|polygon)\b/g)||[]).length;
-    assert.ok(marks>=55,"every abstract pattern must contain sufficient vector detail");
+    assert.ok(marks>=7,"every pattern should contain several clear geometric elements without relying on decorative micro-detail");
     assert.match(svg,/linearGradient id="base"/);
     assert.match(svg,/feGaussianBlur/);
   }
   assert.match(svgs[0],/<rect /,"pixel mosaic is made of vector tiles");
+  assert.doesNotMatch(svgs[0],/opacity="0.8"\/>/,"pixel squares have no inset highlight squares");
   assert.match(svgs[2],/<circle /,"halftone field is made of dots");
   assert.match(svgs[3],/<path /,"wave contours are vector paths");
-  assert.match(svgs[7],/<polygon /,"diamond lattice is made of polygons");
+  assert.match(svgs[4],/<path /,"organic forms are smooth closed curves");
+  assert.match(svgs[5],/ A /,"orbital pattern uses elliptical arcs");
+  assert.equal((svgs[7].match(/<polygon/g)||[]).length,120,"each diamond is a single flat shape without an inset facet");
 });
 test("banner tone family stays close to the selected territory colour",()=>{
   for(const colour of ["red","orange","yellow","green","turquoise","blue","purple","magenta"]){
