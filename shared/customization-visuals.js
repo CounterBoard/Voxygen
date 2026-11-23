@@ -6,7 +6,7 @@ const BANNER_PALETTE = Object.freeze({
 export const BANNER_GRADIENT_TEMPLATES = Object.freeze([
   { id: "aurora", label: "Пиксельная мозаика" }, { id: "prism", label: "Ступенчатые блоки" },
   { id: "nebula", label: "Полутоновое поле" }, { id: "sunset", label: "Волновые контуры" },
-  { id: "crystal", label: "Шевронный ритм" }, { id: "horizon", label: "Горизонтальные штрихи" },
+  { id: "crystal", label: "Органические формы" }, { id: "horizon", label: "Орбитальные дуги" },
   { id: "ribbons", label: "Диагональные ленты" }, { id: "velvet", label: "Ромбическая решётка" },
   { id: "orbit", label: "Вертикальные зигзаги" }, { id: "flare", label: "Модульный лабиринт" },
 ]);
@@ -25,23 +25,17 @@ function svgPolygon(points,fill,opacity=1) {
 }
 
 function renderPixelMosaic(t) {
-  const out = [];
-  const colors = [t[0],t[1],t[2],t[3]];
-  for (let row=0;row<18;row++) {
-    for (let col=0;col<38;col++) {
-      const wave=Math.sin(col*.43+row*.31)*.42+Math.cos(row*.7-col*.19)*.36+Math.sin((col-row)*.16)*.22;
-      const diagonal=Math.exp(-Math.pow((col-row*1.34-10)/10,2));
-      const density=.24+diagonal*.52+(wave+.2)*.19;
-      if (((Math.sin(col*1.7+row*.93)+Math.cos(col*.31-row*1.1))*.5+0.55)>density) {
-        const scale=.42+((Math.sin(col*.8+row*1.31)+1)*.25);
-        const w=13+scale*17;
-        const h=12+scale*18;
-        const x=col*32+(32-w)/2;
-        const y=row*34+(34-h)/2;
-        const color=colors[Math.abs((col*3+row*5+Math.round(w)))%colors.length];
-        const opacity=.42+Math.max(0,wave)*.42;
-        out.push(svgRect(x,y,w,h,color,opacity,Math.min(3,scale*3)));
-        if ((col+row)%11===0) out.push(svgRect(x+4,y+4,Math.max(3,w*.18),Math.max(3,h*.18),t[0],.8,1));
+  const out=[];
+  for(let row=0;row<13;row++){
+    for(let col=0;col<29;col++){
+      const wave=Math.sin(col*.39+row*.35)*.5+Math.cos(row*.64-col*.22)*.5;
+      const diagonal=Math.exp(-Math.pow((col-row*1.25-8)/9,2));
+      const density=.18+diagonal*.56+(wave+.4)*.16;
+      if((Math.sin(col*1.19+row*.83)+Math.cos(col*.27-row*.91)+2)/4>density){
+        const scale=.62+((Math.sin(col*.43+row*.57)+1)*.17);
+        const width=19+scale*17,height=20+scale*18;
+        const x=col*42+(42-width)/2,y=row*46+(46-height)/2;
+        out.push(svgRect(x,y,width,height,t[(col*2+row*3)%4],.58+Math.max(0,wave)*.24,1.5));
       }
     }
   }
@@ -50,40 +44,33 @@ function renderPixelMosaic(t) {
 
 function renderSteppedBlocks(t) {
   const out=[];
-  for(let row=0;row<10;row++){
-    const y=22+row*58;
-    const offset=(row%2)*27+Math.sin(row*.8)*13;
-    let x=-36+offset;
-    let run=0;
+  for(let row=0;row<8;row++){
+    const y=28+row*72;
+    let x=-35+(row%2)*56+Math.sin(row*.8)*18;
+    let segment=0;
     while(x<1240){
-      const wave=Math.sin(row*1.13+run*.74);
-      const width=66+((Math.cos(row*.8+run*1.41)+1)*.5)*126;
-      const height=9+((Math.sin(row*.62+run*.9)+1)*.5)*13;
-      const color=t[(row+run)%4];
-      out.push(svgRect(x,y+wave*11,width,height,color,.78,Math.min(4,height/3)));
-      out.push(svgRect(x+10,y+wave*11+height+3,width*.42,2,t[(row+run+1)%4],.5,1));
-      if(run%3===0) out.push(svgRect(x+width-7,y-12,5,18,t[0],.52,2));
-      x+=width+28+((row+run)%3)*9;
-      run++;
+      const width=92+((Math.cos(row*.7+segment*1.1)+1)*.5)*145;
+      const height=14+((Math.sin(row*.65+segment*.8)+1)*.5)*12;
+      const offset=Math.sin(row*.9+segment*.55)*8;
+      out.push(svgRect(x,y+offset,width,height,t[(row+segment)%4],.72,3));
+      x+=width+32;
+      segment++;
     }
-    out.push(svgPath("M 0 "+n(y+30)+" H 1200",t[4],1,.24));
   }
   return out.join("");
 }
 
 function renderHalftone(t) {
   const out=[];
-  for(let row=0;row<19;row++){
-    for(let col=0;col<39;col++){
-      const x=15+col*31;
-      const y=14+row*32;
-      const dx=(col-19)/19,dy=(row-9)/9;
-      const radial=Math.max(0,1-Math.sqrt(dx*dx*.75+dy*dy*.62));
-      const ripple=(Math.sin(col*.57+row*.28)+Math.cos(row*.77-col*.24)+2)/4;
-      const radius=1.7+radial*7.2+ripple*2.6;
-      const color=t[(Math.floor(radial*3)+col%2)%4];
-      out.push('<circle cx="'+n(x)+'" cy="'+n(y)+'" r="'+n(radius)+'" fill="'+color+'" opacity="'+n(.32+radial*.48)+'"/>');
-      if(radius>8.4 && (row+col)%3===0) out.push('<circle cx="'+n(x)+'" cy="'+n(y)+'" r="'+n(radius*.42)+'" fill="'+t[4]+'" opacity=".45"/>');
+  for(let row=0;row<14;row++){
+    for(let col=0;col<28;col++){
+      const x=20+col*43;
+      const y=18+row*44;
+      const dx=(col-13.5)/13.5,dy=(row-6.5)/6.5;
+      const radial=Math.max(0,1-Math.sqrt(dx*dx*.72+dy*dy*.58));
+      const ripple=(Math.sin(col*.47+row*.24)+Math.cos(row*.63-col*.2)+2)/4;
+      const radius=2.2+radial*5.1+ripple*1.25;
+      out.push('<circle cx="'+n(x)+'" cy="'+n(y)+'" r="'+n(radius)+'" fill="'+t[(Math.floor(radial*3)+col%2)%4]+'" opacity="'+n(.5+radial*.25)+'"/>');
     }
   }
   return out.join("");
@@ -91,105 +78,78 @@ function renderHalftone(t) {
 
 function renderWaveContours(t) {
   const out=[];
-  for(let i=0;i<22;i++){
-    const y=10+i*27;
-    const amp=10+(i%4)*5;
-    const phase=i*.56;
-    const d="M -40 "+n(y)+
-      " C 130 "+n(y-amp)+ " 210 "+n(y+amp)+" 340 "+n(y)+
-      " S 535 "+n(y-amp*1.1)+" 660 "+n(y)+
-      " S 850 "+n(y+amp*1.15)+" 970 "+n(y)+
-      " S 1120 "+n(y-amp*.85)+" 1240 "+n(y+Math.sin(phase)*4);
-    out.push(svgPath(d,t[4],18,.34,"softGlow"));
-    out.push(svgPath(d,t[(i+1)%4],7+(i%3)*2,.92));
-    if(i%2===0) out.push(svgPath(d,t[0],1.8,.9));
+  for(let i=0;i<13;i++){
+    const y=22+i*46;
+    const amp=14+(i%3)*7;
+    const d="M -60 "+n(y)+
+      " C 120 "+n(y-amp)+" 210 "+n(y+amp)+" 360 "+n(y)+
+      " S 590 "+n(y-amp*1.15)+" 760 "+n(y)+
+      " S 1020 "+n(y+amp)+" 1260 "+n(y-amp*.25);
+    out.push(svgPath(d,t[(i+1)%4],11+(i%3)*2,.82));
   }
   return out.join("");
 }
 
-function renderChevronField(t) {
+function renderOrganicContours(t) {
   const out=[];
-  for(let row=0;row<9;row++){
-    const cy=34+row*68;
-    const skew=(row%2)*35;
-    for(let col=-1;col<13;col++){
-      const x=col*104+skew;
-      const width=76+(Math.sin(row*.72+col*.4)+1)*14;
-      const height=18+(Math.cos(col*.61-row*.33)+1)*8;
-      const points=[
-        n(x)+","+n(cy),
-        n(x+width*.48)+","+n(cy-height),
-        n(x+width)+","+n(cy),
-        n(x+width*.48)+","+n(cy+height),
-        n(x+width*.24)+","+n(cy+height*.43),
-        n(x+width*.63)+","+n(cy)
-      ].join(" ");
-      out.push(svgPolygon(points,t[(row+col+40)%4],.86));
-      if((row+col)%3===0){
-        const inner=[n(x+width*.3)+","+n(cy),n(x+width*.48)+","+n(cy-height*.38),n(x+width*.66)+","+n(cy)].join(" ");
-        out.push(svgPolygon(inner,t[0],.76));
-      }
-    }
-  }
+  const forms=[
+    [-90,130,175,120,0], [170,470,190,125,1], [405,115,175,135,2],
+    [665,475,205,130,3], [880,135,190,140,1], [1135,435,190,155,2],
+    [265,300,125,100,3], [760,285,135,105,0],
+  ];
+  forms.forEach(([cx,cy,rx,ry,colorIndex],index)=>{
+    const d="M "+n(cx-rx)+" "+n(cy)+
+      " C "+n(cx-rx*.95)+" "+n(cy-ry*.85)+" "+n(cx-rx*.25)+" "+n(cy-ry*1.2)+" "+n(cx+rx*.12)+" "+n(cy-ry*.72)+
+      " C "+n(cx+rx*1.15)+" "+n(cy-ry*.52)+" "+n(cx+rx*1.12)+" "+n(cy+ry*.6)+" "+n(cx+rx*.32)+" "+n(cy+ry*.8)+
+      " C "+n(cx-rx*.35)+" "+n(cy+ry*1.22)+" "+n(cx-rx*1.2)+" "+n(cy+ry*.55)+" "+n(cx-rx)+" "+n(cy)+" Z";
+    out.push('<path d="'+d+'" fill="'+t[colorIndex]+'" opacity="'+(.64+(index%3)*.05)+'"/>');
+  });
   return out.join("");
 }
 
-function renderHorizontalStripes(t) {
+function renderOrbitalArcs(t) {
   const out=[];
-  for(let row=0;row<23;row++){
-    const y=12+row*26;
-    let x=-20+((row*47)%190);
-    let segment=0;
-    while(x<1230){
-      const modulation=(Math.sin(row*.52+segment*.91)+1)/2;
-      const width=48+modulation*210+((segment+row)%4)*19;
-      const height=3+((Math.cos(row*.38+segment*.73)+1)*.5)*7;
-      const color=t[(row+segment)%4];
-      out.push(svgRect(x,y,width,height,color,.45+modulation*.5,height/2));
-      if(segment%3===0) out.push(svgRect(x+width*.68,y+height+4,width*.2,2,t[0],.56,1));
-      x+=width+13+((row*segment)%18);
-      segment++;
+  const centers=[[155,255],[505,360],[930,220]];
+  centers.forEach(([cx,cy],group)=>{
+    for(let ring=0;ring<4;ring++){
+      const rx=66+ring*43,ry=48+ring*31;
+      const offsetX=(ring%2)*17,offsetY=(ring%2)*13;
+      const x=cx+offsetX,y=cy+offsetY;
+      const d="M "+n(x-rx)+" "+n(y)+
+        " A "+n(rx)+" "+n(ry)+" 0 1 0 "+n(x+rx)+" "+n(y)+
+        " A "+n(rx)+" "+n(ry)+" 0 1 0 "+n(x-rx)+" "+n(y);
+      out.push('<path d="'+d+'" fill="none" stroke="'+t[(group+ring)%4]+'" stroke-width="'+(13+(ring%2)*5)+'" opacity="'+(.58+(ring%3)*.09)+'"/>');
     }
-  }
+  });
   return out.join("");
 }
 
 function renderDiagonalRibbons(t) {
   const out=[];
-  for(let i=0;i<19;i++){
-    const x=-360+i*88;
-    const width=13+(i%5)*3;
-    const d="M "+n(x)+" 680 C "+n(x+110)+" 490 "+n(x+145)+" 280 "+n(x+270)+" -80";
-    out.push(svgPath(d,t[4],width+20,.43,"softGlow"));
-    out.push(svgPath(d,t[i%4],width,.88));
-    out.push(svgPath("M "+n(x+width*1.15)+" 660 C "+n(x+110+width*1.15)+" 480 "+n(x+145+width*1.15)+" 270 "+n(x+270+width*1.15)+" -60",t[0],2,.82));
-  }
-  for(let i=0;i<8;i++){
-    const x=30+i*165;
-    out.push(svgPath("M "+x+" 0 L "+(x+270)+" 600",t[1],1,.28));
+  for(let i=0;i<12;i++){
+    const x=-320+i*142;
+    const width=19+(i%4)*5;
+    const d="M "+n(x)+" 680 C "+n(x+130)+" 475 "+n(x+150)+" 210 "+n(x+330)+" -80";
+    out.push(svgPath(d,t[i%4],width,.82));
   }
   return out.join("");
 }
 
 function renderDiamondLattice(t) {
   const out=[];
-  for(let row=0;row<11;row++){
-    for(let col=-1;col<18;col++){
-      const x=col*72+(row%2)*36;
-      const y=17+row*55;
-      const scale=.58+((Math.sin(col*.37+row*.61)+1)*.5)*.48;
-      const halfW=27*scale,halfH=15*scale;
+  for(let row=0;row<8;row++){
+    for(let col=-1;col<14;col++){
+      const x=col*84+(row%2)*42;
+      const y=25+row*77;
+      const scale=.78+((Math.sin(col*.34+row*.53)+1)*.5)*.27;
+      const halfW=31*scale,halfH=23*scale;
       const points=[
         n(x-halfW)+","+n(y),
         n(x)+","+n(y-halfH),
         n(x+halfW)+","+n(y),
         n(x)+","+n(y+halfH)
       ].join(" ");
-      out.push(svgPolygon(points,t[(row+col+30)%4],.82));
-      if((row+col)%4===0){
-        const facets=[n(x-halfW)+","+n(y),n(x)+","+n(y-halfH),n(x)+","+n(y)].join(" ");
-        out.push(svgPolygon(facets,t[0],.82));
-      }
+      out.push(svgPolygon(points,t[(row+col+20)%4],.82));
     }
   }
   return out.join("");
@@ -197,44 +157,37 @@ function renderDiamondLattice(t) {
 
 function renderVerticalZigzags(t) {
   const out=[];
-  for(let col=0;col<25;col++){
-    const x=18+col*50;
-    const amp=7+(col%5)*3;
-    const d="M "+n(x)+" -30"+
-      " C "+n(x-amp)+" 65 "+n(x+amp)+" 115 "+n(x)+" 180"+
-      " S "+n(x-amp)+" 300 "+n(x)+" 365"+
-      " S "+n(x+amp)+" 485 "+n(x)+" 545"+
-      " S "+n(x-amp)+" 650 "+n(x)+" 660";
-    const width=7+(col%4)*3;
-    out.push(svgPath(d,t[4],width+11,.4,"softGlow"));
-    out.push(svgPath(d,t[col%4],width,.93));
-    if(col%2===0) out.push(svgPath(d,t[0],1.5,.76));
+  for(let col=0;col<15;col++){
+    const x=32+col*82;
+    const amp=11+(col%4)*4;
+    const d="M "+n(x)+" -40"+
+      " C "+n(x-amp)+" 80 "+n(x+amp)+" 165 "+n(x)+" 275"+
+      " S "+n(x-amp)+" 455 "+n(x)+" 640";
+    out.push(svgPath(d,t[col%4],13+(col%3)*3,.88));
   }
   return out.join("");
 }
 
 function renderModularMaze(t) {
   const out=[];
-  const cellW=76,cellH=72;
-  for(let row=0;row<9;row++){
-    for(let col=0;col<17;col++){
-      const x=col*cellW-8,y=row*cellH-8;
-      const key=(row*17+col);
-      const mode=(row*7+col*11+(row*col)%9)%6;
-      const length=28+((row*13+col*17)%43);
-      const thickness=5+((row+col)%4)*2;
+  const cellW=104,cellH=76;
+  for(let row=0;row<8;row++){
+    for(let col=0;col<12;col++){
+      const x=col*cellW-12,y=row*cellH-10;
+      const mode=(row*5+col*7+(row*col)%5)%4;
+      const length=38+((row*11+col*13)%34);
+      const thickness=10+((row+col)%3)*3;
       const color=t[(row+col*2)%4];
-      if(mode===0||mode===2||mode===4){
-        out.push(svgRect(x,y+16,length,thickness,color,.9,thickness/2));
-        out.push(svgRect(x+length-5,y+16,thickness,35,t[(row+col+1)%4],.82,thickness/2));
-      }else if(mode===1||mode===3){
-        out.push(svgRect(x+18,y,thickness,length,color,.88,thickness/2));
-        out.push(svgRect(x+18,y+length-5,38,thickness,t[(row+col+2)%4],.78,thickness/2));
+      if(mode===0){
+        out.push(svgPath("M "+n(x)+" "+n(y+18)+" H "+n(x+length)+" V "+n(y+59),color,thickness,.86));
+      }else if(mode===1){
+        out.push(svgPath("M "+n(x+18)+" "+n(y)+" V "+n(y+length)+" H "+n(x+76),color,thickness,.86));
+      }else if(mode===2){
+        out.push(svgRect(x+12,y+20,length+28,thickness,color,.84,thickness/2));
       }else{
-        const d="M "+n(x)+" "+n(y+12)+" H "+n(x+length)+" V "+n(y+48)+" H "+n(x+length+28);
-        out.push(svgPath(d,color,thickness,.9));
+        const points=[n(x+12)+","+n(y+14),n(x+72)+","+n(y+14),n(x+72)+","+n(y+62),n(x+12)+","+n(y+62)].join(" ");
+        out.push(svgPolygon(points,color,.76));
       }
-      if(key%7===0) out.push(svgRect(x+42,y+44,16,5,t[0],.65,2));
     }
   }
   return out.join("");
@@ -245,8 +198,8 @@ const PATTERN_RENDERERS = Object.freeze({
   prism: renderSteppedBlocks,
   nebula: renderHalftone,
   sunset: renderWaveContours,
-  crystal: renderChevronField,
-  horizon: renderHorizontalStripes,
+  crystal: renderOrganicContours,
+  horizon: renderOrbitalArcs,
   ribbons: renderDiagonalRibbons,
   velvet: renderDiamondLattice,
   orbit: renderVerticalZigzags,
@@ -309,10 +262,8 @@ export function getBannerGradient(color,templateId="aurora",fallbackAccent="#8B5
     '<radialGradient id="ambient"><stop stop-color="'+tones[2]+'" stop-opacity=".18"/><stop offset="1" stop-color="'+tones[2]+'" stop-opacity="0"/></radialGradient>'+
     '<filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="8"/></filter>'+
     '<filter id="softGlowWide" x="-45%" y="-45%" width="190%" height="190%"><feGaussianBlur stdDeviation="16"/></filter>'+
-    '<pattern id="microGrid" width="36" height="36" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".7" fill="'+tones[0]+'" opacity=".1"/></pattern>'+
     '</defs><rect width="1200" height="600" fill="url(#base)"/>'+
     '<ellipse cx="600" cy="300" rx="760" ry="380" fill="url(#ambient)"/>'+
-    '<rect width="1200" height="600" fill="url(#microGrid)" opacity=".7"/>'+
     '<g>'+pattern+'</g>'+
     '<rect width="1200" height="600" fill="url(#shade)"/>'+
     '<rect x="1" y="1" width="1198" height="598" rx="20" fill="none" stroke="'+tones[0]+'" stroke-opacity=".12" stroke-width="2"/>'+
