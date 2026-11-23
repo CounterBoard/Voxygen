@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseTerritoryAwardCommand, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
+import { parseTerritoryAwardCommand, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
 
 const cities=[
   {id:"city-1",name:"Новая Территория"},
@@ -38,16 +38,23 @@ test("Telegram emoji matching normalizes presentation selectors but preserves th
   assert.notEqual(normalizeTelegramEmoji("👍🏻"),normalizeTelegramEmoji("👍🏿"));
 });
 
-test("Telegram emoji preview lookup selects the sticker with the matching emoji",()=>{
+test("Telegram emoji lookup only accepts matching AnimatedEmojies TGS stickers",()=>{
   const stickers=[
-    {emoji:"❤️",file_id:"heart-red"},
-    {emoji:"🏆",file_id:"trophy-gold"},
-    {emoji:"👍🏻",file_id:"thumb-light"},
+    {emoji:"❤️",file_id:"heart-static",is_animated:false,is_video:false,thumbnail:{file_id:"heart-static-thumb"}},
+    {emoji:"❤️",file_id:"heart-tgs",is_animated:true,is_video:false,thumbnail:{file_id:"heart-tgs-thumb"}},
+    {emoji:"🏆",file_id:"trophy-static",is_animated:false,is_video:false},
+    {emoji:"👍🏻",file_id:"thumb-video",is_animated:false,is_video:true},
+    {emoji:"🎉",file_id:"confetti-tgs",is_animated:true,is_video:false,thumbnail:{file_id:"confetti-thumb"}},
   ];
-  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"❤")?.file_id,"heart-red");
-  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🏆")?.file_id,"trophy-gold");
+  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"❤")?.file_id,"heart-tgs");
+  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🏆"),null,"static matches are rejected");
+  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"👍🏻"),null,"video stickers are rejected");
+  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🎉")?.file_id,"confetti-tgs");
   assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🏅"),null);
   assert.equal(findTelegramAnimatedEmojiSticker([], "🏆"),null);
+  assert.equal(getTelegramAnimatedEmojiPreview(stickers[1])?.file_id,"heart-tgs-thumb");
+  assert.equal(getTelegramAnimatedEmojiPreview(stickers[0]),null,"static duplicate preview is rejected");
+  assert.equal(getTelegramAnimatedEmojiPreview(stickers[4])?.file_id,"confetti-thumb");
 });
 
 test("Telegram animated emoji accepts TGS stickers but excludes static and video stickers",()=>{
