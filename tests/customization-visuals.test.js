@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { BANNER_GRADIENT_TEMPLATES, getBannerGradient, getBannerGradientTones, getRandomBannerGradientId, formatDiscountRemaining } from "../shared/customization-visuals.js";
 
 function decodeGradient(value) {
-  const match=String(value).match(/data:image\\/svg\\+xml,([^"]+)/);
+  const match=String(value).match(/data:image\/svg\+xml,([^"]+)/);
   assert.ok(match,"Gradient should contain an encoded SVG data URL");
   return decodeURIComponent(match[1]);
 }
@@ -40,7 +40,7 @@ test("all ten templates generate distinct and detailed abstract SVG compositions
   assert.equal(new Set(svgs).size,10,"all ten templates must have distinct geometries");
   for(const svg of svgs){
     assert.match(svg,/viewBox="0 0 1200 600"/);
-    const marks=(svg.match(/<(?:path|rect|circle|polygon)\\b/g)||[]).length;
+    const marks=(svg.match(/<(?:path|rect|circle|polygon)\b/g)||[]).length;
     assert.ok(marks>=55,"every abstract pattern must contain sufficient vector detail");
     assert.match(svg,/linearGradient id="base"/);
     assert.match(svg,/feGaussianBlur/);
@@ -67,7 +67,7 @@ test("banner tone family stays close to the selected territory colour",()=>{
 });
 test("unselected banner colour and unknown template retain safe fallbacks",()=>{
   assert.match(getBannerGradient("none","aurora","#22C55E"),/#22C55E66/);
-  assert.match(getBannerGradient("unknown","missing"),/^url\\("data:image\\/svg\\+xml,/);
+  assert.match(getBannerGradient("unknown","missing"),/^url\("data:image\/svg\+xml,/);
 });
 test("discount timer uses compact hours and minutes and rounds up partial minutes",()=>{
   const now=1_000_000;
