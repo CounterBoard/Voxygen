@@ -682,10 +682,10 @@ test('toast remains content-sized with 12px horizontal padding', () => {
 
 test('equipped inventory visuals use a Mint image outline without a check badge', () => {
   const grid = app.slice(app.indexOf('function InventoryGrid('), app.indexOf('function RecruitmentManagement('));
-  assert.ok(grid.includes("border:equipped?'2px solid var(--theme-color-status-success)':'1px solid var(--theme-color-border)'"));
+  assert.ok(grid.includes("border:equipped?'2px solid #6EE7B7':'1px solid var(--theme-color-border)'"));
   assert.doesNotMatch(grid, /<Check size=\{11\}\/>/);
   assert.ok(grid.includes("objectFit:imageFit"));
-  assert.ok(app.includes('#root .atlas-root .atlas-inventory-image--equipped{border:2px solid var(--theme-color-status-success)!important;outline:2px solid var(--theme-color-status-success);outline-offset:-2px;}'));
+  assert.ok(app.includes('#root .atlas-root .atlas-inventory-image--equipped{border:2px solid #6EE7B7!important;outline:none!important;box-shadow:inset 0 0 0 1px rgba(110,231,183,.2),0 0 0 1px rgba(110,231,183,.12)!important;}'));
   assert.doesNotMatch(grid, /MinecraftText as="div" text=\{item\.name\}/);
 });
 
@@ -742,7 +742,7 @@ test('territory profile includes awards inventory, Telegram emoji previews and 5
   assert.ok(app.includes("String(date.getDate()).padStart(2,'0')"));
   assert.ok(app.includes("String(date.getMonth()+1).padStart(2,'0')"));
   assert.ok(detail.includes('formatTerritoryAwardDate(selectedTerritoryAward.awarded_at)'),'Award modal shows the date as DD.MM.YYYY');
-  assert.ok(detail.includes('TelegramEmoji emoji={award.emoji} size={28}'),'Banner uses Telegram emoji previews when available');
+  assert.ok(detail.includes('TelegramEmoji emoji={award.emoji} size={36}'),'Banner uses larger Telegram emoji previews');
   assert.ok(detail.includes('TelegramEmoji emoji={selectedTerritoryAward.emoji} size={44}'),'Award detail popup uses Telegram emoji previews');
 });
 test('visual color palettes are horizontally centered in editor, creation form and filters', () => {
@@ -909,5 +909,5 @@ test('equipped award feedback is one-based and removal feedback is an error toas
   assert.ok(city.includes("`Награда установлена в слот ${nextSlot}`"));
   assert.ok(city.includes("setNotice('Награда снята')"));
   assert.ok(city.includes("setNoticeType('error')"));
-  assert.ok(city.includes('disabled={readOnly||Boolean(awardBusyId)}'));
+  assert.ok(city.includes('disabled={readOnly||Boolean(awardBusyId&&String(awardBusyId)===String(award.id))}'));
 });
