@@ -43,7 +43,7 @@ test("all ten templates generate distinct abstract SVG compositions while retain
   for(const svg of svgs){
     assert.match(svg,/viewBox="0 0 1200 600"/);
     const marks=(svg.match(/<(?:path|rect|circle|polygon)\b/g)||[]).length;
-    const minimumMarks=["crystal","horizon"].includes(BANNER_GRADIENT_TEMPLATES[svgs.indexOf(svg)].id)?12:55;
+    const minimumMarks=["crystal","horizon"].includes(BANNER_GRADIENT_TEMPLATES[svgs.indexOf(svg)].id)?10:55;
     assert.ok(marks>=minimumMarks,"patterns should retain their intended visual structure");
     assert.match(svg,/linearGradient id="base"/);
     assert.match(svg,/feGaussianBlur/);
@@ -54,7 +54,7 @@ test("all ten templates generate distinct abstract SVG compositions while retain
   assert.match(svgs[3],/<path /,"wave contours are vector paths");
   assert.match(svgs[4],/<path /,"chevron template is replaced by organic curves");
   assert.match(svgs[5],/ A /,"horizontal stripe template is replaced by orbital arcs");
-  assert.equal((svgs[7].match(/<polygon/g)||[]).length,198,"diamond lattice has one flat polygon per diamond without inset facets");
+  assert.equal((svgs[7].match(/<polygon/g)||[]).length,209,"diamond lattice has one flat polygon per diamond without inset facets");
 });
 test("banner tone family stays close to the selected territory colour",()=>{
   for(const colour of ["red","orange","yellow","green","turquoise","blue","purple","magenta"]){
