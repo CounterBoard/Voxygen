@@ -262,7 +262,7 @@ function loadTelegramEmojiAnimation(emoji) {
   if(cached)return cached;
   const request=fetch(API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&format=animation&v=4')
     .then(response=>{if(!response.ok)throw new Error('AnimatedEmojies sticker unavailable');return response.json();})
-    .then(data=>{if(!data||!Array.isArray(data.layers)||!Number(data.op)>Number(data.ip))throw new Error('Invalid AnimatedEmojies TGS');return data;})
+    .then(data=>{if(!data||!Array.isArray(data.layers)||!(Number(data.op)>Number(data.ip)))throw new Error('Invalid AnimatedEmojies TGS');return data;})
     .catch(error=>{if(telegramEmojiAnimationCache.get(value)===request)telegramEmojiAnimationCache.delete(value);throw error;});
   telegramEmojiAnimationCache.set(value,request);
   if(telegramEmojiAnimationCache.size>64){const oldest=telegramEmojiAnimationCache.keys().next().value;if(oldest!==value)telegramEmojiAnimationCache.delete(oldest);}
