@@ -311,7 +311,7 @@ function TelegramEmoji({emoji,size=32,style={}}) {
     {renderMode==='unicode'&&<span aria-hidden="true" style={{fontSize:size*.94,lineHeight:1}}>{value}</span>}
     <img key={value} src={API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&v=2'} alt=""
       onLoad={()=>{imageLoadedRef.current=true;setRenderMode(mode=>mode==='fallback'?'image':mode);}}
-      onError={()=>{imageLoadedRef.current=false;setRenderMode(mode=>mode==='image'?'unicode':mode);}}
+      onError={()=>{imageLoadedRef.current=false;setRenderMode(mode=>mode==='image'||mode==='fallback'?'unicode':mode);}}
       style={{display:renderMode==='image'?'block':'none',position:'absolute',inset:0,width:'108%',height:'108%',maxWidth:'none',objectFit:'contain',transform:'translate(-3.7%,-3.7%)'}}/>
     <div ref={animationRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',visibility:renderMode==='animation'?'visible':'hidden',transform:'scale(1.08)'}}/>
   </span>;
