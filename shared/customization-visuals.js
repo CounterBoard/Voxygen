@@ -4,68 +4,254 @@ const BANNER_PALETTE = Object.freeze({
 });
 
 export const BANNER_GRADIENT_TEMPLATES = Object.freeze([
-  { id: "aurora", label: "Северное сияние" }, { id: "prism", label: "Призма" },
-  { id: "nebula", label: "Туманность" }, { id: "sunset", label: "Закат" },
-  { id: "crystal", label: "Кристалл" }, { id: "horizon", label: "Горизонт" },
-  { id: "ribbons", label: "Ленты" }, { id: "velvet", label: "Бархат" },
-  { id: "orbit", label: "Орбита" }, { id: "flare", label: "Вспышка" },
+  { id: "aurora", label: "Пиксельная мозаика" }, { id: "prism", label: "Ступенчатые блоки" },
+  { id: "nebula", label: "Полутоновое поле" }, { id: "sunset", label: "Волновые контуры" },
+  { id: "crystal", label: "Шевронный ритм" }, { id: "horizon", label: "Горизонтальные штрихи" },
+  { id: "ribbons", label: "Диагональные ленты" }, { id: "velvet", label: "Ромбическая решётка" },
+  { id: "orbit", label: "Вертикальные зигзаги" }, { id: "flare", label: "Модульный лабиринт" },
 ]);
 
-// Each template describes a deliberate composition of flowing vector ribbons.
-// Color is derived from the selected palette color; templates never randomize hues.
-const GRADIENT_SHAPES = Object.freeze({
-  aurora: [
-    "M-80 390 C120 260 230 290 390 355 S650 490 820 360 S1080 175 1280 260",
-    "M-90 300 C110 170 250 205 410 280 S665 420 830 290 S1080 100 1280 185",
-    "M-80 470 C150 350 280 365 440 425 S680 555 860 430 S1090 270 1280 345",
-  ],
-  prism: [
-    "M-80 120 C180 250 280 440 500 430 S830 100 1280 180",
-    "M-80 210 C170 340 300 520 520 510 S850 180 1280 270",
-    "M-80 35 C170 160 300 350 520 345 S850 25 1280 105",
-  ],
-  nebula: [
-    "M-80 430 C150 330 230 100 460 145 S760 470 930 380 S1120 190 1280 230",
-    "M-80 510 C160 410 260 190 480 230 S770 545 950 455 S1120 280 1280 315",
-    "M-80 340 C150 245 245 25 450 75 S745 370 920 285 S1110 100 1280 145",
-  ],
-  sunset: [
-    "M-80 455 C160 360 260 380 410 420 C600 470 690 320 830 270 S1080 230 1280 300",
-    "M-80 510 C160 420 260 440 420 480 C600 525 700 380 850 330 S1080 290 1280 360",
-    "M-80 380 C150 285 260 305 405 350 C590 405 680 255 820 205 S1080 165 1280 230",
-  ],
-  crystal: [
-    "M-80 350 C130 180 270 175 410 300 S650 515 790 365 S1050 120 1280 250",
-    "M-80 440 C130 270 280 265 425 390 S660 590 810 450 S1060 220 1280 335",
-    "M-80 260 C130 90 260 85 395 205 S640 425 775 270 S1040 35 1280 155",
-  ],
-  horizon: [
-    "M-80 360 C180 330 300 340 440 355 S700 380 850 350 S1100 320 1280 345",
-    "M-80 430 C180 400 300 410 440 425 S700 450 850 420 S1100 390 1280 415",
-    "M-80 285 C180 255 300 265 440 280 S700 305 850 275 S1100 245 1280 270",
-  ],
-  ribbons: [
-    "M-80 520 C150 400 240 170 440 205 S730 520 910 390 S1100 100 1280 135",
-    "M-80 445 C150 325 250 95 450 130 S740 445 920 315 S1110 25 1280 60",
-    "M-80 590 C150 470 230 245 430 280 S720 590 900 465 S1100 175 1280 210",
-  ],
-  velvet: [
-    "M-80 180 C140 260 240 480 450 465 S750 160 930 185 S1120 330 1280 290",
-    "M-80 265 C140 345 250 565 465 550 S760 245 945 270 S1120 415 1280 375",
-    "M-80 95 C140 175 235 390 435 380 S740 75 915 100 S1120 245 1280 205",
-  ],
-  orbit: [
-    "M-80 430 C100 130 340 40 570 150 S900 540 1120 390 S1210 240 1280 180",
-    "M-80 500 C120 200 355 110 590 220 S915 610 1140 460 S1220 310 1280 250",
-    "M-80 350 C80 55 325 -35 550 75 S880 465 1100 315 S1200 165 1280 105",
-  ],
-  flare: [
-    "M-80 500 C150 440 300 300 470 270 S760 260 900 180 S1100 65 1280 40",
-    "M-80 570 C150 510 300 370 485 340 S770 330 915 250 S1110 135 1280 110",
-    "M-80 420 C150 360 290 220 455 190 S750 180 885 100 S1090 -15 1280 -40",
-  ],
-});
+// Each stable template ID now describes a distinct generative geometry family.
+// Colour is derived only from the selected territory colour.
+function n(value) { return Number(value.toFixed(1)); }
+function svgRect(x,y,width,height,fill,opacity=1,radius=0) {
+  return '<rect x="' + n(x) + '" y="' + n(y) + '" width="' + n(width) + '" height="' + n(height) + '" rx="' + n(radius) + '" fill="' + fill + '" opacity="' + opacity + '"/>';
+}
+function svgPath(d,stroke,width,opacity=1,filter="") {
+  return '<path d="' + d + '" fill="none" stroke="' + stroke + '" stroke-width="' + n(width) + '" stroke-linecap="round" stroke-linejoin="round" opacity="' + opacity + '"' + (filter ? ' filter="url(#' + filter + ')"' : '') + '/>';
+}
+function svgPolygon(points,fill,opacity=1) {
+  return '<polygon points="' + points + '" fill="' + fill + '" opacity="' + opacity + '"/>';
+}
 
+function renderPixelMosaic(t) {
+  const out = [];
+  const colors = [t[0],t[1],t[2],t[3]];
+  for (let row=0;row<18;row++) {
+    for (let col=0;col<38;col++) {
+      const wave=Math.sin(col*.43+row*.31)*.42+Math.cos(row*.7-col*.19)*.36+Math.sin((col-row)*.16)*.22;
+      const diagonal=Math.exp(-Math.pow((col-row*1.34-10)/10,2));
+      const density=.24+diagonal*.52+(wave+.2)*.19;
+      if (((Math.sin(col*1.7+row*.93)+Math.cos(col*.31-row*1.1))*.5+0.55)>density) {
+        const scale=.42+((Math.sin(col*.8+row*1.31)+1)*.25);
+        const w=13+scale*17;
+        const h=12+scale*18;
+        const x=col*32+(32-w)/2;
+        const y=row*34+(34-h)/2;
+        const color=colors[Math.abs((col*3+row*5+Math.round(w)))%colors.length];
+        const opacity=.42+Math.max(0,wave)*.42;
+        out.push(svgRect(x,y,w,h,color,opacity,Math.min(3,scale*3)));
+        if ((col+row)%11===0) out.push(svgRect(x+4,y+4,Math.max(3,w*.18),Math.max(3,h*.18),t[0],.8,1));
+      }
+    }
+  }
+  return out.join("");
+}
+
+function renderSteppedBlocks(t) {
+  const out=[];
+  for(let row=0;row<10;row++){
+    const y=22+row*58;
+    const offset=(row%2)*27+Math.sin(row*.8)*13;
+    let x=-36+offset;
+    let run=0;
+    while(x<1240){
+      const wave=Math.sin(row*1.13+run*.74);
+      const width=66+((Math.cos(row*.8+run*1.41)+1)*.5)*126;
+      const height=9+((Math.sin(row*.62+run*.9)+1)*.5)*13;
+      const color=t[(row+run)%4];
+      out.push(svgRect(x,y+wave*11,width,height,color,.78,Math.min(4,height/3)));
+      out.push(svgRect(x+10,y+wave*11+height+3,width*.42,2,t[(row+run+1)%4],.5,1));
+      if(run%3===0) out.push(svgRect(x+width-7,y-12,5,18,t[0],.52,2));
+      x+=width+28+((row+run)%3)*9;
+      run++;
+    }
+    out.push(svgPath("M 0 "+n(y+30)+" H 1200",t[4],1,.24));
+  }
+  return out.join("");
+}
+
+function renderHalftone(t) {
+  const out=[];
+  for(let row=0;row<19;row++){
+    for(let col=0;col<39;col++){
+      const x=15+col*31;
+      const y=14+row*32;
+      const dx=(col-19)/19,dy=(row-9)/9;
+      const radial=Math.max(0,1-Math.sqrt(dx*dx*.75+dy*dy*.62));
+      const ripple=(Math.sin(col*.57+row*.28)+Math.cos(row*.77-col*.24)+2)/4;
+      const radius=1.7+radial*7.2+ripple*2.6;
+      const color=t[(Math.floor(radial*3)+col%2)%4];
+      out.push('<circle cx="'+n(x)+'" cy="'+n(y)+'" r="'+n(radius)+'" fill="'+color+'" opacity="'+n(.32+radial*.48)+'"/>');
+      if(radius>8.4 && (row+col)%3===0) out.push('<circle cx="'+n(x)+'" cy="'+n(y)+'" r="'+n(radius*.42)+'" fill="'+t[4]+'" opacity=".45"/>');
+    }
+  }
+  return out.join("");
+}
+
+function renderWaveContours(t) {
+  const out=[];
+  for(let i=0;i<22;i++){
+    const y=10+i*27;
+    const amp=10+(i%4)*5;
+    const phase=i*.56;
+    const d="M -40 "+n(y)+
+      " C 130 "+n(y-amp)+ " 210 "+n(y+amp)+" 340 "+n(y)+
+      " S 535 "+n(y-amp*1.1)+" 660 "+n(y)+
+      " S 850 "+n(y+amp*1.15)+" 970 "+n(y)+
+      " S 1120 "+n(y-amp*.85)+" 1240 "+n(y+Math.sin(phase)*4);
+    out.push(svgPath(d,t[4],18,.34,"softGlow"));
+    out.push(svgPath(d,t[(i+1)%4],7+(i%3)*2,.92));
+    if(i%2===0) out.push(svgPath(d,t[0],1.8,.9));
+  }
+  return out.join("");
+}
+
+function renderChevronField(t) {
+  const out=[];
+  for(let row=0;row<9;row++){
+    const cy=34+row*68;
+    const skew=(row%2)*35;
+    for(let col=-1;col<13;col++){
+      const x=col*104+skew;
+      const width=76+(Math.sin(row*.72+col*.4)+1)*14;
+      const height=18+(Math.cos(col*.61-row*.33)+1)*8;
+      const points=[
+        n(x)+","+n(cy),
+        n(x+width*.48)+","+n(cy-height),
+        n(x+width)+","+n(cy),
+        n(x+width*.48)+","+n(cy+height),
+        n(x+width*.24)+","+n(cy+height*.43),
+        n(x+width*.63)+","+n(cy)
+      ].join(" ");
+      out.push(svgPolygon(points,t[(row+col+40)%4],.86));
+      if((row+col)%3===0){
+        const inner=[n(x+width*.3)+","+n(cy),n(x+width*.48)+","+n(cy-height*.38),n(x+width*.66)+","+n(cy)].join(" ");
+        out.push(svgPolygon(inner,t[0],.76));
+      }
+    }
+  }
+  return out.join("");
+}
+
+function renderHorizontalStripes(t) {
+  const out=[];
+  for(let row=0;row<23;row++){
+    const y=12+row*26;
+    let x=-20+((row*47)%190);
+    let segment=0;
+    while(x<1230){
+      const modulation=(Math.sin(row*.52+segment*.91)+1)/2;
+      const width=48+modulation*210+((segment+row)%4)*19;
+      const height=3+((Math.cos(row*.38+segment*.73)+1)*.5)*7;
+      const color=t[(row+segment)%4];
+      out.push(svgRect(x,y,width,height,color,.45+modulation*.5,height/2));
+      if(segment%3===0) out.push(svgRect(x+width*.68,y+height+4,width*.2,2,t[0],.56,1));
+      x+=width+13+((row*segment)%18);
+      segment++;
+    }
+  }
+  return out.join("");
+}
+
+function renderDiagonalRibbons(t) {
+  const out=[];
+  for(let i=0;i<19;i++){
+    const x=-360+i*88;
+    const width=13+(i%5)*3;
+    const d="M "+n(x)+" 680 C "+n(x+110)+" 490 "+n(x+145)+" 280 "+n(x+270)+" -80";
+    out.push(svgPath(d,t[4],width+20,.43,"softGlow"));
+    out.push(svgPath(d,t[i%4],width,.88));
+    out.push(svgPath("M "+n(x+width*1.15)+" 660 C "+n(x+110+width*1.15)+" 480 "+n(x+145+width*1.15)+" 270 "+n(x+270+width*1.15)+" -60",t[0],2,.82));
+  }
+  for(let i=0;i<8;i++){
+    const x=30+i*165;
+    out.push(svgPath("M "+x+" 0 L "+(x+270)+" 600",t[1],1,.28));
+  }
+  return out.join("");
+}
+
+function renderDiamondLattice(t) {
+  const out=[];
+  for(let row=0;row<11;row++){
+    for(let col=-1;col<18;col++){
+      const x=col*72+(row%2)*36;
+      const y=17+row*55;
+      const scale=.58+((Math.sin(col*.37+row*.61)+1)*.5)*.48;
+      const halfW=27*scale,halfH=15*scale;
+      const points=[
+        n(x-halfW)+","+n(y),
+        n(x)+","+n(y-halfH),
+        n(x+halfW)+","+n(y),
+        n(x)+","+n(y+halfH)
+      ].join(" ");
+      out.push(svgPolygon(points,t[(row+col+30)%4],.82));
+      if((row+col)%4===0){
+        const facets=[n(x-halfW)+","+n(y),n(x)+","+n(y-halfH),n(x)+","+n(y)].join(" ");
+        out.push(svgPolygon(facets,t[0],.82));
+      }
+    }
+  }
+  return out.join("");
+}
+
+function renderVerticalZigzags(t) {
+  const out=[];
+  for(let col=0;col<25;col++){
+    const x=18+col*50;
+    const amp=7+(col%5)*3;
+    const d="M "+n(x)+" -30"+
+      " C "+n(x-amp)+" 65 "+n(x+amp)+" 115 "+n(x)+" 180"+
+      " S "+n(x-amp)+" 300 "+n(x)+" 365"+
+      " S "+n(x+amp)+" 485 "+n(x)+" 545"+
+      " S "+n(x-amp)+" 650 "+n(x)+" 660";
+    const width=7+(col%4)*3;
+    out.push(svgPath(d,t[4],width+11,.4,"softGlow"));
+    out.push(svgPath(d,t[col%4],width,.93));
+    if(col%2===0) out.push(svgPath(d,t[0],1.5,.76));
+  }
+  return out.join("");
+}
+
+function renderModularMaze(t) {
+  const out=[];
+  const cellW=76,cellH=72;
+  for(let row=0;row<9;row++){
+    for(let col=0;col<17;col++){
+      const x=col*cellW-8,y=row*cellH-8;
+      const key=(row*17+col);
+      const mode=(row*7+col*11+(row*col)%9)%6;
+      const length=28+((row*13+col*17)%43);
+      const thickness=5+((row+col)%4)*2;
+      const color=t[(row+col*2)%4];
+      if(mode===0||mode===2||mode===4){
+        out.push(svgRect(x,y+16,length,thickness,color,.9,thickness/2));
+        out.push(svgRect(x+length-5,y+16,thickness,35,t[(row+col+1)%4],.82,thickness/2));
+      }else if(mode===1||mode===3){
+        out.push(svgRect(x+18,y,thickness,length,color,.88,thickness/2));
+        out.push(svgRect(x+18,y+length-5,38,thickness,t[(row+col+2)%4],.78,thickness/2));
+      }else{
+        const d="M "+n(x)+" "+n(y+12)+" H "+n(x+length)+" V "+n(y+48)+" H "+n(x+length+28);
+        out.push(svgPath(d,color,thickness,.9));
+      }
+      if(key%7===0) out.push(svgRect(x+42,y+44,16,5,t[0],.65,2));
+    }
+  }
+  return out.join("");
+}
+
+const PATTERN_RENDERERS = Object.freeze({
+  aurora: renderPixelMosaic,
+  prism: renderSteppedBlocks,
+  nebula: renderHalftone,
+  sunset: renderWaveContours,
+  crystal: renderChevronField,
+  horizon: renderHorizontalStripes,
+  ribbons: renderDiagonalRibbons,
+  velvet: renderDiamondLattice,
+  orbit: renderVerticalZigzags,
+  flare: renderModularMaze,
+});
 function hexToRgb(value) {
   const match=String(value||"").match(/^#?([0-9a-f]{6})$/i);
   if(!match)return null;
@@ -91,37 +277,48 @@ export function getRandomBannerGradientId(random=Math.random) {
   return BANNER_GRADIENT_TEMPLATES[Math.floor(safe*BANNER_GRADIENT_TEMPLATES.length)].id;
 }
 
+export function getBannerGradientTones(color) {
+  const normalized=String(color||"none").trim().toLowerCase();
+  const base=hexToRgb(BANNER_PALETTE[normalized])||hexToRgb(BANNER_PALETTE.purple);
+  return [
+    toHex(blendRgb(base,[255,255,255],0.32)),
+    toHex(shiftHue(base,-9)),
+    toHex(base),
+    toHex(shiftHue(base,9)),
+    toHex(blendRgb(base,[7,8,20],0.38)),
+  ];
+}
+
 export function getBannerGradient(color,templateId="aurora",fallbackAccent="#8B5CF6") {
   const normalized=String(color||"none").trim().toLowerCase();
   if(normalized==="none"){
     const accent=hexToRgb(fallbackAccent)?fallbackAccent:"#8B5CF6";
-    return `linear-gradient(160deg, ${accent}66, ${accent}22 72%, var(--theme-color-surface) 100%)`;
+    return "linear-gradient(160deg, " + accent + "66, " + accent + "22 72%, var(--theme-color-surface) 100%)";
   }
   const base=hexToRgb(BANNER_PALETTE[normalized])||hexToRgb(BANNER_PALETTE.purple);
-  const shape=GRADIENT_SHAPES[String(templateId||"aurora")]||GRADIENT_SHAPES.aurora;
-  const tones=[
-    toHex(blendRgb(base,[255,255,255],0.48)),
-    toHex(shiftHue(base,-24)),
-    toHex(base),
-    toHex(shiftHue(base,22)),
-  ];
-  const paths=shape.map((d,index)=>{
-    const color=tones[index+1];
-    const width=[178,118,62][index];
-    const opacity=[0.16,0.28,0.68][index];
-    return `<path d="${d}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round" opacity="${opacity}" filter="url(#blur)"/><path d="${d}" fill="none" stroke="url(#ribbon${index})" stroke-width="${Math.max(18,width*0.34)}" stroke-linecap="round" opacity="${[0.24,0.42,0.76][index]}" filter="url(#ribbonBlur)"/>`;
-  }).join("");
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice"><defs>
-    <linearGradient id="ribbon0" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${tones[0]}"/><stop offset=".48" stop-color="${tones[1]}"/><stop offset="1" stop-color="${tones[2]}"/></linearGradient>
-    <linearGradient id="ribbon1" x1="0" y1="1" x2="1" y2="0"><stop stop-color="${tones[1]}"/><stop offset=".52" stop-color="${tones[2]}"/><stop offset="1" stop-color="${tones[3]}"/></linearGradient>
-    <linearGradient id="ribbon2" x1="0" y1="0" x2="1" y2="0"><stop stop-color="${tones[0]}"/><stop offset=".5" stop-color="${tones[2]}"/><stop offset="1" stop-color="${tones[3]}"/></linearGradient>
-    <filter id="blur" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="34"/></filter>
-    <filter id="ribbonBlur" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="11"/></filter>
-    <radialGradient id="ambient"><stop stop-color="${tones[2]}" stop-opacity=".22"/><stop offset="1" stop-color="${tones[2]}" stop-opacity="0"/></radialGradient>
-  </defs><rect width="1200" height="600" fill="#080D22"/><ellipse cx="590" cy="80" rx="720" ry="340" fill="url(#ambient)"/>${paths}<rect y="430" width="1200" height="170" fill="url(#shade)"/><defs><linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#080D22" stop-opacity="0"/><stop offset="1" stop-color="#080D22" stop-opacity=".62"/></linearGradient></defs></svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") center / cover no-repeat`;
+  const tones=getBannerGradientTones(normalized);
+  const renderer=PATTERN_RENDERERS[String(templateId||"aurora")]||PATTERN_RENDERERS.aurora;
+  const pattern=renderer(tones);
+  const background=toHex(blendRgb(base,[5,6,18],0.82));
+  const backgroundDeep=toHex(blendRgb(base,[3,4,12],0.9));
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice"><defs>'+
+    '<linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+background+'"/><stop offset=".52" stop-color="'+backgroundDeep+'"/><stop offset="1" stop-color="'+background+'"/></linearGradient>'+
+    '<linearGradient id="accent" x1="0" y1="0" x2="1" y2="1"><stop stop-color="'+tones[0]+'"/><stop offset=".34" stop-color="'+tones[1]+'"/><stop offset=".68" stop-color="'+tones[2]+'"/><stop offset="1" stop-color="'+tones[3]+'"/></linearGradient>'+
+    '<linearGradient id="accentReverse" x1="1" y1="0" x2="0" y2="1"><stop stop-color="'+tones[3]+'"/><stop offset=".52" stop-color="'+tones[2]+'"/><stop offset="1" stop-color="'+tones[0]+'"/></linearGradient>'+
+    '<linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop stop-color="'+background+'" stop-opacity="0"/><stop offset="1" stop-color="'+backgroundDeep+'" stop-opacity=".48"/></linearGradient>'+
+    '<radialGradient id="ambient"><stop stop-color="'+tones[2]+'" stop-opacity=".18"/><stop offset="1" stop-color="'+tones[2]+'" stop-opacity="0"/></radialGradient>'+
+    '<filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="8"/></filter>'+
+    '<filter id="softGlowWide" x="-45%" y="-45%" width="190%" height="190%"><feGaussianBlur stdDeviation="16"/></filter>'+
+    '<pattern id="microGrid" width="36" height="36" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".7" fill="'+tones[0]+'" opacity=".1"/></pattern>'+
+    '</defs><rect width="1200" height="600" fill="url(#base)"/>'+
+    '<ellipse cx="600" cy="300" rx="760" ry="380" fill="url(#ambient)"/>'+
+    '<rect width="1200" height="600" fill="url(#microGrid)" opacity=".7"/>'+
+    '<g>'+pattern+'</g>'+
+    '<rect width="1200" height="600" fill="url(#shade)"/>'+
+    '<rect x="1" y="1" width="1198" height="598" rx="20" fill="none" stroke="'+tones[0]+'" stroke-opacity=".12" stroke-width="2"/>'+
+    '</svg>';
+  return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") center / cover no-repeat';
 }
-
 export function formatDiscountRemaining(expiresAt,now=Date.now()) {
   const expires=Number(expiresAt),current=Number(now);
   if(!Number.isFinite(expires)||!Number.isFinite(current)||expires<=current)return "";
