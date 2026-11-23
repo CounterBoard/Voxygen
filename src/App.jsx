@@ -292,7 +292,7 @@ function TelegramEmoji({emoji,size=32,style={}}) {
     return ()=>{cancelled=true;if(fallbackTimer)clearTimeout(fallbackTimer);animation?.destroy();animationRef.current?.replaceChildren();};
   },[value]);
   if(!value)return null;
-  return <span role="img" aria-label={value} style={{width:size,height:size,display:'inline-flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto',position:'relative',overflow:'visible',animation:renderMode==='loading'?'none':'atlas-award-emoji-enter .32s cubic-bezier(.2,.8,.2,1) both',...style}}>
+  return <span role="img" aria-label={value} className="atlas-telegram-award-emoji" style={{width:size,height:size,display:'inline-flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto',position:'relative',overflow:'visible',animation:renderMode==='loading'?'none':'atlas-award-emoji-enter .32s cubic-bezier(.2,.8,.2,1) both',...style}}>
     {renderMode==='unicode'&&<span aria-hidden="true" style={{fontSize:size*.94,lineHeight:1}}>{value}</span>}
     <img key={value} src={API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&v=3'} alt=""
       onLoad={()=>{imageLoadedRef.current=true;setRenderMode(mode=>mode==='unicode'?'image':mode);}}
@@ -546,7 +546,7 @@ function FontsAndTheme() {
         @keyframes atlas-award-card-enter{0%{opacity:0;transform:translateY(7px) scale(.96);filter:blur(2px)}70%{opacity:1;filter:blur(0)}100%{opacity:1;transform:translateY(0) scale(1);filter:none}}
         @keyframes atlas-award-badge-enter{0%{opacity:0;transform:translateY(-7px) scale(.82)}72%{opacity:1;transform:translateY(1px) scale(1.035)}100%{opacity:1;transform:translateY(0) scale(1)}}
         @keyframes atlas-award-emoji-enter{0%{opacity:0;transform:scale(.68)}72%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
-        @media (prefers-reduced-motion:reduce){.atlas-award-inventory-card,.atlas-award-badge{animation:none!important}.atlas-award-emoji-enter{animation:none!important}}
+        @media (prefers-reduced-motion:reduce){.atlas-award-inventory-card,.atlas-award-badge{animation:none!important}.atlas-telegram-award-emoji{animation:none!important}}
         .press{
           transition:
             transform var(--theme-motion-tap) var(--theme-ease-interactive),
