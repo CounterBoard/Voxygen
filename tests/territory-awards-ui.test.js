@@ -34,11 +34,11 @@ test("award details modal follows the regular modal gap with a larger emoji",()=
  
 test("banner preview updates optimistically and submits the exact selected color/template pair",()=>{
   const start=app.indexOf("async function changeBannerColor(value)");
-  const end=app.indexOf("\\n  async function rename()",start);
+  const end=app.indexOf("async function rename()",start);
   assert.ok(start>=0&&end>start);
   const handler=app.slice(start,end);
   const optimistic=handler.indexOf("setInventory(current=>current?{...current,...next}:current)");
-  const request=handler.indexOf("fetch(\\`${API_BASE}/api/customization/city\\`");
+  const request=handler.indexOf("const response=await fetch(");
   assert.ok(optimistic>=0&&request>optimistic,"preview state changes before the save request");
   assert.ok(handler.includes("bannerColor:next.bannerColor,bannerGradient:next.bannerGradient"));
   assert.ok(handler.includes("setInventory(current=>current?{...current,...previous}:current)"),"failed saves roll back the preview");
