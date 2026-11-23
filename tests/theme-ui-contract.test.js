@@ -911,3 +911,14 @@ test('equipped award feedback is one-based and removal feedback is an error toas
   assert.ok(city.includes("setNoticeType('error')"));
   assert.ok(city.includes('disabled={readOnly||Boolean(awardBusyId&&String(awardBusyId)===String(award.id))}'));
 });
+
+ 
+test('territory exit control uses the same dark blurred surface as award badges',()=>{
+  const city=app.slice(app.indexOf('function TerritoryDetail('),app.indexOf('function WorldMap('));
+  const exit=city.slice(city.indexOf('<button onClick={onBack}'),city.indexOf('</button>',city.indexOf('<button onClick={onBack}')));
+  const award=city.slice(city.indexOf('className="press atlas-award-badge"'),city.indexOf('</button>',city.indexOf('className="press atlas-award-badge"')));
+  assert.ok(exit.includes("background: 'rgba(8,13,34,.72)'"));
+  assert.ok(award.includes("background:'rgba(8,13,34,.72)'"));
+  assert.ok(exit.includes("backdropFilter: 'blur(8px)'"));
+  assert.ok(award.includes("backdropFilter:'blur(8px)'"));
+});
