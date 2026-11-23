@@ -49,17 +49,18 @@ test("banner preview updates optimistically and submits the exact selected color
 });
 
  
-test("Telegram emoji shares TGS requests, has a visible Unicode fallback and explicitly starts Lottie",()=>{
+test("Telegram award emoji clones shared TGS data per player and always autoplay-loops AnimatedEmojies",()=>{
   assert.match(app,/useState\('loading'\)/);
-  assert.match(app,/format=animation&v=3/);
-  assert.doesNotMatch(app,/format=animation&v=2/);
+  assert.match(app,/format=animation&v=4/);
   assert.match(app,/loadTelegramEmojiAnimation\(value\)/);
   assert.match(app,/telegramEmojiAnimationCache\.get\(value\)/);
-  assert.match(app,/setRenderMode\(imageLoadedRef\.current\?'image':'unicode'\)/);
-  assert.match(app,/atlas-award-emoji-enter/);
-  assert.match(app,/atlas-telegram-award-emoji/);
-  assert.match(app,/atlas-award-card-enter/);
-  assert.match(app,/atlas-award-badge-enter/);
+  assert.match(app,/function cloneTelegramEmojiAnimationData\(/);
+  assert.match(app,/cloneTelegramEmojiAnimationData\(animationData\)/);
+  assert.match(app,/loop:true/);
+  assert.match(app,/autoplay:true/);
   assert.match(app,/animation\.goToAndPlay\(0,true\)/);
-  assert.match(app,/renderMode==='unicode'/);
+  assert.match(app,/renderMode==='unavailable'/);
+  assert.doesNotMatch(app,/renderMode==='unicode'/);
+  assert.doesNotMatch(app,/setRenderMode\(imageLoadedRef\.current\?'image':'unicode'\)/);
+  assert.match(app,/atlas-award-emoji-enter/);
 });
