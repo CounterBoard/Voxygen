@@ -253,65 +253,50 @@ const DEFAULT_CITY_MARKER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 function pluralizeTerritories(n) { const value=Math.abs(Math.trunc(Number(n)||0)); const lastTwo=value%100,last=value%10; if(lastTwo>=11&&lastTwo<=14)return 'территорий'; if(last===1)return 'территория'; if(last>=2&&last<=4)return 'территории'; return 'территорий'; }
 function formatTerritoryCoords(raw) { const value=String(raw??'').trim().replace(/−/g,'-'); const numbers=value.match(/-?\d+(?:[.,]\d+)?/g)||[]; if(numbers.length>=2)return `${numbers[0]} / ${numbers[1]}`; return value||'Координаты не указаны'; }
 function formatTerritoryAwardDate(value) { const timestamp=Number(value); if(!Number.isFinite(timestamp)||timestamp<=0)return 'Дата не указана'; const date=new Date(timestamp); if(Number.isNaN(date.getTime()))return 'Дата не указана'; return `${String(date.getDate()).padStart(2,'0')}.${String(date.getMonth()+1).padStart(2,'0')}.${date.getFullYear()}`; }
+const telegramEmojiAnimationCache = new Map();
+
+function loadTelegramEmojiAnimation(emoji) {
+  const value=String(emoji||'');
+  if(!value)return Promise.reject(new Error('Empty Telegram emoji'));
+  const cached=telegramEmojiAnimationCache.get(value);
+  if(cached)return cached;
+  const request=fetch(API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&format=animation&v=3')
+    .then(response=>{if(!response.ok)throw new Error('Animated Telegram emoji unavailable');return response.json();})
+    .then(data=>{if(!data||!Array.isArray(data.layers))throw new Error('Invalid Telegram emoji animation');return data;})
+    .catch(error=>{if(telegramEmojiAnimationCache.get(value)===request)telegramEmojiAnimationCache.delete(value);throw error;});
+  telegramEmojiAnimationCache.set(value,request);
+  if(telegramEmojiAnimationCache.size>64){const oldest=telegramEmojiAnimationCache.keys().next().value;if(oldest!==value)telegramEmojiAnimationCache.delete(oldest);}
+  return request;
+}
+
 function TelegramEmoji({emoji,size=32,style={}}) {
   const value=String(emoji||'');
   const animationRef=useRef(null);
   const imageLoadedRef=useRef(false);
   const [renderMode,setRenderMode]=useState('loading');
   useEffect(()=>{
-    let cancelled=false;
-    let animation=null;
-    let fallbackTimer=null;
-    imageLoadedRef.current=false;
-    setRenderMode('loading');
+    let cancelled=false,animation=null,fallbackTimer=null;
+    imageLoadedRef.current=false;setRenderMode('loading');
     if(!value)return undefined;
-    const showFallback=()=>{
+    const showFallback=()=>{if(!cancelled)setRenderMode(imageLoadedRef.current?'image':'unicode');};
+    loadTelegramEmojiAnimation(value).then(animationData=>{
       if(cancelled)return;
-      setRenderMode(imageLoadedRef.current?'image':'fallback');
-    };
-    // Bypass any cached 404 from previous TGS handlers.
-    fetch(API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&format=animation&v=2',{cache:'no-store'})
-      .then(response=>{
-        if(!response.ok)throw new Error('Animated Telegram emoji unavailable');
-        return response.json();
-      })
-      .then(animationData=>{
-        if(cancelled)return;
-        if(!animationData||!animationRef.current){showFallback();return;}
-        try{
-          animation=lottie.loadAnimation({
-            container:animationRef.current,
-            renderer:'svg',
-            loop:true,
-            autoplay:false,
-            animationData,
-            rendererSettings:{preserveAspectRatio:'xMidYMid meet'},
-          });
-          animation.addEventListener('DOMLoaded',()=>{
-            if(cancelled)return;
-            animation.setSpeed(1);
-            animation.goToAndPlay(0,true);
-            setRenderMode('animation');
-            if(fallbackTimer)clearTimeout(fallbackTimer);
-          });
-          animation.addEventListener('data_failed',showFallback);
-          fallbackTimer=setTimeout(showFallback,8000);
-        }catch{showFallback();}
-      })
-      .catch(showFallback);
-    return ()=>{
-      cancelled=true;
-      if(fallbackTimer)clearTimeout(fallbackTimer);
-      animation?.destroy();
-      animationRef.current?.replaceChildren();
-    };
+      if(!animationData||!animationRef.current){showFallback();return;}
+      try{
+        animation=lottie.loadAnimation({container:animationRef.current,renderer:'svg',loop:true,autoplay:false,animationData,rendererSettings:{preserveAspectRatio:'xMidYMid meet'}});
+        animation.addEventListener('DOMLoaded',()=>{if(cancelled)return;animation.setSpeed(1);animation.goToAndPlay(0,true);setRenderMode('animation');if(fallbackTimer)clearTimeout(fallbackTimer);});
+        animation.addEventListener('data_failed',showFallback);
+        fallbackTimer=setTimeout(showFallback,6000);
+      }catch{showFallback();}
+    }).catch(showFallback);
+    return ()=>{cancelled=true;if(fallbackTimer)clearTimeout(fallbackTimer);animation?.destroy();animationRef.current?.replaceChildren();};
   },[value]);
   if(!value)return null;
-  return <span role="img" aria-label={value} style={{width:size,height:size,display:'inline-flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto',position:'relative',overflow:'visible',...style}}>
+  return <span role="img" aria-label={value} style={{width:size,height:size,display:'inline-flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto',position:'relative',overflow:'visible',animation:renderMode==='loading'?'none':'atlas-award-emoji-enter .32s cubic-bezier(.2,.8,.2,1) both',...style}}>
     {renderMode==='unicode'&&<span aria-hidden="true" style={{fontSize:size*.94,lineHeight:1}}>{value}</span>}
-    <img key={value} src={API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&v=2'} alt=""
-      onLoad={()=>{imageLoadedRef.current=true;setRenderMode(mode=>mode==='fallback'?'image':mode);}}
-      onError={()=>{imageLoadedRef.current=false;setRenderMode(mode=>mode==='image'||mode==='fallback'?'unicode':mode);}}
+    <img key={value} src={API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&v=3'} alt=""
+      onLoad={()=>{imageLoadedRef.current=true;setRenderMode(mode=>mode==='unicode'?'image':mode);}}
+      onError={()=>{imageLoadedRef.current=false;setRenderMode(mode=>mode==='image'?'unicode':mode);}}
       style={{display:renderMode==='image'?'block':'none',position:'absolute',inset:0,width:'108%',height:'108%',maxWidth:'none',objectFit:'contain',transform:'translate(-3.7%,-3.7%)'}}/>
     <div ref={animationRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',visibility:renderMode==='animation'?'visible':'hidden',transform:'scale(1.08)'}}/>
   </span>;
@@ -558,6 +543,10 @@ function FontsAndTheme() {
 
         
 
+        @keyframes atlas-award-card-enter{0%{opacity:0;transform:translateY(7px) scale(.96);filter:blur(2px)}70%{opacity:1;filter:blur(0)}100%{opacity:1;transform:translateY(0) scale(1);filter:none}}
+        @keyframes atlas-award-badge-enter{0%{opacity:0;transform:translateY(-7px) scale(.82)}72%{opacity:1;transform:translateY(1px) scale(1.035)}100%{opacity:1;transform:translateY(0) scale(1)}}
+        @keyframes atlas-award-emoji-enter{0%{opacity:0;transform:scale(.68)}72%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+        @media (prefers-reduced-motion:reduce){.atlas-award-inventory-card,.atlas-award-badge{animation:none!important}.atlas-award-emoji-enter{animation:none!important}}
         .press{
           transition:
             transform var(--theme-motion-tap) var(--theme-ease-interactive),
@@ -2190,9 +2179,9 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
         {(inventory?.territoryAwards||[]).length===0
           ? <div style={{fontSize:12,color:'var(--theme-color-text-muted)',padding:'8px 0'}}>Наград пока нет</div>
           : <div style={{display:'grid',gridTemplateColumns:'repeat(4,minmax(0,1fr))',gap:8}}>
-              {(inventory?.territoryAwards||[]).map(award=>{
+              {(inventory?.territoryAwards||[]).map((award,index)=>{
                 const equipped=award.slot_index!==null&&award.slot_index!==undefined;
-                return <button key={award.id} type="button" disabled={readOnly||Boolean(awardBusyId&&String(awardBusyId)===String(award.id))} title={award.name} aria-label={`${award.emoji} ${award.name}${equipped?', размещена на баннере':''}`} aria-pressed={equipped} onClick={()=>toggleAwardPlacement(award)} className="press atlas-award-inventory-card" style={{gridColumn:'1 / -1',minWidth:0,minHeight:68,border:equipped?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:12,background:equipped?'rgba(110,231,183,.18)':'var(--theme-color-surface-raised)',boxShadow:equipped?'inset 0 0 0 1px rgba(110,231,183,.2),0 0 0 1px rgba(110,231,183,.12)':'none',color:'var(--theme-color-text-primary)',display:'grid',gridTemplateColumns:'48px minmax(0,1fr)',alignItems:'center',gap:8,padding:6,opacity:1}}>
+                return <button key={award.id} type="button" disabled={readOnly||Boolean(awardBusyId&&String(awardBusyId)===String(award.id))} title={award.name} aria-label={`${award.emoji} ${award.name}${equipped?', размещена на баннере':''}`} aria-pressed={equipped} onClick={()=>toggleAwardPlacement(award)} className="press atlas-award-inventory-card" style={{gridColumn:'1 / -1',minWidth:0,minHeight:68,animation:'atlas-award-card-enter .38s cubic-bezier(.2,.8,.2,1) both',animationDelay:`${Math.min(index,5)*55}ms`,border:equipped?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:12,background:equipped?'rgba(110,231,183,.18)':'var(--theme-color-surface-raised)',boxShadow:equipped?'inset 0 0 0 1px rgba(110,231,183,.2),0 0 0 1px rgba(110,231,183,.12)':'none',color:'var(--theme-color-text-primary)',display:'grid',gridTemplateColumns:'48px minmax(0,1fr)',alignItems:'center',gap:8,padding:6,opacity:1}}>
                   <span style={{fontSize:32,lineHeight:1.1,display:'flex',alignItems:'center',justifyContent:'center',minWidth:0}}><TelegramEmoji emoji={award.emoji} size={40}/></span>
                   <span style={{fontSize:11,lineHeight:1.2,textAlign:'center',overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',width:'100%',minWidth:0}}>{award.name}</span>
                 </button>;
@@ -2841,7 +2830,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
     <div className="atlas-page atlas-page--territory" style={{ paddingBottom: 90, position: 'relative' }}>
       <div style={{ position: 'relative', height: 150, overflow:'hidden', background:getBannerGradient(t.banner_color||'none',t.banner_gradient||'aurora',t.accent) }}>
         <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: '50%', background: 'var(--theme-color-image-control-surface)', border: '1px solid var(--theme-color-border-strong)', color: 'var(--theme-color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}><ChevronLeft size={20} /></button>
-        {(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined).slice().sort((a,b)=>Number(b.slot_index)-Number(a.slot_index)).map((award,index)=><button key={award.id} type="button" onClick={()=>setSelectedTerritoryAward(award)} title={award.name} aria-label={`${award.emoji} ${award.name}`} className="press" style={{position:'absolute',top:6,right:6+index*58,width:52,height:52,padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.4)',borderRadius:10,background:'rgba(8,13,34,.72)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',fontSize:0,zIndex:4}}><TelegramEmoji emoji={award.emoji} size={36}/></button>)}
+        {(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined).slice().sort((a,b)=>Number(b.slot_index)-Number(a.slot_index)).map((award,index)=><button key={award.id} type="button" onClick={()=>setSelectedTerritoryAward(award)} title={award.name} aria-label={`${award.emoji} ${award.name}`} className="press atlas-award-badge" style={{position:'absolute',top:6,right:6+index*58,width:52,height:52,animation:'atlas-award-badge-enter .42s cubic-bezier(.2,.8,.2,1) both',animationDelay:`${Math.min(index,3)*65}ms`,padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.4)',borderRadius:10,background:'rgba(8,13,34,.72)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',fontSize:0,zIndex:4}}><TelegramEmoji emoji={award.emoji} size={36}/></button>)}
         <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, zIndex: 3, textShadow:'var(--theme-shadow-cover-title)' }}>
           <MinecraftText as="div" text={t.name} className="atlas-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.16 }} />
           <div style={{fontSize:13,color:'var(--theme-color-text-secondary)'}}>{formatTerritoryCoords(t.coords || (t.vox_x != null && t.vox_z != null ? `${t.vox_x} / ${t.vox_z}` : ''))}</div>
