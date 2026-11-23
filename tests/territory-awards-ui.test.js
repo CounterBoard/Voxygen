@@ -49,10 +49,16 @@ test("banner preview updates optimistically and submits the exact selected color
 });
 
  
-test("Telegram emoji waits for Telegram animation or preview and explicitly starts Lottie",()=>{
+test("Telegram emoji shares TGS requests, has a visible Unicode fallback and explicitly starts Lottie",()=>{
   assert.match(app,/useState\('loading'\)/);
   assert.match(app,/format=animation&v=2/);
-  assert.match(app,/cache:'no-store'/);
+  assert.doesNotMatch(app,/format=animation&v=2/);
+  assert.match(app,/loadTelegramEmojiAnimation\(value\)/);
+  assert.match(app,/telegramEmojiAnimationCache\.get\(value\)/);
+  assert.match(app,/setRenderMode\(imageLoadedRef\.current\?'image':'unicode'\)/);
+  assert.match(app,/atlas-award-emoji-enter/);
+  assert.match(app,/atlas-award-card-enter/);
+  assert.match(app,/atlas-award-badge-enter/);
   assert.match(app,/animation\.goToAndPlay\(0,true\)/);
   assert.match(app,/renderMode==='unicode'/);
 });
