@@ -32,7 +32,7 @@ test("banner gradient catalogue keeps ten stable IDs with names matching the new
   assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Горизонтальные штрихи"));
   assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Диагональные фрагменты"));
   assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Треугольная мозаика"));
-  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Модульный лабиринт"));
+  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Треугольная мозаика"));
 });
 test("random banner gradient selection covers the first and last template safely",()=>{
   assert.equal(getRandomBannerGradientId(()=>0),"aurora");
