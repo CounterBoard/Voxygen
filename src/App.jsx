@@ -256,17 +256,22 @@ function formatTerritoryAwardDate(value) { const timestamp=Number(value); if(!Nu
 const telegramEmojiAnimationCache = new Map();
 
 function loadTelegramEmojiAnimation(emoji) {
-  const value=String(emoji||'');
+  const value=String(emoji||'').normalize('NFC').replace(/[\uFE0E\uFE0F]/g,'');
   if(!value)return Promise.reject(new Error('Empty Telegram emoji'));
   const cached=telegramEmojiAnimationCache.get(value);
   if(cached)return cached;
-  const request=fetch(API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&format=animation&v=3')
-    .then(response=>{if(!response.ok)throw new Error('Animated Telegram emoji unavailable');return response.json();})
-    .then(data=>{if(!data||!Array.isArray(data.layers))throw new Error('Invalid Telegram emoji animation');return data;})
+  const request=fetch(API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&format=animation&v=4')
+    .then(response=>{if(!response.ok)throw new Error('AnimatedEmojies sticker unavailable');return response.json();})
+    .then(data=>{if(!data||!Array.isArray(data.layers)||!(Number(data.op)>Number(data.ip)))throw new Error('Invalid AnimatedEmojies TGS');return data;})
     .catch(error=>{if(telegramEmojiAnimationCache.get(value)===request)telegramEmojiAnimationCache.delete(value);throw error;});
   telegramEmojiAnimationCache.set(value,request);
   if(telegramEmojiAnimationCache.size>64){const oldest=telegramEmojiAnimationCache.keys().next().value;if(oldest!==value)telegramEmojiAnimationCache.delete(oldest);}
   return request;
+}
+
+function cloneTelegramEmojiAnimationData(animationData) {
+  if(typeof structuredClone==='function')return structuredClone(animationData);
+  return JSON.parse(JSON.stringify(animationData));
 }
 
 function TelegramEmoji({emoji,size=32,style={}}) {
@@ -275,28 +280,65 @@ function TelegramEmoji({emoji,size=32,style={}}) {
   const imageLoadedRef=useRef(false);
   const [renderMode,setRenderMode]=useState('loading');
   useEffect(()=>{
-    let cancelled=false,animation=null,fallbackTimer=null;
-    imageLoadedRef.current=false;setRenderMode('loading');
+    let cancelled=false,animation=null,fallbackTimer=null,hasStarted=false;
+    imageLoadedRef.current=false;
+    setRenderMode('loading');
     if(!value)return undefined;
-    const showFallback=()=>{if(!cancelled)setRenderMode(imageLoadedRef.current?'image':'unicode');};
+    const showTelegramPreview=()=>{
+      if(cancelled||hasStarted)return;
+      setRenderMode(imageLoadedRef.current?'image':'unavailable');
+    };
+    const startAnimation=()=>{
+      if(cancelled||hasStarted||!animation)return;
+      const frameCount=Number(animation.totalFrames||0);
+      if(frameCount>0&&frameCount<=1){showTelegramPreview();return;}
+      try{
+        hasStarted=true;
+        if(fallbackTimer)clearTimeout(fallbackTimer);
+        animation.setSpeed(1);
+        animation.goToAndPlay(0,true);
+        setRenderMode('animation');
+      }catch{
+        hasStarted=false;
+        showTelegramPreview();
+      }
+    };
+    // Keep a slow-device fallback, but start the watchdog before Lottie is created
+    // so a fast DOMLoaded event cannot race the timer assignment.
+    fallbackTimer=setTimeout(showTelegramPreview,12000);
     loadTelegramEmojiAnimation(value).then(animationData=>{
       if(cancelled)return;
-      if(!animationData||!animationRef.current){showFallback();return;}
+      if(!animationData||!animationRef.current){showTelegramPreview();return;}
       try{
-        animation=lottie.loadAnimation({container:animationRef.current,renderer:'svg',loop:true,autoplay:false,animationData,rendererSettings:{preserveAspectRatio:'xMidYMid meet'}});
-        animation.addEventListener('DOMLoaded',()=>{if(cancelled)return;animation.setSpeed(1);animation.goToAndPlay(0,true);setRenderMode('animation');if(fallbackTimer)clearTimeout(fallbackTimer);});
-        animation.addEventListener('data_failed',showFallback);
-        fallbackTimer=setTimeout(showFallback,6000);
-      }catch{showFallback();}
-    }).catch(showFallback);
-    return ()=>{cancelled=true;if(fallbackTimer)clearTimeout(fallbackTimer);animation?.destroy();animationRef.current?.replaceChildren();};
+        // Lottie mutates animationData internally. Every badge gets its own deep copy;
+        // the shared cached JSON object is never passed directly to multiple players.
+        const instanceData=cloneTelegramEmojiAnimationData(animationData);
+        animation=lottie.loadAnimation({
+          container:animationRef.current,
+          renderer:'svg',
+          loop:true,
+          autoplay:true,
+          animationData:instanceData,
+          rendererSettings:{preserveAspectRatio:'xMidYMid meet'},
+        });
+        animation.addEventListener('DOMLoaded',startAnimation);
+        animation.addEventListener('data_failed',showTelegramPreview);
+        if(animation.isLoaded)Promise.resolve().then(startAnimation);
+      }catch{showTelegramPreview();}
+    }).catch(showTelegramPreview);
+    return ()=>{
+      cancelled=true;
+      if(fallbackTimer)clearTimeout(fallbackTimer);
+      animation?.destroy();
+      animationRef.current?.replaceChildren();
+    };
   },[value]);
   if(!value)return null;
   return <span role="img" aria-label={value} className="atlas-telegram-award-emoji" style={{width:size,height:size,display:'inline-flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto',position:'relative',overflow:'visible',animation:renderMode==='loading'?'none':'atlas-award-emoji-enter .32s cubic-bezier(.2,.8,.2,1) both',...style}}>
-    {renderMode==='unicode'&&<span aria-hidden="true" style={{fontSize:size*.94,lineHeight:1}}>{value}</span>}
-    <img key={value} src={API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&v=3'} alt=""
-      onLoad={()=>{imageLoadedRef.current=true;setRenderMode(mode=>mode==='unicode'?'image':mode);}}
-      onError={()=>{imageLoadedRef.current=false;setRenderMode(mode=>mode==='image'?'unicode':mode);}}
+    {renderMode==='unavailable'&&<Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true" style={{opacity:.5}}/>}
+    <img key={value} src={API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&v=4'} alt=""
+      onLoad={()=>{imageLoadedRef.current=true;setRenderMode(mode=>mode==='unavailable'?'image':mode);}}
+      onError={()=>{imageLoadedRef.current=false;setRenderMode(mode=>mode==='image'?'unavailable':mode);}}
       style={{display:renderMode==='image'?'block':'none',position:'absolute',inset:0,width:'108%',height:'108%',maxWidth:'none',objectFit:'contain',transform:'translate(-3.7%,-3.7%)'}}/>
     <div ref={animationRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',visibility:renderMode==='animation'?'visible':'hidden',transform:'scale(1.08)'}}/>
   </span>;
@@ -2829,7 +2871,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
   return (
     <div className="atlas-page atlas-page--territory" style={{ paddingBottom: 90, position: 'relative' }}>
       <div style={{ position: 'relative', height: 150, overflow:'hidden', background:getBannerGradient(t.banner_color||'none',t.banner_gradient||'aurora',t.accent) }}>
-        <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: '50%', background: 'var(--theme-color-image-control-surface)', border: '1px solid var(--theme-color-border-strong)', color: 'var(--theme-color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}><ChevronLeft size={20} /></button>
+        <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: '50%', background: 'rgba(8,13,34,.72)', border: '1px solid rgba(255,255,255,.4)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}><ChevronLeft size={20} /></button>
         {(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined).slice().sort((a,b)=>Number(b.slot_index)-Number(a.slot_index)).map((award,index)=><button key={award.id} type="button" onClick={()=>setSelectedTerritoryAward(award)} title={award.name} aria-label={`${award.emoji} ${award.name}`} className="press atlas-award-badge" style={{position:'absolute',top:6,right:6+index*58,width:52,height:52,animation:'atlas-award-badge-enter .42s cubic-bezier(.2,.8,.2,1) both',animationDelay:`${Math.min(index,3)*65}ms`,padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.4)',borderRadius:10,background:'rgba(8,13,34,.72)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',fontSize:0,zIndex:4}}><TelegramEmoji emoji={award.emoji} size={36}/></button>)}
         <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, zIndex: 3, textShadow:'var(--theme-shadow-cover-title)' }}>
           <MinecraftText as="div" text={t.name} className="atlas-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.16 }} />

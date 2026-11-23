@@ -105,12 +105,16 @@ function normalizeTelegramEmoji(value) {
 function findTelegramAnimatedEmojiSticker(stickers, emoji) {
   const target = normalizeTelegramEmoji(emoji);
   if (!target || !Array.isArray(stickers)) return null;
-  const matches = stickers.filter(sticker => normalizeTelegramEmoji(sticker?.emoji) === target);
-  // Prefer the actual animated TGS entry if the pack also has a static duplicate.
-  return matches.find(isTelegramAnimatedEmojiSticker)
-    || matches.find(sticker => sticker?.thumbnail?.file_id)
-    || matches[0]
-    || null;
+  // Only an actual animated TGS sticker from AnimatedEmojies is a valid match.
+  return stickers.find(sticker =>
+    normalizeTelegramEmoji(sticker?.emoji) === target &&
+    isTelegramAnimatedEmojiSticker(sticker)
+  ) || null;
+}
+
+function getTelegramAnimatedEmojiPreview(sticker) {
+  if (!isTelegramAnimatedEmojiSticker(sticker)) return null;
+  return sticker.thumbnail?.file_id ? sticker.thumbnail : null;
 }
 
 function isTelegramAnimatedEmojiSticker(sticker) {
@@ -214,9 +218,9 @@ async function serveTelegramEmoji(request, env) {
       });
     }
 
-    const preview = sticker?.thumbnail?.file_id
-      ? sticker.thumbnail
-      : (sticker && !sticker.is_animated && !sticker.is_video ? sticker : null);
+    // A fallback is allowed only when it is the thumbnail belonging to the
+    // exact animated sticker selected from AnimatedEmojies.
+    const preview = getTelegramAnimatedEmojiPreview(sticker);
     if (!preview?.file_id) {
       return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
     }
@@ -7543,4 +7547,4 @@ export default {
   },
 };
 
-export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTerritoryAwardCommand, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
+export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTerritoryAwardCommand, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };

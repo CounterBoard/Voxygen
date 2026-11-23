@@ -253,8 +253,8 @@ test('image overlays and bottom navigation use semantic theme tokens', () => {
     '--theme-color-image-control-surface:',
   ]) assert.ok(tokens.includes(token), `Missing theme token: ${token}`);
   assert.ok(app.includes("background: 'var(--theme-color-overlay-scrim)'"));
-  assert.ok(app.includes("background: 'var(--theme-color-image-control-surface)'"));
-  assert.ok(app.includes("border: '1px solid var(--theme-color-border-strong)'"));
+  assert.ok(app.includes("background: 'rgba(8,13,34,.72)'"),'territory exit button shares the award badge surface');
+  assert.ok(app.includes("border: '1px solid rgba(255,255,255,.4)'"),"territory exit button shares the award badge border");
   assert.ok(app.includes("color:'var(--theme-color-text-secondary)'"));
   assert.ok(app.includes("background:'var(--theme-color-navigation-surface)'"));
 });
@@ -910,4 +910,15 @@ test('equipped award feedback is one-based and removal feedback is an error toas
   assert.ok(city.includes("setNotice('Награда снята')"));
   assert.ok(city.includes("setNoticeType('error')"));
   assert.ok(city.includes('disabled={readOnly||Boolean(awardBusyId&&String(awardBusyId)===String(award.id))}'));
+});
+
+ 
+test('territory exit control uses the same dark blurred surface as award badges',()=>{
+  const city=app.slice(app.indexOf('function TerritoryDetail('),app.indexOf('function WorldMap('));
+  const exit=city.slice(city.indexOf('<button onClick={onBack}'),city.indexOf('</button>',city.indexOf('<button onClick={onBack}')));
+  const award=city.slice(city.indexOf('className="press atlas-award-badge"'),city.indexOf('</button>',city.indexOf('className="press atlas-award-badge"')));
+  assert.ok(exit.includes("background: 'rgba(8,13,34,.72)'"));
+  assert.ok(award.includes("background:'rgba(8,13,34,.72)'"));
+  assert.ok(exit.includes("backdropFilter: 'blur(8px)'"));
+  assert.ok(award.includes("backdropFilter:'blur(8px)'"));
 });
