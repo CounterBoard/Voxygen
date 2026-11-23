@@ -105,7 +105,12 @@ function normalizeTelegramEmoji(value) {
 function findTelegramAnimatedEmojiSticker(stickers, emoji) {
   const target = normalizeTelegramEmoji(emoji);
   if (!target || !Array.isArray(stickers)) return null;
-  return stickers.find(sticker => normalizeTelegramEmoji(sticker?.emoji) === target) || null;
+  const matches = stickers.filter(sticker => normalizeTelegramEmoji(sticker?.emoji) === target);
+  // Prefer the actual animated TGS entry if the pack also has a static duplicate.
+  return matches.find(isTelegramAnimatedEmojiSticker)
+    || matches.find(sticker => sticker?.thumbnail?.file_id)
+    || matches[0]
+    || null;
 }
 
 function isTelegramAnimatedEmojiSticker(sticker) {
