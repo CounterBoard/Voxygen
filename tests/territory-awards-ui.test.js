@@ -51,7 +51,7 @@ test("banner preview updates optimistically and submits the exact selected color
  
 test("Telegram emoji shares TGS requests, has a visible Unicode fallback and explicitly starts Lottie",()=>{
   assert.match(app,/useState\('loading'\)/);
-  assert.match(app,/format=animation&v=2/);
+  assert.match(app,/format=animation&v=3/);
   assert.doesNotMatch(app,/format=animation&v=2/);
   assert.match(app,/loadTelegramEmojiAnimation\(value\)/);
   assert.match(app,/telegramEmojiAnimationCache\.get\(value\)/);
