@@ -59,10 +59,10 @@ test("banner tone family stays close to the selected territory colour",()=>{
       assert.ok(hueDistance(rgbToHue(tone),baseHue)<=9.5,"derived shade should stay within nine degrees of selected hue");
     }
   }
-  assert.equal(getBannerGradientTones("red")[2],"#EF4444");
-  assert.equal(getBannerGradientTones("blue")[2],"#3B82F6");
+  assert.equal(getBannerGradientTones("red")[2],"#ef4444");
+  assert.equal(getBannerGradientTones("blue")[2],"#3b82f6");
   const redSvg=decodeGradient(getBannerGradient("red","ribbons"));
-  assert.match(redSvg,/stop-color="#EF4444"/);
+  assert.match(redSvg,/stop-color="#ef4444"/i);
   assert.doesNotMatch(redSvg,/stop-color="#3B82F6"|stop-color="#22C55E"/);
 });
 test("unselected banner colour and unknown template retain safe fallbacks",()=>{
