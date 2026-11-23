@@ -56,7 +56,7 @@ test("Telegram emoji shares TGS requests, has a visible Unicode fallback and exp
   assert.match(app,/loadTelegramEmojiAnimation\(value\)/);
   assert.match(app,/telegramEmojiAnimationCache\.get\(value\)/);
   assert.match(app,/setRenderMode\(imageLoadedRef\.current\?'image':'unicode'\)/);
-  assert.match(app,/atlas-award-emoji-enter/);
+  assert.match(app,/atlas-award-emoji-enter/);\n  assert.match(app,/atlas-telegram-award-emoji/);
   assert.match(app,/atlas-award-card-enter/);
   assert.match(app,/atlas-award-badge-enter/);
   assert.match(app,/animation\.goToAndPlay\(0,true\)/);
