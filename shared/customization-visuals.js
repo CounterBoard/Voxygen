@@ -4,11 +4,11 @@ const BANNER_PALETTE = Object.freeze({
 });
 
 export const BANNER_GRADIENT_TEMPLATES = Object.freeze([
-  { id: "aurora", label: "Пиксельная мозаика" }, { id: "prism", label: "Ступенчатые блоки" },
+  { id: "aurora", label: "Пиксельная мозаика" }, { id: "prism", label: "Диагональные фрагменты" },
   { id: "nebula", label: "Полутоновое поле" }, { id: "sunset", label: "Волновые контуры" },
-  { id: "crystal", label: "Органические формы" }, { id: "horizon", label: "Орбитальные дуги" },
+  { id: "crystal", label: "Шевронный ритм" }, { id: "horizon", label: "Горизонтальные штрихи" },
   { id: "ribbons", label: "Диагональные ленты" }, { id: "velvet", label: "Ромбическая решётка" },
-  { id: "orbit", label: "Вертикальные зигзаги" }, { id: "flare", label: "Модульный лабиринт" },
+  { id: "orbit", label: "Вертикальные зигзаги" }, { id: "flare", label: "Треугольная мозаика" },
 ]);
 
 // Each stable template ID now describes a distinct generative geometry family.
@@ -47,29 +47,26 @@ function renderPixelMosaic(t) {
   return out.join("");
 }
 
-function renderSteppedBlocks(t) {
+function renderDiagonalFragments(t) {
   const out=[];
-  for(let row=0;row<10;row++){
-    const y=22+row*58;
-    const offset=(row%2)*27+Math.sin(row*.8)*13;
-    let x=-36+offset;
-    let run=0;
-    while(x<1240){
-      const wave=Math.sin(row*1.13+run*.74);
-      const width=66+((Math.cos(row*.8+run*1.41)+1)*.5)*126;
-      const height=9+((Math.sin(row*.62+run*.9)+1)*.5)*13;
-      const color=t[(row+run)%4];
-      out.push(svgRect(x,y+wave*11,width,height,color,.78,Math.min(4,height/3)));
-      out.push(svgRect(x+10,y+wave*11+height+3,width*.42,2,t[(row+run+1)%4],.5,1));
-      if(run%3===0) out.push(svgRect(x+width-7,y-12,5,18,t[0],.52,2));
-      x+=width+28+((row+run)%3)*9;
-      run++;
+  for(let row=0;row<8;row++){
+    const y=24+row*74;
+    const offset=(row%2)*48+Math.sin(row*.72)*18;
+    for(let col=-1;col<12;col++){
+      const x=col*112+offset;
+      const width=62+((Math.sin(row*.6+col*.83)+1)*.5)*42;
+      const height=20+((Math.cos(col*.57-row*.38)+1)*.5)*10;
+      const slant=22+((Math.sin(row*.9+col*.41)+1)*.5)*18;
+      const points=[n(x+slant)+","+n(y),n(x+slant+width)+","+n(y),n(x+width)+","+n(y+height),n(x)+","+n(y+height)].join(" ");
+      out.push(svgPolygon(points,t[(row+col+40)%4],.8));
+      if((row+col)%4===0){
+        const cut=[n(x+slant+width*.36)+","+n(y+height*.16),n(x+slant+width*.72)+","+n(y+height*.16),n(x+width*.72)+","+n(y+height*.84),n(x+width*.36)+","+n(y+height*.84)].join(" ");
+        out.push(svgPolygon(cut,t[4],.38));
+      }
     }
-    out.push(svgPath("M 0 "+n(y+30)+" H 1200",t[4],1,.24));
   }
   return out.join("");
 }
-
 function renderHalftone(t) {
   const out=[];
   for(let row=0;row<19;row++){
@@ -106,34 +103,50 @@ function renderWaveContours(t) {
   return out.join("");
 }
 
-function renderOrganicContours(t) {
+function renderChevronField(t) {
   const out=[];
-  const forms=[
-    [-70,145,185,132,0], [210,475,185,126,1], [455,115,176,128,2],
-    [735,465,195,132,3], [1000,150,190,138,1], [1245,445,190,148,2],
-  ];
-  forms.forEach(([cx,cy,rx,ry,colorIndex])=>{
-    const d="M "+n(cx-rx)+" "+n(cy)+
-      " C "+n(cx-rx*.94)+" "+n(cy-ry*.92)+" "+n(cx-rx*.2)+" "+n(cy-ry*1.12)+" "+n(cx+rx*.2)+" "+n(cy-ry*.7)+
-      " C "+n(cx+rx*1.1)+" "+n(cy-ry*.42)+" "+n(cx+rx*1.08)+" "+n(cy+ry*.55)+" "+n(cx+rx*.28)+" "+n(cy+ry*.78)+
-      " C "+n(cx-rx*.42)+" "+n(cy+ry*1.1)+" "+n(cx-rx*1.13)+" "+n(cy+ry*.5)+" "+n(cx-rx)+" "+n(cy)+" Z";
-    out.push('<path d="'+d+'" fill="'+t[colorIndex]+'" opacity=".78"/>');
-  });
+  for(let row=0;row<9;row++){
+    const cy=34+row*68;
+    const skew=(row%2)*35;
+    for(let col=-1;col<13;col++){
+      const x=col*104+skew;
+      const width=76+(Math.sin(row*.72+col*.4)+1)*14;
+      const height=18+(Math.cos(col*.61-row*.33)+1)*8;
+      const points=[
+        n(x)+","+n(cy),
+        n(x+width*.48)+","+n(cy-height),
+        n(x+width)+","+n(cy),
+        n(x+width*.48)+","+n(cy+height),
+        n(x+width*.24)+","+n(cy+height*.43),
+        n(x+width*.63)+","+n(cy)
+      ].join(" ");
+      out.push(svgPolygon(points,t[(row+col+40)%4],.86));
+      if((row+col)%3===0){
+        const inner=[n(x+width*.3)+","+n(cy),n(x+width*.48)+","+n(cy-height*.38),n(x+width*.66)+","+n(cy)].join(" ");
+        out.push(svgPolygon(inner,t[0],.76));
+      }
+    }
+  }
   return out.join("");
 }
 
-function renderOrbitalArcs(t) {
+function renderHorizontalStripes(t) {
   const out=[];
-  const centers=[[170,245],[600,355],[1030,225]];
-  centers.forEach(([cx,cy],group)=>{
-    for(let ring=0;ring<4;ring++){
-      const rx=72+ring*38,ry=50+ring*27;
-      const d="M "+n(cx-rx)+" "+n(cy)+
-        " A "+n(rx)+" "+n(ry)+" 0 1 0 "+n(cx+rx)+" "+n(cy)+
-        " A "+n(rx)+" "+n(ry)+" 0 1 0 "+n(cx-rx)+" "+n(cy);
-      out.push('<path d="'+d+'" fill="none" stroke="'+t[(group+ring)%4]+'" stroke-width="'+(11+(ring%2)*3)+'" opacity=".76"/>');
+  for(let row=0;row<23;row++){
+    const y=12+row*26;
+    let x=-20+((row*47)%190);
+    let segment=0;
+    while(x<1230){
+      const modulation=(Math.sin(row*.52+segment*.91)+1)/2;
+      const width=48+modulation*210+((segment+row)%4)*19;
+      const height=3+((Math.cos(row*.38+segment*.73)+1)*.5)*7;
+      const color=t[(row+segment)%4];
+      out.push(svgRect(x,y,width,height,color,.45+modulation*.5,height/2));
+      if(segment%3===0) out.push(svgRect(x+width*.68,y+height+4,width*.2,2,t[0],.56,1));
+      x+=width+13+((row*segment)%18);
+      segment++;
     }
-  });
+  }
   return out.join("");
 }
 
@@ -192,44 +205,36 @@ function renderVerticalZigzags(t) {
   return out.join("");
 }
 
-function renderModularMaze(t) {
+function renderTriangularTessellation(t) {
   const out=[];
-  const cellW=76,cellH=72;
-  for(let row=0;row<9;row++){
-    for(let col=0;col<17;col++){
-      const x=col*cellW-8,y=row*cellH-8;
-      const key=(row*17+col);
-      const mode=(row*7+col*11+(row*col)%9)%6;
-      const length=28+((row*13+col*17)%43);
-      const thickness=5+((row+col)%4)*2;
-      const color=t[(row+col*2)%4];
-      if(mode===0||mode===2||mode===4){
-        out.push(svgRect(x,y+16,length,thickness,color,.9,thickness/2));
-        out.push(svgRect(x+length-5,y+16,thickness,35,t[(row+col+1)%4],.82,thickness/2));
-      }else if(mode===1||mode===3){
-        out.push(svgRect(x+18,y,thickness,length,color,.88,thickness/2));
-        out.push(svgRect(x+18,y+length-5,38,thickness,t[(row+col+2)%4],.78,thickness/2));
-      }else{
-        const d="M "+n(x)+" "+n(y+12)+" H "+n(x+length)+" V "+n(y+48)+" H "+n(x+length+28);
-        out.push(svgPath(d,color,thickness,.9));
-      }
-      if(key%7===0) out.push(svgRect(x+42,y+44,16,5,t[0],.65,2));
+  const cellW=78,cellH=76;
+  for(let row=0;row<8;row++){
+    for(let col=-1;col<17;col++){
+      const x=col*cellW+(row%2)*39-12,y=row*cellH-8;
+      const mode=(row*7+col*11+(row*col)%13)%6;
+      const width=cellW-4,height=cellH-4,color=t[(row*2+col+20)%4];
+      const tl=n(x)+","+n(y),tr=n(x+width)+","+n(y),br=n(x+width)+","+n(y+height),bl=n(x)+","+n(y+height),centre=n(x+width*.5)+","+n(y+height*.5);
+      if(mode===0){out.push(svgPolygon([tl,tr,centre].join(" "),color,.82));out.push(svgPolygon([bl,br,centre].join(" "),t[(row+col+2)%4],.72));}
+      else if(mode===1){out.push(svgPolygon([tl,centre,bl].join(" "),color,.8));out.push(svgPolygon([tr,br,centre].join(" "),t[(row+col+1)%4],.76));}
+      else if(mode===2)out.push(svgPolygon([tl,tr,br].join(" "),color,.8));
+      else if(mode===3)out.push(svgPolygon([tl,br,bl].join(" "),color,.8));
+      else if(mode===4){out.push(svgPolygon([tl,tr,bl].join(" "),color,.77));out.push(svgPolygon([tr,br,bl].join(" "),t[(row+col+3)%4],.72));}
+      else {const diamond=[n(x+width*.5)+","+n(y+height*.1),n(x+width*.9)+","+n(y+height*.5),n(x+width*.5)+","+n(y+height*.9),n(x+width*.1)+","+n(y+height*.5)].join(" ");out.push(svgPolygon(diamond,color,.8));}
     }
   }
   return out.join("");
 }
-
 const PATTERN_RENDERERS = Object.freeze({
   aurora: renderPixelMosaic,
-  prism: renderSteppedBlocks,
+  prism: renderDiagonalFragments,
   nebula: renderHalftone,
   sunset: renderWaveContours,
-  crystal: renderOrganicContours,
-  horizon: renderOrbitalArcs,
+  crystal: renderChevronField,
+  horizon: renderHorizontalStripes,
   ribbons: renderDiagonalRibbons,
   velvet: renderDiamondLattice,
   orbit: renderVerticalZigzags,
-  flare: renderModularMaze,
+  flare: renderTriangularTessellation,
 });
 function hexToRgb(value) {
   const match=String(value||"").match(/^#?([0-9a-f]{6})$/i);

@@ -65,3 +65,12 @@ test("Telegram TGS animation validation requires bounded vector dimensions and r
   assert.equal(isSafeTelegramTgsAnimation({...valid,assets:[{u:"https://example.com/",p:"image.png"}]}),false);
   assert.equal(isSafeTelegramTgsAnimation({...valid,layers:null}),false);
 });
+
+test("Telegram emoji lookup prefers an animated TGS entry over a static duplicate",()=>{
+  const stickers=[
+    {emoji:"🎉",file_id:"static-confetti",is_animated:false,is_video:false,thumbnail:{file_id:"static-thumb"}},
+    {emoji:"🎉",file_id:"animated-confetti",is_animated:true,is_video:false},
+  ];
+  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🎉")?.file_id,"animated-confetti");
+  assert.equal(isTelegramAnimatedEmojiSticker(findTelegramAnimatedEmojiSticker(stickers,"🎉")),true);
+});

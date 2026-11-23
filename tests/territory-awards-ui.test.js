@@ -47,3 +47,12 @@ test("banner preview updates optimistically and submits the exact selected color
   assert.ok(editor.includes("background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent)"));
   assert.ok(publicPage.includes("background:getBannerGradient(t.banner_color||'none',t.banner_gradient||'aurora',t.accent)"));
 });
+
+ 
+test("Telegram emoji waits for Telegram animation or preview and explicitly starts Lottie",()=>{
+  assert.match(app,/useState\('loading'\)/);
+  assert.match(app,/format=animation&v=2/);
+  assert.match(app,/cache:'no-store'/);
+  assert.match(app,/animation\.goToAndPlay\(0,true\)/);
+  assert.match(app,/renderMode==='unicode'/);
+});

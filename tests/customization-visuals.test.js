@@ -28,9 +28,11 @@ test("banner gradient catalogue keeps ten stable IDs with names matching the new
   assert.deepEqual(ids,["aurora","prism","nebula","sunset","crystal","horizon","ribbons","velvet","orbit","flare"]);
   assert.equal(BANNER_GRADIENT_TEMPLATES.length,10);
   assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Пиксельная мозаика"));
-  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Органические формы"));
-  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Орбитальные дуги"));
-  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Модульный лабиринт"));
+  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Шевронный ритм"));
+  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Горизонтальные штрихи"));
+  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Диагональные фрагменты"));
+  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Треугольная мозаика"));
+  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Треугольная мозаика"));
 });
 test("random banner gradient selection covers the first and last template safely",()=>{
   assert.equal(getRandomBannerGradientId(()=>0),"aurora");
@@ -50,11 +52,13 @@ test("all ten templates generate distinct abstract SVG compositions while retain
   }
   assert.match(svgs[0],/<rect /,"pixel mosaic is made of vector tiles");
   assert.doesNotMatch(svgs[0],/opacity="0.8"\/>/,"pixel mosaic has no inset square highlights");
+  assert.match(svgs[1],/<polygon /,"prism replaces the horizontal bars with diagonal fragments");
   assert.match(svgs[2],/<circle /,"halftone field is made of dots");
   assert.match(svgs[3],/<path /,"wave contours are vector paths");
-  assert.match(svgs[4],/<path /,"chevron template is replaced by organic curves");
-  assert.match(svgs[5],/ A /,"horizontal stripe template is replaced by orbital arcs");
+  assert.match(svgs[4],/<polygon /,"original crystal chevron pattern is restored");
+  assert.match(svgs[5],/<rect /,"original horizon horizontal stripes are restored");
   assert.equal((svgs[7].match(/<polygon/g)||[]).length,209,"diamond lattice has one flat polygon per diamond without inset facets");
+  assert.match(svgs[9],/<polygon /,"flare replaces the L-shaped corners with triangular tessellation");
 });
 test("banner tone family stays close to the selected territory colour",()=>{
   for(const colour of ["red","orange","yellow","green","turquoise","blue","purple","magenta"]){

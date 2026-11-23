@@ -257,18 +257,24 @@ function TelegramEmoji({emoji,size=32,style={}}) {
   const value=String(emoji||'');
   const animationRef=useRef(null);
   const imageLoadedRef=useRef(false);
-  const [renderMode,setRenderMode]=useState('unicode');
+  const [renderMode,setRenderMode]=useState('loading');
   useEffect(()=>{
     let cancelled=false;
     let animation=null;
+    let fallbackTimer=null;
     imageLoadedRef.current=false;
-    setRenderMode('unicode');
+    setRenderMode('loading');
     if(!value)return undefined;
     const showFallback=()=>{
-      if(!cancelled)setRenderMode(imageLoadedRef.current?'image':'unicode');
+      if(cancelled)return;
+      setRenderMode(imageLoadedRef.current?'image':'fallback');
     };
-    fetch(API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&format=animation',{cache:'force-cache'})
-      .then(response=>response.ok?response.json():null)
+    // Bypass any cached 404 from previous TGS handlers.
+    fetch(API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&format=animation&v=2',{cache:'no-store'})
+      .then(response=>{
+        if(!response.ok)throw new Error('Animated Telegram emoji unavailable');
+        return response.json();
+      })
       .then(animationData=>{
         if(cancelled)return;
         if(!animationData||!animationRef.current){showFallback();return;}
@@ -277,19 +283,25 @@ function TelegramEmoji({emoji,size=32,style={}}) {
             container:animationRef.current,
             renderer:'svg',
             loop:true,
-            autoplay:true,
+            autoplay:false,
             animationData,
             rendererSettings:{preserveAspectRatio:'xMidYMid meet'},
           });
           animation.addEventListener('DOMLoaded',()=>{
-            if(!cancelled)setRenderMode('animation');
+            if(cancelled)return;
+            animation.setSpeed(1);
+            animation.goToAndPlay(0,true);
+            setRenderMode('animation');
+            if(fallbackTimer)clearTimeout(fallbackTimer);
           });
           animation.addEventListener('data_failed',showFallback);
+          fallbackTimer=setTimeout(showFallback,8000);
         }catch{showFallback();}
       })
       .catch(showFallback);
     return ()=>{
       cancelled=true;
+      if(fallbackTimer)clearTimeout(fallbackTimer);
       animation?.destroy();
       animationRef.current?.replaceChildren();
     };
@@ -297,9 +309,9 @@ function TelegramEmoji({emoji,size=32,style={}}) {
   if(!value)return null;
   return <span role="img" aria-label={value} style={{width:size,height:size,display:'inline-flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto',position:'relative',overflow:'visible',...style}}>
     {renderMode==='unicode'&&<span aria-hidden="true" style={{fontSize:size*.94,lineHeight:1}}>{value}</span>}
-    <img key={value} src={API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)} alt=""
-      onLoad={()=>{imageLoadedRef.current=true;setRenderMode(mode=>mode==='unicode'?'image':mode);}}
-      onError={()=>{imageLoadedRef.current=false;setRenderMode(mode=>mode==='image'?'unicode':mode);}}
+    <img key={value} src={API_BASE+'/api/telegram-emoji?emoji='+encodeURIComponent(value)+'&v=2'} alt=""
+      onLoad={()=>{imageLoadedRef.current=true;setRenderMode(mode=>mode==='fallback'?'image':mode);}}
+      onError={()=>{imageLoadedRef.current=false;setRenderMode(mode=>mode==='image'||mode==='fallback'?'unicode':mode);}}
       style={{display:renderMode==='image'?'block':'none',position:'absolute',inset:0,width:'108%',height:'108%',maxWidth:'none',objectFit:'contain',transform:'translate(-3.7%,-3.7%)'}}/>
     <div ref={animationRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',visibility:renderMode==='animation'?'visible':'hidden',transform:'scale(1.08)'}}/>
   </span>;
