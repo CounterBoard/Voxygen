@@ -30,29 +30,31 @@ test("banner gradient catalogue keeps ten stable IDs with names matching the new
   assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Пиксельная мозаика"));
   assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Органические формы"));
   assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Орбитальные дуги"));
+  assert.ok(BANNER_GRADIENT_TEMPLATES.some(item=>item.label==="Модульный лабиринт"));
 });
 test("random banner gradient selection covers the first and last template safely",()=>{
   assert.equal(getRandomBannerGradientId(()=>0),"aurora");
   assert.equal(getRandomBannerGradientId(()=>0.999999),"flare");
   assert.equal(getRandomBannerGradientId(()=>Number.NaN),"aurora");
 });
-test("all ten templates generate distinct and detailed abstract SVG compositions",()=>{
+test("all ten templates generate distinct abstract SVG compositions while retaining the original eight patterns",()=>{
   const svgs=BANNER_GRADIENT_TEMPLATES.map(item=>decodeGradient(getBannerGradient("turquoise",item.id)));
   assert.equal(new Set(svgs).size,10,"all ten templates must have distinct geometries");
   for(const svg of svgs){
     assert.match(svg,/viewBox="0 0 1200 600"/);
     const marks=(svg.match(/<(?:path|rect|circle|polygon)\b/g)||[]).length;
-    assert.ok(marks>=7,"every pattern should contain several clear geometric elements without relying on decorative micro-detail");
+    const minimumMarks=["crystal","horizon"].includes(BANNER_GRADIENT_TEMPLATES[svgs.indexOf(svg)].id)?12:55;
+    assert.ok(marks>=minimumMarks,"patterns should retain their intended visual structure");
     assert.match(svg,/linearGradient id="base"/);
     assert.match(svg,/feGaussianBlur/);
   }
   assert.match(svgs[0],/<rect /,"pixel mosaic is made of vector tiles");
-  assert.doesNotMatch(svgs[0],/opacity="0.8"\/>/,"pixel squares have no inset highlight squares");
+  assert.doesNotMatch(svgs[0],/opacity="0.8"\/>/,"pixel mosaic has no inset square highlights");
   assert.match(svgs[2],/<circle /,"halftone field is made of dots");
   assert.match(svgs[3],/<path /,"wave contours are vector paths");
-  assert.match(svgs[4],/<path /,"organic forms are smooth closed curves");
-  assert.match(svgs[5],/ A /,"orbital pattern uses elliptical arcs");
-  assert.equal((svgs[7].match(/<polygon/g)||[]).length,120,"each diamond is a single flat shape without an inset facet");
+  assert.match(svgs[4],/<path /,"chevron template is replaced by organic curves");
+  assert.match(svgs[5],/ A /,"horizontal stripe template is replaced by orbital arcs");
+  assert.equal((svgs[7].match(/<polygon/g)||[]).length,198,"diamond lattice has one flat polygon per diamond without inset facets");
 });
 test("banner tone family stays close to the selected territory colour",()=>{
   for(const colour of ["red","orange","yellow","green","turquoise","blue","purple","magenta"]){
