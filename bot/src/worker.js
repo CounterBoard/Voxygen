@@ -108,6 +108,19 @@ function findTelegramAnimatedEmojiSticker(stickers, emoji) {
   return stickers.find(sticker => normalizeTelegramEmoji(sticker?.emoji) === target) || null;
 }
 
+function isTelegramAnimatedEmojiSticker(sticker) {
+  return sticker?.is_animated === true && sticker?.is_video !== true;
+}
+
+function isSafeTelegramTgsAnimation(animationData) {
+  if (!animationData || typeof animationData !== "object") return false;
+  if (!(Number(animationData.w) > 0 && Number(animationData.w) <= 512)) return false;
+  if (!(Number(animationData.h) > 0 && Number(animationData.h) <= 512)) return false;
+  if (!Array.isArray(animationData.layers)) return false;
+  if (Array.isArray(animationData.assets) && animationData.assets.some(asset => asset?.p || asset?.u)) return false;
+  return true;
+}
+
 async function getTelegramAnimatedEmojiStickers(env) {
   const cached = telegramAnimatedEmojiSetCache.get(env);
   if (cached && cached.expiresAt > Date.now()) return cached.promise;
@@ -131,20 +144,77 @@ async function getTelegramAnimatedEmojiStickers(env) {
 }
 
 async function serveTelegramEmoji(request, env) {
-  const emoji = String(new URL(request.url).searchParams.get("emoji") || "");
+  const url = new URL(request.url);
+  const emoji = String(url.searchParams.get("emoji") || "");
+  const wantsAnimation = url.searchParams.get("format") === "animation";
   if (!emoji || [...emoji].length > 16) {
     return new Response(null, { status: 400, headers: { "Cache-Control": "public, max-age=300" } });
   }
   try {
     const stickers = await getTelegramAnimatedEmojiStickers(env);
     const sticker = findTelegramAnimatedEmojiSticker(stickers, emoji);
+    const token = String(env.BOT_TOKEN || "").trim();
+
+    if (wantsAnimation) {
+      if (!isTelegramAnimatedEmojiSticker(sticker)) {
+        return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
+      }
+      const fileInfo = await telegram(env, "getFile", { file_id: sticker.file_id });
+      const filePath = String(fileInfo.data?.result?.file_path || "");
+      if (!fileInfo.response.ok || !fileInfo.data?.ok || !filePath || filePath.includes("..") || !filePath.toLowerCase().endsWith(".tgs")) {
+        return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
+      }
+      const stickerResponse = await fetch(TELEGRAM_API + "/file/bot" + token + "/" + filePath);
+      if (!stickerResponse.ok) {
+        return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
+      }
+      const compressed = await stickerResponse.arrayBuffer();
+      if (!compressed.byteLength || compressed.byteLength > 256 * 1024) {
+        return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
+      }
+      let animationText = "";
+      try {
+        const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("gzip"));
+        const reader = stream.getReader();
+        const decoder = new TextDecoder();
+        let totalBytes = 0;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          totalBytes += value.byteLength;
+          if (totalBytes > 1024 * 1024) {
+            await reader.cancel();
+            return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
+          }
+          animationText += decoder.decode(value, { stream: true });
+        }
+        animationText += decoder.decode();
+      } catch {
+        return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
+      }
+      let animationData;
+      try { animationData = JSON.parse(animationText); }
+      catch { return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } }); }
+      if (!isSafeTelegramTgsAnimation(animationData)) {
+        return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
+      }
+      return new Response(JSON.stringify(animationData), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+          "X-Content-Type-Options": "nosniff",
+          "Content-Security-Policy": "default-src 'none'",
+        },
+      });
+    }
+
     const preview = sticker?.thumbnail?.file_id
       ? sticker.thumbnail
       : (sticker && !sticker.is_animated && !sticker.is_video ? sticker : null);
     if (!preview?.file_id) {
       return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
     }
-    const token = String(env.BOT_TOKEN || "").trim();
     const fileInfo = await telegram(env, "getFile", { file_id: preview.file_id });
     const filePath = String(fileInfo.data?.result?.file_path || "");
     if (!fileInfo.response.ok || !fileInfo.data?.ok || !filePath || filePath.includes("..")) {
@@ -176,7 +246,6 @@ async function serveTelegramEmoji(request, env) {
     return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=900" } });
   }
 }
-
 async function verifyInitData(initData, botToken, now = Date.now()) {
   if (!initData || !botToken) return null;
   try {
@@ -7469,4 +7538,4 @@ export default {
   },
 };
 
-export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTerritoryAwardCommand, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
+export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTerritoryAwardCommand, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };

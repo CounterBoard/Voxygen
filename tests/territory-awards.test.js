@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseTerritoryAwardCommand, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker } from "../bot/src/worker.js";
+import { parseTerritoryAwardCommand, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
 
 const cities=[
   {id:"city-1",name:"Новая Территория"},
@@ -48,4 +48,20 @@ test("Telegram emoji preview lookup selects the sticker with the matching emoji"
   assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🏆")?.file_id,"trophy-gold");
   assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🏅"),null);
   assert.equal(findTelegramAnimatedEmojiSticker([], "🏆"),null);
+});
+
+test("Telegram animated emoji accepts TGS stickers but excludes static and video stickers",()=>{
+  assert.equal(isTelegramAnimatedEmojiSticker({is_animated:true,is_video:false}),true);
+  assert.equal(isTelegramAnimatedEmojiSticker({is_animated:true,is_video:true}),false);
+  assert.equal(isTelegramAnimatedEmojiSticker({is_animated:false,is_video:false}),false);
+  assert.equal(isTelegramAnimatedEmojiSticker(null),false);
+});
+
+test("Telegram TGS animation validation requires bounded vector dimensions and rejects remote assets",()=>{
+  const valid={w:512,h:512,layers:[],assets:[{id:"comp_1",layers:[]}]};
+  assert.equal(isSafeTelegramTgsAnimation(valid),true);
+  assert.equal(isSafeTelegramTgsAnimation({...valid,w:0}),false);
+  assert.equal(isSafeTelegramTgsAnimation({...valid,h:513}),false);
+  assert.equal(isSafeTelegramTgsAnimation({...valid,assets:[{u:"https://example.com/",p:"image.png"}]}),false);
+  assert.equal(isSafeTelegramTgsAnimation({...valid,layers:null}),false);
 });
