@@ -91,8 +91,8 @@ function renderHalftone(t) {
 
 function renderWaveContours(t) {
   const out=[];
-  for(let i=0;i<17;i++){
-    const y=18+i*36;
+  for(let i=0;i<22;i++){
+    const y=10+i*27;
     const amp=10+(i%4)*5;
     const phase=i*.56;
     const d="M -40 "+n(y)+
