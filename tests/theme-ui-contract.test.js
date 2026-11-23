@@ -254,7 +254,7 @@ test('image overlays and bottom navigation use semantic theme tokens', () => {
   ]) assert.ok(tokens.includes(token), `Missing theme token: ${token}`);
   assert.ok(app.includes("background: 'var(--theme-color-overlay-scrim)'"));
   assert.ok(app.includes("background: 'rgba(8,13,34,.72)'"),'territory exit button shares the award badge surface');
-  assert.ok(app.includes("border: '1px solid var(--theme-color-border-strong)'"));
+  assert.ok(app.includes("border: '1px solid rgba(255,255,255,.4)'"),"territory exit button shares the award badge border");
   assert.ok(app.includes("color:'var(--theme-color-text-secondary)'"));
   assert.ok(app.includes("background:'var(--theme-color-navigation-surface)'"));
 });
