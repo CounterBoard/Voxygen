@@ -64,3 +64,8 @@ test("Telegram award emoji clones shared TGS data per player and always autoplay
   assert.doesNotMatch(app,/setRenderMode\(imageLoadedRef\.current\?'image':'unicode'\)/);
   assert.match(app,/atlas-award-emoji-enter/);
 });
+
+ 
+test("Telegram TGS payload validation requires a non-empty frame range",()=>{
+  assert.match(app,/!\(Number\(data\.op\)>Number\(data\.ip\)\)/);
+});
