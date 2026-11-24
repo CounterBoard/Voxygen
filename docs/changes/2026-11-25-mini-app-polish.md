@@ -27,4 +27,4 @@ Territories currently store their banner appearance as `banner_color` and `banne
 
 ## Validation
 
-Added regression coverage for the supported gem withdrawal forms and static UI contracts for badge alignment/animation, center-cropped banners, collapsed award packs, reply spacing, banner editor disabled-state styling, and 36px header controls. The GitHub Actions run on the pull request remains the full repository validation gate.
+Added regression coverage for the supported gem withdrawal forms and static UI contracts for badge alignment/animation, center-cropped banners, collapsed award packs, reply spacing, banner editor disabled-state styling, and 36px header controls. The withdrawal parser handles numeric syntax while the command handler separately rejects zero or negative amounts. The GitHub Actions run on the pull request remains the full repository validation gate.
