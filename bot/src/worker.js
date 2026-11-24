@@ -2901,7 +2901,7 @@ async function addTelegramAwardPack(request, env) {
   if (!result.response.ok || !result.data?.ok || !Array.isArray(stickerSet?.stickers)) {
     return json({ ok: false, error: 'Telegram не нашёл этот набор. Проверьте ссылку и доступность пакета.' }, 404);
   }
-  if (stickerSet.type !== 'custom_emoji') {
+  if (String(stickerSet.sticker_type || stickerSet.type || '') !== 'custom_emoji') {
     return json({ ok: false, error: 'Ссылка должна вести на набор пользовательских эмодзи, а не обычных стикеров' }, 400);
   }
   const sourceStickers = stickerSet.stickers.filter(sticker => sticker?.file_id && sticker?.file_unique_id);
