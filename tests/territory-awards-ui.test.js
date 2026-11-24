@@ -12,9 +12,9 @@ test("territory award emoji use AnimatedEmojies TGS or its own Telegram thumbnai
   assert.match(app,/loop:true/);
   assert.match(app,/autoplay:true/);
   assert.doesNotMatch(app,/fontSize:size\*\.94/,"device Unicode emoji font is not used for award fallback");
-  assert.match(app,/<TelegramEmoji emoji=\{award\.emoji\} size=\{40\}\/\>/);
-  assert.match(app,/<TelegramEmoji emoji=\{award\.emoji\} size=\{36\}\/\>/);
-  assert.match(app,/<TelegramEmoji emoji=\{selectedTerritoryAward\.emoji\} size=\{56\}\/\>/);
+  assert.match(app,/<TerritoryAwardIcon award=\{award\} size=\{40\}\/\>/);
+  assert.match(app,/<TerritoryAwardIcon award=\{award\} size=\{36\}\/\>/);
+  assert.match(app,/<TerritoryAwardIcon award=\{selectedTerritoryAward\} size=\{56\}\/\>/);
 });
 
 test("changing one award does not disable or fade the rest of the award inventory",()=>{
@@ -71,4 +71,24 @@ test("Telegram award emoji clones shared TGS data per player and always autoplay
  
 test("Telegram TGS payload validation requires a non-empty frame range",()=>{
   assert.match(app,/!\(Number\(data\.op\)>Number\(data\.ip\)\)/);
+});
+
+
+test("main inspector profile replaces purchases with a 9-column custom emoji pack award manager",()=>{
+  assert.match(app,/\{isMainInspector\?<MainInspectorAwardManager initData=\{initData\} territories=\{territories\}\/>/);
+  assert.match(app,/function MainInspectorAwardManager\(/);
+  assert.match(app,/gridTemplateColumns:'repeat\(9,minmax\(0,1fr\)\)'/);
+  assert.match(app,/border:selected\?'2px solid #6EE7B7'/);
+  assert.match(app,/https:\/\/t\.me\/addemoji\//);
+  assert.match(app,/type="date" value=\{awardDate\}/);
+  assert.match(app,/Выдать награду/);
+});
+
+test("main inspector issued awards list appears below D1 diagnostics and supports deletion",()=>{
+  const diagnostics=app.indexOf("Диагностика D1");
+  const issued=app.indexOf("Выданные награды");
+  assert.ok(diagnostics>=0&&issued>diagnostics);
+  assert.match(app,/async function loadIssuedAwards\(/);
+  assert.match(app,/async function deleteIssuedAward\(/);
+  assert.match(app,/\/api\/admin\/awards\/'\+encodeURIComponent\(award\.id\)/);
 });
