@@ -742,8 +742,8 @@ test('territory profile includes awards inventory, Telegram emoji previews and 5
   assert.ok(app.includes("String(date.getDate()).padStart(2,'0')"));
   assert.ok(app.includes("String(date.getMonth()+1).padStart(2,'0')"));
   assert.ok(detail.includes('formatTerritoryAwardDate(selectedTerritoryAward.awarded_at)'),'Award modal shows the date as DD.MM.YYYY');
-  assert.ok(detail.includes('TelegramEmoji emoji={award.emoji} size={36}'),'Banner uses larger Telegram emoji previews');
-  assert.ok(detail.includes('TelegramEmoji emoji={selectedTerritoryAward.emoji} size={56}'),'Award detail popup uses the enlarged Telegram emoji preview');
+  assert.ok(detail.includes('TerritoryAwardIcon award={award} size={36}'),'Banner uses Telegram sticker previews');
+  assert.ok(detail.includes('TerritoryAwardIcon award={selectedTerritoryAward} size={56}'),'Award detail popup uses the enlarged Telegram sticker preview');
 });
 test('visual color palettes are horizontally centered in editor, creation form and filters', () => {
   const editor=app.slice(app.indexOf('function VisualEditModal('),app.indexOf('function profileAccountLabel('));
