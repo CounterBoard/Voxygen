@@ -343,6 +343,54 @@ function TelegramEmoji({emoji,size=32,style={}}) {
     <div ref={animationRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',visibility:renderMode==='animation'?'visible':'hidden',transform:'scale(1.08)'}}/>
   </span>;
 }
+
+function TelegramSticker({stickerId,awardId,format='image',size=32,style={}}) {
+  const animationRef=useRef(null);
+  const [failed,setFailed]=useState(false);
+  const id=String(awardId||stickerId||'');
+  const query=new URLSearchParams(awardId?{awardId:String(awardId)}:{stickerId:String(stickerId||'')}).toString();
+  const src=API_BASE+'/api/telegram-sticker?'+query;
+  useEffect(()=>{
+    if(format!=='tgs'||!id)return undefined;
+    let cancelled=false,animation=null;
+    setFailed(false);
+    fetch(src,{cache:'force-cache'}).then(async response=>{
+      if(!response.ok)throw new Error('Sticker animation unavailable');
+      const data=await response.json();
+      if(!Array.isArray(data?.layers)||!(Number(data.op)>Number(data.ip)))throw new Error('Invalid sticker animation');
+      if(cancelled||!animationRef.current)return;
+      animation=lottie.loadAnimation({
+        container:animationRef.current,
+        renderer:'svg',
+        loop:true,
+        autoplay:true,
+        animationData:cloneTelegramEmojiAnimationData(data),
+        rendererSettings:{preserveAspectRatio:'xMidYMid meet'},
+      });
+    }).catch(()=>{if(!cancelled)setFailed(true)});
+    return ()=>{
+      cancelled=true;
+      animation?.destroy();
+      animationRef.current?.replaceChildren();
+    };
+  },[src,format,id]);
+  if(!id)return <Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true"/>;
+  const wrapperStyle={width:size,height:size,display:'inline-flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto',position:'relative',overflow:'hidden',...style};
+  if(format==='tgs')return <span role="img" aria-label="Анимированный эмодзи" style={wrapperStyle}>
+    <div ref={animationRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',visibility:failed?'hidden':'visible'}}/>
+    {failed&&<Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true" style={{opacity:.55}}/>}
+  </span>;
+  if(format==='webm')return <span style={wrapperStyle}><video src={src} autoPlay loop muted playsInline aria-hidden="true" style={{width:'100%',height:'100%',objectFit:'contain'}} onError={()=>setFailed(true)}/>{failed&&<Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true" style={{opacity:.55}}/>}</span>;
+  return <span style={wrapperStyle}><img src={src} alt="" loading="lazy" onError={()=>setFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:failed?'none':'block'}}/>{failed&&<Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true" style={{opacity:.55}}/>}</span>;
+}
+
+function TerritoryAwardIcon({award,size=32,style={}}) {
+  if(award?.sticker_format&&award?.id) {
+    return <TelegramSticker awardId={award.id} format={award.sticker_format} size={size} style={style}/>;
+  }
+  return <TelegramEmoji emoji={award?.emoji} size={size} style={style}/>;
+}
+
 function pluralizeRatings(n) { const value=Math.abs(Math.trunc(Number(n)||0)); const lastTwo=value%100,last=value%10; if(lastTwo>=11&&lastTwo<=14)return 'оценок'; if(last===1)return 'оценка'; if(last>=2&&last<=4)return 'оценки'; return 'оценок'; }
 
 
@@ -1849,6 +1897,11 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
   const [d1DiagnosticsError,setD1DiagnosticsError]=useState('');
   const [d1ReportCopyText,setD1ReportCopyText]=useState('');
   const [d1ReportCopyNotice,setD1ReportCopyNotice]=useState('');
+  const [issuedAwards,setIssuedAwards]=useState([]);
+  const [issuedAwardsLoading,setIssuedAwardsLoading]=useState(true);
+  const [issuedAwardsError,setIssuedAwardsError]=useState('');
+  const [issuedAwardDeletingId,setIssuedAwardDeletingId]=useState('');
+
   async function loadD1Diagnostics(){
     try{
       setD1DiagnosticsLoading(true);setD1DiagnosticsError('');
@@ -1868,6 +1921,34 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
     }catch{
       setD1ReportCopyNotice('Автокопирование недоступно. Выделите текст ниже и скопируйте его вручную.');setD1ReportCopyText(text);
     }
+  }
+  async function loadIssuedAwards(){
+    try{
+      setIssuedAwardsLoading(true);setIssuedAwardsError('');
+      const response=await fetch(API_BASE+'/api/admin/awards',{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
+      const data=await response.json().catch(()=>null);
+      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось загрузить выданные награды.'));
+      setIssuedAwards(Array.isArray(data.awards)?data.awards:[]);
+    }catch(error){setIssuedAwardsError(safeCaughtError(error,'Не удалось загрузить выданные награды.'))}
+    finally{setIssuedAwardsLoading(false)}
+  }
+  useEffect(()=>{
+    if(!initData)return;
+    loadIssuedAwards();
+    const refresh=()=>loadIssuedAwards();
+    window.addEventListener('voxygen:awards-changed',refresh);
+    return ()=>window.removeEventListener('voxygen:awards-changed',refresh);
+  },[initData]);
+  async function deleteIssuedAward(award){
+    if(!window.confirm('Удалить награду «'+award.name+'» из города «'+award.territory_name+'»?'))return;
+    try{
+      setIssuedAwardDeletingId(String(award.id));setIssuedAwardsError('');
+      const response=await fetch(API_BASE+'/api/admin/awards/'+encodeURIComponent(award.id),{method:'DELETE',headers:{'X-Telegram-Init-Data':initData}});
+      const data=await response.json().catch(()=>null);
+      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось удалить награду.'));
+      setIssuedAwards(current=>current.filter(item=>String(item.id)!==String(award.id)));
+    }catch(error){setIssuedAwardsError(safeCaughtError(error,'Не удалось удалить награду.'))}
+    finally{setIssuedAwardDeletingId('')}
   }
   async function loadInspectors(){try{setLoading(true);const r=await fetch(`${API_BASE}/api/inspectors/list`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData}),cache:'no-store'}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setInspectors(d.inspectors||[])}catch(e){setError(safeCaughtError(e, 'Не удалось загрузить инспекторов'))}finally{setLoading(false)}}
   async function loadUsers(){try{setUsersLoading(true);const r=await fetch(`${API_BASE}/api/admin/users`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setManagedUsers(d.users||[])}catch(e){setError(safeCaughtError(e, 'Не удалось загрузить пользователей'))}finally{setUsersLoading(false)}}
@@ -1991,6 +2072,26 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
         {d1ReportCopyText&&<textarea readOnly value={d1ReportCopyText} onFocus={event=>event.currentTarget.select()} rows={7} aria-label="JSON отчёта D1" style={{width:'100%',boxSizing:'border-box',marginTop: 8,background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:9,padding: 8,color:'var(--theme-color-text-primary)',fontSize:10,lineHeight:1.4}}/>}
         <div style={{color:'var(--theme-color-text-muted)',marginTop: 8}}>Отчёт не является резервной копией. Перед очисткой нужно проверить результаты и сделать отдельный снимок базы.</div>
       </div>}
+    </div>
+    <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding:'var(--theme-space-4)',marginBottom:12}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+        <AwardIconFallback/>
+        <div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Выданные награды</div>
+        <span style={{marginLeft:'auto',fontSize:11,color:'var(--theme-color-text-muted)'}}>{issuedAwards.length}</span>
+      </div>
+      {issuedAwardsLoading?<div role="status" style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>Загрузка наград…</div>
+        : issuedAwards.length===0?<div style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>Пока нет выданных наград.</div>
+        : <div style={{display:'flex',flexDirection:'column'}}>
+            {issuedAwards.map(award=><div key={award.id} style={{display:'flex',alignItems:'center',gap:9,padding:'9px 0',borderTop:'1px solid var(--theme-color-border)'}}>
+              <TerritoryAwardIcon award={award} size={34}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:700,overflowWrap:'anywhere'}}>{award.name}</div>
+                <div style={{fontSize:11,color:'var(--theme-color-text-muted)',overflowWrap:'anywhere'}}>{award.territory_name} · {formatTerritoryAwardDate(award.awarded_at)}</div>
+              </div>
+              <button type="button" onClick={()=>deleteIssuedAward(award)} disabled={issuedAwardDeletingId===String(award.id)} aria-label={'Удалить награду '+award.name} title="Удалить награду" className="press" style={{width:34,height:34,flex:'0 0 34px',display:'flex',alignItems:'center',justifyContent:'center',border:'none',borderRadius:9,background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',opacity:issuedAwardDeletingId===String(award.id)?0.5:1}}><Trash2 size={15}/></button>
+            </div>)}
+          </div>}
+      {issuedAwardsError&&<div role="alert" style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop:8}}>{issuedAwardsError}<button type="button" onClick={loadIssuedAwards} className="press" style={{marginLeft:8,border:'1px solid var(--theme-color-border)',borderRadius:8,padding:'5px 8px',background:'var(--theme-color-surface-raised)',color:'var(--theme-color-text-primary)'}}>Повторить</button></div>}
     </div>
   </div>;
 }
@@ -2224,7 +2325,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
               {(inventory?.territoryAwards||[]).map((award,index)=>{
                 const equipped=award.slot_index!==null&&award.slot_index!==undefined;
                 return <button key={award.id} type="button" disabled={readOnly||Boolean(awardBusyId&&String(awardBusyId)===String(award.id))} title={award.name} aria-label={`${award.emoji} ${award.name}${equipped?', размещена на баннере':''}`} aria-pressed={equipped} onClick={()=>toggleAwardPlacement(award)} className="press atlas-award-inventory-card" style={{gridColumn:'1 / -1',minWidth:0,minHeight:68,animation:'atlas-award-card-enter .38s cubic-bezier(.2,.8,.2,1) both',animationDelay:`${Math.min(index,5)*55}ms`,border:equipped?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:12,background:equipped?'rgba(110,231,183,.18)':'var(--theme-color-surface-raised)',boxShadow:equipped?'inset 0 0 0 1px rgba(110,231,183,.2),0 0 0 1px rgba(110,231,183,.12)':'none',color:'var(--theme-color-text-primary)',display:'grid',gridTemplateColumns:'48px minmax(0,1fr)',alignItems:'center',gap:8,padding:6,opacity:1}}>
-                  <span style={{fontSize:32,lineHeight:1.1,display:'flex',alignItems:'center',justifyContent:'center',minWidth:0}}><TelegramEmoji emoji={award.emoji} size={40}/></span>
+                  <span style={{fontSize:32,lineHeight:1.1,display:'flex',alignItems:'center',justifyContent:'center',minWidth:0}}><TerritoryAwardIcon award={award} size={40}/></span>
                   <span style={{fontSize:11,lineHeight:1.2,textAlign:'center',overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',width:'100%',minWidth:0}}>{award.name}</span>
                 </button>;
               })}
@@ -2268,6 +2369,122 @@ function ProfileInventory({initData,role,tgUser,territory}={}){
         </div>}
   </div>;
 }
+
+function MainInspectorAwardManager({initData,territories=[]}={}) {
+  const [packs,setPacks]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [savingPack,setSavingPack]=useState(false);
+  const [savingAward,setSavingAward]=useState(false);
+  const [packUrl,setPackUrl]=useState('');
+  const [selectedStickerId,setSelectedStickerId]=useState('');
+  const [territoryId,setTerritoryId]=useState('');
+  const [awardName,setAwardName]=useState('');
+  const [awardDate,setAwardDate]=useState(()=>{
+    const now=new Date(),pad=value=>String(value).padStart(2,'0');
+    return now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
+  });
+  const [error,setError]=useState('');
+  const [notice,setNotice]=useState('');
+  const approvedTerritories=(territories||[]).filter(city=>!city.status||city.status==='approved');
+  const selectedSticker=packs.flatMap(pack=>pack.stickers||[]).find(sticker=>String(sticker.id)===String(selectedStickerId))||null;
+  const inputStyle={width:'100%',boxSizing:'border-box',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding:'10px 12px',color:'var(--theme-color-text-primary)',fontSize:13,outline:'none'};
+  async function load(){
+    try{
+      setLoading(true);setError('');
+      const response=await fetch(API_BASE+'/api/admin/awards',{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
+      const data=await response.json().catch(()=>null);
+      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось загрузить каталог наград.'));
+      setPacks(Array.isArray(data.packs)?data.packs:[]);
+    }catch(e){setError(safeCaughtError(e,'Не удалось загрузить каталог наград.'))}
+    finally{setLoading(false)}
+  }
+  useEffect(()=>{if(initData)load()},[initData]);
+  useEffect(()=>{if(!territoryId&&approvedTerritories[0])setTerritoryId(String(approvedTerritories[0].id))},[territories,territoryId]);
+  async function addPack(){
+    const url=packUrl.trim();
+    if(!url)return;
+    try{
+      setSavingPack(true);setError('');setNotice('');
+      const response=await fetch(API_BASE+'/api/admin/award-packs',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({url})});
+      const data=await response.json().catch(()=>null);
+      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось добавить эмодзи-пак.'));
+      setPackUrl('');setNotice('Эмодзи-пак добавлен: '+data.title);
+      await load();
+    }catch(e){setError(safeCaughtError(e,'Не удалось добавить эмодзи-пак.'))}
+    finally{setSavingPack(false)}
+  }
+  async function removePack(pack){
+    if(!window.confirm('Удалить эмодзи-пак «'+(pack.title||pack.set_name)+'» из каталога? Уже выданные награды сохранят свои значки.'))return;
+    try{
+      setError('');setNotice('');
+      const response=await fetch(API_BASE+'/api/admin/award-packs/'+encodeURIComponent(pack.id),{method:'DELETE',headers:{'X-Telegram-Init-Data':initData}});
+      const data=await response.json().catch(()=>null);
+      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось удалить эмодзи-пак.'));
+      if((pack.stickers||[]).some(sticker=>String(sticker.id)===String(selectedStickerId)))setSelectedStickerId('');
+      setNotice('Эмодзи-пак удалён');await load();
+    }catch(e){setError(safeCaughtError(e,'Не удалось удалить эмодзи-пак.'))}
+  }
+  async function grantAward(){
+    const name=awardName.trim();
+    const awardedAt=new Date(awardDate+'T12:00:00').getTime();
+    if(!selectedSticker){setError('Сначала выберите эмодзи из галереи.');return}
+    if(!territoryId){setError('Выберите город, которому выдаётся награда.');return}
+    if(!name){setError('Введите название награды.');return}
+    if(!awardDate||!Number.isFinite(awardedAt)){setError('Укажите корректную дату.');return}
+    try{
+      setSavingAward(true);setError('');setNotice('');
+      const response=await fetch(API_BASE+'/api/admin/awards',{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({territoryId,stickerId:selectedSticker.id,name,awardedAt})});
+      const data=await response.json().catch(()=>null);
+      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось выдать награду.'));
+      setAwardName('');setNotice('Награда выдана городу «'+data.territoryName+'»');
+      window.dispatchEvent(new Event('voxygen:awards-changed'));
+    }catch(e){setError(safeCaughtError(e,'Не удалось выдать награду.'))}
+    finally{setSavingAward(false)}
+  }
+  return <div className="atlas-page-panel" style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding:10,marginBottom:8}}>
+    <div className="atlas-display" style={{fontSize:16,fontWeight:800,marginBottom:4}}>Награды</div>
+    <div style={{fontSize:12,color:'var(--theme-color-text-muted)',lineHeight:1.45,marginBottom:10}}>Добавьте публичный Telegram-пак пользовательских эмодзи. Его содержимое появится ниже в общей галерее.</div>
+    <div style={{display:'flex',gap:7,alignItems:'stretch'}}>
+      <input value={packUrl} onChange={event=>setPackUrl(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')addPack()}} placeholder="https://t.me/addemoji/НазваниеНабора" aria-label="Ссылка на Telegram эмодзи-пак" style={{...inputStyle,flex:1,minWidth:0}}/>
+      <button type="button" onClick={addPack} disabled={savingPack||!packUrl.trim()} className="press" style={{flex:'0 0 auto',border:'none',borderRadius:10,padding:'0 13px',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:800,opacity:savingPack||!packUrl.trim()?0.55:1}}>{savingPack?'…':'Добавить'}</button>
+    </div>
+    {loading&&<div role="status" style={{fontSize:12,color:'var(--theme-color-text-muted)',padding:'12px 0'}}>Загрузка каталога эмодзи…</div>}
+    {!loading&&packs.length===0&&<div style={{fontSize:12,color:'var(--theme-color-text-muted)',padding:'12px 0'}}>Эмодзи-паки ещё не добавлены.</div>}
+    <div style={{display:'flex',flexDirection:'column',gap:12,marginTop:10}}>
+      {packs.map(pack=><section key={pack.id} style={{borderTop:'1px solid var(--theme-color-border)',paddingTop:10}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+          <button type="button" onClick={()=>removePack(pack)} className="press" aria-label={'Удалить эмодзи-пак '+pack.title} title="Удалить пак" style={{width:32,height:32,flex:'0 0 32px',display:'flex',alignItems:'center',justifyContent:'center',border:'none',borderRadius:9,background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)'}}><Trash2 size={15}/></button>
+          <div style={{flex:1,minWidth:0}}>
+            <div className="atlas-display" style={{fontSize:14,fontWeight:800,overflowWrap:'anywhere'}}>{pack.title}</div>
+            <div style={{fontSize:10.5,color:'var(--theme-color-text-muted)',overflowWrap:'anywhere'}}>{pack.set_name} · {(pack.stickers||[]).length} эмодзи</div>
+          </div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(9,minmax(0,1fr))',gap:4}}>
+          {(pack.stickers||[]).map(sticker=>{
+            const selected=String(sticker.id)===String(selectedStickerId);
+            return <button type="button" key={sticker.id} onClick={()=>setSelectedStickerId(selected?'':String(sticker.id))} aria-label={'Выбрать эмодзи '+(sticker.emoji||'')} aria-pressed={selected} className="press" style={{aspectRatio:'1 / 1',minWidth:0,padding:2,border:selected?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:9,background:selected?'rgba(110,231,183,.12)':'var(--theme-color-surface-raised)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:selected?'0 0 0 1px rgba(110,231,183,.12)':'none'}}>
+              <TelegramSticker stickerId={sticker.id} format={sticker.format} size={29}/>
+            </button>;
+          })}
+        </div>
+      </section>)}
+    </div>
+    <div style={{borderTop:'1px solid var(--theme-color-border)',marginTop:12,paddingTop:12}}>
+      <div style={{fontSize:12,fontWeight:800,marginBottom:7}}>Выдать выбранный эмодзи как награду</div>
+      {!selectedSticker&&<div style={{fontSize:11,color:'var(--theme-color-text-muted)',marginBottom:8}}>Выберите один эмодзи в галерее выше.</div>}
+      <select value={territoryId} onChange={event=>setTerritoryId(event.target.value)} aria-label="Город для выдачи награды" style={{...inputStyle,marginBottom:8,opacity:approvedTerritories.length?1:0.55}} disabled={!approvedTerritories.length}>
+        <option value="">Выберите город</option>
+        {approvedTerritories.map(city=><option key={city.id} value={city.id}>{city.name}</option>)}
+      </select>
+      <input value={awardName} onChange={event=>setAwardName(event.target.value)} maxLength={80} placeholder="Название награды" aria-label="Название награды" style={{...inputStyle,marginBottom:8}}/>
+      <input type="date" value={awardDate} onChange={event=>setAwardDate(event.target.value)} aria-label="Дата награды" style={{...inputStyle,marginBottom:9}}/>
+      <button type="button" onClick={grantAward} disabled={savingAward||!selectedSticker||!territoryId||!awardName.trim()||!awardDate} className="press" style={{width:'100%',border:'none',borderRadius:10,padding:'11px 12px',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:800,opacity:savingAward||!selectedSticker||!territoryId||!awardName.trim()||!awardDate?0.55:1}}>{savingAward?'Выдача…':'Выдать награду'}</button>
+    </div>
+    {error&&<div role="alert" style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop:8}}>{error}</div>}
+    {notice&&<div role="status" style={{fontSize:12,color:'var(--theme-color-status-success)',marginTop:8}}>{notice}</div>}
+  </div>;
+}
+
 function TreasuryCard({city,initData,tgUser,onToast}={}){
   const [data,setData]=useState(null),[amount,setAmount]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   async function load(){if(!city)return;try{setError('');const r=await fetch(`${API_BASE}/api/treasury?territoryId=${encodeURIComponent(city.id)}`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setData(d)}catch(e){setError(safeCaughtError(e, 'Не удалось загрузить казну'))}}
@@ -2562,7 +2779,7 @@ function ProfileScreen({ profile, profileLoadState, profileLoadError, claimNickn
         <button type="button" onClick={()=>setSettingsOpen(true)} className="press" aria-label="Настройки профиля" title="Настройки" style={{width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--theme-color-border)',borderRadius:12,background:'var(--theme-color-surface-raised)',color:'var(--theme-color-text-muted)'}}><Settings size={18}/></button>
         {isMainInspector&&<button type="button" onClick={()=>onOpenGlobalSettings?.()} className="press" aria-label="Глобальные настройки" title="Глобальные настройки" style={{width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--theme-color-status-success)',borderRadius:12,background:'var(--theme-color-status-success)',color:'var(--theme-color-status-success-contrast)'}}><Settings size={18}/></button>}
       </div></div><div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom: 10}}>Telegram: {tgUser?`@${tgUser.username||'—'} · id ${tgUser.id}`:'не определён'}</div>{!isInspector&&profileLoadState==='needs_nickname'&&profile.status!=='verified'&&<><div style={{display:'flex',gap: 8}}><Field value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ваш ник в Minecraft" style={{flex:1,background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding: '10px 12px',color:'var(--theme-color-text-primary)',fontSize:13}}/><button onClick={submit} className="press" style={iconBtn('var(--theme-color-action-primary)','var(--theme-color-action-primary-contrast)',true)}><Pencil size={15}/></button></div>{error&&<div style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop: 8}}>{error}</div>}</>}</div>
-    <ProfileInventory initData={initData} role={role} tgUser={tgUser}/>
+    {isMainInspector?<MainInspectorAwardManager initData={initData} territories={territories}/>:<ProfileInventory initData={initData} role={role} tgUser={tgUser}/>}
     {!isInspector&&userCitiesForTreasury.map(city=><TreasuryCard key={`treasury-${city.id}`} city={city} initData={initData} tgUser={tgUser} onToast={onToast}/>)}
     {!isInspector&&managerCities.map(city=><CityManagementProfile key={`manage-${city.id}`} territory={city} managerTerritories={managerCities} initData={initData} tgUser={tgUser} onChanged={onTerritoriesChanged}/>)}
     {!isInspector&&residentCities.map(city=><CityManagementProfile key={`view-${city.id}`} territory={city} managerTerritories={managerCities} initData={initData} tgUser={tgUser} readOnly onChanged={onTerritoriesChanged}/>)}
@@ -2872,7 +3089,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
     <div className="atlas-page atlas-page--territory" style={{ paddingBottom: 90, position: 'relative' }}>
       <div style={{ position: 'relative', height: 150, overflow:'hidden', background:getBannerGradient(t.banner_color||'none',t.banner_gradient||'aurora',t.accent) }}>
         <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: '50%', background: 'rgba(8,13,34,.72)', border: '1px solid rgba(255,255,255,.4)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}><ChevronLeft size={20} /></button>
-        {(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined).slice().sort((a,b)=>Number(b.slot_index)-Number(a.slot_index)).map((award,index)=><button key={award.id} type="button" onClick={()=>setSelectedTerritoryAward(award)} title={award.name} aria-label={`${award.emoji} ${award.name}`} className="press atlas-award-badge" style={{position:'absolute',top:6,right:6+index*58,width:52,height:52,animation:'atlas-award-badge-enter .42s cubic-bezier(.2,.8,.2,1) both',animationDelay:`${Math.min(index,3)*65}ms`,padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.4)',borderRadius:10,background:'rgba(8,13,34,.72)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',fontSize:0,zIndex:4}}><TelegramEmoji emoji={award.emoji} size={36}/></button>)}
+        {(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined).slice().sort((a,b)=>Number(b.slot_index)-Number(a.slot_index)).map((award,index)=><button key={award.id} type="button" onClick={()=>setSelectedTerritoryAward(award)} title={award.name} aria-label={`${award.emoji} ${award.name}`} className="press atlas-award-badge" style={{position:'absolute',top:6,right:6+index*58,width:52,height:52,animation:'atlas-award-badge-enter .42s cubic-bezier(.2,.8,.2,1) both',animationDelay:`${Math.min(index,3)*65}ms`,padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.4)',borderRadius:10,background:'rgba(8,13,34,.72)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',fontSize:0,zIndex:4}}><TerritoryAwardIcon award={award} size={36}/></button>)}
         <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, zIndex: 3, textShadow:'var(--theme-shadow-cover-title)' }}>
           <MinecraftText as="div" text={t.name} className="atlas-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.16 }} />
           <div style={{fontSize:13,color:'var(--theme-color-text-secondary)'}}>{formatTerritoryCoords(t.coords || (t.vox_x != null && t.vox_z != null ? `${t.vox_x} / ${t.vox_z}` : ''))}</div>
@@ -2923,7 +3140,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
       </div>
       {selectedTerritoryAward&&<SimpleModal title="Награда" onClose={()=>setSelectedTerritoryAward(null)}>
         <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,padding:'0 4px 4px',textAlign:'center'}}>
-          <div aria-hidden="true"><TelegramEmoji emoji={selectedTerritoryAward.emoji} size={56}/></div>
+          <div aria-hidden="true"><TerritoryAwardIcon award={selectedTerritoryAward} size={56}/></div>
           <div style={{fontSize:15,fontWeight:800,lineHeight:1.35,color:'var(--theme-color-text-primary)',overflowWrap:'anywhere'}}>{selectedTerritoryAward.name}</div>
           <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)'}}>Получена {formatTerritoryAwardDate(selectedTerritoryAward.awarded_at)}</div>
         </div>
