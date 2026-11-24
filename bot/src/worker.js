@@ -2878,7 +2878,7 @@ async function getAdminAwards(request, env) {
   const auth = await requireMainInspector(request, env);
   if (auth.error) return auth.error;
   await ensureWorldTables(env);
-  const awardRows = await env.DB.prepare(`SELECT a.id,a.territory_id,t.name AS territory_name,a.name,a.emoji,a.awarded_at,a.slot_index,a.sticker_format,a.sticker_set_name
+  const awardRows = await env.DB.prepare(`SELECT a.id,a.territory_id,t.name AS territory_name,a.name,a.emoji,a.awarded_at,a.slot_index,a.sticker_format,a.sticker_set_name,a.sticker_thumbnail_file_id
     FROM territory_awards a JOIN territories t ON t.id=a.territory_id
     ORDER BY a.awarded_at DESC,a.id ASC`).all();
   if (new URL(request.url).searchParams.get('view') === 'issued') {
