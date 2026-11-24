@@ -385,9 +385,9 @@ function TelegramSticker({stickerId,awardId,format='image',size=32,style={},prev
   return <span style={wrapperStyle}><img src={src} alt="" loading="lazy" onError={()=>setFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:failed?'none':'block'}}/>{failed&&<Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true" style={{opacity:.55}}/>}</span>;
 }
 
-function TerritoryAwardIcon({award,size=32,style={}}) {
+function TerritoryAwardIcon({award,size=32,style={},preview=false}) {
   if(award?.sticker_format&&award?.id) {
-    return <TelegramSticker awardId={award.id} format={award.sticker_format} size={size} style={style}/>;
+    return <TelegramSticker awardId={award.id} format={award.sticker_format} size={size} style={style} preview={preview}/>;
   }
   return <TelegramEmoji emoji={award?.emoji} size={size} style={style}/>;
 }
@@ -2085,7 +2085,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
         : issuedAwards.length===0?<div style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>Пока нет выданных наград.</div>
         : <div style={{display:'flex',flexDirection:'column'}}>
             {issuedAwards.map(award=><div key={award.id} style={{display:'flex',alignItems:'center',gap:9,padding:'9px 0',borderTop:'1px solid var(--theme-color-border)'}}>
-              <TerritoryAwardIcon award={award} size={34}/>
+              <TerritoryAwardIcon award={award} size={34} preview={Boolean(award.sticker_thumbnail_file_id)}/>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:700,overflowWrap:'anywhere'}}>{award.name}</div>
                 <div style={{fontSize:11,color:'var(--theme-color-text-muted)',overflowWrap:'anywhere'}}>{award.territory_name} · {formatTerritoryAwardDate(award.awarded_at)}</div>
