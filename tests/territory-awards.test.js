@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseTerritoryAwardCommand, parseTelegramEmojiSetName, getTelegramStickerFormat, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
+import { parseTerritoryAwardCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
 
 const cities=[
   {id:"city-1",name:"Новая Территория"},
@@ -99,4 +99,12 @@ test("Telegram custom emoji formats distinguish TGS, WEBM and static image",()=>
   assert.equal(getTelegramStickerFormat({is_animated:false,is_video:true}),"webm");
   assert.equal(getTelegramStickerFormat({is_animated:false,is_video:false}),"image");
   assert.equal(getTelegramStickerFormat(null),"image");
+});
+
+
+test("Telegram sticker set validation accepts the Bot API sticker_type field",()=>{
+  assert.equal(isTelegramCustomEmojiSet({sticker_type:"custom_emoji"}),true);
+  assert.equal(isTelegramCustomEmojiSet({sticker_type:"regular"}),false);
+  assert.equal(isTelegramCustomEmojiSet({type:"custom_emoji"}),true);
+  assert.equal(isTelegramCustomEmojiSet(null),false);
 });
