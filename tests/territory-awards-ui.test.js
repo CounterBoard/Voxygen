@@ -118,9 +118,8 @@ test("territory review reply has no extra bottom margin",()=>{
   assert.match(app.slice(start,end),/marginBottom:\s*0/);
 });
 
-test("territory equipped awards note is italic and profile banner controls are not dimmed when disabled",()=>{
-  assert.match(app,/Экипированные награды появляются на странице территории/);
-  assert.match(app,/fontStyle:'italic'/);
+test("equipped-award guidance is not shown in the profile and profile banner controls are not dimmed when disabled",()=>{
+  assert.doesNotMatch(app,/Экипированные награды появляются на странице территории/);
   const dot=app.slice(app.indexOf("function ColorDot("),app.indexOf("function ToggleField(",app.indexOf("function ColorDot(")));
   assert.match(dot,/opacity:1,filter:'none'/);
   assert.match(app,/aria-label="Предпросмотр текущего баннера территории"[\s\S]*?opacity:1,filter:'none'/);
