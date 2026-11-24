@@ -8,7 +8,7 @@ This change set polishes territory presentation, the main-inspector award-pack m
 2. **Review reply spacing.** The founder/mayor reply input no longer adds an extra bottom margin inside the already padded review card.
 3. **Territories rating list.** The small left-hand territory thumbnails now show a center crop of the same 150px banner used on the territory page. The banner is rendered at its original viewport width and height inside an overflow-hidden square; it is not stretched or scaled.
 4. **Award pack manager.** Removed the two explanatory helper sentences. Every Telegram emoji pack is collapsed on initial render and can be expanded or collapsed using an accessible chevron control next to its title.
-5. **Equipped-award guidance.** Added an italic note explaining that equipped awards appear on the territory page.
+5. **Award notification guidance.** Appended an italic note to the award-granted Telegram notification: “Экипированные награды появляются на странице территории”. The note is part of the same message, immediately after the award announcement; it is not shown in the profile UI.
 6. **Profile banner editor.** Disabled color swatches and the banner preview retain their normal brightness in read-only/profile views.
 7. **Territories header geometry.** The FAQ and add-territory buttons, plus the rating sort segmented control, use the same 36px height as the adjacent circular inspector control.
 8. **Rating filter wording.** Changed “По инспектору” to “По инспекторам”; the player filter is unchanged.
@@ -16,7 +16,7 @@ This change set polishes territory presentation, the main-inspector award-pack m
 ## Bot behavior
 
 - Granting a territory award through the main-inspector award manager now sends an award notice to recipients who have enabled notifications for that territory:
-  `🏆 <territory> получил(а) награду «<award name>»`.
+  `🏆 <territory> получил(а) награду «<award name>»` followed by the italic line `Экипированные награды появляются на странице территории`.
 - The notification uses the existing per-territory preference check and existing recipient selection for territory members/managers. Users without an enabled territory preference are not sent the notice.
 - Gem withdrawal parsing accepts optional leading slash syntax and optional whitespace after the minus sign, including `-250`, `- 250`, `/-250`, and `/ - 250`, as well as the corresponding territory-prefixed forms.
 - Removed the legacy banker-chat command for granting/removing territory awards. Award management is handled by the protected main-inspector Mini App interface.
