@@ -269,6 +269,10 @@ function parseTelegramEmojiSetName(raw) {
   }
 }
 
+function isTelegramCustomEmojiSet(stickerSet) {
+  return String(stickerSet?.sticker_type || stickerSet?.type || '') === 'custom_emoji';
+}
+
 function getTelegramStickerFormat(sticker) {
   if (sticker?.is_video === true) return 'webm';
   if (sticker?.is_animated === true) return 'tgs';
@@ -2874,12 +2878,15 @@ async function getAdminAwards(request, env) {
   const auth = await requireMainInspector(request, env);
   if (auth.error) return auth.error;
   await ensureWorldTables(env);
-  const [packRows, stickerRows, awardRows] = await Promise.all([
+  const awardRows = await env.DB.prepare(`SELECT a.id,a.territory_id,t.name AS territory_name,a.name,a.emoji,a.awarded_at,a.slot_index,a.sticker_format,a.sticker_set_name
+    FROM territory_awards a JOIN territories t ON t.id=a.territory_id
+    ORDER BY a.awarded_at DESC,a.id ASC LIMIT 500`).all();
+  if (new URL(request.url).searchParams.get('view') === 'issued') {
+    return json({ ok: true, awards: awardRows.results || [] });
+  }
+  const [packRows, stickerRows] = await Promise.all([
     env.DB.prepare(`SELECT id,set_name,title,created_at FROM telegram_award_packs ORDER BY created_at DESC,id ASC`).all(),
     env.DB.prepare(`SELECT id,pack_id,emoji,custom_emoji_id,format,thumbnail_file_id,width,height FROM telegram_award_pack_stickers ORDER BY rowid ASC`).all(),
-    env.DB.prepare(`SELECT a.id,a.territory_id,t.name AS territory_name,a.name,a.emoji,a.awarded_at,a.slot_index,a.sticker_format,a.sticker_set_name
-      FROM territory_awards a JOIN territories t ON t.id=a.territory_id
-      ORDER BY a.awarded_at DESC,a.id ASC LIMIT 500`).all(),
   ]);
   const stickersByPack = new Map();
   for (const sticker of stickerRows.results || []) {
@@ -2907,7 +2914,7 @@ async function addTelegramAwardPack(request, env) {
   if (!result.response.ok || !result.data?.ok || !Array.isArray(stickerSet?.stickers)) {
     return json({ ok: false, error: 'Telegram не нашёл этот набор. Проверьте ссылку и доступность пакета.' }, 404);
   }
-  if (String(stickerSet.sticker_type || stickerSet.type || '') !== 'custom_emoji') {
+  if (!isTelegramCustomEmojiSet(stickerSet)) {
     return json({ ok: false, error: 'Ссылка должна вести на набор пользовательских эмодзи, а не обычных стикеров' }, 400);
   }
   const sourceStickers = stickerSet.stickers.filter(sticker => sticker?.file_id && sticker?.file_unique_id);
@@ -7849,4 +7856,4 @@ export default {
   },
 };
 
-export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTerritoryAwardCommand, parseTelegramEmojiSetName, getTelegramStickerFormat, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
+export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTerritoryAwardCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
