@@ -1,4 +1,4 @@
-// Voxygen-Version: v51
+// Voxygen-Version: v52
 // ============================================================
 // VOXYGEN BACKEND
 // v43: GitHub Releases is the only map-file storage; D1 stores only its URL and content type
@@ -2996,7 +2996,7 @@ async function grantTerritoryAward(request, env) {
   if (!Number(inserted.meta?.changes || 0)) {
     return json({ ok: false, error: 'У этого города уже есть награда с таким названием' }, 409);
   }
-  const notificationText = `🏆 <b>${escapeHtml(territory.name)}</b> получил(а) награду «${escapeHtml(name)}»`;
+  const notificationText = `🏆 <b>${escapeHtml(territory.name)}</b> получил(а) награду «${escapeHtml(name)}»\n<i>Экипированные награды появляются на странице территории</i>`;
   await notifyTerritoryManagers(env, territoryId, notificationText);
   return json({ ok: true, awardId, territoryId, territoryName: territory.name, name, awardedAt });
 }
