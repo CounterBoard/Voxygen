@@ -92,3 +92,42 @@ test("main inspector issued awards list appears below D1 diagnostics and support
   assert.match(app,/async function deleteIssuedAward\(/);
   assert.match(app,/\/api\/admin\/awards\/'\+encodeURIComponent\(award\.id\)/);
 });
+
+test("territory award badges center their icons and reveal each badge in sequence",()=>{
+  assert.match(app,/animationDelay:`\$\{index\*75\}ms`/);
+  assert.match(app,/width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:0/);
+});
+
+test("territory rating rows crop the matching banner from its center without scaling",()=>{
+  const rating=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
+  assert.match(rating,/width:'100vw',height:150,left:'50%',top:'50%',transform:'translate\(-50%,-50%\)'/);
+  assert.match(rating,/getBannerGradient\(t\.banner_color\|\|'none',t\.banner_gradient\|\|'aurora',t\.accent\)/);
+});
+
+test("main inspector emoji pack galleries are collapsed initially and have accessible toggles",()=>{
+  assert.match(app,/useState\(\(\)=>new Set\(\)\)/);
+  assert.match(app,/aria-expanded=\{expandedPackIds\.has\(String\(pack\.id\)\)\}/);
+  assert.match(app,/expandedPackIds\.has\(String\(pack\.id\)\)&&<div style=\{\{display:'grid',gridTemplateColumns:'repeat\(9,minmax\(0,1fr\)\)'/);
+  assert.doesNotMatch(app,/Добавьте публичный Telegram-пак пользовательских эмодзи/);
+  assert.doesNotMatch(app,/Выберите один эмодзи в галерее выше/);
+});
+
+test("territory review reply has no extra bottom margin",()=>{
+  const start=app.indexOf("function ReplyBox("),end=app.indexOf("function ResidentsModal(",start);
+  assert.ok(start>=0&&end>start);
+  assert.match(app.slice(start,end),/marginBottom:\s*0/);
+});
+
+test("territory equipped awards note is italic and profile banner controls are not dimmed when disabled",()=>{
+  assert.match(app,/Экипированные награды появляются на странице территории/);
+  assert.match(app,/fontStyle:'italic'/);
+  const dot=app.slice(app.indexOf("function ColorDot("),app.indexOf("function ToggleField(",app.indexOf("function ColorDot(")));
+  assert.match(dot,/opacity:1,filter:'none'/);
+  assert.match(app,/aria-label="Предпросмотр текущего баннера территории"[\s\S]*?opacity:1,filter:'none'/);
+});
+
+test("territories header controls and rating filter share a 36px height",()=>{
+  assert.match(app,/height:36,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'0 12px'[^>]*>\s*<Plus/);
+  assert.match(app,/style=\{\{height:36,boxSizing:'border-box',padding:0\}\} optionStyle=\{\{height:'100%',minHeight:0,padding:'0 12px'\}\}/);
+  assert.match(app,/label:'По инспекторам'/);
+});

@@ -1,4 +1,4 @@
-// Voxygen-Version: v50
+// Voxygen-Version: v51
 // ============================================================
 // VOXYGEN BACKEND
 // v43: GitHub Releases is the only map-file storage; D1 stores only its URL and content type
@@ -2996,6 +2996,8 @@ async function grantTerritoryAward(request, env) {
   if (!Number(inserted.meta?.changes || 0)) {
     return json({ ok: false, error: 'У этого города уже есть награда с таким названием' }, 409);
   }
+  const notificationText = `🏆 <b>${escapeHtml(territory.name)}</b> получил(а) награду «${escapeHtml(name)}»`;
+  await notifyTerritoryManagers(env, territoryId, notificationText);
   return json({ ok: true, awardId, territoryId, territoryName: territory.name, name, awardedAt });
 }
 
@@ -6781,7 +6783,7 @@ async function handleVisualInventoryCommand(env, message, rawText) {
 }
 
 function parseGemWithdrawalCommand(raw) {
-  const text = String(raw || '').trim();
+  const text = String(raw || '').trim().replace(/^\/\s*/, '');
   const personal = text.match(/^[-−]\s*(\d+)$/);
   const territorialTargetFirst = text.match(/^(.+?)\s*[-−]\s*(\d+)$/);
   const territorialAmountFirst = text.match(/^[-−]\s*(\d+)\s+(.+)$/);
@@ -7037,87 +7039,12 @@ async function handleVisualDiscountMessage(env,update,message,command) {
   return json({ok:true,handled:command.mode==='set'?'bank_visual_discount_set':'bank_visual_discount_decrease',count:selected.length});
 }
 
-function parseTerritoryAwardCommand(raw, territories=[]) {
-  const text=stripMinecraftFormatting(String(raw||'')).replace(/\s+/g,' ').trim();
-  if(!text||!Array.isArray(territories)||!territories.length)return null;
-  const normalize=value=>stripMinecraftFormatting(String(value||'')).replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
-  const sorted=[...territories].filter(city=>normalize(city.name)).sort((a,b)=>normalize(b.name).length-normalize(a.name).length);
-  const firstSpace=text.indexOf(' ');
-  if(firstSpace>0){
-    const emoji=text.slice(0,firstSpace).trim();
-    const pictographic=/[\p{Extended_Pictographic}\p{Regional_Indicator}]/u.test(emoji);
-    if(pictographic){
-      const rest=text.slice(firstSpace+1).trim();
-      for(const city of sorted){
-        const name=stripMinecraftFormatting(String(city.name||'')).replace(/\s+/g,' ').trim();
-        const prefix=rest.slice(0,name.length);
-        if(normalize(prefix)===normalize(name)&&/\s/.test(rest[name.length]||'')){
-          const awardName=rest.slice(name.length).trim();
-          if(awardName)return {mode:'add',territoryId:String(city.id),territoryName:name,name:awardName,emoji};
-        }
-      }
-      return null;
-    }
-  }
-  for(const city of sorted){
-    const name=stripMinecraftFormatting(String(city.name||'')).replace(/\s+/g,' ').trim();
-    const prefix=text.slice(0,name.length);
-    if(normalize(prefix)!==normalize(name))continue;
-    const tail=text.slice(name.length).trimStart();
-    if(!tail.startsWith('-'))continue;
-    // Keep existing numeric banker balance commands out of award deletion parsing.
-    if(/^-[0-9]+$/.test(tail))return null;
-    const awardName=tail.slice(1).trim();
-    if(awardName)return {mode:'remove',territoryId:String(city.id),territoryName:name,name:awardName,emoji:null};
-  }
-  return null;
-}
-
-async function handleTerritoryAwardBankMessage(env,update,message,raw) {
-  const text=stripMinecraftFormatting(String(raw||'')).replace(/\s+/g,' ').trim();
-  const first=text.split(' ')[0]||'';
-  const addCandidate=/[\p{Extended_Pictographic}\p{Regional_Indicator}]/u.test(first);
-  const removeCandidate=/\s-[^\s]/.test(text)&&!/\s[−-]\d+\s*$/.test(text);
-  if(!addCandidate&&!removeCandidate)return null;
-  await ensureWorldTables(env);
-  const cities=(await env.DB.prepare(`SELECT id,name FROM territories WHERE status='approved'`).all()).results||[];
-  const command=parseTerritoryAwardCommand(text,cities);
-  if(!command)return null;
-  const chatId=Number(message.chat?.id||message.from?.id||0),messageId=Number(message.message_id||0);
-  const reply=async value=>{try{await telegram(env,'sendMessage',{chat_id:chatId,text:value,reply_to_message_id:messageId});}catch(error){console.error('Territory award banker reply failed:',error);}};
-  const nameKey=command.name.toLocaleLowerCase('ru-RU');
-  if(command.mode==='add'){
-    const id=crypto.randomUUID(),now=Date.now();
-    const added=await env.DB.prepare(`INSERT INTO territory_awards(id,territory_id,name,name_key,emoji,awarded_by_telegram_id,awarded_at,slot_index)
-      VALUES(?,?,?,?,?,?,?,NULL) ON CONFLICT(territory_id,name_key) DO NOTHING`)
-      .bind(id,command.territoryId,command.name,nameKey,command.emoji,Number(message.from.id),now).run();
-    if(!Number(added.meta?.changes||0)){
-      await reply(`🏦 Награда «${command.name}» уже есть в инвентаре территории «${command.territoryName}».`);
-      return json({ok:true,handled:'bank_territory_award_exists'});
-    }
-    await reply(`🏦 Награда ${command.emoji} «${command.name}» добавлена в инвентарь территории «${command.territoryName}».`);
-    return json({ok:true,handled:'bank_territory_award_added',awardId:id});
-  }
-  const existing=await env.DB.prepare(`SELECT id,slot_index FROM territory_awards WHERE territory_id=? AND name_key=?`).bind(command.territoryId,nameKey).first();
-  if(!existing){
-    await reply(`🏦 Награда «${command.name}» не найдена в инвентаре территории «${command.territoryName}».`);
-    return json({ok:true,handled:'bank_territory_award_not_found'});
-  }
-  const statements=[env.DB.prepare(`DELETE FROM territory_awards WHERE id=? AND territory_id=?`).bind(existing.id,command.territoryId)];
-  if(existing.slot_index!==null&&existing.slot_index!==undefined)statements.push(env.DB.prepare(`UPDATE territory_awards SET slot_index=slot_index-1 WHERE territory_id=? AND slot_index>?`).bind(command.territoryId,Number(existing.slot_index)));
-  await env.DB.batch(statements);
-  await reply(`🏦 Награда «${command.name}» удалена из инвентаря территории «${command.territoryName}».`);
-  return json({ok:true,handled:'bank_territory_award_removed'});
-}
-
 async function handleBankMessage(env, update, message) {
   const bankerId = String(env.BANKER_TELEGRAM_ID || '').trim();
   if (!isPrivateBankerMessage(message, bankerId)) return null;
   const rawMessage=message.text || message.caption || '';
   const discountCommand=parseVisualDiscountCommand(rawMessage);
   if(discountCommand)return handleVisualDiscountMessage(env,update,message,discountCommand);
-  const awardResult=await handleTerritoryAwardBankMessage(env,update,message,rawMessage);
-  if(awardResult)return awardResult;
   const command = parseBankCommand(rawMessage);
   if (!command) return null;
   const updateId = Number(update?.update_id);
@@ -7856,4 +7783,4 @@ export default {
   },
 };
 
-export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTerritoryAwardCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
+export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };

@@ -1,4 +1,4 @@
-// Voxygen-Version: v53
+// Voxygen-Version: v54
 import React, { useEffect, useState, useRef, useId } from 'react';
 import lottie from 'lottie-web';
 import { createPortal } from 'react-dom';
@@ -962,10 +962,10 @@ function ScoreBadge({ type, value, size = 'md' }) {
   );
 }
 
-function Segmented({ options, value, onChange }) {
+function Segmented({ options, value, onChange, style = {}, optionStyle = {} }) {
   const activeIndex=Math.max(0,options.findIndex(opt=>opt.value===value));
   return (
-    <div className="atlas-segmented" role="group" style={{'--segmented-count':options.length,'--segmented-index':activeIndex}}>
+    <div className="atlas-segmented" role="group" style={{'--segmented-count':options.length,'--segmented-index':activeIndex,...style}}>
       <span className="atlas-segmented__indicator" aria-hidden="true"/>
       {options.map((opt) => {
         const active = opt.value === value;
@@ -975,6 +975,7 @@ function Segmented({ options, value, onChange }) {
             onClick={() => onChange(opt.value)}
             className={`press atlas-segmented__option${active ? ' is-active' : ''}`}
             aria-pressed={active}
+            style={optionStyle}
           >
             {opt.icon}{opt.label}
           </button>
@@ -2317,7 +2318,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
         <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap: 8,flexWrap:'wrap',marginBottom:0}}>
           {VISUAL_COLORS.filter(([value])=>value!=='none').map(([value])=><ColorDot key={`banner-${value}`} value={value} selected={String(inventory?.bannerColor||'none')===value} title={({red:'Красный',orange:'Оранжевый',yellow:'Жёлтый',green:'Зелёный',turquoise:'Бирюзовый',blue:'Синий',purple:'Фиолетовый',magenta:'Пурпурный',white:'Белый'})[value]||value} disabled={readOnly||bannerSaving||!inventory} onClick={()=>changeBannerColor(value)}/>)}
         </div>
-        <div role="img" aria-label="Предпросмотр текущего баннера территории" style={{marginTop:8,height:72,width:'100%',borderRadius:12,border:'1px solid var(--theme-color-border)',overflow:'hidden',background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent)}}/>
+        <div role="img" aria-label="Предпросмотр текущего баннера территории" style={{marginTop:8,height:72,width:'100%',borderRadius:12,border:'1px solid var(--theme-color-border)',overflow:'hidden',opacity:1,filter:'none',background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent)}}/>
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '14px 0 6px'}}>Метка</div>
         <InventoryGrid items={(inventory?.cityInventory||[]).filter(i=>String(i.category_name||'').toLowerCase()==='метка'||String(i.categories_text||'').toLowerCase().split(',').map(x=>x.trim()).includes('метка'))} equippedId={inventory?.equippedMarkerItemId} showEquip={!readOnly} onEquip={id=>equip(id)} columns={4} aspectRatio="1 / 1" imageFit="contain" emptyText="Доступных меток нет."/>
         <div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',margin: '14px 0 6px'}}>Награды</div>
@@ -2332,6 +2333,7 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
                 </button>;
               })}
             </div>}
+        <div style={{fontSize:11,color:'var(--theme-color-text-muted)',fontStyle:'italic',marginTop:8}}>Экипированные награды появляются на странице территории</div>
       </div>
     </div>
     <RecruitmentManagement territory={{...territory,recruitment_username:newRecruitmentUsername}} initData={initData} onSaved={load} readOnly={readOnly}/>
@@ -2374,6 +2376,7 @@ function ProfileInventory({initData,role,tgUser,territory}={}){
 
 function MainInspectorAwardManager({initData,territories=[],onTerritoriesChanged}={}) {
   const [packs,setPacks]=useState([]);
+  const [expandedPackIds,setExpandedPackIds]=useState(()=>new Set());
   const [loading,setLoading]=useState(true);
   const [savingPack,setSavingPack]=useState(false);
   const [savingAward,setSavingAward]=useState(false);
@@ -2389,6 +2392,7 @@ function MainInspectorAwardManager({initData,territories=[],onTerritoriesChanged
   const [notice,setNotice]=useState('');
   const approvedTerritories=(territories||[]).filter(city=>!city.status||city.status==='approved');
   const selectedSticker=packs.flatMap(pack=>pack.stickers||[]).find(sticker=>String(sticker.id)===String(selectedStickerId))||null;
+  function togglePack(packId){setExpandedPackIds(current=>{const next=new Set(current),key=String(packId);if(next.has(key))next.delete(key);else next.add(key);return next;});}
   const inputStyle={width:'100%',boxSizing:'border-box',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding:'10px 12px',color:'var(--theme-color-text-primary)',fontSize:13,outline:'none'};
   async function load(){
     try{
@@ -2445,7 +2449,6 @@ function MainInspectorAwardManager({initData,territories=[],onTerritoriesChanged
   }
   return <div className="atlas-page-panel" style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:16,padding:10,marginBottom:8}}>
     <div className="atlas-display" style={{fontSize:16,fontWeight:800,marginBottom:4}}>Награды</div>
-    <div style={{fontSize:12,color:'var(--theme-color-text-muted)',lineHeight:1.45,marginBottom:10}}>Добавьте публичный Telegram-пак пользовательских эмодзи. Его содержимое появится ниже в общей галерее.</div>
     <div style={{display:'flex',gap:7,alignItems:'stretch'}}>
       <input value={packUrl} onChange={event=>setPackUrl(event.target.value)} onKeyDown={event=>{if(event.key==='Enter')addPack()}} placeholder="https://t.me/addemoji/НазваниеНабора" aria-label="Ссылка на Telegram эмодзи-пак" style={{...inputStyle,flex:1,minWidth:0}}/>
       <button type="button" onClick={addPack} disabled={savingPack||!packUrl.trim()} className="press" style={{flex:'0 0 auto',border:'none',borderRadius:10,padding:'0 13px',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:800,opacity:savingPack||!packUrl.trim()?0.55:1}}>{savingPack?'…':'Добавить'}</button>
@@ -2460,20 +2463,20 @@ function MainInspectorAwardManager({initData,territories=[],onTerritoriesChanged
             <div className="atlas-display" style={{fontSize:14,fontWeight:800,overflowWrap:'anywhere'}}>{pack.title}</div>
             <div style={{fontSize:10.5,color:'var(--theme-color-text-muted)',overflowWrap:'anywhere'}}>{pack.set_name} · {(pack.stickers||[]).length} эмодзи</div>
           </div>
+          <button type="button" onClick={()=>togglePack(pack.id)} aria-label={(expandedPackIds.has(String(pack.id))?'Свернуть':'Развернуть')+' эмодзи-пак '+pack.title} aria-expanded={expandedPackIds.has(String(pack.id))} className="press" style={{width:32,height:32,flex:'0 0 32px',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--theme-color-border)',borderRadius:9,background:'var(--theme-color-surface-raised)',color:'var(--theme-color-text-muted)'}}>{expandedPackIds.has(String(pack.id))?<ChevronDown size={16}/>:<ChevronRight size={16}/>}</button>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(9,minmax(0,1fr))',gap:4}}>
+        {expandedPackIds.has(String(pack.id))&&<div style={{display:'grid',gridTemplateColumns:'repeat(9,minmax(0,1fr))',gap:4}}>
           {(pack.stickers||[]).map(sticker=>{
             const selected=String(sticker.id)===String(selectedStickerId);
             return <button type="button" key={sticker.id} onClick={()=>setSelectedStickerId(selected?'':String(sticker.id))} aria-label={'Выбрать эмодзи '+(sticker.emoji||'')} aria-pressed={selected} className="press" style={{aspectRatio:'1 / 1',minWidth:0,padding:2,border:selected?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:9,background:selected?'rgba(110,231,183,.12)':'var(--theme-color-surface-raised)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:selected?'0 0 0 1px rgba(110,231,183,.12)':'none'}}>
               <TelegramSticker stickerId={sticker.id} format={sticker.format} size={29} preview={Boolean(sticker.thumbnail_file_id)}/>
             </button>;
           })}
-        </div>
+        </div>}
       </section>)}
     </div>
     <div style={{borderTop:'1px solid var(--theme-color-border)',marginTop:12,paddingTop:12}}>
       <div style={{fontSize:12,fontWeight:800,marginBottom:7}}>Выдать выбранный эмодзи как награду</div>
-      {!selectedSticker&&<div style={{fontSize:11,color:'var(--theme-color-text-muted)',marginBottom:8}}>Выберите один эмодзи в галерее выше.</div>}
       <select value={territoryId} onChange={event=>setTerritoryId(event.target.value)} aria-label="Город для выдачи награды" style={{...inputStyle,marginBottom:8,opacity:approvedTerritories.length?1:0.55}} disabled={!approvedTerritories.length}>
         <option value="">Выберите город</option>
         {approvedTerritories.map(city=><option key={city.id} value={city.id}>{city.name}</option>)}
@@ -2826,14 +2829,14 @@ function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImag
           </div>
         </div>
       : <div style={{padding: '0 15px'}}>
-          <div style={{marginBottom: 10}}><Segmented value={sortBy} onChange={setSortBy} options={[{value:'curator',label:'По инспектору'},{value:'community',label:'По игрокам'}]}/></div>
+          <div style={{marginBottom: 10}}><Segmented value={sortBy} onChange={setSortBy} style={{height:36,boxSizing:'border-box',padding:0}} optionStyle={{height:'100%',minHeight:0,padding:'0 12px'}} options={[{value:'curator',label:'По инспекторам'},{value:'community',label:'По игрокам'}]}/></div>
           {territories.length===0
             ? <div style={{textAlign:'center',padding: '40px 15px',color:'var(--theme-color-text-muted)',fontSize:13}}>Городов пока нет — станьте первым, кто добавит свой.</div>
             : <div style={{display:'flex',flexDirection:'column',gap: 8}}>
                 {[...territories].sort((a,b)=>b[sortBy]-a[sortBy]).map((t,i)=>(
                   <button key={t.id} onClick={()=>onSelect(t.id)} className="press atlas-list-card" style={{display:'flex',alignItems:'center',gap: 12,textAlign:'left',background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding: 10,color:'var(--theme-color-text-primary)',animationDelay:`${Math.min(i*28,168)}ms`}}>
                     <span className="atlas-display" style={{width:20,fontSize:13,color:'var(--theme-color-text-muted)'}}>{i+1}</span>
-                    <span style={{width:46,height:46,borderRadius:12,background:`linear-gradient(135deg,${t.accent}55,${t.accent}15)`}}/>
+                    <span aria-hidden="true" style={{position:'relative',display:'block',width:46,height:46,flex:'0 0 46px',borderRadius:12,border:'1px solid var(--theme-color-border)',overflow:'hidden'}}><span style={{position:'absolute',width:'100vw',height:150,left:'50%',top:'50%',transform:'translate(-50%,-50%)',background:getBannerGradient(t.banner_color||'none',t.banner_gradient||'aurora',t.accent),pointerEvents:'none'}}/></span>
                     <div style={{flex:1,minWidth:0}}><MinecraftText text={t.name} as="div" className="atlas-display" style={{fontSize:16,fontWeight:800,lineHeight:1.2}}/><div style={{fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:400,marginTop: 4}}>{Number(t.votes||0)} {pluralizeRatings(t.votes)}</div></div>
                     <ScoreBadge type={sortBy==='curator'?'curator':'community'} value={t[sortBy]} size="lg"/>
                   </button>
@@ -3091,7 +3094,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
     <div className="atlas-page atlas-page--territory" style={{ paddingBottom: 90, position: 'relative' }}>
       <div style={{ position: 'relative', height: 150, overflow:'hidden', background:getBannerGradient(t.banner_color||'none',t.banner_gradient||'aurora',t.accent) }}>
         <button onClick={onBack} className="press" style={{ position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: '50%', background: 'rgba(8,13,34,.72)', border: '1px solid rgba(255,255,255,.4)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}><ChevronLeft size={20} /></button>
-        {(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined).slice().sort((a,b)=>Number(b.slot_index)-Number(a.slot_index)).map((award,index)=><button key={award.id} type="button" onClick={()=>setSelectedTerritoryAward(award)} title={award.name} aria-label={`${award.emoji} ${award.name}`} className="press atlas-award-badge" style={{position:'absolute',top:6,right:6+index*58,width:52,height:52,animation:'atlas-award-badge-enter .42s cubic-bezier(.2,.8,.2,1) both',animationDelay:`${Math.min(index,3)*65}ms`,padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.4)',borderRadius:10,background:'rgba(8,13,34,.72)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',fontSize:0,zIndex:4}}><TerritoryAwardIcon award={award} size={36}/></button>)}
+        {(t.awards||[]).filter(award=>award.slot_index!==null&&award.slot_index!==undefined).slice().sort((a,b)=>Number(b.slot_index)-Number(a.slot_index)).map((award,index)=><button key={award.id} type="button" onClick={()=>setSelectedTerritoryAward(award)} title={award.name} aria-label={`${award.emoji} ${award.name}`} className="press atlas-award-badge" style={{position:'absolute',top:6,right:6+index*58,width:52,height:52,animation:'atlas-award-badge-enter .42s cubic-bezier(.2,.8,.2,1) both',animationDelay:`${index*75}ms`,padding:0,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid rgba(255,255,255,.4)',borderRadius:10,background:'rgba(8,13,34,.72)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)',fontSize:0,zIndex:4}}><span style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',lineHeight:0}}><TerritoryAwardIcon award={award} size={36}/></span></button>)}
         <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16, zIndex: 3, textShadow:'var(--theme-shadow-cover-title)' }}>
           <MinecraftText as="div" text={t.name} className="atlas-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.16 }} />
           <div style={{fontSize:13,color:'var(--theme-color-text-secondary)'}}>{formatTerritoryCoords(t.coords || (t.vox_x != null && t.vox_z != null ? `${t.vox_x} / ${t.vox_z}` : ''))}</div>
@@ -3158,7 +3161,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
 function ReplyBox({ onSend }) {
   const [val, setVal] = useState('');
   return (
-    <div style={{ marginBottom: 8 }}>
+    <div style={{ marginBottom: 0 }}>
     <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
       <input
         value={val}
@@ -3903,7 +3906,7 @@ function ColorDot({value,selected,onClick,small=false,title,disabled=false}) {
   const c=isNone?'transparent':(VISUAL_COLORS.find(x=>x[0]===value)?.[1]||'#fff');
   return <button type="button" onClick={onClick} disabled={disabled} title={title||(isNone?'Без цвета':value)} aria-label={title||(isNone?'Без цвета':value)} className="press" style={{
     width:26,height:26,borderRadius:'50%',border:selected?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',
-    background:c,position:'relative',padding: 0
+    background:c,position:'relative',padding: 0,opacity:1,filter:'none'
   }}>
     {isNone&&<span style={{position:'absolute',left:'50%',top:'50%',width:17,height:2,background:'#9AA2C2',transform:'translate(-50%,-50%) rotate(-45deg)',transformOrigin:'center'}}/>}
   </button>
@@ -4773,7 +4776,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
                 <div className="atlas-display" style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.3 }}>Multi-Punk</div>
                 <div style={{ fontSize: 13, color: 'var(--theme-color-text-muted)', marginTop: 2 }}>{territories.length} {pluralizeTerritories(territories.length)}</div>
               </div>
-              <div style={{display:'flex',alignItems:'center',gap: 6,flexShrink:0,marginTop: 2,marginLeft: 'auto'}}>{homeFeatureButtonReady&&(role==='main_inspector'||!homeFeatureButton.hidden)&&<button type="button" onClick={()=>setHomeFeatureOpen(true)} className="press" aria-label="Информация от главного инспектора" title={homeFeatureButton.title||'Информация'} style={{width:36,height:36,padding: 0,overflow:'hidden',border:'1px solid var(--theme-color-border)',borderRadius:'50%',background:'var(--theme-color-surface)',color:'var(--theme-color-action-primary)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{homeFeatureButton.imageData?<img src={homeFeatureButton.imageData} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<ImagePlus size={17}/>}</button>}<button onClick={openFaq} className="press" style={{height:36,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',padding: '0 12px',borderRadius:999,border:'1px solid var(--theme-color-border)',background:'var(--theme-color-surface)',color:'var(--theme-color-text-primary)',fontWeight:700,fontSize:13}}>ЧиВо</button>{(profile.status==='verified'||role==='main_inspector') && <button onClick={()=>setShowAddTerritory(true)} className="press" style={{display:'flex',alignItems:'center',gap: 6,padding: '8px 12px',borderRadius:999,border:'none',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:700,fontSize:13}}><Plus size={15}/> Добавить</button>}</div>
+              <div style={{display:'flex',alignItems:'center',gap: 6,flexShrink:0,marginTop: 2,marginLeft: 'auto'}}>{homeFeatureButtonReady&&(role==='main_inspector'||!homeFeatureButton.hidden)&&<button type="button" onClick={()=>setHomeFeatureOpen(true)} className="press" aria-label="Информация от главного инспектора" title={homeFeatureButton.title||'Информация'} style={{width:36,height:36,padding: 0,overflow:'hidden',border:'1px solid var(--theme-color-border)',borderRadius:'50%',background:'var(--theme-color-surface)',color:'var(--theme-color-action-primary)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{homeFeatureButton.imageData?<img src={homeFeatureButton.imageData} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<ImagePlus size={17}/>}</button>}<button onClick={openFaq} className="press" style={{height:36,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',padding: '0 12px',borderRadius:999,border:'1px solid var(--theme-color-border)',background:'var(--theme-color-surface)',color:'var(--theme-color-text-primary)',fontWeight:700,fontSize:13}}>ЧиВо</button>{(profile.status==='verified'||role==='main_inspector') && <button onClick={()=>setShowAddTerritory(true)} className="press" style={{height:36,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'0 12px',borderRadius:999,border:'none',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:700,fontSize:13}}><Plus size={15}/> Добавить</button>}</div>
             </div>
 
             <MainTabs tab={mainTab} onChange={changeMainTab} />
