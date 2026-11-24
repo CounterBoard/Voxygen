@@ -2075,7 +2075,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
     </div>
     <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding:'var(--theme-space-4)',marginBottom:12}}>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-        <AwardIconFallback/>
+        <Star size={16} color="var(--theme-color-status-success)"/>
         <div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Выданные награды</div>
         <span style={{marginLeft:'auto',fontSize:11,color:'var(--theme-color-text-muted)'}}>{issuedAwards.length}</span>
       </div>
