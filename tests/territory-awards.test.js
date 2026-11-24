@@ -1,35 +1,34 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseTerritoryAwardCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
+import { readFileSync } from "node:fs";
+import { parseGemWithdrawalCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
 
-const cities=[
-  {id:"city-1",name:"Новая Территория"},
-  {id:"city-2",name:"Новая Территория Север"},
-];
-
-test("banker award add command recognizes emoji, multi-word territory and award names",()=>{
-  assert.deepEqual(parseTerritoryAwardCommand("🏆 Новая Территория Север Лучшая территория 2026",cities),{
-    mode:"add",territoryId:"city-2",territoryName:"Новая Территория Север",name:"Лучшая территория 2026",emoji:"🏆"
-  });
+test("gem withdrawal parser accepts compact, spaced and slash-prefixed personal debit commands",()=>{
+  for(const command of ["-250","- 250","/-250","/ - 250"]){
+    assert.deepEqual(parseGemWithdrawalCommand(command),{personal:true,territory:null,amount:250});
+  }
 });
 
-test("banker award remove command recognizes territory and exact award name",()=>{
-  assert.deepEqual(parseTerritoryAwardCommand("Новая Территория -Лучшая территория 2026",cities),{
-    mode:"remove",territoryId:"city-1",territoryName:"Новая Территория",name:"Лучшая территория 2026",emoji:null
-  });
+test("gem withdrawal parser accepts compact and spaced territory debit commands",()=>{
+  for(const command of ["Новая Территория -250","Новая Территория - 250","/Новая Территория -250","/ Новая Территория - 250"]){
+    assert.deepEqual(parseGemWithdrawalCommand(command),{personal:false,territory:"Новая Территория",amount:250});
+  }
 });
 
-test("banker award parser chooses the longest territory-name match",()=>{
-  const result=parseTerritoryAwardCommand("🥇 Новая Территория Север Лучший дизайн",cities);
-  assert.equal(result?.territoryId,"city-2");
-  assert.equal(result?.name,"Лучший дизайн");
+test("gem withdrawal parser rejects incomplete and unrelated commands",()=>{
+  for(const command of ["-","/","- 0","/hello","Новая Территория -"])assert.equal(parseGemWithdrawalCommand(command),null);
 });
 
-test("banker award parser ignores numeric bank debits, unknown and incomplete commands",()=>{
-  assert.equal(parseTerritoryAwardCommand("Новая Территория -250",cities),null);
-  assert.equal(parseTerritoryAwardCommand("🏆 Неизвестная территория Награда",cities),null);
-  assert.equal(parseTerritoryAwardCommand("Новая Территория -",cities),null);
-  assert.equal(parseTerritoryAwardCommand("Новая Территория",cities),null);
+test("main-inspector award grants send notices through territory notification preferences",()=>{
+  const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8");
+  const start=worker.indexOf("async function grantTerritoryAward(");
+  const end=worker.indexOf("async function deleteTerritoryAwardById(",start);
+  assert.ok(start>=0&&end>start);
+  const handler=worker.slice(start,end);
+  assert.ok(handler.indexOf("const notificationText")>handler.indexOf("if (!Number(inserted.meta?.changes || 0))"));
+  assert.match(handler,/🏆 <b>\$\{escapeHtml\(territory\.name\)\}<\/b> получил\(а\) награду «\$\{escapeHtml\(name\)\}»/);
+  assert.match(handler,/await notifyTerritoryManagers\(env, territoryId, notificationText\)/);
+  assert.doesNotMatch(worker,/function parseTerritoryAwardCommand|handleTerritoryAwardBankMessage/);
 });
 
 test("Telegram emoji matching normalizes presentation selectors but preserves the exact emoji sequence",()=>{
