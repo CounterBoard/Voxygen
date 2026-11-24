@@ -75,7 +75,7 @@ test("Telegram TGS payload validation requires a non-empty frame range",()=>{
 
 
 test("main inspector profile replaces purchases with a 9-column custom emoji pack award manager",()=>{
-  assert.match(app,/\{isMainInspector\?<MainInspectorAwardManager initData=\{initData\} territories=\{territories\}\/>/);
+  assert.match(app,/\{isMainInspector\?<MainInspectorAwardManager initData=\{initData\} territories=\{territories\} onTerritoriesChanged=\{onTerritoriesChanged\}\/>/);
   assert.match(app,/function MainInspectorAwardManager\(/);
   assert.match(app,/gridTemplateColumns:'repeat\(9,minmax\(0,1fr\)\)'/);
   assert.match(app,/border:selected\?'2px solid #6EE7B7'/);
