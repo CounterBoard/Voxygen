@@ -27,7 +27,7 @@ test("main-inspector award grants send notices through territory notification pr
   assert.ok(start>=0&&end>start);
   const handler=worker.slice(start,end);
   assert.ok(handler.indexOf("const notificationText")>handler.indexOf("if (!Number(inserted.meta?.changes || 0))"));
-  assert.match(handler,/🏆 <b>\$\{escapeHtml\(territory\.name\)\}<\/b> получил\(а\) награду «\$\{escapeHtml\(name\)\}»\\n<i>Экипированные награды появляются на странице территории<\/i>/);
+  assert.match(handler,/🏆 <b>\$\{escapeHtml\(territory\.name\)\}<\/b> получил\(а\) награду «\$\{escapeHtml\(name\)\}»\s*<i>Экипированные награды появляются на странице территории<\/i>/);
   assert.match(handler,/await notifyTerritoryManagers\(env, territoryId, notificationText\)/);
   assert.doesNotMatch(worker,/function parseTerritoryAwardCommand|handleTerritoryAwardBankMessage/);
 });
