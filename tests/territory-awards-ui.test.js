@@ -31,7 +31,7 @@ test("equipped marker tiles use the same mint fill and edge treatment as equippe
 
 test("award details modal follows the regular modal gap with a larger emoji",()=>{
   assert.match(app,/alignItems:'center',gap:8,padding:'0 4px 4px',textAlign:'center'/);
-  assert.match(app,/title="Награда"[\s\S]*?<TelegramEmoji emoji=\{selectedTerritoryAward\.emoji\} size=\{56\}/);
+  assert.match(app,/title="Награда"[\s\S]*?<TerritoryAwardIcon award=\{selectedTerritoryAward\} size=\{56\}/);
 });
 
  
