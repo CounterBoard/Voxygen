@@ -1,4 +1,4 @@
-// Voxygen-Version: v54
+// Voxygen-Version: v55
 import React, { useEffect, useState, useRef, useId } from 'react';
 import lottie from 'lottie-web';
 import { createPortal } from 'react-dom';
@@ -2333,7 +2333,6 @@ function CityManagementProfile({territory,managerTerritories=[],initData,tgUser,
                 </button>;
               })}
             </div>}
-        <div style={{fontSize:11,color:'var(--theme-color-text-muted)',fontStyle:'italic',marginTop:8}}>Экипированные награды появляются на странице территории</div>
       </div>
     </div>
     <RecruitmentManagement territory={{...territory,recruitment_username:newRecruitmentUsername}} initData={initData} onSaved={load} readOnly={readOnly}/>
