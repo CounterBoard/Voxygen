@@ -344,14 +344,14 @@ function TelegramEmoji({emoji,size=32,style={}}) {
   </span>;
 }
 
-function TelegramSticker({stickerId,awardId,format='image',size=32,style={}}) {
+function TelegramSticker({stickerId,awardId,format='image',size=32,style={},preview=false}) {
   const animationRef=useRef(null);
   const [failed,setFailed]=useState(false);
   const id=String(awardId||stickerId||'');
   const query=new URLSearchParams(awardId?{awardId:String(awardId)}:{stickerId:String(stickerId||'')}).toString();
-  const src=API_BASE+'/api/telegram-sticker?'+query;
+  const src=API_BASE+'/api/telegram-sticker?'+query+(preview?'&preview=1':'');
   useEffect(()=>{
-    if(format!=='tgs'||!id)return undefined;
+    if(preview||format!=='tgs'||!id)return undefined;
     let cancelled=false,animation=null;
     setFailed(false);
     fetch(src,{cache:'force-cache'}).then(async response=>{
@@ -376,6 +376,7 @@ function TelegramSticker({stickerId,awardId,format='image',size=32,style={}}) {
   },[src,format,id]);
   if(!id)return <Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true"/>;
   const wrapperStyle={width:size,height:size,display:'inline-flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto',position:'relative',overflow:'hidden',...style};
+  if(preview)return <span style={wrapperStyle}><img src={src} alt="" loading="lazy" onError={()=>setFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:failed?'none':'block'}}/>{failed&&<Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true" style={{opacity:.55}}/>}</span>;
   if(format==='tgs')return <span role="img" aria-label="Анимированный эмодзи" style={wrapperStyle}>
     <div ref={animationRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',visibility:failed?'hidden':'visible'}}/>
     {failed&&<Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true" style={{opacity:.55}}/>}
@@ -2399,7 +2400,6 @@ function MainInspectorAwardManager({initData,territories=[]}={}) {
     finally{setLoading(false)}
   }
   useEffect(()=>{if(initData)load()},[initData]);
-  useEffect(()=>{if(!territoryId&&approvedTerritories[0])setTerritoryId(String(approvedTerritories[0].id))},[territories,territoryId]);
   async function addPack(){
     const url=packUrl.trim();
     if(!url)return;
@@ -2463,7 +2463,7 @@ function MainInspectorAwardManager({initData,territories=[]}={}) {
           {(pack.stickers||[]).map(sticker=>{
             const selected=String(sticker.id)===String(selectedStickerId);
             return <button type="button" key={sticker.id} onClick={()=>setSelectedStickerId(selected?'':String(sticker.id))} aria-label={'Выбрать эмодзи '+(sticker.emoji||'')} aria-pressed={selected} className="press" style={{aspectRatio:'1 / 1',minWidth:0,padding:2,border:selected?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:9,background:selected?'rgba(110,231,183,.12)':'var(--theme-color-surface-raised)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:selected?'0 0 0 1px rgba(110,231,183,.12)':'none'}}>
-              <TelegramSticker stickerId={sticker.id} format={sticker.format} size={29}/>
+              <TelegramSticker stickerId={sticker.id} format={sticker.format} size={29} preview/>
             </button>;
           })}
         </div>
