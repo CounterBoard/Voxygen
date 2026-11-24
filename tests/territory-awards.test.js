@@ -16,7 +16,8 @@ test("gem withdrawal parser accepts compact and spaced territory debit commands"
 });
 
 test("gem withdrawal parser rejects incomplete and unrelated commands",()=>{
-  for(const command of ["-","/","- 0","/hello","Новая Территория -"])assert.equal(parseGemWithdrawalCommand(command),null);
+  for(const command of ["-","/","/hello","Новая Территория -"])assert.equal(parseGemWithdrawalCommand(command),null);
+  assert.deepEqual(parseGemWithdrawalCommand("- 0"),{personal:true,territory:null,amount:0},"zero is parsed and rejected by the withdrawal handler's amount validation");
 });
 
 test("main-inspector award grants send notices through territory notification preferences",()=>{
