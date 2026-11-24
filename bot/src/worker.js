@@ -285,21 +285,26 @@ async function serveTelegramAwardSticker(request, env) {
   try {
     await ensureWorldTables(env);
     const record = packStickerId
-      ? await env.DB.prepare(`SELECT file_id,format FROM telegram_award_pack_stickers WHERE id=? LIMIT 1`).bind(packStickerId).first()
-      : await env.DB.prepare(`SELECT sticker_file_id AS file_id,sticker_format AS format FROM territory_awards WHERE id=? LIMIT 1`).bind(awardId).first();
-    if (!record?.file_id) {
+      ? await env.DB.prepare(`SELECT file_id,format,thumbnail_file_id FROM telegram_award_pack_stickers WHERE id=? LIMIT 1`).bind(packStickerId).first()
+      : await env.DB.prepare(`SELECT sticker_file_id AS file_id,sticker_format AS format,sticker_thumbnail_file_id AS thumbnail_file_id FROM territory_awards WHERE id=? LIMIT 1`).bind(awardId).first();
+    const wantsPreview = url.searchParams.get('preview') === '1';
+    const isPreviewImage = wantsPreview && (record?.thumbnail_file_id || record?.format === 'image');
+    const requestedFileId = wantsPreview
+      ? (record?.thumbnail_file_id || (record?.format === 'image' ? record?.file_id : null))
+      : record?.file_id;
+    if (!requestedFileId) {
       return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
     }
-    const fileInfo = await telegram(env, 'getFile', { file_id: record.file_id });
+    const fileInfo = await telegram(env, 'getFile', { file_id: requestedFileId });
     const filePath = String(fileInfo.data?.result?.file_path || '');
     if (!fileInfo.response.ok || !fileInfo.data?.ok || !filePath || filePath.includes('..') || filePath.startsWith('/')) {
       return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
     }
     const extension = filePath.split('.').pop().toLowerCase();
-    const format = String(record.format || 'image');
+    const format = isPreviewImage ? 'image' : String(record.format || 'image');
     const allowedExtension = format === 'tgs' ? extension === 'tgs'
       : format === 'webm' ? extension === 'webm'
-      : ['webp', 'png'].includes(extension);
+      : ['webp', 'png', 'jpg', 'jpeg'].includes(extension);
     if (!allowedExtension) {
       return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
     }
@@ -350,7 +355,7 @@ async function serveTelegramAwardSticker(request, env) {
         },
       }));
     }
-    const contentType = format === 'webm' ? 'video/webm' : extension === 'png' ? 'image/png' : 'image/webp';
+    const contentType = format === 'webm' ? 'video/webm' : extension === 'png' ? 'image/png' : ['jpg','jpeg'].includes(extension) ? 'image/jpeg' : 'image/webp';
     return withCors(new Response(bytes, {
       status: 200,
       headers: {
@@ -1716,7 +1721,8 @@ async function initializeWorldTables(env) {
   ];
   for (const [column, type] of awardExtraCols) {
     if (!awardColNames.has(column)) {
-      await env.DB.prepare(`ALTER TABLE territory_awards ADD COLUMN ${column} ${type}`).run();
+      try { await env.DB.prepare(`ALTER TABLE territory_awards ADD COLUMN ${column} ${type}`).run(); }
+      catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
     }
   }
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS telegram_award_packs (
@@ -2870,7 +2876,7 @@ async function getAdminAwards(request, env) {
   await ensureWorldTables(env);
   const [packRows, stickerRows, awardRows] = await Promise.all([
     env.DB.prepare(`SELECT id,set_name,title,created_at FROM telegram_award_packs ORDER BY created_at DESC,id ASC`).all(),
-    env.DB.prepare(`SELECT id,pack_id,emoji,custom_emoji_id,format,width,height FROM telegram_award_pack_stickers ORDER BY rowid ASC`).all(),
+    env.DB.prepare(`SELECT id,pack_id,emoji,custom_emoji_id,format,thumbnail_file_id,width,height FROM telegram_award_pack_stickers ORDER BY rowid ASC`).all(),
     env.DB.prepare(`SELECT a.id,a.territory_id,t.name AS territory_name,a.name,a.emoji,a.awarded_at,a.slot_index,a.sticker_format,a.sticker_set_name
       FROM territory_awards a JOIN territories t ON t.id=a.territory_id
       ORDER BY a.awarded_at DESC,a.id ASC LIMIT 500`).all(),
