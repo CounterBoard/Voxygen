@@ -1926,7 +1926,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
   async function loadIssuedAwards(){
     try{
       setIssuedAwardsLoading(true);setIssuedAwardsError('');
-      const response=await fetch(API_BASE+'/api/admin/awards',{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
+      const response=await fetch(API_BASE+'/api/admin/awards?view=issued',{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
       const data=await response.json().catch(()=>null);
       if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось загрузить выданные награды.'));
       setIssuedAwards(Array.isArray(data.awards)?data.awards:[]);
@@ -2463,7 +2463,7 @@ function MainInspectorAwardManager({initData,territories=[]}={}) {
           {(pack.stickers||[]).map(sticker=>{
             const selected=String(sticker.id)===String(selectedStickerId);
             return <button type="button" key={sticker.id} onClick={()=>setSelectedStickerId(selected?'':String(sticker.id))} aria-label={'Выбрать эмодзи '+(sticker.emoji||'')} aria-pressed={selected} className="press" style={{aspectRatio:'1 / 1',minWidth:0,padding:2,border:selected?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:9,background:selected?'rgba(110,231,183,.12)':'var(--theme-color-surface-raised)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:selected?'0 0 0 1px rgba(110,231,183,.12)':'none'}}>
-              <TelegramSticker stickerId={sticker.id} format={sticker.format} size={29} preview/>
+              <TelegramSticker stickerId={sticker.id} format={sticker.format} size={29} preview={Boolean(sticker.thumbnail_file_id)}/>
             </button>;
           })}
         </div>
