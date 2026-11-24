@@ -255,6 +255,126 @@ async function serveTelegramEmoji(request, env) {
     return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=900" } });
   }
 }
+function parseTelegramEmojiSetName(raw) {
+  const value = String(raw || '').trim();
+  if (!value || value.length > 300) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || !['t.me', 'telegram.me'].includes(url.hostname.toLowerCase())) return null;
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length !== 2 || parts[0].toLowerCase() !== 'addemoji') return null;
+    return /^[A-Za-z0-9_]{1,64}$/.test(parts[1]) ? parts[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+function isTelegramCustomEmojiSet(stickerSet) {
+  return String(stickerSet?.sticker_type || stickerSet?.type || '') === 'custom_emoji';
+}
+
+function getTelegramStickerFormat(sticker) {
+  if (sticker?.is_video === true) return 'webm';
+  if (sticker?.is_animated === true) return 'tgs';
+  return 'image';
+}
+
+async function serveTelegramAwardSticker(request, env) {
+  const url = new URL(request.url);
+  const packStickerId = String(url.searchParams.get('stickerId') || '').trim();
+  const awardId = String(url.searchParams.get('awardId') || '').trim();
+  if (Boolean(packStickerId) === Boolean(awardId)) {
+    return withCors(new Response(null, { status: 400, headers: { 'Cache-Control': 'no-store' } }));
+  }
+  try {
+    await ensureWorldTables(env);
+    const record = packStickerId
+      ? await env.DB.prepare(`SELECT file_id,format,thumbnail_file_id FROM telegram_award_pack_stickers WHERE id=? LIMIT 1`).bind(packStickerId).first()
+      : await env.DB.prepare(`SELECT sticker_file_id AS file_id,sticker_format AS format,sticker_thumbnail_file_id AS thumbnail_file_id FROM territory_awards WHERE id=? LIMIT 1`).bind(awardId).first();
+    const wantsPreview = url.searchParams.get('preview') === '1';
+    const isPreviewImage = wantsPreview && (record?.thumbnail_file_id || record?.format === 'image');
+    const requestedFileId = wantsPreview
+      ? (record?.thumbnail_file_id || (record?.format === 'image' ? record?.file_id : null))
+      : record?.file_id;
+    if (!requestedFileId) {
+      return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
+    }
+    const fileInfo = await telegram(env, 'getFile', { file_id: requestedFileId });
+    const filePath = String(fileInfo.data?.result?.file_path || '');
+    if (!fileInfo.response.ok || !fileInfo.data?.ok || !filePath || filePath.includes('..') || filePath.startsWith('/')) {
+      return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
+    }
+    const extension = filePath.split('.').pop().toLowerCase();
+    const format = isPreviewImage ? 'image' : String(record.format || 'image');
+    const allowedExtension = format === 'tgs' ? extension === 'tgs'
+      : format === 'webm' ? extension === 'webm'
+      : ['webp', 'png', 'jpg', 'jpeg'].includes(extension);
+    if (!allowedExtension) {
+      return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
+    }
+    const token = String(env.BOT_TOKEN || '').trim();
+    const upstream = await fetch(TELEGRAM_API + '/file/bot' + token + '/' + filePath);
+    if (!upstream.ok) {
+      return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
+    }
+    const bytes = await upstream.arrayBuffer();
+    const maxBytes = format === 'tgs' ? 512 * 1024 : 20 * 1024 * 1024;
+    if (!bytes.byteLength || bytes.byteLength > maxBytes) {
+      return withCors(new Response(null, { status: 413, headers: { 'Cache-Control': 'no-store' } }));
+    }
+    if (format === 'tgs') {
+      let animationText = '';
+      try {
+        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+        const reader = stream.getReader();
+        const decoder = new TextDecoder();
+        let totalBytes = 0;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          totalBytes += value.byteLength;
+          if (totalBytes > 1024 * 1024) {
+            await reader.cancel();
+            return withCors(new Response(null, { status: 413, headers: { 'Cache-Control': 'no-store' } }));
+          }
+          animationText += decoder.decode(value, { stream: true });
+        }
+        animationText += decoder.decode();
+      } catch {
+        return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
+      }
+      let animationData;
+      try { animationData = JSON.parse(animationText); }
+      catch { return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } })); }
+      if (!isSafeTelegramTgsAnimation(animationData)) {
+        return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
+      }
+      return withCors(new Response(JSON.stringify(animationData), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Security-Policy': "default-src 'none'",
+        },
+      }));
+    }
+    const contentType = format === 'webm' ? 'video/webm' : extension === 'png' ? 'image/png' : ['jpg','jpeg'].includes(extension) ? 'image/jpeg' : 'image/webp';
+    return withCors(new Response(bytes, {
+      status: 200,
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
+        'X-Content-Type-Options': 'nosniff',
+        'Content-Security-Policy': "default-src 'none'",
+      },
+    }));
+  } catch (error) {
+    console.error('Telegram award sticker unavailable:', String(error?.message || error).slice(0, 180));
+    return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
+  }
+}
+
 async function verifyInitData(initData, botToken, now = Date.now()) {
   if (!initData || !botToken) return null;
   try {
@@ -997,7 +1117,7 @@ async function ensureMapSettingsTable(env) {
   return promise;
 }
 
-const WORLD_SCHEMA_VERSION = '2026-11-v40';
+const WORLD_SCHEMA_VERSION = '2026-11-v41';
 const worldTableInitPromises = new WeakMap();
 
 async function ensureWorldTables(env) {
@@ -1593,6 +1713,44 @@ async function initializeWorldTables(env) {
     )
   `).run();
   await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_territory_awards_slots ON territory_awards(territory_id,slot_index)`).run();
+  const awardCols = await env.DB.prepare(`PRAGMA table_info(territory_awards)`).all();
+  const awardColNames = new Set((awardCols.results || []).map(row => row.name));
+  const awardExtraCols = [
+    ['sticker_file_id', 'TEXT'],
+    ['sticker_file_unique_id', 'TEXT'],
+    ['sticker_format', 'TEXT'],
+    ['sticker_thumbnail_file_id', 'TEXT'],
+    ['sticker_set_name', 'TEXT'],
+    ['custom_emoji_id', 'TEXT'],
+  ];
+  for (const [column, type] of awardExtraCols) {
+    if (!awardColNames.has(column)) {
+      try { await env.DB.prepare(`ALTER TABLE territory_awards ADD COLUMN ${column} ${type}`).run(); }
+      catch (error) { if (!String(error).toLowerCase().includes('duplicate column')) throw error; }
+    }
+  }
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS telegram_award_packs (
+    id TEXT PRIMARY KEY,
+    set_name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    title TEXT NOT NULL,
+    added_by_telegram_id INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  )`).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS telegram_award_pack_stickers (
+    id TEXT PRIMARY KEY,
+    pack_id TEXT NOT NULL,
+    file_id TEXT NOT NULL,
+    file_unique_id TEXT NOT NULL,
+    emoji TEXT,
+    custom_emoji_id TEXT,
+    format TEXT NOT NULL,
+    thumbnail_file_id TEXT,
+    width INTEGER,
+    height INTEGER,
+    UNIQUE(pack_id,file_unique_id),
+    FOREIGN KEY (pack_id) REFERENCES telegram_award_packs(id) ON DELETE CASCADE
+  )`).run();
+  await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_telegram_award_pack_stickers_pack ON telegram_award_pack_stickers(pack_id)`).run();
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS user_items (
       telegram_id INTEGER NOT NULL,
@@ -2217,7 +2375,7 @@ async function getCustomization(request, env) {
       env.DB.prepare(`SELECT ui.telegram_id,ui.item_id,i.name,i.price,i.image_data,c.name AS category_name,i.categories_text,i.color,i.government_marker,i.hidden_from_users,ui.source FROM user_items ui JOIN customization_items i ON i.id=ui.item_id LEFT JOIN customization_categories c ON c.id=i.category_id WHERE ui.telegram_id IN (${ph})`).bind(...ids).all(),
     ]);
     cityInventory=[...(cityOnly.results||[]),...(userOwned.results||[])].filter((x,i,a)=>a.findIndex(y=>y.item_id===x.item_id)===i);
-    territoryAwards=(await env.DB.prepare(`SELECT id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index FROM territory_awards WHERE territory_id=? ORDER BY awarded_at DESC,id ASC`).bind(profileTerritoryId).all()).results||[];
+    territoryAwards=(await env.DB.prepare(`SELECT id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index,sticker_format,sticker_set_name FROM territory_awards WHERE territory_id=? ORDER BY awarded_at DESC,id ASC`).bind(profileTerritoryId).all()).results||[];
     if(!equippedMarkerItemId){const first=await ensureFirstCityMarker(env,profileTerritoryId);equippedMarkerItemId=first?.id||null;}
   }
   return json({ok:true,balance,personalBalance:Number(personalBalance?.balance||0),accountScope,accountLabel:accountScope==='personal'?(currentUser?.mc_nickname||'Ник не указан'):`Казна: ${accountCity?.name||'город'}`,accountOptions:[{scope:'personal',label:currentUser?.mc_nickname||'Ник не указан'},...managerCities.map(c=>({scope:`treasury:${c.id}`,label:`Казна: ${c.name}`}))],managerCities,cityName:accountCity?.name||null,categories:cats.results||[],items:visibleItems,owned:owned.results||[],myItems,cityId:profileTerritoryId||null,cityRole:profileTerritoryId?'manager':null,cityInventory,territoryAwards,equippedAwards:territoryAwards.filter(award=>award.slot_index!==null&&award.slot_index!==undefined).sort((a,b)=>Number(a.slot_index)-Number(b.slot_index)),equippedMarkerItemId,bannerColor,bannerGradient});
@@ -2716,6 +2874,145 @@ async function updateCityCustomization(request, env) {
     return json({ok:true,...(hasMarkerField?{markerItemId}:{}),...(hasBannerColorField?{bannerColor}:{}),...((hasBannerGradientField||hasBannerColorField)?{bannerGradient}:{})});
   }catch(error){return json({ok:false,error:error?.message||'Не удалось обновить оформление'},400)}
 }
+async function getAdminAwards(request, env) {
+  const auth = await requireMainInspector(request, env);
+  if (auth.error) return auth.error;
+  await ensureWorldTables(env);
+  const awardRows = await env.DB.prepare(`SELECT a.id,a.territory_id,t.name AS territory_name,a.name,a.emoji,a.awarded_at,a.slot_index,a.sticker_format,a.sticker_set_name,a.sticker_thumbnail_file_id
+    FROM territory_awards a JOIN territories t ON t.id=a.territory_id
+    ORDER BY a.awarded_at DESC,a.id ASC`).all();
+  if (new URL(request.url).searchParams.get('view') === 'issued') {
+    return json({ ok: true, awards: awardRows.results || [] });
+  }
+  const [packRows, stickerRows] = await Promise.all([
+    env.DB.prepare(`SELECT id,set_name,title,created_at FROM telegram_award_packs ORDER BY created_at DESC,id ASC`).all(),
+    env.DB.prepare(`SELECT id,pack_id,emoji,custom_emoji_id,format,thumbnail_file_id,width,height FROM telegram_award_pack_stickers ORDER BY rowid ASC`).all(),
+  ]);
+  const stickersByPack = new Map();
+  for (const sticker of stickerRows.results || []) {
+    if (!stickersByPack.has(sticker.pack_id)) stickersByPack.set(sticker.pack_id, []);
+    stickersByPack.get(sticker.pack_id).push(sticker);
+  }
+  const packs = (packRows.results || []).map(pack => ({ ...pack, stickers: stickersByPack.get(pack.id) || [] }));
+  return json({ ok: true, packs, awards: awardRows.results || [] });
+}
+
+async function addTelegramAwardPack(request, env) {
+  const auth = await requireMainInspector(request, env);
+  if (auth.error) return auth.error;
+  let body;
+  try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
+  const setName = parseTelegramEmojiSetName(body?.url);
+  if (!setName) return json({ ok: false, error: 'Укажите публичную ссылку вида https://t.me/addemoji/НазваниеНабора' }, 400);
+  await ensureWorldTables(env);
+  const exists = await env.DB.prepare(`SELECT id FROM telegram_award_packs WHERE lower(set_name)=lower(?) LIMIT 1`).bind(setName).first();
+  if (exists) return json({ ok: false, error: 'Этот эмодзи-пак уже добавлен' }, 409);
+  let result;
+  try { result = await telegram(env, 'getStickerSet', { name: setName }); }
+  catch { return json({ ok: false, error: 'Не удалось получить эмодзи-пак из Telegram' }, 502); }
+  const stickerSet = result.data?.result;
+  if (!result.response.ok || !result.data?.ok || !Array.isArray(stickerSet?.stickers)) {
+    return json({ ok: false, error: 'Telegram не нашёл этот набор. Проверьте ссылку и доступность пакета.' }, 404);
+  }
+  if (!isTelegramCustomEmojiSet(stickerSet)) {
+    return json({ ok: false, error: 'Ссылка должна вести на набор пользовательских эмодзи, а не обычных стикеров' }, 400);
+  }
+  const sourceStickers = stickerSet.stickers.filter(sticker => sticker?.file_id && sticker?.file_unique_id);
+  if (!sourceStickers.length) return json({ ok: false, error: 'В этом наборе нет доступных эмодзи' }, 400);
+  if (sourceStickers.length > 500) return json({ ok: false, error: 'В наборе слишком много элементов для добавления' }, 400);
+  const packId = crypto.randomUUID();
+  const now = Date.now();
+  const title = String(stickerSet.title || setName).trim().slice(0, 100) || setName;
+  await env.DB.prepare(`INSERT INTO telegram_award_packs(id,set_name,title,added_by_telegram_id,created_at) VALUES(?,?,?,?,?)`)
+    .bind(packId, setName, title, Number(auth.user.id), now).run();
+  try {
+    const statements = sourceStickers.map(sticker => env.DB.prepare(`INSERT OR IGNORE INTO telegram_award_pack_stickers
+      (id,pack_id,file_id,file_unique_id,emoji,custom_emoji_id,format,thumbnail_file_id,width,height)
+      VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(
+        crypto.randomUUID(), packId, sticker.file_id, sticker.file_unique_id,
+        String(sticker.emoji || '').slice(0, 32) || null,
+        sticker.custom_emoji_id ? String(sticker.custom_emoji_id) : null,
+        getTelegramStickerFormat(sticker),
+        sticker.thumbnail?.file_id || null,
+        Number.isFinite(Number(sticker.width)) ? Number(sticker.width) : null,
+        Number.isFinite(Number(sticker.height)) ? Number(sticker.height) : null
+      ));
+    for (let offset = 0; offset < statements.length; offset += 40) {
+      await env.DB.batch(statements.slice(offset, offset + 40));
+    }
+  } catch (error) {
+    await env.DB.prepare(`DELETE FROM telegram_award_pack_stickers WHERE pack_id=?`).bind(packId).run().catch(() => {});
+    await env.DB.prepare(`DELETE FROM telegram_award_packs WHERE id=?`).bind(packId).run().catch(() => {});
+    console.error('Telegram award pack save failed:', String(error?.message || error).slice(0, 180));
+    return json({ ok: false, error: 'Не удалось сохранить состав эмодзи-пака' }, 500);
+  }
+  return json({ ok: true, packId, title, setName, stickersCount: sourceStickers.length });
+}
+
+async function deleteTelegramAwardPack(request, env, packId) {
+  const auth = await requireMainInspector(request, env);
+  if (auth.error) return auth.error;
+  await ensureWorldTables(env);
+  const pack = await env.DB.prepare(`SELECT id FROM telegram_award_packs WHERE id=? LIMIT 1`).bind(packId).first();
+  if (!pack) return json({ ok: false, error: 'Эмодзи-пак не найден' }, 404);
+  await env.DB.batch([
+    env.DB.prepare(`DELETE FROM telegram_award_pack_stickers WHERE pack_id=?`).bind(packId),
+    env.DB.prepare(`DELETE FROM telegram_award_packs WHERE id=?`).bind(packId),
+  ]);
+  return json({ ok: true, deleted: true });
+}
+
+async function grantTerritoryAward(request, env) {
+  const auth = await requireMainInspector(request, env);
+  if (auth.error) return auth.error;
+  let body;
+  try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
+  const territoryId = String(body?.territoryId || '').trim();
+  const stickerId = String(body?.stickerId || '').trim();
+  const name = String(body?.name || '').trim().replace(/\s+/g, ' ');
+  const awardedAt = Number(body?.awardedAt);
+  if (!territoryId || !stickerId || !name || name.length > 80 || !Number.isSafeInteger(awardedAt) || awardedAt <= 0) {
+    return json({ ok: false, error: 'Выберите город и эмодзи, укажите название награды и корректную дату' }, 400);
+  }
+  await ensureWorldTables(env);
+  const [territory, sticker] = await Promise.all([
+    env.DB.prepare(`SELECT id,name FROM territories WHERE id=? AND status='approved' LIMIT 1`).bind(territoryId).first(),
+    env.DB.prepare(`SELECT s.file_id,s.file_unique_id,s.emoji,s.custom_emoji_id,s.format,s.thumbnail_file_id,p.set_name
+      FROM telegram_award_pack_stickers s JOIN telegram_award_packs p ON p.id=s.pack_id
+      WHERE s.id=? LIMIT 1`).bind(stickerId).first(),
+  ]);
+  if (!territory) return json({ ok: false, error: 'Выбранный город не найден или не опубликован' }, 404);
+  if (!sticker?.file_id) return json({ ok: false, error: 'Выбранный эмодзи больше недоступен. Обновите список паков.' }, 404);
+  const normalizedName = name.normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/\s+/g, ' ').trim();
+  const awardId = crypto.randomUUID();
+  const inserted = await env.DB.prepare(`INSERT OR IGNORE INTO territory_awards
+    (id,territory_id,name,name_key,emoji,awarded_by_telegram_id,awarded_at,slot_index,
+      sticker_file_id,sticker_file_unique_id,sticker_format,sticker_thumbnail_file_id,sticker_set_name,custom_emoji_id)
+    VALUES(?,?,?,?,?,?,?,NULL,?,?,?,?,?,?)`).bind(
+      awardId, territoryId, name, normalizedName, String(sticker.emoji || '✨'),
+      Number(auth.user.id), awardedAt, sticker.file_id, sticker.file_unique_id,
+      sticker.format, sticker.thumbnail_file_id || null, sticker.set_name, sticker.custom_emoji_id || null
+    ).run();
+  if (!Number(inserted.meta?.changes || 0)) {
+    return json({ ok: false, error: 'У этого города уже есть награда с таким названием' }, 409);
+  }
+  return json({ ok: true, awardId, territoryId, territoryName: territory.name, name, awardedAt });
+}
+
+async function deleteTerritoryAwardById(request, env, awardId) {
+  const auth = await requireMainInspector(request, env);
+  if (auth.error) return auth.error;
+  await ensureWorldTables(env);
+  const award = await env.DB.prepare(`SELECT territory_id,slot_index FROM territory_awards WHERE id=? LIMIT 1`).bind(awardId).first();
+  if (!award) return json({ ok: false, error: 'Выданная награда не найдена' }, 404);
+  const statements = [env.DB.prepare(`DELETE FROM territory_awards WHERE id=?`).bind(awardId)];
+  if (award.slot_index !== null && award.slot_index !== undefined) {
+    statements.push(env.DB.prepare(`UPDATE territory_awards SET slot_index=slot_index-1 WHERE territory_id=? AND slot_index>?`).bind(award.territory_id, Number(award.slot_index)));
+  }
+  await env.DB.batch(statements);
+  return json({ ok: true, deleted: true, awardId });
+}
+
 async function toggleTerritoryAwardPlacement(request, env) {
   const auth=await requireUser(request,env); if(auth.error)return auth.error;
   await ensureWorldTables(env);
@@ -3297,7 +3594,7 @@ async function getCityCustomizationData(request, env, url) {
   ]);
   let recruitmentUsername=''; try{const r=await env.DB.prepare(`SELECT contact_username,enabled FROM recruitment WHERE territory_id=?`).bind(territoryId).first(); recruitmentUsername=Number(r?.enabled||0)===1?(r?.contact_username||''):'';}catch{}
   const availableMarkers=[...(cityItems.results||[]),...(userItems.results||[])];
-  const territoryAwards=(await env.DB.prepare(`SELECT id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index FROM territory_awards WHERE territory_id=? ORDER BY awarded_at DESC,id ASC`).bind(territoryId).all()).results||[];
+  const territoryAwards=(await env.DB.prepare(`SELECT id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index,sticker_format,sticker_set_name FROM territory_awards WHERE territory_id=? ORDER BY awarded_at DESC,id ASC`).bind(territoryId).all()).results||[];
   return json({ok:true,markerItemId:city?.marker_item_id||null,bannerColor:city?.banner_color||'none',bannerGradient:city?.banner_gradient||'aurora',availableMarkers,territoryAwards,equippedAwards:territoryAwards.filter(award=>award.slot_index!==null&&award.slot_index!==undefined).sort((a,b)=>Number(a.slot_index)-Number(b.slot_index)),recruitmentUsername});
 }
 
@@ -3424,7 +3721,7 @@ async function getTerritories(request, env) {
       : safeAll("screenshots", `SELECT s.id,s.territory_id,s.telegram_id,s.telegram_username,s.author_mc_nickname,s.status,s.created_at,COALESCE(s.author_mc_nickname,u.mc_nickname) AS mc_nickname,u.xuid,u.skin_texture_id FROM screenshots s LEFT JOIN users u ON u.telegram_id=s.telegram_id WHERE s.status='approved'${detailId ? ' AND s.territory_id=?' : ''} ORDER BY s.created_at DESC`, scopedBind);
     const awardsPromise = summaryMode
       ? Promise.resolve({ results: [] })
-      : safeAll("territory_awards", `SELECT id,territory_id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index FROM territory_awards WHERE slot_index IS NOT NULL AND territory_id IN (SELECT id FROM territories WHERE status='approved')${detailId ? ' AND territory_id=?' : ''} ORDER BY territory_id ASC,slot_index ASC`, scopedBind);
+      : safeAll("territory_awards", `SELECT id,territory_id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index,sticker_format,sticker_set_name FROM territory_awards WHERE slot_index IS NOT NULL AND territory_id IN (SELECT id FROM territories WHERE status='approved')${detailId ? ' AND territory_id=?' : ''} ORDER BY territory_id ASC,slot_index ASC`, scopedBind);
     // Aggregate ratings in D1 rather than transferring every historical rating to the Worker.
     // The calculation exactly preserves the existing weighting: top 5 community / top 2 inspector
     // ratings are averaged separately from older ratings, then combined 50/50 when history exists.
@@ -7196,12 +7493,24 @@ export default {
       return health(env, request);
     }
 
+    if (url.pathname === "/api/admin/awards" && request.method === "GET") return getAdminAwards(request, env);
+    if (url.pathname === "/api/admin/awards" && request.method === "POST") return grantTerritoryAward(request, env);
+    if (url.pathname.startsWith("/api/admin/awards/") && request.method === "DELETE") {
+      return deleteTerritoryAwardById(request, env, decodeURIComponent(url.pathname.split("/").pop() || ""));
+    }
+    if (url.pathname === "/api/admin/award-packs" && request.method === "POST") return addTelegramAwardPack(request, env);
+    if (url.pathname.startsWith("/api/admin/award-packs/") && request.method === "DELETE") {
+      return deleteTelegramAwardPack(request, env, decodeURIComponent(url.pathname.split("/").pop() || ""));
+    }
     if (url.pathname === "/api/admin/diagnostics/d1" && request.method === "GET") {
       return getD1Diagnostics(request, env);
     }
 
     if (url.pathname === "/api/telegram-emoji" && request.method === "GET") {
       return serveTelegramEmoji(request, env);
+    }
+    if (url.pathname === "/api/telegram-sticker" && request.method === "GET") {
+      return serveTelegramAwardSticker(request, env);
     }
 
     if (url.pathname === "/api/territories" && request.method === "GET") {
@@ -7547,4 +7856,4 @@ export default {
   },
 };
 
-export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTerritoryAwardCommand, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
+export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTerritoryAwardCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };

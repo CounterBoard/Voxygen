@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseTerritoryAwardCommand, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
+import { parseTerritoryAwardCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
 
 const cities=[
   {id:"city-1",name:"Новая Территория"},
@@ -80,4 +80,31 @@ test("Telegram emoji lookup prefers an animated TGS entry over a static duplicat
   ];
   assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🎉")?.file_id,"animated-confetti");
   assert.equal(isTelegramAnimatedEmojiSticker(findTelegramAnimatedEmojiSticker(stickers,"🎉")),true);
+});
+
+
+test("Telegram custom emoji pack links are restricted to public t.me addemoji URLs",()=>{
+  assert.equal(parseTelegramEmojiSetName("https://t.me/addemoji/voxygen_awards"),"voxygen_awards");
+  assert.equal(parseTelegramEmojiSetName("https://telegram.me/addemoji/MyPack_2?start=share"),"MyPack_2");
+  assert.equal(parseTelegramEmojiSetName("http://t.me/addemoji/pack"),null);
+  assert.equal(parseTelegramEmojiSetName("https://t.me.evil.example/addemoji/pack"),null);
+  assert.equal(parseTelegramEmojiSetName("https://t.me/addstickers/pack"),null);
+  assert.equal(parseTelegramEmojiSetName("https://t.me/addemoji/../admin"),null);
+  assert.equal(parseTelegramEmojiSetName("https://example.com/addemoji/pack"),null);
+  assert.equal(parseTelegramEmojiSetName("not a url"),null);
+});
+
+test("Telegram custom emoji formats distinguish TGS, WEBM and static image",()=>{
+  assert.equal(getTelegramStickerFormat({is_animated:true,is_video:false}),"tgs");
+  assert.equal(getTelegramStickerFormat({is_animated:false,is_video:true}),"webm");
+  assert.equal(getTelegramStickerFormat({is_animated:false,is_video:false}),"image");
+  assert.equal(getTelegramStickerFormat(null),"image");
+});
+
+
+test("Telegram sticker set validation accepts the Bot API sticker_type field",()=>{
+  assert.equal(isTelegramCustomEmojiSet({sticker_type:"custom_emoji"}),true);
+  assert.equal(isTelegramCustomEmojiSet({sticker_type:"regular"}),false);
+  assert.equal(isTelegramCustomEmojiSet({type:"custom_emoji"}),true);
+  assert.equal(isTelegramCustomEmojiSet(null),false);
 });
