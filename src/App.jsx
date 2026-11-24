@@ -1948,6 +1948,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
       const data=await response.json().catch(()=>null);
       if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось удалить награду.'));
       setIssuedAwards(current=>current.filter(item=>String(item.id)!==String(award.id)));
+      Promise.resolve(onTerritoriesChanged?.()).catch(()=>{});
     }catch(error){setIssuedAwardsError(safeCaughtError(error,'Не удалось удалить награду.'))}
     finally{setIssuedAwardDeletingId('')}
   }
@@ -2371,7 +2372,7 @@ function ProfileInventory({initData,role,tgUser,territory}={}){
   </div>;
 }
 
-function MainInspectorAwardManager({initData,territories=[]}={}) {
+function MainInspectorAwardManager({initData,territories=[],onTerritoriesChanged}={}) {
   const [packs,setPacks]=useState([]);
   const [loading,setLoading]=useState(true);
   const [savingPack,setSavingPack]=useState(false);
@@ -2438,6 +2439,7 @@ function MainInspectorAwardManager({initData,territories=[]}={}) {
       if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось выдать награду.'));
       setAwardName('');setNotice('Награда выдана городу «'+data.territoryName+'»');
       window.dispatchEvent(new Event('voxygen:awards-changed'));
+      Promise.resolve(onTerritoriesChanged?.()).catch(()=>{});
     }catch(e){setError(safeCaughtError(e,'Не удалось выдать награду.'))}
     finally{setSavingAward(false)}
   }
@@ -2779,7 +2781,7 @@ function ProfileScreen({ profile, profileLoadState, profileLoadError, claimNickn
         <button type="button" onClick={()=>setSettingsOpen(true)} className="press" aria-label="Настройки профиля" title="Настройки" style={{width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--theme-color-border)',borderRadius:12,background:'var(--theme-color-surface-raised)',color:'var(--theme-color-text-muted)'}}><Settings size={18}/></button>
         {isMainInspector&&<button type="button" onClick={()=>onOpenGlobalSettings?.()} className="press" aria-label="Глобальные настройки" title="Глобальные настройки" style={{width:40,height:40,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--theme-color-status-success)',borderRadius:12,background:'var(--theme-color-status-success)',color:'var(--theme-color-status-success-contrast)'}}><Settings size={18}/></button>}
       </div></div><div style={{fontSize:11.5,color:'var(--theme-color-text-muted)',marginBottom: 10}}>Telegram: {tgUser?`@${tgUser.username||'—'} · id ${tgUser.id}`:'не определён'}</div>{!isInspector&&profileLoadState==='needs_nickname'&&profile.status!=='verified'&&<><div style={{display:'flex',gap: 8}}><Field value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Ваш ник в Minecraft" style={{flex:1,background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding: '10px 12px',color:'var(--theme-color-text-primary)',fontSize:13}}/><button onClick={submit} className="press" style={iconBtn('var(--theme-color-action-primary)','var(--theme-color-action-primary-contrast)',true)}><Pencil size={15}/></button></div>{error&&<div style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop: 8}}>{error}</div>}</>}</div>
-    {isMainInspector?<MainInspectorAwardManager initData={initData} territories={territories}/>:<ProfileInventory initData={initData} role={role} tgUser={tgUser}/>}
+    {isMainInspector?<MainInspectorAwardManager initData={initData} territories={territories} onTerritoriesChanged={onTerritoriesChanged}/>:<ProfileInventory initData={initData} role={role} tgUser={tgUser}/>}
     {!isInspector&&userCitiesForTreasury.map(city=><TreasuryCard key={`treasury-${city.id}`} city={city} initData={initData} tgUser={tgUser} onToast={onToast}/>)}
     {!isInspector&&managerCities.map(city=><CityManagementProfile key={`manage-${city.id}`} territory={city} managerTerritories={managerCities} initData={initData} tgUser={tgUser} onChanged={onTerritoriesChanged}/>)}
     {!isInspector&&residentCities.map(city=><CityManagementProfile key={`view-${city.id}`} territory={city} managerTerritories={managerCities} initData={initData} tgUser={tgUser} readOnly onChanged={onTerritoriesChanged}/>)}
