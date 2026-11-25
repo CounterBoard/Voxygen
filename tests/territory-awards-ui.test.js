@@ -5,14 +5,21 @@ import { readFileSync } from "node:fs";
 const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 const themeTokens = readFileSync(new URL("../src/theme/theme-tokens.css", import.meta.url), "utf8");
 
-test("territory award emoji use AnimatedEmojies TGS or its own Telegram thumbnail",()=>{
+test("territory awards use their saved Telegram sticker and fall back to the original Unicode emoji",()=>{
   assert.match(app,/import lottie from ['"]lottie-web['"]/);
-  assert.match(app,/format=animation&v=4/);
-  assert.match(app,/lottie\.loadAnimation\(/);
-  assert.match(app,/function cloneTelegramEmojiAnimationData\(/);
+  assert.match(app,/function TelegramSticker\(/);
+  assert.match(app,/function cloneTelegramStickerAnimationData\(/);
+  assert.match(app,/function AwardEmoji\(/);
+  assert.match(app,/hasThumbnail=\{Boolean\(award\.sticker_thumbnail_file_id\)\}/);
+  assert.match(app,/key=\{\'award-\'\+String\(award\.id\)\}/);
+  assert.match(app,/hasThumbnail=\{Boolean\(sticker\.thumbnail_file_id\)\}/);
+  assert.match(app,/const fallbackEmoji=<AwardEmoji emoji=\{emoji\} size=\{size\}\/\>/);
+  assert.match(app,/format==='tgs'/);
+  assert.match(app,/format==='webm'/);
   assert.match(app,/loop:true/);
   assert.match(app,/autoplay:true/);
-  assert.doesNotMatch(app,/fontSize:size\*\.94/,"device Unicode emoji font is not used for award fallback");
+  assert.doesNotMatch(app,/AnimatedEmojies|telegram-emoji|function TelegramEmoji/);
+  assert.doesNotMatch(app,/atlas-award-emoji-enter|atlas-telegram-award-emoji/);
   assert.match(app,/<TerritoryAwardIcon award=\{award\} size=\{40\}\/\>/);
   assert.match(app,/<TerritoryAwardIcon award=\{award\} size=\{36\}\/\>/);
   assert.match(app,/<TerritoryAwardIcon award=\{selectedTerritoryAward\} size=\{56\}\/\>/);
@@ -53,20 +60,14 @@ test("banner preview updates optimistically and submits the exact selected color
 });
 
  
-test("Telegram award emoji clones shared TGS data per player and always autoplay-loops AnimatedEmojies",()=>{
-  assert.match(app,/useState\('loading'\)/);
-  assert.match(app,/format=animation&v=4/);
-  assert.match(app,/loadTelegramEmojiAnimation\(value\)/);
-  assert.match(app,/telegramEmojiAnimationCache\.get\(value\)/);
-  assert.match(app,/function cloneTelegramEmojiAnimationData\(/);
-  assert.match(app,/cloneTelegramEmojiAnimationData\(animationData\)/);
+test("each TGS award gets an independent looping Lottie player without AnimatedEmojies",()=>{
+  assert.match(app,/cloneTelegramStickerAnimationData\(data\)/);
+  assert.match(app,/lottie\.loadAnimation\(/);
   assert.match(app,/loop:true/);
   assert.match(app,/autoplay:true/);
-  assert.match(app,/animation\.goToAndPlay\(0,true\)/);
-  assert.match(app,/renderMode==='unavailable'/);
-  assert.doesNotMatch(app,/renderMode==='unicode'/);
-  assert.doesNotMatch(app,/setRenderMode\(imageLoadedRef\.current\?'image':'unicode'\)/);
-  assert.match(app,/atlas-award-emoji-enter/);
+  assert.match(app,/animation\.addEventListener\('DOMLoaded',onAnimationReady\)/);
+  assert.match(app,/animation\.addEventListener\('data_failed',onAnimationFailed\)/);
+  assert.doesNotMatch(app,/loadTelegramEmojiAnimation|telegramEmojiAnimationCache|AnimatedEmojies|telegram-emoji/);
 });
 
  
@@ -190,10 +191,23 @@ test("territory award TGS stickers show their Telegram thumbnail until animation
   assert.ok(start>=0&&end>start);
   const component=app.slice(start,end);
   assert.match(component,/const previewSrc=API_BASE\+'\/api\/telegram-sticker\?'\+query\+'&preview=1'/);
+  assert.match(component,/preview&&hasThumbnail\?'&preview=1'/);
+  assert.match(component,/if\(\(preview&&hasThumbnail\)\|\|format!=='tgs'\|\|!id\)return undefined/);
   assert.match(component,/if\(format==='tgs'\)[\s\S]*?<img src=\{previewSrc\}/);
   assert.match(component,/display:animationReady\|\|previewFailed\?'none':'block'/);
   assert.match(component,/animation\.addEventListener\('DOMLoaded',onAnimationReady\)/);
   assert.match(component,/animation\.addEventListener\('data_failed',onAnimationFailed\)/);
+  assert.match(component,/failed&&\(!hasThumbnail\|\|previewFailed\)&&fallbackEmoji/);
+  assert.doesNotMatch(component,/\(!hasThumbnail\|\|previewFailed\)&&!animationReady&&fallbackEmoji/);
+});
+
+test("Unicode award fallback is never rendered while the TGS sticker is still loading",()=>{
+  const start=app.indexOf("function TelegramSticker(");
+  const end=app.indexOf("function TerritoryAwardIcon(",start);
+  const component=app.slice(start,end);
+  assert.match(component,/const \[failed,setFailed\]=useState\(false\)/);
+  assert.match(component,/const onAnimationFailed=\(\)=>\{[\s\S]*?setFailed\(true\)/);
+  assert.match(component,/failed&&\(!hasThumbnail\|\|previewFailed\)&&fallbackEmoji/);
 });
 
 test("territory award WEBM stickers fall back to the same Telegram thumbnail when video playback fails",()=>{
@@ -201,5 +215,6 @@ test("territory award WEBM stickers fall back to the same Telegram thumbnail whe
   const end=app.indexOf("function TerritoryAwardIcon(",start);
   const component=app.slice(start,end);
   assert.match(component,/if\(format==='webm'\)[\s\S]*?<video src=\{src\}/);
-  assert.match(component,/failed&&<img src=\{previewSrc\}/);
+  assert.match(component,/failed&&hasThumbnail&&<img src=\{previewSrc\}/);
+  assert.match(component,/failed&&\(!hasThumbnail\|\|previewFailed\)&&fallbackEmoji/);
 });

@@ -45,8 +45,8 @@ Added regression coverage for the supported gem withdrawal forms and static UI c
 ## Award notification and Telegram emoji delivery fix — 2026-11-26
 
 - **Award notification paragraph.** The italic sentence `Экипированные награды появляются на странице территории` is now separated from the award announcement by a blank line (`\n\n`), so Telegram displays it as its own paragraph.
-- **Animated Telegram emoji CORS.** The cross-origin `GET /api/telegram-emoji` route now wraps all success and error responses with the shared `withCors` helper. The Mini App is hosted separately from the `voxygen` API Worker; without `Access-Control-Allow-Origin`, browser `fetch()` requests for Lottie/TGS data are blocked.
-- Added regression tests for the two-line-break notification format and CORS on the animated emoji endpoint.
+- **Temporary AnimatedEmojies CORS fix (historical).** At this point in the change history, the cross-origin `GET /api/telegram-emoji` route was wrapped with the shared `withCors` helper. This was a temporary integration and is not part of the current award-rendering architecture; it was removed in the later award-sticker consolidation documented below.
+- The notification paragraph regression test remains current. The CORS test for the removed `/api/telegram-emoji` route was retired when that route and its implementation were deleted.
 
 
 ## Territory award sticker rendering fallback — 2026-11-26
@@ -55,3 +55,37 @@ Added regression coverage for the supported gem withdrawal forms and static UI c
 - Added a thumbnail request for territory TGS awards. The thumbnail remains visible while the animation loads and whenever it fails; a successfully loaded Lottie animation replaces it. WEBM awards also fall back to their Telegram thumbnail on playback failure.
 - The main-inspector pack preview path and rating badge sizing are unchanged.
 - Added UI regression tests for TGS thumbnail fallback and WEBM playback fallback.
+
+
+## Consolidated territory award sticker delivery — 2026-11-26
+
+The pack gallery and issued awards now share a single, format-aware Telegram sticker delivery path. The source pack gallery resolves a sticker with `stickerId`; territory inventory and public award badges resolve an issued snapshot with `awardId`. Both are served by `GET /api/telegram-sticker`, which requires exactly one selector and reads the corresponding D1 table.
+
+### Data contract correction
+
+- The territory awards query in `getTerritories` now selects `sticker_thumbnail_file_id` for equipped award records.
+- The `getCustomization` profile response now selects the same field for `territoryAwards` and its derived `equippedAwards`.
+- The main-inspector issued-awards query already included the field; the pack gallery reads `thumbnail_file_id` from its pack-sticker rows.
+- This makes thumbnail availability consistent between the inspector, profile inventory, and public territory page. The API resolves actual file data server-side; the thumbnail ID in each response is the UI's availability signal.
+
+### Rendering and loading behavior
+
+- **TGS:** the Worker fetches the Telegram file, verifies its path/extension and compressed size, decompresses gzip, limits the decoded JSON, and validates vector dimensions, layers and the absence of remote assets. The frontend renders each sticker with its own looping Lottie instance and a deep-cloned animation payload.
+- **WEBM:** the frontend plays the original Telegram video muted, inline, and looping. A stored thumbnail is shown if playback fails.
+- **Static image:** WebP, PNG and JPEG are supported and contained without cropping.
+- The original Unicode emoji is not a loading placeholder. For a TGS item with no thumbnail, its icon area stays empty while the animation request and Lottie initialization are pending. The player is keyed by award ID so switching modal selection cannot carry a previous award's failure state into the next one. Unicode is shown only after the animation has actually failed. If a thumbnail exists, it remains visible while the TGS animation loads; a thumbnail request error alone does not trigger Unicode while the animation may still succeed. WEBM and static-image fallbacks follow the same failure-only principle.
+
+### Removal of AnimatedEmojies
+
+The abandoned `AnimatedEmojies` source has been removed completely from the active application: its Worker sticker-set lookup/cache, `GET /api/telegram-emoji` route, frontend loader/cache and `TelegramEmoji` component, exports, tests, and obsolete CSS rules. `lottie-web` remains installed because TGS stickers selected from configured Telegram custom-emoji packs still use Lottie.
+
+### Documentation and regression coverage
+
+- Detailed behavior and API reference: `docs/features/TERRITORY_AWARDS_STICKER_DELIVERY.md`.
+- System-level documentation: `Functional_System.txt`, section 68, with historical placeholder wording superseded.
+- UI tests cover TGS thumbnail/loading behavior, no Unicode-before-failure, WEBM fallback and award icon presentation.
+- Worker tests cover format mapping, pack URL validation, TGS safety, thumbnail fields in territory/profile payloads, and the two selector branches of the common sticker endpoint.
+
+### Validation gate
+
+The GitHub Actions workflow runs `npm test`, `npm run build`, `node --check bot/src/worker.js`, and the Wrangler Worker dry-run bundle. A green CI run confirms repository tests and bundling; it is not a live smoke test against Telegram's Bot API, the production D1 database, or Cloudflare deployment.

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { parseGemWithdrawalCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
+import { parseGemWithdrawalCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
 
 test("gem withdrawal parser accepts compact, spaced and slash-prefixed personal debit commands",()=>{
   for(const command of ["-250","- 250","/-250","/ - 250"]){
@@ -32,38 +32,6 @@ test("main-inspector award grants send notices through territory notification pr
   assert.doesNotMatch(worker,/function parseTerritoryAwardCommand|handleTerritoryAwardBankMessage/);
 });
 
-test("Telegram emoji matching normalizes presentation selectors but preserves the exact emoji sequence",()=>{
-  assert.equal(normalizeTelegramEmoji("❤️"),normalizeTelegramEmoji("❤"));
-  assert.equal(normalizeTelegramEmoji("👩‍🚀"),"👩‍🚀");
-  assert.notEqual(normalizeTelegramEmoji("👍🏻"),normalizeTelegramEmoji("👍🏿"));
-});
-
-test("Telegram emoji lookup only accepts matching AnimatedEmojies TGS stickers",()=>{
-  const stickers=[
-    {emoji:"❤️",file_id:"heart-static",is_animated:false,is_video:false,thumbnail:{file_id:"heart-static-thumb"}},
-    {emoji:"❤️",file_id:"heart-tgs",is_animated:true,is_video:false,thumbnail:{file_id:"heart-tgs-thumb"}},
-    {emoji:"🏆",file_id:"trophy-static",is_animated:false,is_video:false},
-    {emoji:"👍🏻",file_id:"thumb-video",is_animated:false,is_video:true},
-    {emoji:"🎉",file_id:"confetti-tgs",is_animated:true,is_video:false,thumbnail:{file_id:"confetti-thumb"}},
-  ];
-  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"❤")?.file_id,"heart-tgs");
-  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🏆"),null,"static matches are rejected");
-  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"👍🏻"),null,"video stickers are rejected");
-  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🎉")?.file_id,"confetti-tgs");
-  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🏅"),null);
-  assert.equal(findTelegramAnimatedEmojiSticker([], "🏆"),null);
-  assert.equal(getTelegramAnimatedEmojiPreview(stickers[1])?.file_id,"heart-tgs-thumb");
-  assert.equal(getTelegramAnimatedEmojiPreview(stickers[0]),null,"static duplicate preview is rejected");
-  assert.equal(getTelegramAnimatedEmojiPreview(stickers[4])?.file_id,"confetti-thumb");
-});
-
-test("Telegram animated emoji accepts TGS stickers but excludes static and video stickers",()=>{
-  assert.equal(isTelegramAnimatedEmojiSticker({is_animated:true,is_video:false}),true);
-  assert.equal(isTelegramAnimatedEmojiSticker({is_animated:true,is_video:true}),false);
-  assert.equal(isTelegramAnimatedEmojiSticker({is_animated:false,is_video:false}),false);
-  assert.equal(isTelegramAnimatedEmojiSticker(null),false);
-});
-
 test("Telegram TGS animation validation requires bounded vector dimensions and rejects remote assets",()=>{
   const valid={w:512,h:512,layers:[],assets:[{id:"comp_1",layers:[]}]};
   assert.equal(isSafeTelegramTgsAnimation(valid),true);
@@ -72,16 +40,6 @@ test("Telegram TGS animation validation requires bounded vector dimensions and r
   assert.equal(isSafeTelegramTgsAnimation({...valid,assets:[{u:"https://example.com/",p:"image.png"}]}),false);
   assert.equal(isSafeTelegramTgsAnimation({...valid,layers:null}),false);
 });
-
-test("Telegram emoji lookup prefers an animated TGS entry over a static duplicate",()=>{
-  const stickers=[
-    {emoji:"🎉",file_id:"static-confetti",is_animated:false,is_video:false,thumbnail:{file_id:"static-thumb"}},
-    {emoji:"🎉",file_id:"animated-confetti",is_animated:true,is_video:false},
-  ];
-  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🎉")?.file_id,"animated-confetti");
-  assert.equal(isTelegramAnimatedEmojiSticker(findTelegramAnimatedEmojiSticker(stickers,"🎉")),true);
-});
-
 
 test("Telegram custom emoji pack links are restricted to public t.me addemoji URLs",()=>{
   assert.equal(parseTelegramEmojiSetName("https://t.me/addemoji/voxygen_awards"),"voxygen_awards");
@@ -109,7 +67,17 @@ test("Telegram sticker set validation accepts the Bot API sticker_type field",()
   assert.equal(isTelegramCustomEmojiSet(null),false);
 });
 
-test("AnimatedEmojies endpoint wraps every response with CORS for the separate Mini App origin",()=>{
+
+test("public territory and profile award responses include each saved sticker thumbnail id",()=>{
   const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8");
-  assert.match(worker,/if \(url\.pathname === "\/api\/telegram-emoji" && request\.method === "GET"\) \{\s*return withCors\(await serveTelegramEmoji\(request, env\)\);/);
+  assert.match(worker,/SELECT id,territory_id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index,sticker_format,sticker_thumbnail_file_id,sticker_set_name FROM territory_awards WHERE slot_index IS NOT NULL/);
+  assert.match(worker,/SELECT id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index,sticker_format,sticker_thumbnail_file_id,sticker_set_name FROM territory_awards WHERE territory_id=\?/);
+});
+
+test("one sticker endpoint resolves either a pack sticker or an issued award; AnimatedEmojies is removed",()=>{
+  const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8");
+  assert.match(worker,/SELECT file_id,format,thumbnail_file_id FROM telegram_award_pack_stickers WHERE id=\?/);
+  assert.match(worker,/SELECT sticker_file_id AS file_id,sticker_format AS format,sticker_thumbnail_file_id AS thumbnail_file_id FROM territory_awards WHERE id=\?/);
+  assert.match(worker,/if \(url\.pathname === "\/api\/telegram-sticker" && request\.method === "GET"\)/);
+  assert.doesNotMatch(worker,/serveTelegramEmoji|\/api\/telegram-emoji|AnimatedEmojies/);
 });
