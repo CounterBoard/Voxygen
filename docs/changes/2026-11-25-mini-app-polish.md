@@ -47,3 +47,11 @@ Added regression coverage for the supported gem withdrawal forms and static UI c
 - **Award notification paragraph.** The italic sentence `Экипированные награды появляются на странице территории` is now separated from the award announcement by a blank line (`\n\n`), so Telegram displays it as its own paragraph.
 - **Animated Telegram emoji CORS.** The cross-origin `GET /api/telegram-emoji` route now wraps all success and error responses with the shared `withCors` helper. The Mini App is hosted separately from the `voxygen` API Worker; without `Access-Control-Allow-Origin`, browser `fetch()` requests for Lottie/TGS data are blocked.
 - Added regression tests for the two-line-break notification format and CORS on the animated emoji endpoint.
+
+
+## Territory award sticker rendering fallback — 2026-11-26
+
+- Territory award stickers use `awardId` and request the full TGS/WEBM asset, while the main-inspector pack gallery uses `stickerId` with `preview=1` and therefore displays Telegram's static thumbnail. The territory component previously had no thumbnail fallback for TGS and displayed only a Sparkles placeholder when the animation request or Lottie parsing failed.
+- Added a thumbnail request for territory TGS awards. The thumbnail remains visible while the animation loads and whenever it fails; a successfully loaded Lottie animation replaces it. WEBM awards also fall back to their Telegram thumbnail on playback failure.
+- The main-inspector pack preview path and rating badge sizing are unchanged.
+- Added UI regression tests for TGS thumbnail fallback and WEBM playback fallback.
