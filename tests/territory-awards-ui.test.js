@@ -10,6 +10,8 @@ test("territory awards use their saved Telegram sticker and fall back to the ori
   assert.match(app,/function TelegramSticker\(/);
   assert.match(app,/function cloneTelegramStickerAnimationData\(/);
   assert.match(app,/function AwardEmoji\(/);
+  assert.match(app,/hasThumbnail=\{Boolean\(award\.sticker_thumbnail_file_id\)\}/);
+  assert.match(app,/hasThumbnail=\{Boolean\(sticker\.thumbnail_file_id\)\}/);
   assert.match(app,/const fallbackEmoji=<AwardEmoji emoji=\{emoji\} size=\{size\}\/\>/);
   assert.match(app,/format==='tgs'/);
   assert.match(app,/format==='webm'/);
@@ -198,5 +200,6 @@ test("territory award WEBM stickers fall back to the same Telegram thumbnail whe
   const end=app.indexOf("function TerritoryAwardIcon(",start);
   const component=app.slice(start,end);
   assert.match(component,/if\(format==='webm'\)[\s\S]*?<video src=\{src\}/);
-  assert.match(component,/failed&&<img src=\{previewSrc\}/);
+  assert.match(component,/failed&&hasThumbnail&&<img src=\{previewSrc\}/);
+  assert.match(component,/failed&&\(!hasThumbnail\|\|previewFailed\)&&fallbackEmoji/);
 });
