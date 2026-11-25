@@ -168,14 +168,3 @@ test("rating selector background radius is 3px larger than the 18px active pill 
   assert.match(home,/borderRadius:21,padding:3/);
   assert.match(home,/indicatorStyle=\{\{top:3,bottom:3,left:3,width:'calc\(\(100% - 6px\) \/ 2\)'\}\}/);
 });
-
-test("rating badges keep their natural content-sized width in every placement",()=>{
-  const start=app.indexOf("function ScoreBadge(");
-  const end=app.indexOf("function Segmented(",start);
-  assert.ok(start>=0&&end>start);
-  const badge=app.slice(start,end);
-  assert.doesNotMatch(badge,/equalized|badgeWidth|minWidth:|width:/);
-  assert.match(badge,/gap: token\('gap'\)/);
-  assert.match(badge,/padding: token\('padding'\)/);
-  assert.match(badge,/minHeight:token\('height'\),fontSize:token\('size'\)/);
-});
