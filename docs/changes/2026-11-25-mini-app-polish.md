@@ -40,3 +40,10 @@ Added regression coverage for the supported gem withdrawal forms and static UI c
   - Active segment radius: 18px (half of 36px).
   - Track radius: 21px (18px + 3px), using `R_outer = R_inner + inset`.
 - UI regression tests read the Vox token pack, derive the dimensions and radii, and verify the component consumes the theme tokens.
+
+
+## Award notification and Telegram emoji delivery fix — 2026-11-26
+
+- **Award notification paragraph.** The italic sentence `Экипированные награды появляются на странице территории` is now separated from the award announcement by a blank line (`\n\n`), so Telegram displays it as its own paragraph.
+- **Animated Telegram emoji CORS.** The cross-origin `GET /api/telegram-emoji` route now wraps all success and error responses with the shared `withCors` helper. The Mini App is hosted separately from the `voxygen` API Worker; without `Access-Control-Allow-Origin`, browser `fetch()` requests for Lottie/TGS data are blocked.
+- Added regression tests for the two-line-break notification format and CORS on the animated emoji endpoint.
