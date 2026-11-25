@@ -1,4 +1,4 @@
-// Voxygen-Version: v59
+// Voxygen-Version: v60
 import React, { useEffect, useState, useRef, useId } from 'react';
 import lottie from 'lottie-web';
 import { createPortal } from 'react-dom';
@@ -941,7 +941,7 @@ function FontsAndTheme() {
   );
 }
 
-function ScoreBadge({ type, value, size = 'md' }) {
+function ScoreBadge({ type, value, size = 'md', equalized = false }) {
   const isInspector = type === 'curator';
   const color = isInspector ? 'var(--theme-recipe-badge-success-fg)' : 'var(--theme-recipe-badge-primary-fg)';
   const bg = isInspector ? 'var(--theme-recipe-badge-success-bg)' : 'var(--theme-recipe-badge-primary-bg)';
@@ -949,9 +949,15 @@ function ScoreBadge({ type, value, size = 'md' }) {
   const Icon = isInspector ? Star : Astroid;
   const preset = ['sm', 'recruitment', 'lg'].includes(size) ? size : 'default';
   const token = name => `var(--theme-score-badge-${name}-${preset})`;
+  // Keep paired inspector/player badges equal without imposing a fixed width on standalone badges.
+  const equalizedMinWidth = preset==='lg'
+    ? 'calc(var(--theme-score-badge-icon-lg) + var(--theme-score-badge-gap-lg) + 4ch + 36px)'
+    : preset==='recruitment'
+      ? 'calc(var(--theme-score-badge-icon-recruitment) + var(--theme-score-badge-gap-recruitment) + 4ch + 26px)'
+      : undefined;
   return (
     <div className={`atlas-display atlas-score-badge${size==='recruitment' ? ` atlas-recruitment-score ${isInspector?'atlas-recruitment-score--inspector':'atlas-recruitment-score--community'}` : ''}`} style={{
-      display:'inline-flex',alignItems:'center',justifyContent:'center',gap: token('gap'),
+      display:'inline-flex',alignItems:'center',justifyContent:'center',gap: token('gap'),minWidth:equalized?equalizedMinWidth:undefined,boxSizing:'border-box',
       background:bg,color,border:`1px solid ${border}`,borderRadius:'var(--theme-score-badge-radius)',padding: token('padding'),
       minHeight:token('height'),fontSize:token('size'),fontWeight:'var(--theme-score-badge-weight)',lineHeight:'var(--theme-score-badge-line-height)',
       boxShadow:'var(--theme-score-badge-shadow)',animationDelay:isInspector?'45ms':'105ms'
@@ -2828,7 +2834,7 @@ function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImag
           </div>
         </div>
       : <div style={{padding: '0 15px'}}>
-          <div style={{marginBottom: 10}}><Segmented value={sortBy} onChange={setSortBy} style={{background:'var(--theme-color-surface-raised)',borderRadius:16.5,padding:3,display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:0,position:'relative',isolation:'isolate'}} optionStyle={{position:'relative',zIndex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:4,minWidth:0,padding:'6px 6px',borderRadius:999,fontSize:12.5,border:'none',cursor:'pointer',background:'transparent'}} indicatorStyle={{top:3,bottom:3,left:3,width:'calc((100% - 6px) / 2)'}} options={[{value:'curator',label:'По инспекторам'},{value:'community',label:'По игрокам'}]}/></div>
+          <div style={{marginBottom: 10}}><Segmented value={sortBy} onChange={setSortBy} style={{background:'var(--theme-color-surface-raised)',borderRadius:21,padding:3,display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:0,position:'relative',isolation:'isolate'}} optionStyle={{position:'relative',zIndex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:4,minWidth:0,padding:'6px 6px',borderRadius:999,fontSize:12.5,border:'none',cursor:'pointer',background:'transparent'}} indicatorStyle={{top:3,bottom:3,left:3,width:'calc((100% - 6px) / 2)'}} options={[{value:'curator',label:'По инспекторам'},{value:'community',label:'По игрокам'}]}/></div>
           {territories.length===0
             ? <div style={{textAlign:'center',padding: '40px 15px',color:'var(--theme-color-text-muted)',fontSize:13}}>Городов пока нет — станьте первым, кто добавит свой.</div>
             : <div style={{display:'flex',flexDirection:'column',gap: 8}}>
@@ -3103,7 +3109,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
         {detailsError && <div role="status" style={{fontSize:11.5,color:'var(--theme-color-text-muted)',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding: '8px 10px',marginBottom: 10,display:'flex',alignItems:'center',gap: 8}}><span style={{flex:1}}>{detailsError}</span><button onClick={()=>setDetailsAttempt(value=>value+1)} className="press" style={{border:'1px solid var(--theme-color-border)',borderRadius:8,background:'var(--theme-color-surface)',color:'var(--theme-color-text-primary)',padding: '6px 8px',fontWeight:700,flexShrink:0}}>Повторить</button></div>}
         {loadError && <div role="status" style={{background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:12,padding: '10px 11px',marginBottom: 12,color:'var(--theme-color-text-primary)',fontSize:11.5,lineHeight:1.45,display:'flex',alignItems:'center',gap: 8}}><span style={{flex:1,overflowWrap:'anywhere'}}>{String(loadError).startsWith('Часть данных')?loadError:`Не удалось обновить данные города. Показана последняя загруженная версия. ${loadError}`}</span><button onClick={onRetry} className="press" style={{border:'1px solid var(--theme-color-border)',borderRadius:9,background:'var(--theme-color-surface)',color:'var(--theme-color-text-primary)',padding: '6px 8px',fontWeight:700,flexShrink:0}}>Повторить</button></div>}
         <div style={{display:'flex',alignItems:'center',gap: 8,marginBottom: 18}}>
-          <div style={{display:'flex',gap: 10,flex:1,minWidth:0}}><ScoreBadge type="curator" value={t.curator} size="lg" /><ScoreBadge type="community" value={t.community} size="lg" /></div>
+          <div style={{display:'flex',gap: 10,flex:1,minWidth:0}}><ScoreBadge type="curator" value={t.curator} size="lg" equalized /><ScoreBadge type="community" value={t.community} size="lg" equalized /></div>
           {!isGovernment&&<button onClick={()=>setShowDonation(true)} className="press" style={{height:48,minWidth:72,padding: '0 12px',border:'1px solid var(--theme-color-status-danger)',borderRadius:14,background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',display:'flex',alignItems:'center',justifyContent:'center',gap: 4,fontWeight:800}}><Heart size={17} strokeWidth={2.2}/><span>Донат</span></button>}
         </div>
         {String(t.additional_info || '').trim() && <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:14,padding: '12px 12px',marginTop: -6,marginBottom: 18}}><TelegramMinecraftText text={t.additional_info} interactive style={{fontSize:13.5,lineHeight:1.55,color:'var(--theme-color-text-primary)'}} /></div>}
@@ -3206,8 +3212,8 @@ function RecruitmentScreen({ territories, onSelect }) {
               <div style={{fontSize:12,color:'var(--theme-color-text-muted)',marginTop: 6,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}><span style={{color:'var(--theme-color-text-primary)'}}>Связь:</span> {contact(city)?<TelegramUsername username={contact(city)} style={{fontWeight:700}}/>: 'не указан'}</div>
             </div>
             <div style={{display:'flex',flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap: 6,flexShrink:0}}>
-              <ScoreBadge type="curator" value={Number(city.curator||0)} size="recruitment" />
-              <ScoreBadge type="community" value={Number(city.community||0)} size="recruitment" />
+              <ScoreBadge type="curator" value={Number(city.curator||0)} size="recruitment" equalized />
+              <ScoreBadge type="community" value={Number(city.community||0)} size="recruitment" equalized />
             </div>
           </div>
         </button>)}
@@ -3216,8 +3222,8 @@ function RecruitmentScreen({ territories, onSelect }) {
       <div style={{fontSize:16,color:'var(--theme-color-text-muted)',lineHeight:1.1,marginBottom: 12}}>{formatCoords(selected.coords)}</div>
       <div style={{fontSize:14,marginBottom: 12}}><b>Связь:</b> {contact(selected)?<TelegramUsername username={contact(selected)} interactive style={{fontWeight:700}}/>:'не указан'}</div>
       <div style={{display:'flex',gap: 10,marginBottom: 12}}>
-        <ScoreBadge type="curator" value={Number(selected.curator||0)} size="lg" />
-        <ScoreBadge type="community" value={Number(selected.community||0)} size="lg" />
+        <ScoreBadge type="curator" value={Number(selected.curator||0)} size="lg" equalized />
+        <ScoreBadge type="community" value={Number(selected.community||0)} size="lg" equalized />
       </div>
       <TelegramMinecraftText text={selected.recruitment_description} interactive style={{background:'var(--theme-color-surface-raised)',borderRadius:12,padding: '11px 12px',fontSize:13,lineHeight:1.55,marginBottom: 12}}/>
       <button onClick={()=>{setSelected(null);onSelect(selected.id)}} className="press" style={{width:'100%',padding: '11px 0',border:'none',borderRadius:11,background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:700}}>Перейти на страницу города</button>
