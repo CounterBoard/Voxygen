@@ -27,7 +27,7 @@ test("main-inspector award grants send notices through territory notification pr
   assert.ok(start>=0&&end>start);
   const handler=worker.slice(start,end);
   assert.ok(handler.indexOf("const notificationText")>handler.indexOf("if (!Number(inserted.meta?.changes || 0))"));
-  assert.match(handler,/🏆 <b>\$\{escapeHtml\(territory\.name\)\}<\/b> получил\(а\) награду «\$\{escapeHtml\(name\)\}»\s*<i>Экипированные награды появляются на странице территории<\/i>/);
+  assert.ok(handler.includes("»\n\n<i>Экипированные награды появляются на странице территории</i>"), "guidance must be a separate italic paragraph");
   assert.match(handler,/await notifyTerritoryManagers\(env, territoryId, notificationText\)/);
   assert.doesNotMatch(worker,/function parseTerritoryAwardCommand|handleTerritoryAwardBankMessage/);
 });
@@ -107,4 +107,9 @@ test("Telegram sticker set validation accepts the Bot API sticker_type field",()
   assert.equal(isTelegramCustomEmojiSet({sticker_type:"regular"}),false);
   assert.equal(isTelegramCustomEmojiSet({type:"custom_emoji"}),true);
   assert.equal(isTelegramCustomEmojiSet(null),false);
+});
+
+test("AnimatedEmojies endpoint wraps every response with CORS for the separate Mini App origin",()=>{
+  const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8");
+  assert.match(worker,/if \(url\.pathname === "\/api\/telegram-emoji" && request\.method === "GET"\) \{\s*return withCors\(await serveTelegramEmoji\(request, env\)\);/);
 });
