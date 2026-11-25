@@ -140,10 +140,22 @@ test("main inspector home feature button settings render the existing toggle com
   assert.doesNotMatch(modal,/<SettingsToggle\b/);
 });
 
-test("territory rating filter purple indicator fills the full 36px control height",()=>{
-  const segmented=app.slice(app.indexOf("function Segmented("),app.indexOf("function ShotThumb(",app.indexOf("function Segmented(")));
-  assert.match(segmented,/indicatorStyle = \{\}/);
-  assert.match(segmented,/<span className="atlas-segmented__indicator" aria-hidden="true" style=\{indicatorStyle\}\/>/);
-  const rating=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
-  assert.match(rating,/style=\{\{height:36,boxSizing:'border-box',padding:0\}\} optionStyle=\{\{height:'100%',minHeight:0,padding:'0 12px'\}\} indicatorStyle=\{\{top:0,bottom:0\}\}/);
+test("territory rating selector matches the background, inset and active pill geometry of main tabs",()=>{
+  const mainTabs=app.slice(app.indexOf("function MainTabs("),app.indexOf("function SimpleModal(",app.indexOf("function MainTabs(")));
+  const home=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
+  assert.match(mainTabs,/background:'var\(--theme-color-surface-raised\)',borderRadius:12,padding:3/);
+  assert.match(home,/background:'var\(--theme-color-surface-raised\)',borderRadius:12,padding:3,display:'grid',gridTemplateColumns:'repeat\(2,minmax\(0,1fr\)\)'/);
+  assert.match(home,/indicatorStyle=\{\{top:3,bottom:3,left:3,width:'calc\(\(100% - 6px\) \/ 2\)'\}\}/);
+  assert.match(home,/padding:'6px 6px',borderRadius:999,fontSize:12\.5/);
+});
+
+test("paired inspector and community rating badges have identical fixed widths and tabular numbers",()=>{
+  const start=app.indexOf("function ScoreBadge(");
+  const end=app.indexOf("function Segmented(",start);
+  assert.ok(start>=0&&end>start);
+  const badge=app.slice(start,end);
+  assert.match(badge,/const badgeWidth = preset==='lg' \? 72 : preset==='recruitment' \? 62 : undefined/);
+  assert.match(badge,/width:badgeWidth,minWidth:badgeWidth,boxSizing:'border-box',flexShrink:0,whiteSpace:'nowrap',fontVariantNumeric:'tabular-nums'/);
+  assert.match(badge,/const color = isInspector \?/);
+  assert.match(badge,/const Icon = isInspector \?/);
 });
