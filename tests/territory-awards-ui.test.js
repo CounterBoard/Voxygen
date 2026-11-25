@@ -182,3 +182,24 @@ test("rating badges retain their original content-sized geometry without forced 
 
 
 
+
+
+test("territory award TGS stickers show their Telegram thumbnail until animation becomes ready",()=>{
+  const start=app.indexOf("function TelegramSticker(");
+  const end=app.indexOf("function TerritoryAwardIcon(",start);
+  assert.ok(start>=0&&end>start);
+  const component=app.slice(start,end);
+  assert.match(component,/const previewSrc=API_BASE\+'\/api\/telegram-sticker\?'\+query\+'&preview=1'/);
+  assert.match(component,/if\(format==='tgs'\)[\s\S]*?<img src=\{previewSrc\}/);
+  assert.match(component,/animationReady\?'none':'block'/);
+  assert.match(component,/animation\.addEventListener\('DOMLoaded',onAnimationReady\)/);
+  assert.match(component,/animation\.addEventListener\('data_failed',onAnimationFailed\)/);
+});
+
+test("territory award WEBM stickers fall back to the same Telegram thumbnail when video playback fails",()=>{
+  const start=app.indexOf("function TelegramSticker(");
+  const end=app.indexOf("function TerritoryAwardIcon(",start);
+  const component=app.slice(start,end);
+  assert.match(component,/if\(format==='webm'\)[\s\S]*?<video src=\{src\}/);
+  assert.match(component,/failed&&<img src=\{previewSrc\}/);
+});
