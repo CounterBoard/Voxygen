@@ -1,4 +1,4 @@
-// Voxygen-Version: v62
+// Voxygen-Version: v63
 import React, { useEffect, useState, useRef, useId } from 'react';
 import lottie from 'lottie-web';
 import { createPortal } from 'react-dom';
@@ -347,13 +347,28 @@ function TelegramEmoji({emoji,size=32,style={}}) {
 function TelegramSticker({stickerId,awardId,format='image',size=32,style={},preview=false}) {
   const animationRef=useRef(null);
   const [failed,setFailed]=useState(false);
+  const [animationReady,setAnimationReady]=useState(false);
+  const [previewFailed,setPreviewFailed]=useState(false);
   const id=String(awardId||stickerId||'');
   const query=new URLSearchParams(awardId?{awardId:String(awardId)}:{stickerId:String(stickerId||'')}).toString();
   const src=API_BASE+'/api/telegram-sticker?'+query+(preview?'&preview=1':'');
+  const previewSrc=API_BASE+'/api/telegram-sticker?'+query+'&preview=1';
   useEffect(()=>{
     if(preview||format!=='tgs'||!id)return undefined;
     let cancelled=false,animation=null;
     setFailed(false);
+    setAnimationReady(false);
+    setPreviewFailed(false);
+    const onAnimationReady=()=>{
+      if(cancelled)return;
+      setFailed(false);
+      setAnimationReady(true);
+    };
+    const onAnimationFailed=()=>{
+      if(cancelled)return;
+      setFailed(true);
+      setAnimationReady(false);
+    };
     fetch(src,{cache:'force-cache'}).then(async response=>{
       if(!response.ok)throw new Error('Sticker animation unavailable');
       const data=await response.json();
@@ -367,21 +382,29 @@ function TelegramSticker({stickerId,awardId,format='image',size=32,style={},prev
         animationData:cloneTelegramEmojiAnimationData(data),
         rendererSettings:{preserveAspectRatio:'xMidYMid meet'},
       });
-    }).catch(()=>{if(!cancelled)setFailed(true)});
+      animation.addEventListener('DOMLoaded',onAnimationReady);
+      animation.addEventListener('data_failed',onAnimationFailed);
+      if(animation.isLoaded)Promise.resolve().then(onAnimationReady);
+    }).catch(()=>{if(!cancelled)onAnimationFailed();});
     return ()=>{
       cancelled=true;
       animation?.destroy();
       animationRef.current?.replaceChildren();
     };
-  },[src,format,id]);
+  },[src,format,id,preview]);
   if(!id)return <Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true"/>;
   const wrapperStyle={width:size,height:size,display:'inline-flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto',position:'relative',overflow:'hidden',...style};
   if(preview)return <span style={wrapperStyle}><img src={src} alt="" loading="lazy" onError={()=>setFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:failed?'none':'block'}}/>{failed&&<Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true" style={{opacity:.55}}/>}</span>;
   if(format==='tgs')return <span role="img" aria-label="Анимированный эмодзи" style={wrapperStyle}>
-    <div ref={animationRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',visibility:failed?'hidden':'visible'}}/>
-    {failed&&<Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true" style={{opacity:.55}}/>}
+    <img src={previewSrc} alt="" loading="lazy" onError={()=>setPreviewFailed(true)} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'contain',display:animationReady||previewFailed?'none':'block'}}/>
+    <div ref={animationRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',visibility:animationReady?'visible':'hidden'}}/>
+    {previewFailed&&!animationReady&&<Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true" style={{opacity:.55}}/>}
   </span>;
-  if(format==='webm')return <span style={wrapperStyle}><video src={src} autoPlay loop muted playsInline aria-hidden="true" style={{width:'100%',height:'100%',objectFit:'contain'}} onError={()=>setFailed(true)}/>{failed&&<Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true" style={{opacity:.55}}/>}</span>;
+  if(format==='webm')return <span style={wrapperStyle}>
+    <video src={src} autoPlay loop muted playsInline aria-hidden="true" onError={()=>setFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:failed?'none':'block'}}/>
+    {failed&&<img src={previewSrc} alt="" loading="lazy" onError={()=>setPreviewFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:previewFailed?'none':'block'}}/>}
+    {failed&&previewFailed&&<Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true" style={{opacity:.55}}/>}
+  </span>;
   return <span style={wrapperStyle}><img src={src} alt="" loading="lazy" onError={()=>setFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:failed?'none':'block'}}/>{failed&&<Sparkles size={Math.max(12,Math.round(size*.62))} aria-hidden="true" style={{opacity:.55}}/>}</span>;
 }
 
