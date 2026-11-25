@@ -1,0 +1,201 @@
+# Territory award sticker delivery
+
+**Status:** current implementation  
+**Updated:** 2026-11-26  
+**Source of truth:** `src/App.jsx`, `bot/src/worker.js`, and the D1 tables created by `ensureWorldTables()`.
+
+This document describes the current award-sticker path after removing the abandoned `AnimatedEmojies` integration. It supersedes earlier notes that describe `GET /api/telegram-emoji` as an active part of award rendering.
+
+## 1. Scope and product behavior
+
+Territory awards are Telegram custom-emoji stickers selected from public Telegram emoji packs. A granted award stores a copy of the sticker's Telegram file metadata in `territory_awards`; it does not depend on looking the sticker up in an external emoji catalogue every time the award is displayed.
+
+The same issued award can appear in several places:
+
+- the main inspector's issued-awards list;
+- the territory manager's customization inventory;
+- the public territory banner, when the award is equipped;
+- the award details modal opened from a public territory banner.
+
+The main inspector's pack gallery is a source-selection view. It shows the pack's static Telegram thumbnails, rather than pretending to be an issued award. The issued-awards list is also allowed to use a static thumbnail because it is an administrative summary. The customization inventory and public territory banner use the sticker's native format, including animation when available.
+
+The original Unicode emoji is a failure fallback, not a loading placeholder. For a valid sticker record it must not be rendered while the asset is still loading. In particular, a TGS sticker without a Telegram thumbnail leaves its icon area visually empty until either the animation is ready or its loading/decoding attempt has definitively failed.
+
+## 2. Data model
+
+Two tables hold different stages of the lifecycle.
+
+### `telegram_award_packs`
+
+One row per configured public custom-emoji pack:
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Internal pack ID |
+| `set_name` | Telegram sticker-set name |
+| `title` | Display title |
+| `added_by_telegram_id` | Main inspector who added the pack |
+| `created_at` | Registration timestamp |
+
+### `telegram_award_pack_stickers`
+
+One row per imported sticker:
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Internal sticker ID used by the pack gallery and grant request |
+| `pack_id` | Parent pack |
+| `file_id` | Telegram file ID for the full sticker |
+| `file_unique_id` | Telegram's stable file identity |
+| `emoji` | Original emoji associated with the sticker |
+| `custom_emoji_id` | Telegram custom-emoji ID, when supplied |
+| `format` | `tgs`, `webm`, or `image` |
+| `thumbnail_file_id` | Telegram thumbnail file ID, when supplied |
+| `width`, `height` | Telegram sticker dimensions |
+
+### `territory_awards`
+
+Granting a sticker copies its display metadata into the award row:
+
+- award identity and territory identity;
+- unique normalized award name within that territory;
+- original `emoji`;
+- grant actor and grant timestamp;
+- nullable `slot_index`;
+- `sticker_file_id` and `sticker_file_unique_id`;
+- `sticker_format`;
+- `sticker_thumbnail_file_id`;
+- `sticker_set_name` and `custom_emoji_id`.
+
+The sticker fields form a snapshot. Deleting a source pack removes that pack and its `telegram_award_pack_stickers` rows, but it does not remove already-issued `territory_awards` or their copied Telegram file metadata. Issued awards therefore continue to resolve by `awardId` without a live join to the source pack.
+
+No new database migration is required for this rendering fix: the sticker columns are already installed idempotently by `ensureWorldTables()`.
+
+## 3. Grant lifecycle
+
+1. A main inspector adds a public Telegram custom-emoji pack through the inspector interface.
+2. The Worker validates an HTTPS `t.me/addemoji/<set>` or `telegram.me/addemoji/<set>` URL, calls Telegram `getStickerSet`, and checks that the returned set is a custom-emoji set.
+3. Sticker rows are imported with their full file ID, format, original emoji, optional thumbnail, dimensions, and custom-emoji ID.
+4. The inspector chooses a pack sticker and grants it to an approved territory with a name and date.
+5. The Worker copies the sticker metadata into `territory_awards`, initially with `slot_index = NULL`. The unique territory/name key prevents duplicate award names in one territory.
+6. Territory managers receive the existing award notification, subject to the territory notification preferences.
+7. The territory founder/mayor can equip or unequip the award. At most four awards can be equipped; slot indices preserve their visible order.
+
+The active management interface is the protected main-inspector Mini App flow. The historical banker-chat command for adding/removing awards is not an active management path.
+
+## 4. Rendering API contract
+
+All Telegram award files are served through **`GET /api/telegram-sticker`**. Exactly one selector is required:
+
+- `stickerId=<telegram_award_pack_stickers.id>` — pack-gallery/source-sticker record;
+- `awardId=<territory_awards.id>` — already-issued award record.
+
+Providing neither selector or providing both returns HTTP 400.
+
+The Worker loads the record from the corresponding table and resolves its Telegram file ID with `getFile`. For preview requests, `preview=1` selects the saved thumbnail. For a static `image` sticker without a separate thumbnail, the full image file may serve as its own preview. A TGS/WEBM preview request without a stored thumbnail returns 404; callers must check thumbnail availability before requesting that path.
+
+| Request | Response |
+| --- | --- |
+| `?stickerId=…` | Full asset of a source pack sticker |
+| `?stickerId=…&preview=1` | Static thumbnail, or the static image itself |
+| `?awardId=…` | Full asset snapshot of an issued award |
+| `?awardId=…&preview=1` | Stored award thumbnail, or static image itself |
+
+The route applies the shared CORS helper on successful and error responses. This is required because the Mini App and the bot Worker are served from separate origins.
+
+## 5. File formats and safety
+
+### TGS
+
+Telegram's compressed TGS file is fetched from Telegram, decompressed in the Worker, parsed as JSON, and validated before being returned to the browser.
+
+Validation requires:
+
+- a positive vector width and height, each no greater than 512;
+- a `layers` array;
+- no remote asset references in the `assets` array.
+
+The compressed file is limited to 512 KiB and decompressed JSON to 1 MiB. The frontend creates a separate Lottie player for each visible award and deep-clones the JSON for each player because Lottie mutates animation data internally. Playback is looping and starts automatically. The player is destroyed when the component unmounts.
+
+### WEBM
+
+The Worker returns the validated Telegram file as `video/webm`. The browser renders it muted, inline, autoplaying, and looping. A thumbnail is used if video playback fails and a thumbnail exists.
+
+### Static image
+
+The Worker returns an allowed Telegram image as WebP, PNG, or JPEG. The frontend uses `object-fit: contain` so the sticker is not cropped. The original Unicode emoji is used only if the image load fails.
+
+### Transport limits and caching
+
+- TGS compressed payload: maximum 512 KiB; decompressed JSON: maximum 1 MiB.
+- WEBM and static image payloads: maximum 20 MiB.
+- Successful file responses use public one-day caching with stale-while-revalidate.
+- Invalid or unavailable file requests return a bounded error response; no Telegram bot token or upstream file URL is exposed to the browser.
+
+## 6. Loading states and fallback policy
+
+The UI distinguishes an asset that has not finished loading from an asset that has failed.
+
+| Format / state | What is rendered |
+| --- | --- |
+| TGS with thumbnail, animation loading | Telegram thumbnail |
+| TGS without thumbnail, animation loading | Empty icon area; no Unicode flash |
+| TGS, animation ready | Lottie animation replaces the thumbnail/empty area |
+| TGS, animation failed, thumbnail still usable | Keep the thumbnail |
+| TGS, animation failed and no usable thumbnail | Original Unicode emoji |
+| WEBM loading/playing | Video element |
+| WEBM failed, thumbnail available | Telegram thumbnail |
+| WEBM failed, no usable thumbnail | Original Unicode emoji |
+| Static image loading | Image element |
+| Static image failed | Original Unicode emoji |
+| Preview-only image failed | Original Unicode emoji |
+
+For TGS the failure fallback is gated by the animation failure state, not by the mere absence of a thumbnail or by a thumbnail request still being pending. A thumbnail error alone must not display Unicode while the animation may still succeed. This prevents the original emoji from flashing before a valid Telegram animation appears.
+
+If an award has no sticker ID at all, the component has no Telegram asset to load and displays the award's stored emoji (or the neutral default) immediately. This is a missing-asset record, not a loading state.
+
+## 7. Data returned to each screen
+
+The thumbnail metadata must be present wherever the frontend makes a thumbnail-aware rendering decision.
+
+- The admin issued-awards view returns `sticker_thumbnail_file_id` with the award rows.
+- The territory list/detail query returns it with equipped awards.
+- The customization/profile response returns it with the user's `territoryAwards` and derived `equippedAwards`.
+
+The pack gallery separately receives `thumbnail_file_id` from `telegram_award_pack_stickers`.
+
+This field is part of the frontend/backend contract. Omitting it from one query can cause the frontend to believe that a sticker has no thumbnail even though the D1 record and Telegram pack do contain one. The Worker endpoint remains the authority for retrieving the actual file, while the response field tells the component whether it should attempt to render that preview.
+
+## 8. Removed integration
+
+The abandoned `AnimatedEmojies` lookup has been removed from the current implementation:
+
+- no `GET /api/telegram-emoji` route;
+- no Worker sticker-set cache or search helper for the `AnimatedEmojies` set;
+- no client animation cache or `TelegramEmoji` component;
+- no corresponding tests or stale CSS selectors.
+
+This does **not** remove `lottie-web`. Lottie is still required to render TGS files selected from the configured Telegram custom-emoji packs. The active source of award art is the imported pack sticker or the issued award's own Telegram file snapshot.
+
+## 9. Regression coverage and validation
+
+The relevant tests are:
+
+- `tests/territory-awards-ui.test.js` — display surfaces, independent looping TGS players, thumbnail behavior, WEBM fallback, and the rule that Unicode is not shown while TGS is still loading;
+- `tests/territory-awards.test.js` — sticker format mapping, pack URL validation, TGS safety validation, thumbnail fields in territory/profile queries, and both `stickerId` and `awardId` routes.
+
+The repository CI validation pipeline runs `npm test`, `npm run build`, `node --check bot/src/worker.js`, and a Wrangler Worker dry-run bundle. These checks validate the source and bundle; they do not replace a live Telegram/D1 smoke test with real pack files.
+
+## 10. Source map
+
+| Responsibility | File / symbol |
+| --- | --- |
+| Award rendering and UI state | `src/App.jsx` — `TelegramSticker`, `TerritoryAwardIcon`, `AwardEmoji` |
+| TGS player lifecycle | `src/App.jsx` — `cloneTelegramStickerAnimationData` and the Lottie effect in `TelegramSticker` |
+| Pack import | `bot/src/worker.js` — `addTelegramAwardPack` |
+| Grant snapshot | `bot/src/worker.js` — `grantTerritoryAward` |
+| File delivery | `bot/src/worker.js` — `serveTelegramAwardSticker` |
+| TGS safety | `bot/src/worker.js` — `isSafeTelegramTgsAnimation` |
+| Territory public response | `bot/src/worker.js` — `getTerritories` |
+| Profile/customization response | `bot/src/worker.js` — `getCustomization` |
+| D1 schema and idempotent additions | `bot/src/worker.js` — `ensureWorldTables` |
