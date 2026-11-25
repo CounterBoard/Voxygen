@@ -149,13 +149,22 @@ test("territory rating selector matches the background, inset and active pill ge
   assert.match(home,/padding:'6px 6px',borderRadius:999,fontSize:12\.5/);
 });
 
-test("paired inspector and community rating badges have identical fixed widths and tabular numbers",()=>{
+test("rating badges retain their original content-sized geometry without forced widths",()=>{
   const start=app.indexOf("function ScoreBadge(");
   const end=app.indexOf("function Segmented(",start);
   assert.ok(start>=0&&end>start);
   const badge=app.slice(start,end);
-  assert.match(badge,/const badgeWidth = preset==='lg' \? 72 : preset==='recruitment' \? 62 : undefined/);
-  assert.match(badge,/width:badgeWidth,minWidth:badgeWidth,boxSizing:'border-box',flexShrink:0,whiteSpace:'nowrap',fontVariantNumeric:'tabular-nums'/);
+  assert.doesNotMatch(badge,/badgeWidth|width:|minWidth:|fontVariantNumeric|whiteSpace:'nowrap'/);
+  assert.match(badge,/gap: token\('gap'\)/);
+  assert.match(badge,/padding: token\('padding'\)/);
+  assert.match(badge,/minHeight:token\('height'\),fontSize:token\('size'\)/);
   assert.match(badge,/const color = isInspector \?/);
   assert.match(badge,/const Icon = isInspector \?/);
+});
+
+
+test("rating selector background corner radius matches the 3px inset of its active pill",()=>{
+  const home=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
+  assert.match(home,/borderRadius:16\.5,padding:3/);
+  assert.match(home,/indicatorStyle=\{\{top:3,bottom:3,left:3,width:'calc\(\(100% - 6px\) \/ 2\)'\}\}/);
 });
