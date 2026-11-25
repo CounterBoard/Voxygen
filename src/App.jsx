@@ -263,7 +263,7 @@ function AwardEmoji({emoji,size=32,style={}}) {
   return <span role="img" aria-label={value} style={{width:size,height:size,display:'inline-flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto',fontSize:Math.round(size*.88),lineHeight:1,...style}}>{value}</span>;
 }
 
-function TelegramSticker({stickerId,awardId,format='image',emoji='',size=32,style={},preview=false}) {
+function TelegramSticker({stickerId,awardId,format='image',emoji='',size=32,style={},preview=false,hasThumbnail=true}) {
   const animationRef=useRef(null);
   const [failed,setFailed]=useState(false);
   const [animationReady,setAnimationReady]=useState(false);
@@ -314,23 +314,23 @@ function TelegramSticker({stickerId,awardId,format='image',emoji='',size=32,styl
   const fallbackEmoji=<AwardEmoji emoji={emoji} size={size}/>;
   if(!id)return fallbackEmoji;
   const wrapperStyle={width:size,height:size,display:'inline-flex',alignItems:'center',justifyContent:'center',flex:'0 0 auto',position:'relative',overflow:'hidden',...style};
-  if(preview)return <span role="img" aria-label={emoji||'Награда'} style={wrapperStyle}><img src={src} alt="" loading="lazy" onError={()=>setFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:failed?'none':'block'}}/>{failed&&fallbackEmoji}</span>;
+  if(preview&&hasThumbnail)return <span role="img" aria-label={emoji||'Награда'} style={wrapperStyle}><img src={src} alt="" loading="lazy" onError={()=>setFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:failed?'none':'block'}}/>{failed&&fallbackEmoji}</span>;
   if(format==='tgs')return <span role="img" aria-label={emoji||'Анимированная награда'} style={wrapperStyle}>
-    <img src={previewSrc} alt="" loading="lazy" onError={()=>setPreviewFailed(true)} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'contain',display:animationReady||previewFailed?'none':'block'}}/>
+    {hasThumbnail&&<img src={previewSrc} alt="" loading="lazy" onError={()=>setPreviewFailed(true)} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'contain',display:animationReady||previewFailed?'none':'block'}}/>}
     <div ref={animationRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',visibility:animationReady?'visible':'hidden'}}/>
-    {previewFailed&&!animationReady&&fallbackEmoji}
+    {(!hasThumbnail||previewFailed)&&!animationReady&&fallbackEmoji}
   </span>;
   if(format==='webm')return <span role="img" aria-label={emoji||'Награда'} style={wrapperStyle}>
     <video src={src} autoPlay loop muted playsInline aria-hidden="true" onError={()=>setFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:failed?'none':'block'}}/>
-    {failed&&<img src={previewSrc} alt="" loading="lazy" onError={()=>setPreviewFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:previewFailed?'none':'block'}}/>}
-    {failed&&previewFailed&&fallbackEmoji}
+    {failed&&hasThumbnail&&<img src={previewSrc} alt="" loading="lazy" onError={()=>setPreviewFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:previewFailed?'none':'block'}}/>}
+    {failed&&(!hasThumbnail||previewFailed)&&fallbackEmoji}
   </span>;
   return <span role="img" aria-label={emoji||'Награда'} style={wrapperStyle}><img src={src} alt="" loading="lazy" onError={()=>setFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:failed?'none':'block'}}/>{failed&&fallbackEmoji}</span>;
 }
 
 function TerritoryAwardIcon({award,size=32,style={},preview=false}) {
   if(award?.sticker_format&&award?.id) {
-    return <TelegramSticker awardId={award.id} format={award.sticker_format} emoji={award.emoji} size={size} style={style} preview={preview}/>;
+    return <TelegramSticker awardId={award.id} format={award.sticker_format} emoji={award.emoji} size={size} style={style} preview={preview} hasThumbnail={Boolean(award.sticker_thumbnail_file_id)}/>;
   }
   return <AwardEmoji emoji={award?.emoji} size={size} style={style}/>;
 }
@@ -2411,7 +2411,7 @@ function MainInspectorAwardManager({initData,territories=[],onTerritoriesChanged
           {(pack.stickers||[]).map(sticker=>{
             const selected=String(sticker.id)===String(selectedStickerId);
             return <button type="button" key={sticker.id} onClick={()=>setSelectedStickerId(selected?'':String(sticker.id))} aria-label={'Выбрать эмодзи '+(sticker.emoji||'')} aria-pressed={selected} className="press" style={{aspectRatio:'1 / 1',minWidth:0,padding:2,border:selected?'2px solid #6EE7B7':'1px solid var(--theme-color-border)',borderRadius:9,background:selected?'rgba(110,231,183,.12)':'var(--theme-color-surface-raised)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:selected?'0 0 0 1px rgba(110,231,183,.12)':'none'}}>
-              <TelegramSticker stickerId={sticker.id} format={sticker.format} emoji={sticker.emoji} size={29} preview={Boolean(sticker.thumbnail_file_id)}/>
+              <TelegramSticker stickerId={sticker.id} format={sticker.format} emoji={sticker.emoji} size={29} preview={Boolean(sticker.thumbnail_file_id)} hasThumbnail={Boolean(sticker.thumbnail_file_id)}/>
             </button>;
           })}
         </div>}
