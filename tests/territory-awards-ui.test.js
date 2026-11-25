@@ -182,7 +182,9 @@ test("paired inspector and player rating badges use the same content-safe minimu
   assert.match(badge,/var\(--theme-score-badge-icon-lg\).*4ch \+ 36px/);
   assert.match(badge,/var\(--theme-score-badge-icon-recruitment\).*4ch \+ 26px/);
   assert.match(badge,/minWidth:equalized\?equalizedMinWidth:undefined/);
-  const territory=app.slice(app.indexOf("<ScoreBadge type=\"curator\" value={t.curator}"),app.indexOf("function compressScreenshotFile"));
-  assert.equal((territory.match(/equalized \/>/g)||[]).length,6);
-  assert.match(territory,/<ScoreBadge type=\{sortBy==='curator'\?'curator':'community'\} value=\{t\[sortBy\]\} size="lg"\/>/);
+  const paired=app.slice(app.indexOf("<ScoreBadge type=\"curator\" value={t.curator}"),app.indexOf("function EventsScreen"));
+  assert.equal((paired.match(/equalized \/>/g)||[]).length,6);
+  const home=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
+  assert.match(home,/<ScoreBadge type=\{sortBy==='curator'\?'curator':'community'\} value=\{t\[sortBy\]\} size="lg"\/>/);
+  assert.doesNotMatch(home,/size="lg" equalized/);
 });
