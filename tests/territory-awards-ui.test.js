@@ -5,14 +5,17 @@ import { readFileSync } from "node:fs";
 const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 const themeTokens = readFileSync(new URL("../src/theme/theme-tokens.css", import.meta.url), "utf8");
 
-test("territory award emoji use AnimatedEmojies TGS or its own Telegram thumbnail",()=>{
+test("territory awards use their saved Telegram sticker and fall back to the original Unicode emoji",()=>{
   assert.match(app,/import lottie from ['"]lottie-web['"]/);
-  assert.match(app,/format=animation&v=4/);
-  assert.match(app,/lottie\.loadAnimation\(/);
-  assert.match(app,/function cloneTelegramEmojiAnimationData\(/);
+  assert.match(app,/function TelegramSticker\(/);
+  assert.match(app,/function cloneTelegramStickerAnimationData\(/);
+  assert.match(app,/function AwardEmoji\(/);
+  assert.match(app,/const fallbackEmoji=<AwardEmoji emoji=\{emoji\} size=\{size\}\/\>/);
+  assert.match(app,/format==='tgs'/);
+  assert.match(app,/format==='webm'/);
   assert.match(app,/loop:true/);
   assert.match(app,/autoplay:true/);
-  assert.doesNotMatch(app,/fontSize:size\*\.94/,"device Unicode emoji font is not used for award fallback");
+  assert.doesNotMatch(app,/AnimatedEmojies|telegram-emoji|function TelegramEmoji/);
   assert.match(app,/<TerritoryAwardIcon award=\{award\} size=\{40\}\/\>/);
   assert.match(app,/<TerritoryAwardIcon award=\{award\} size=\{36\}\/\>/);
   assert.match(app,/<TerritoryAwardIcon award=\{selectedTerritoryAward\} size=\{56\}\/\>/);
@@ -53,20 +56,14 @@ test("banner preview updates optimistically and submits the exact selected color
 });
 
  
-test("Telegram award emoji clones shared TGS data per player and always autoplay-loops AnimatedEmojies",()=>{
-  assert.match(app,/useState\('loading'\)/);
-  assert.match(app,/format=animation&v=4/);
-  assert.match(app,/loadTelegramEmojiAnimation\(value\)/);
-  assert.match(app,/telegramEmojiAnimationCache\.get\(value\)/);
-  assert.match(app,/function cloneTelegramEmojiAnimationData\(/);
-  assert.match(app,/cloneTelegramEmojiAnimationData\(animationData\)/);
+test("each TGS award gets an independent looping Lottie player without AnimatedEmojies",()=>{
+  assert.match(app,/cloneTelegramStickerAnimationData\(data\)/);
+  assert.match(app,/lottie\.loadAnimation\(/);
   assert.match(app,/loop:true/);
   assert.match(app,/autoplay:true/);
-  assert.match(app,/animation\.goToAndPlay\(0,true\)/);
-  assert.match(app,/renderMode==='unavailable'/);
-  assert.doesNotMatch(app,/renderMode==='unicode'/);
-  assert.doesNotMatch(app,/setRenderMode\(imageLoadedRef\.current\?'image':'unicode'\)/);
-  assert.match(app,/atlas-award-emoji-enter/);
+  assert.match(app,/animation\.addEventListener\('DOMLoaded',onAnimationReady\)/);
+  assert.match(app,/animation\.addEventListener\('data_failed',onAnimationFailed\)/);
+  assert.doesNotMatch(app,/loadTelegramEmojiAnimation|telegramEmojiAnimationCache|AnimatedEmojies|telegram-emoji/);
 });
 
  
