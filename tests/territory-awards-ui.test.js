@@ -18,6 +18,7 @@ test("territory awards use their saved Telegram sticker and fall back to the ori
   assert.match(app,/loop:true/);
   assert.match(app,/autoplay:true/);
   assert.doesNotMatch(app,/AnimatedEmojies|telegram-emoji|function TelegramEmoji/);
+  assert.doesNotMatch(app,/atlas-award-emoji-enter|atlas-telegram-award-emoji/);
   assert.match(app,/<TerritoryAwardIcon award=\{award\} size=\{40\}\/\>/);
   assert.match(app,/<TerritoryAwardIcon award=\{award\} size=\{36\}\/\>/);
   assert.match(app,/<TerritoryAwardIcon award=\{selectedTerritoryAward\} size=\{56\}\/\>/);
