@@ -73,7 +73,7 @@ The pack gallery and issued awards now share a single, format-aware Telegram sti
 - **TGS:** the Worker fetches the Telegram file, verifies its path/extension and compressed size, decompresses gzip, limits the decoded JSON, and validates vector dimensions, layers and the absence of remote assets. The frontend renders each sticker with its own looping Lottie instance and a deep-cloned animation payload.
 - **WEBM:** the frontend plays the original Telegram video muted, inline, and looping. A stored thumbnail is shown if playback fails.
 - **Static image:** WebP, PNG and JPEG are supported and contained without cropping.
-- The original Unicode emoji is not a loading placeholder. For a TGS item with no thumbnail, its icon area stays empty while the animation request and Lottie initialization are pending. Unicode is shown only after the animation has actually failed. If a thumbnail exists, it remains visible while the TGS animation loads; a thumbnail request error alone does not trigger Unicode while the animation may still succeed. WEBM and static-image fallbacks follow the same failure-only principle.
+- The original Unicode emoji is not a loading placeholder. For a TGS item with no thumbnail, its icon area stays empty while the animation request and Lottie initialization are pending. The player is keyed by award ID so switching modal selection cannot carry a previous award's failure state into the next one. Unicode is shown only after the animation has actually failed. If a thumbnail exists, it remains visible while the TGS animation loads; a thumbnail request error alone does not trigger Unicode while the animation may still succeed. WEBM and static-image fallbacks follow the same failure-only principle.
 
 ### Removal of AnimatedEmojies
 
