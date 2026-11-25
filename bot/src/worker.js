@@ -94,33 +94,6 @@ async function telegram(env, method, payload) {
   return { response, data };
 }
 
-const telegramAnimatedEmojiSetCache = new WeakMap();
-const TELEGRAM_ANIMATED_EMOJI_SET = "AnimatedEmojies";
-const TELEGRAM_ANIMATED_EMOJI_CACHE_TTL = 6 * 60 * 60 * 1000;
-
-function normalizeTelegramEmoji(value) {
-  return String(value || "").normalize("NFC").replace(/[\uFE0E\uFE0F]/g, "");
-}
-
-function findTelegramAnimatedEmojiSticker(stickers, emoji) {
-  const target = normalizeTelegramEmoji(emoji);
-  if (!target || !Array.isArray(stickers)) return null;
-  // Only an actual animated TGS sticker from AnimatedEmojies is a valid match.
-  return stickers.find(sticker =>
-    normalizeTelegramEmoji(sticker?.emoji) === target &&
-    isTelegramAnimatedEmojiSticker(sticker)
-  ) || null;
-}
-
-function getTelegramAnimatedEmojiPreview(sticker) {
-  if (!isTelegramAnimatedEmojiSticker(sticker)) return null;
-  return sticker.thumbnail?.file_id ? sticker.thumbnail : null;
-}
-
-function isTelegramAnimatedEmojiSticker(sticker) {
-  return sticker?.is_animated === true && sticker?.is_video !== true;
-}
-
 function isSafeTelegramTgsAnimation(animationData) {
   if (!animationData || typeof animationData !== "object") return false;
   if (!(Number(animationData.w) > 0 && Number(animationData.w) <= 512)) return false;
@@ -130,131 +103,6 @@ function isSafeTelegramTgsAnimation(animationData) {
   return true;
 }
 
-async function getTelegramAnimatedEmojiStickers(env) {
-  const cached = telegramAnimatedEmojiSetCache.get(env);
-  if (cached && cached.expiresAt > Date.now()) return cached.promise;
-  const promise = (async () => {
-    const result = await telegram(env, "getStickerSet", { name: TELEGRAM_ANIMATED_EMOJI_SET });
-    if (!result.response.ok || !result.data?.ok || !Array.isArray(result.data.result?.stickers)) {
-      throw new Error("Telegram animated emoji set is unavailable");
-    }
-    return result.data.result.stickers;
-  })();
-  telegramAnimatedEmojiSetCache.set(env, {
-    expiresAt: Date.now() + TELEGRAM_ANIMATED_EMOJI_CACHE_TTL,
-    promise,
-  });
-  try {
-    return await promise;
-  } catch (error) {
-    telegramAnimatedEmojiSetCache.delete(env);
-    throw error;
-  }
-}
-
-async function serveTelegramEmoji(request, env) {
-  const url = new URL(request.url);
-  const emoji = String(url.searchParams.get("emoji") || "");
-  const wantsAnimation = url.searchParams.get("format") === "animation";
-  if (!emoji || [...emoji].length > 16) {
-    return new Response(null, { status: 400, headers: { "Cache-Control": "public, max-age=300" } });
-  }
-  try {
-    const stickers = await getTelegramAnimatedEmojiStickers(env);
-    const sticker = findTelegramAnimatedEmojiSticker(stickers, emoji);
-    const token = String(env.BOT_TOKEN || "").trim();
-
-    if (wantsAnimation) {
-      if (!isTelegramAnimatedEmojiSticker(sticker)) {
-        return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
-      }
-      const fileInfo = await telegram(env, "getFile", { file_id: sticker.file_id });
-      const filePath = String(fileInfo.data?.result?.file_path || "");
-      if (!fileInfo.response.ok || !fileInfo.data?.ok || !filePath || filePath.includes("..") || !filePath.toLowerCase().endsWith(".tgs")) {
-        return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
-      }
-      const stickerResponse = await fetch(TELEGRAM_API + "/file/bot" + token + "/" + filePath);
-      if (!stickerResponse.ok) {
-        return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
-      }
-      const compressed = await stickerResponse.arrayBuffer();
-      if (!compressed.byteLength || compressed.byteLength > 256 * 1024) {
-        return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
-      }
-      let animationText = "";
-      try {
-        const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("gzip"));
-        const reader = stream.getReader();
-        const decoder = new TextDecoder();
-        let totalBytes = 0;
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          totalBytes += value.byteLength;
-          if (totalBytes > 1024 * 1024) {
-            await reader.cancel();
-            return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
-          }
-          animationText += decoder.decode(value, { stream: true });
-        }
-        animationText += decoder.decode();
-      } catch {
-        return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
-      }
-      let animationData;
-      try { animationData = JSON.parse(animationText); }
-      catch { return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } }); }
-      if (!isSafeTelegramTgsAnimation(animationData)) {
-        return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
-      }
-      return new Response(JSON.stringify(animationData), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
-          "X-Content-Type-Options": "nosniff",
-          "Content-Security-Policy": "default-src 'none'",
-        },
-      });
-    }
-
-    // A fallback is allowed only when it is the thumbnail belonging to the
-    // exact animated sticker selected from AnimatedEmojies.
-    const preview = getTelegramAnimatedEmojiPreview(sticker);
-    if (!preview?.file_id) {
-      return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
-    }
-    const fileInfo = await telegram(env, "getFile", { file_id: preview.file_id });
-    const filePath = String(fileInfo.data?.result?.file_path || "");
-    if (!fileInfo.response.ok || !fileInfo.data?.ok || !filePath || filePath.includes("..")) {
-      return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
-    }
-    const imageResponse = await fetch(TELEGRAM_API + "/file/bot" + token + "/" + filePath);
-    if (!imageResponse.ok) {
-      return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
-    }
-    const extension = filePath.toLowerCase().split(".").pop();
-    const allowedTypes = new Set(["image/webp", "image/jpeg", "image/png"]);
-    let contentType = String(imageResponse.headers.get("Content-Type") || "").split(";")[0].toLowerCase();
-    if (!allowedTypes.has(contentType)) {
-      contentType = ({ webp:"image/webp", jpg:"image/jpeg", jpeg:"image/jpeg", png:"image/png" })[extension] || "";
-    }
-    if (!allowedTypes.has(contentType)) {
-      return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
-    }
-    return new Response(imageResponse.body, {
-      status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
-        "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "default-src 'none'",
-      },
-    });
-  } catch {
-    return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=900" } });
-  }
-}
 function parseTelegramEmojiSetName(raw) {
   const value = String(raw || '').trim();
   if (!value || value.length > 300) return null;
@@ -2375,7 +2223,7 @@ async function getCustomization(request, env) {
       env.DB.prepare(`SELECT ui.telegram_id,ui.item_id,i.name,i.price,i.image_data,c.name AS category_name,i.categories_text,i.color,i.government_marker,i.hidden_from_users,ui.source FROM user_items ui JOIN customization_items i ON i.id=ui.item_id LEFT JOIN customization_categories c ON c.id=i.category_id WHERE ui.telegram_id IN (${ph})`).bind(...ids).all(),
     ]);
     cityInventory=[...(cityOnly.results||[]),...(userOwned.results||[])].filter((x,i,a)=>a.findIndex(y=>y.item_id===x.item_id)===i);
-    territoryAwards=(await env.DB.prepare(`SELECT id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index,sticker_format,sticker_set_name FROM territory_awards WHERE territory_id=? ORDER BY awarded_at DESC,id ASC`).bind(profileTerritoryId).all()).results||[];
+    territoryAwards=(await env.DB.prepare(`SELECT id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index,sticker_format,sticker_thumbnail_file_id,sticker_set_name FROM territory_awards WHERE territory_id=? ORDER BY awarded_at DESC,id ASC`).bind(profileTerritoryId).all()).results||[];
     if(!equippedMarkerItemId){const first=await ensureFirstCityMarker(env,profileTerritoryId);equippedMarkerItemId=first?.id||null;}
   }
   return json({ok:true,balance,personalBalance:Number(personalBalance?.balance||0),accountScope,accountLabel:accountScope==='personal'?(currentUser?.mc_nickname||'Ник не указан'):`Казна: ${accountCity?.name||'город'}`,accountOptions:[{scope:'personal',label:currentUser?.mc_nickname||'Ник не указан'},...managerCities.map(c=>({scope:`treasury:${c.id}`,label:`Казна: ${c.name}`}))],managerCities,cityName:accountCity?.name||null,categories:cats.results||[],items:visibleItems,owned:owned.results||[],myItems,cityId:profileTerritoryId||null,cityRole:profileTerritoryId?'manager':null,cityInventory,territoryAwards,equippedAwards:territoryAwards.filter(award=>award.slot_index!==null&&award.slot_index!==undefined).sort((a,b)=>Number(a.slot_index)-Number(b.slot_index)),equippedMarkerItemId,bannerColor,bannerGradient});
@@ -3725,7 +3573,7 @@ async function getTerritories(request, env) {
       : safeAll("screenshots", `SELECT s.id,s.territory_id,s.telegram_id,s.telegram_username,s.author_mc_nickname,s.status,s.created_at,COALESCE(s.author_mc_nickname,u.mc_nickname) AS mc_nickname,u.xuid,u.skin_texture_id FROM screenshots s LEFT JOIN users u ON u.telegram_id=s.telegram_id WHERE s.status='approved'${detailId ? ' AND s.territory_id=?' : ''} ORDER BY s.created_at DESC`, scopedBind);
     const awardsPromise = summaryMode
       ? Promise.resolve({ results: [] })
-      : safeAll("territory_awards", `SELECT id,territory_id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index,sticker_format,sticker_set_name FROM territory_awards WHERE slot_index IS NOT NULL AND territory_id IN (SELECT id FROM territories WHERE status='approved')${detailId ? ' AND territory_id=?' : ''} ORDER BY territory_id ASC,slot_index ASC`, scopedBind);
+      : safeAll("territory_awards", `SELECT id,territory_id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index,sticker_format,sticker_thumbnail_file_id,sticker_set_name FROM territory_awards WHERE slot_index IS NOT NULL AND territory_id IN (SELECT id FROM territories WHERE status='approved')${detailId ? ' AND territory_id=?' : ''} ORDER BY territory_id ASC,slot_index ASC`, scopedBind);
     // Aggregate ratings in D1 rather than transferring every historical rating to the Worker.
     // The calculation exactly preserves the existing weighting: top 5 community / top 2 inspector
     // ratings are averaged separately from older ratings, then combined 50/50 when history exists.
@@ -7435,9 +7283,6 @@ export default {
       return getD1Diagnostics(request, env);
     }
 
-    if (url.pathname === "/api/telegram-emoji" && request.method === "GET") {
-      return withCors(await serveTelegramEmoji(request, env));
-    }
     if (url.pathname === "/api/telegram-sticker" && request.method === "GET") {
       return serveTelegramAwardSticker(request, env);
     }
@@ -7785,4 +7630,4 @@ export default {
   },
 };
 
-export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, normalizeTelegramEmoji, findTelegramAnimatedEmojiSticker, getTelegramAnimatedEmojiPreview, isTelegramAnimatedEmojiSticker, isSafeTelegramTgsAnimation, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
+export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, isSafeTelegramTgsAnimation, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
