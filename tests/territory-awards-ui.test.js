@@ -163,28 +163,19 @@ test("rating badges retain their original content-sized geometry without forced 
 });
 
 
-test("rating selector background corner radius matches the 3px inset of its active pill",()=>{
-  const home=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
-  assert.match(home,/borderRadius:16\.5,padding:3/);
-  assert.match(home,/indicatorStyle=\{\{top:3,bottom:3,left:3,width:'calc\(\(100% - 6px\) \/ 2\)'\}\}/);
-});test("rating selector background radius is 3px larger than the 18px active pill radius",()=>{
+test("rating selector background radius is 3px larger than the 18px active pill radius",()=>{
   const home=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
   assert.match(home,/borderRadius:21,padding:3/);
   assert.match(home,/indicatorStyle=\{\{top:3,bottom:3,left:3,width:'calc\(\(100% - 6px\) \/ 2\)'\}\}/);
 });
 
-test("paired inspector and player rating badges use the same content-safe minimum width",()=>{
+test("rating badges keep their natural content-sized width in every placement",()=>{
   const start=app.indexOf("function ScoreBadge(");
   const end=app.indexOf("function Segmented(",start);
+  assert.ok(start>=0&&end>start);
   const badge=app.slice(start,end);
-  assert.match(badge,/equalized = false/);
-  assert.match(badge,/equalizedMinWidth = preset==='lg'/);
-  assert.match(badge,/var\(--theme-score-badge-icon-lg\).*4ch \+ 36px/);
-  assert.match(badge,/var\(--theme-score-badge-icon-recruitment\).*4ch \+ 26px/);
-  assert.match(badge,/minWidth:equalized\?equalizedMinWidth:undefined/);
-  const paired=app.slice(app.indexOf("<ScoreBadge type=\"curator\" value={t.curator}"),app.indexOf("function EventsScreen"));
-  assert.equal((paired.match(/equalized \/>/g)||[]).length,6);
-  const home=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
-  assert.match(home,/<ScoreBadge type=\{sortBy==='curator'\?'curator':'community'\} value=\{t\[sortBy\]\} size="lg"\/>/);
-  assert.doesNotMatch(home,/size="lg" equalized/);
+  assert.doesNotMatch(badge,/equalized|badgeWidth|minWidth:|width:/);
+  assert.match(badge,/gap: token\('gap'\)/);
+  assert.match(badge,/padding: token\('padding'\)/);
+  assert.match(badge,/minHeight:token\('height'\),fontSize:token\('size'\)/);
 });
