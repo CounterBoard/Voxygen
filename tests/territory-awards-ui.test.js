@@ -130,3 +130,20 @@ test("territories header controls and rating filter share a 36px height",()=>{
   assert.match(app,/style=\{\{height:36,boxSizing:'border-box',padding:0\}\} optionStyle=\{\{height:'100%',minHeight:0,padding:'0 12px'\}\}/);
   assert.match(app,/label:'По инспекторам'/);
 });
+
+test("main inspector home feature button settings render the existing toggle component",()=>{
+  const start=app.indexOf("function HomeFeatureButtonModal(");
+  const end=app.indexOf("const TRANSPARENT_COLOR",start);
+  assert.ok(start>=0&&end>start);
+  const modal=app.slice(start,end);
+  assert.match(modal,/<ToggleField label="Скрыть кнопку для пользователей"/);
+  assert.doesNotMatch(modal,/<SettingsToggle\b/);
+});
+
+test("territory rating filter purple indicator fills the full 36px control height",()=>{
+  const segmented=app.slice(app.indexOf("function Segmented("),app.indexOf("function ShotThumb(",app.indexOf("function Segmented(")));
+  assert.match(segmented,/indicatorStyle = \{\}/);
+  assert.match(segmented,/<span className="atlas-segmented__indicator" aria-hidden="true" style=\{indicatorStyle\}\/>/);
+  const rating=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
+  assert.match(rating,/style=\{\{height:36,boxSizing:'border-box',padding:0\}\} optionStyle=\{\{height:'100%',minHeight:0,padding:'0 12px'\}\} indicatorStyle=\{\{top:0,bottom:0\}\}/);
+});
