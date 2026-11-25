@@ -11,6 +11,7 @@ test("territory awards use their saved Telegram sticker and fall back to the ori
   assert.match(app,/function cloneTelegramStickerAnimationData\(/);
   assert.match(app,/function AwardEmoji\(/);
   assert.match(app,/hasThumbnail=\{Boolean\(award\.sticker_thumbnail_file_id\)\}/);
+  assert.match(app,/key=\{\'award-\'\+String\(award\.id\)\}/);
   assert.match(app,/hasThumbnail=\{Boolean\(sticker\.thumbnail_file_id\)\}/);
   assert.match(app,/const fallbackEmoji=<AwardEmoji emoji=\{emoji\} size=\{size\}\/\>/);
   assert.match(app,/format==='tgs'/);
