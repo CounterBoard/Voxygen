@@ -190,6 +190,8 @@ test("territory award TGS stickers show their Telegram thumbnail until animation
   assert.ok(start>=0&&end>start);
   const component=app.slice(start,end);
   assert.match(component,/const previewSrc=API_BASE\+'\/api\/telegram-sticker\?'\+query\+'&preview=1'/);
+  assert.match(component,/preview&&hasThumbnail\?'&preview=1'/);
+  assert.match(component,/if\(\(preview&&hasThumbnail\)\|\|format!=='tgs'\|\|!id\)return undefined/);
   assert.match(component,/if\(format==='tgs'\)[\s\S]*?<img src=\{previewSrc\}/);
   assert.match(component,/display:animationReady\|\|previewFailed\?'none':'block'/);
   assert.match(component,/animation\.addEventListener\('DOMLoaded',onAnimationReady\)/);
