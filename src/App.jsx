@@ -270,10 +270,10 @@ function TelegramSticker({stickerId,awardId,format='image',emoji='',size=32,styl
   const [previewFailed,setPreviewFailed]=useState(false);
   const id=String(awardId||stickerId||'');
   const query=new URLSearchParams(awardId?{awardId:String(awardId)}:{stickerId:String(stickerId||'')}).toString();
-  const src=API_BASE+'/api/telegram-sticker?'+query+(preview?'&preview=1':'');
+  const src=API_BASE+'/api/telegram-sticker?'+query+(preview&&hasThumbnail?'&preview=1':'');
   const previewSrc=API_BASE+'/api/telegram-sticker?'+query+'&preview=1';
   useEffect(()=>{
-    if(preview||format!=='tgs'||!id)return undefined;
+    if((preview&&hasThumbnail)||format!=='tgs'||!id)return undefined;
     let cancelled=false,animation=null;
     setFailed(false);
     setAnimationReady(false);
