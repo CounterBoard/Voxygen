@@ -32,5 +32,7 @@ Added regression coverage for the supported gem withdrawal forms and static UI c
 ## Direct-main follow-up fixes — 2026-11-25
 
 - **Main-inspector disappearing button.** Fixed the edit modal crash: it previously rendered an undefined `SettingsToggle` component. The existing `ToggleField` component provides the same checked/onChange interface and is now used instead, so the main inspector can open and use the settings dialog without a React render error.
-- **Territory rating selector height.** The outer “По инспекторам / По игрокам” control remains 36px high, and its purple active indicator now also fills all 36px. The change is scoped to this selector; the dark background container is not treated as the active colored element.
+- **Territory rating selector geometry.** The “По инспекторам / По игрокам” selector now uses the same raised background, 3px inset, rounded corners, button padding, and inset purple active pill as the “Набор / Карта / Рейтинг” tabs.
 - Added UI regression tests for both fixes.
+
+- **Rating badge dimensions.** Inspector and player score pills now use the same fixed width for each size preset, with tabular numerals and no wrapping, so the two ratings remain visually equal even when their digits have different natural widths.
