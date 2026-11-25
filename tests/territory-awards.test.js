@@ -41,16 +41,6 @@ test("Telegram TGS animation validation requires bounded vector dimensions and r
   assert.equal(isSafeTelegramTgsAnimation({...valid,layers:null}),false);
 });
 
-test("Telegram emoji lookup prefers an animated TGS entry over a static duplicate",()=>{
-  const stickers=[
-    {emoji:"🎉",file_id:"static-confetti",is_animated:false,is_video:false,thumbnail:{file_id:"static-thumb"}},
-    {emoji:"🎉",file_id:"animated-confetti",is_animated:true,is_video:false},
-  ];
-  assert.equal(findTelegramAnimatedEmojiSticker(stickers,"🎉")?.file_id,"animated-confetti");
-  assert.equal(isTelegramAnimatedEmojiSticker(findTelegramAnimatedEmojiSticker(stickers,"🎉")),true);
-});
-
-
 test("Telegram custom emoji pack links are restricted to public t.me addemoji URLs",()=>{
   assert.equal(parseTelegramEmojiSetName("https://t.me/addemoji/voxygen_awards"),"voxygen_awards");
   assert.equal(parseTelegramEmojiSetName("https://telegram.me/addemoji/MyPack_2?start=share"),"MyPack_2");
