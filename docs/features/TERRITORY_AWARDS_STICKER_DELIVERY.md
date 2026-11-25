@@ -150,7 +150,7 @@ The UI distinguishes an asset that has not finished loading from an asset that h
 | Static image failed | Original Unicode emoji |
 | Preview-only image failed | Original Unicode emoji |
 
-For TGS the failure fallback is gated by the animation failure state, not by the mere absence of a thumbnail or by a thumbnail request still being pending. A thumbnail error alone must not display Unicode while the animation may still succeed. This prevents the original emoji from flashing before a valid Telegram animation appears.
+The sticker component is keyed by the issued award ID when rendered through `TerritoryAwardIcon`, so switching the selected award cannot reuse the previous award's `failed`, `previewFailed`, or `animationReady` state. For TGS the failure fallback is gated by the animation failure state, not by the mere absence of a thumbnail or by a thumbnail request still being pending. A thumbnail error alone must not display Unicode while the animation may still succeed. This prevents the original emoji from flashing before a valid Telegram animation appears.
 
 If an award has no sticker ID at all, the component has no Telegram asset to load and displays the award's stored emoji (or the neutral default) immediately. This is a missing-asset record, not a loading state.
 
