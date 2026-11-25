@@ -35,4 +35,6 @@ Added regression coverage for the supported gem withdrawal forms and static UI c
 - **Territory rating selector geometry.** The “По инспекторам / По игрокам” selector now uses the same raised background, 3px inset, rounded corners, button padding, and inset purple active pill as the “Набор / Карта / Рейтинг” tabs.
 - Added UI regression tests for both fixes.
 
-- **Rating badge dimensions.** Inspector and player score pills now use the same fixed width for each size preset, with tabular numerals and no wrapping, so the two ratings remain visually equal even when their digits have different natural widths.
+- **Rating badge sizing correction.** Removed the unnecessary fixed-width override from the inspector and player rating pills. They retain their original content-sized layout and existing design tokens; this follow-up does not alter their dimensions.
+
+- **Rating selector backdrop radius.** Increased the dark background corner radius to 16.5px while keeping the 3px inset around the active purple pill, so the outer corner curve follows the pill with the same geometric offset.
