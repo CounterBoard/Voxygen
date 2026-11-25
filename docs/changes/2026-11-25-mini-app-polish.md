@@ -15,7 +15,7 @@ This change set polishes territory presentation, the main-inspector award-pack m
 
 ## Bot behavior
 
-- Granting a territory award through the main-inspector award manager now sends an award notice to recipients who have enabled notifications for that territory:
+- Granting a territory award through the main-inspector award manager now sends an award notice to recipients who have enabled notifications for that territory. The italic guidance is separated with a real line break in the Telegram message, not a literal backslash-n sequence:
   `🏆 <territory> получил(а) награду «<award name>»` followed by the italic line `Экипированные награды появляются на странице территории`.
 - The notification uses the existing per-territory preference check and existing recipient selection for territory members/managers. Users without an enabled territory preference are not sent the notice.
 - Gem withdrawal parsing accepts optional leading slash syntax and optional whitespace after the minus sign, including `-250`, `- 250`, `/-250`, and `/ - 250`, as well as the corresponding territory-prefixed forms.
@@ -46,3 +46,5 @@ Added regression coverage for the supported gem withdrawal forms and static UI c
 - Reverted the attempted equal-width treatment for inspector/player rating badges. Their widths remain naturally determined by their own icon and numeric content; no minimum or fixed width is imposed.
 - Kept the “По инспекторам / По игрокам” selector at the already established 36px active-pill height. With a 3px inset and an 18px pill corner radius, the dark outer background uses a 21px radius (18px + 3px), following the nested-radius rule.
 - Added regression coverage to ensure rating badges remain content-sized and the selector keeps the matching 21px/18px corner geometry.
+
+- UI regression tests assert the 36px active segment inside the 42px outer control, deriving the outer 21px corner radius from the 18px inner pill radius plus the 3px inset. The award notification test checks the actual message line break.

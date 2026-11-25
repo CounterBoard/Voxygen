@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+const themeTokens = readFileSync(new URL("../src/theme/theme-tokens.css", import.meta.url), "utf8");
 
 test("territory award emoji use AnimatedEmojies TGS or its own Telegram thumbnail",()=>{
   assert.match(app,/import lottie from ['"]lottie-web['"]/);
@@ -127,7 +128,11 @@ test("equipped-award guidance is not shown in the profile and profile banner con
 
 test("territories header controls and rating filter share a 36px height",()=>{
   assert.match(app,/height:36,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'0 12px'[^>]*>\s*<Plus/);
-  assert.match(app,/style=\{\{height:36,boxSizing:'border-box',padding:0\}\} optionStyle=\{\{height:'100%',minHeight:0,padding:'0 12px'\}\}/);
+  const home=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
+  assert.match(home,/background:'var\(--theme-color-surface-raised\)',borderRadius:21,padding:3/);
+  assert.match(home,/indicatorStyle=\{\{top:3,bottom:3,left:3,width:'calc\(\(100% - 6px\) \/ 2\)'\}\}/);
+  assert.match(app,/min-height:var\(--theme-control-height-compact\)/);
+  assert.match(themeTokens,/--theme-control-height-compact:\s*36px/);
   assert.match(app,/label:'По инспекторам'/);
 });
 
@@ -140,13 +145,21 @@ test("main inspector home feature button settings render the existing toggle com
   assert.doesNotMatch(modal,/<SettingsToggle\b/);
 });
 
-test("territory rating selector matches the background, inset and active pill geometry of main tabs",()=>{
-  const mainTabs=app.slice(app.indexOf("function MainTabs("),app.indexOf("function SimpleModal(",app.indexOf("function MainTabs(")));
+test("territory rating selector follows the nested pill radius formula",()=>{
   const home=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
-  assert.match(mainTabs,/background:'var\(--theme-color-surface-raised\)',borderRadius:12,padding:3/);
-  assert.match(home,/background:'var\(--theme-color-surface-raised\)',borderRadius:12,padding:3,display:'grid',gridTemplateColumns:'repeat\(2,minmax\(0,1fr\)\)'/);
+  const height=Number(themeTokens.match(/--theme-control-height-compact:\s*(\d+)px/)?.[1]);
+  const inset=3;
+  const innerRadius=height/2;
+  const outerRadius=innerRadius+inset;
+  assert.equal(height,36);
+  assert.equal(innerRadius,18);
+  assert.equal(outerRadius,21);
+  assert.match(home,/background:'var\(--theme-color-surface-raised\)',borderRadius:21,padding:3/);
   assert.match(home,/indicatorStyle=\{\{top:3,bottom:3,left:3,width:'calc\(\(100% - 6px\) \/ 2\)'\}\}/);
-  assert.match(home,/padding:'6px 6px',borderRadius:999,fontSize:12\.5/);
+  const indicatorStart=app.indexOf(".atlas-segmented__indicator{");
+  const indicatorEnd=app.indexOf(".atlas-segmented__option{",indicatorStart);
+  const indicator=app.slice(indicatorStart,indicatorEnd);
+  assert.match(indicator,/border-radius:var\(--theme-radius-pill\)/);
 });
 
 test("rating badges retain their original content-sized geometry without forced widths",()=>{

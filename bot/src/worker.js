@@ -2996,7 +2996,8 @@ async function grantTerritoryAward(request, env) {
   if (!Number(inserted.meta?.changes || 0)) {
     return json({ ok: false, error: 'У этого города уже есть награда с таким названием' }, 409);
   }
-  const notificationText = `🏆 <b>${escapeHtml(territory.name)}</b> получил(а) награду «${escapeHtml(name)}»\n<i>Экипированные награды появляются на странице территории</i>`;
+  const notificationText = `🏆 <b>${escapeHtml(territory.name)}</b> получил(а) награду «${escapeHtml(name)}»
+<i>Экипированные награды появляются на странице территории</i>`;
   await notifyTerritoryManagers(env, territoryId, notificationText);
   return json({ ok: true, awardId, territoryId, territoryName: territory.name, name, awardedAt });
 }
