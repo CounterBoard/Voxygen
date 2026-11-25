@@ -1,4 +1,4 @@
-// Voxygen-Version: v58
+// Voxygen-Version: v59
 import React, { useEffect, useState, useRef, useId } from 'react';
 import lottie from 'lottie-web';
 import { createPortal } from 'react-dom';
@@ -949,11 +949,9 @@ function ScoreBadge({ type, value, size = 'md' }) {
   const Icon = isInspector ? Star : Astroid;
   const preset = ['sm', 'recruitment', 'lg'].includes(size) ? size : 'default';
   const token = name => `var(--theme-score-badge-${name}-${preset})`;
-  const badgeWidth = preset==='lg' ? 72 : preset==='recruitment' ? 62 : undefined;
   return (
     <div className={`atlas-display atlas-score-badge${size==='recruitment' ? ` atlas-recruitment-score ${isInspector?'atlas-recruitment-score--inspector':'atlas-recruitment-score--community'}` : ''}`} style={{
       display:'inline-flex',alignItems:'center',justifyContent:'center',gap: token('gap'),
-      width:badgeWidth,minWidth:badgeWidth,boxSizing:'border-box',flexShrink:0,whiteSpace:'nowrap',fontVariantNumeric:'tabular-nums',
       background:bg,color,border:`1px solid ${border}`,borderRadius:'var(--theme-score-badge-radius)',padding: token('padding'),
       minHeight:token('height'),fontSize:token('size'),fontWeight:'var(--theme-score-badge-weight)',lineHeight:'var(--theme-score-badge-line-height)',
       boxShadow:'var(--theme-score-badge-shadow)',animationDelay:isInspector?'45ms':'105ms'
@@ -2830,7 +2828,7 @@ function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImag
           </div>
         </div>
       : <div style={{padding: '0 15px'}}>
-          <div style={{marginBottom: 10}}><Segmented value={sortBy} onChange={setSortBy} style={{background:'var(--theme-color-surface-raised)',borderRadius:16,padding:3,display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:0,position:'relative',isolation:'isolate'}} optionStyle={{position:'relative',zIndex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:4,minWidth:0,padding:'6px 6px',borderRadius:999,fontSize:12.5,border:'none',cursor:'pointer',background:'transparent'}} indicatorStyle={{top:3,bottom:3,left:3,width:'calc((100% - 6px) / 2)'}} options={[{value:'curator',label:'По инспекторам'},{value:'community',label:'По игрокам'}]}/></div>
+          <div style={{marginBottom: 10}}><Segmented value={sortBy} onChange={setSortBy} style={{background:'var(--theme-color-surface-raised)',borderRadius:16.5,padding:3,display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:0,position:'relative',isolation:'isolate'}} optionStyle={{position:'relative',zIndex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:4,minWidth:0,padding:'6px 6px',borderRadius:999,fontSize:12.5,border:'none',cursor:'pointer',background:'transparent'}} indicatorStyle={{top:3,bottom:3,left:3,width:'calc((100% - 6px) / 2)'}} options={[{value:'curator',label:'По инспекторам'},{value:'community',label:'По игрокам'}]}/></div>
           {territories.length===0
             ? <div style={{textAlign:'center',padding: '40px 15px',color:'var(--theme-color-text-muted)',fontSize:13}}>Городов пока нет — станьте первым, кто добавит свой.</div>
             : <div style={{display:'flex',flexDirection:'column',gap: 8}}>
