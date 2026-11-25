@@ -194,6 +194,17 @@ test("territory award TGS stickers show their Telegram thumbnail until animation
   assert.match(component,/display:animationReady\|\|previewFailed\?'none':'block'/);
   assert.match(component,/animation\.addEventListener\('DOMLoaded',onAnimationReady\)/);
   assert.match(component,/animation\.addEventListener\('data_failed',onAnimationFailed\)/);
+  assert.match(component,/failed&&\(!hasThumbnail\|\|previewFailed\)&&fallbackEmoji/);
+  assert.doesNotMatch(component,/\(!hasThumbnail\|\|previewFailed\)&&!animationReady&&fallbackEmoji/);
+});
+
+test("Unicode award fallback is never rendered while the TGS sticker is still loading",()=>{
+  const start=app.indexOf("function TelegramSticker(");
+  const end=app.indexOf("function TerritoryAwardIcon(",start);
+  const component=app.slice(start,end);
+  assert.match(component,/const \[failed,setFailed\]=useState\(false\)/);
+  assert.match(component,/const onAnimationFailed=\(\)=>\{[\s\S]*?setFailed\(true\)/);
+  assert.match(component,/failed&&\(!hasThumbnail\|\|previewFailed\)&&fallbackEmoji/);
 });
 
 test("territory award WEBM stickers fall back to the same Telegram thumbnail when video playback fails",()=>{
