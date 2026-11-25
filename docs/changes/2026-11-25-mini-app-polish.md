@@ -38,3 +38,10 @@ Added regression coverage for the supported gem withdrawal forms and static UI c
 - **Rating badge sizing correction.** Removed the unnecessary fixed-width override from the inspector and player rating pills. They retain their original content-sized layout and existing design tokens; this follow-up does not alter their dimensions.
 
 - **Rating selector backdrop radius.** Increased the dark background corner radius to 16.5px while keeping the 3px inset around the active purple pill, so the outer corner curve follows the pill with the same geometric offset.
+
+
+## Rating badge and selector geometry follow-up — 2026-11-25
+
+- Paired inspector and player ratings now share a content-safe minimum width within each paired display (territory page, recruitment cards, and selected-territory modal). The width is derived from the relevant icon/gap design tokens, a four-character numeric allowance, the preset's horizontal padding, and borders. Standalone rating badges remain content-sized; no global fixed width is applied.
+- The dark “По инспекторам / По игрокам” selector background radius is now 21px. Its 36px-high purple indicator retains a 3px inset, giving it an 18px pill radius and an outer radius exactly 3px larger.
+- Added regression coverage for paired badge sizing and selector corner geometry.
