@@ -129,8 +129,11 @@ test("equipped-award guidance is not shown in the profile and profile banner con
 test("territories header controls and rating filter share a 36px height",()=>{
   assert.match(app,/height:36,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'0 12px'[^>]*>\s*<Plus/);
   const home=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
-  assert.match(home,/background:'var\(--theme-color-surface-raised\)',borderRadius:21,padding:3/);
-  assert.match(home,/indicatorStyle=\{\{top:3,bottom:3,left:3,width:'calc\(\(100% - 6px\) \/ 2\)'\}\}/);
+  assert.match(home,/background:'var\(--theme-recipe-rating-switch-track-bg\)'/);
+  assert.match(home,/height:'var\(--theme-recipe-rating-switch-track-height\)'/);
+  assert.match(home,/padding:'var\(--theme-recipe-rating-switch-inset\)'/);
+  assert.match(home,/indicatorStyle=\{\{top:'var\(--theme-recipe-rating-switch-inset\)',bottom:'var\(--theme-recipe-rating-switch-inset\)',left:'var\(--theme-recipe-rating-switch-inset\)'/);
+  assert.match(home,/borderRadius:'var\(--theme-recipe-rating-switch-indicator-radius\)'/);
   assert.match(app,/min-height:var\(--theme-control-height-compact\)/);
   assert.match(themeTokens,/--theme-control-height-compact:\s*36px/);
   assert.match(app,/label:'По инспекторам'/);
@@ -145,21 +148,23 @@ test("main inspector home feature button settings render the existing toggle com
   assert.doesNotMatch(modal,/<SettingsToggle\b/);
 });
 
-test("territory rating selector follows the nested pill radius formula",()=>{
+test("Vox theme owns the rating switch geometry and the component consumes those tokens",()=>{
+  const selectorStart=themeTokens.indexOf('.atlas-root[data-theme="vox"]');
+  const selectorEnd=themeTokens.indexOf('\n}',selectorStart);
+  assert.ok(selectorStart>=0&&selectorEnd>selectorStart);
+  const vox=themeTokens.slice(selectorStart,selectorEnd);
+  const compactHeight=Number(vox.match(/--theme-control-height-compact:\s*(\d+)px/)?.[1]);
+  const inset=Number(vox.match(/--theme-recipe-rating-switch-inset:\s*(\d+)px/)?.[1]);
+  const innerRadius=Number(vox.match(/--theme-recipe-rating-switch-indicator-radius:\s*(\d+)px/)?.[1]);
+  assert.equal(compactHeight,36);
+  assert.equal(inset,3);
+  assert.equal(innerRadius,compactHeight/2);
+  assert.equal(innerRadius+inset,21);
+  assert.match(vox,/--theme-recipe-rating-switch-track-height:\s*calc\(var\(--theme-recipe-rating-switch-indicator-height\) \+ var\(--theme-recipe-rating-switch-inset\) \+ var\(--theme-recipe-rating-switch-inset\)\)/);
+  assert.match(vox,/--theme-recipe-rating-switch-track-radius:\s*calc\(var\(--theme-recipe-rating-switch-indicator-radius\) \+ var\(--theme-recipe-rating-switch-inset\)\)/);
   const home=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
-  const height=Number(themeTokens.match(/--theme-control-height-compact:\s*(\d+)px/)?.[1]);
-  const inset=3;
-  const innerRadius=height/2;
-  const outerRadius=innerRadius+inset;
-  assert.equal(height,36);
-  assert.equal(innerRadius,18);
-  assert.equal(outerRadius,21);
-  assert.match(home,/background:'var\(--theme-color-surface-raised\)',borderRadius:21,padding:3/);
-  assert.match(home,/indicatorStyle=\{\{top:3,bottom:3,left:3,width:'calc\(\(100% - 6px\) \/ 2\)'\}\}/);
-  const indicatorStart=app.indexOf(".atlas-segmented__indicator{");
-  const indicatorEnd=app.indexOf(".atlas-segmented__option{",indicatorStart);
-  const indicator=app.slice(indicatorStart,indicatorEnd);
-  assert.match(indicator,/border-radius:var\(--theme-radius-pill\)/);
+  assert.match(home,/borderRadius:'var\(--theme-recipe-rating-switch-track-radius\)'/);
+  assert.match(home,/indicatorStyle=\{\{top:'var\(--theme-recipe-rating-switch-inset\)'/);
 });
 
 test("rating badges retain their original content-sized geometry without forced widths",()=>{
@@ -176,8 +181,4 @@ test("rating badges retain their original content-sized geometry without forced 
 });
 
 
-test("rating selector background radius is 3px larger than the 18px active pill radius",()=>{
-  const home=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
-  assert.match(home,/borderRadius:21,padding:3/);
-  assert.match(home,/indicatorStyle=\{\{top:3,bottom:3,left:3,width:'calc\(\(100% - 6px\) \/ 2\)'\}\}/);
-});
+

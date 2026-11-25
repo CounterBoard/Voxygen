@@ -29,22 +29,14 @@ Territories currently store their banner appearance as `banner_color` and `banne
 
 Added regression coverage for the supported gem withdrawal forms and static UI contracts for badge alignment/animation, center-cropped banners, collapsed award packs, reply spacing, banner editor disabled-state styling, and 36px header controls. The withdrawal parser handles numeric syntax while the command handler separately rejects zero or negative amounts. The GitHub Actions run on the pull request remains the full repository validation gate.
 
-## Direct-main follow-up fixes — 2026-11-25
+## Direct-main follow-up fixes — 2026-11-26
 
-- **Main-inspector disappearing button.** Fixed the edit modal crash: it previously rendered an undefined `SettingsToggle` component. The existing `ToggleField` component provides the same checked/onChange interface and is now used instead, so the main inspector can open and use the settings dialog without a React render error.
-- **Territory rating selector geometry.** The “По инспекторам / По игрокам” selector now uses the same raised background, 3px inset, rounded corners, button padding, and inset purple active pill as the “Набор / Карта / Рейтинг” tabs.
-- Added UI regression tests for both fixes.
-
-- **Rating badge sizing correction.** Removed the unnecessary fixed-width override from the inspector and player rating pills. They retain their original content-sized layout and existing design tokens; this follow-up does not alter their dimensions.
-
-- **Rating selector backdrop radius.** Increased the dark background corner radius to 16.5px while keeping the 3px inset around the active purple pill, so the outer corner curve follows the pill with the same geometric offset.
-
-
-
-## Rating selector corner correction — 2026-11-25
-
-- Reverted the attempted equal-width treatment for inspector/player rating badges. Their widths remain naturally determined by their own icon and numeric content; no minimum or fixed width is imposed.
-- Kept the “По инспекторам / По игрокам” selector at the already established 36px active-pill height. With a 3px inset and an 18px pill corner radius, the dark outer background uses a 21px radius (18px + 3px), following the nested-radius rule.
-- Added regression coverage to ensure rating badges remain content-sized and the selector keeps the matching 21px/18px corner geometry.
-
-- UI regression tests assert the 36px active segment inside the 42px outer control, deriving the outer 21px corner radius from the 18px inner pill radius plus the 3px inset. The award notification test checks the actual message line break.
+- **Main-inspector disappearing button.** Fixed the edit modal crash: it previously rendered an undefined `SettingsToggle` component. The existing `ToggleField` component provides the same checked/onChange interface and is now used instead.
+- **Rating badge sizing.** Inspector and player score badges retain their original content-sized widths; no fixed or minimum widths are applied.
+- **Vox theme owns territory rating switch geometry.** The “По инспекторам / По игрокам” switch now reads dedicated tokens from `.atlas-root[data-theme="vox"]` in `src/theme/theme-tokens.css`. Geometry is no longer hard-coded in the component:
+  - Active segment height: 36px (the compact control token).
+  - Inset: 3px.
+  - Track height: 42px (36px + 3px + 3px).
+  - Active segment radius: 18px (half of 36px).
+  - Track radius: 21px (18px + 3px), using `R_outer = R_inner + inset`.
+- UI regression tests read the Vox token pack, derive the dimensions and radii, and verify the component consumes the theme tokens.

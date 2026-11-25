@@ -129,6 +129,14 @@
   --theme-recipe-segmented-idle-bg: transparent;
   --theme-recipe-segmented-idle-fg: var(--theme-color-text-muted);
 
+  /* Territory rating switch geometry: active pill inset inside its track. */
+  --theme-recipe-rating-switch-track-bg: var(--theme-color-surface-raised);
+  --theme-recipe-rating-switch-inset: 3px;
+  --theme-recipe-rating-switch-indicator-height: var(--theme-control-height-compact);
+  --theme-recipe-rating-switch-track-height: calc(var(--theme-recipe-rating-switch-indicator-height) + var(--theme-recipe-rating-switch-inset) + var(--theme-recipe-rating-switch-inset));
+  --theme-recipe-rating-switch-indicator-radius: 18px;
+  --theme-recipe-rating-switch-track-radius: calc(var(--theme-recipe-rating-switch-indicator-radius) + var(--theme-recipe-rating-switch-inset));
+
   /* Typography: themes may replace families and the complete type scale. */
   --theme-font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
   --theme-font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
