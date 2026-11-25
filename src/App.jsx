@@ -318,7 +318,8 @@ function TelegramSticker({stickerId,awardId,format='image',emoji='',size=32,styl
   if(format==='tgs')return <span role="img" aria-label={emoji||'Анимированная награда'} style={wrapperStyle}>
     {hasThumbnail&&<img src={previewSrc} alt="" loading="lazy" onError={()=>setPreviewFailed(true)} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'contain',display:animationReady||previewFailed?'none':'block'}}/>}
     <div ref={animationRef} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',visibility:animationReady?'visible':'hidden'}}/>
-    {(!hasThumbnail||previewFailed)&&!animationReady&&fallbackEmoji}
+    // Keep the slot visually quiet while the animation is loading. Unicode is only a failure fallback.
+    {failed&&(!hasThumbnail||previewFailed)&&fallbackEmoji}
   </span>;
   if(format==='webm')return <span role="img" aria-label={emoji||'Награда'} style={wrapperStyle}>
     <video src={src} autoPlay loop muted playsInline aria-hidden="true" onError={()=>setFailed(true)} style={{width:'100%',height:'100%',objectFit:'contain',display:failed?'none':'block'}}/>
