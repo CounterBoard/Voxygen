@@ -167,4 +167,22 @@ test("rating selector background corner radius matches the 3px inset of its acti
   const home=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
   assert.match(home,/borderRadius:16\.5,padding:3/);
   assert.match(home,/indicatorStyle=\{\{top:3,bottom:3,left:3,width:'calc\(\(100% - 6px\) \/ 2\)'\}\}/);
+});test("rating selector background radius is 3px larger than the 18px active pill radius",()=>{
+  const home=app.slice(app.indexOf("function HomeScreen("),app.indexOf("function compressScreenshotFile"));
+  assert.match(home,/borderRadius:21,padding:3/);
+  assert.match(home,/indicatorStyle=\{\{top:3,bottom:3,left:3,width:'calc\(\(100% - 6px\) \/ 2\)'\}\}/);
+});
+
+test("paired inspector and player rating badges use the same content-safe minimum width",()=>{
+  const start=app.indexOf("function ScoreBadge(");
+  const end=app.indexOf("function Segmented(",start);
+  const badge=app.slice(start,end);
+  assert.match(badge,/equalized = false/);
+  assert.match(badge,/equalizedMinWidth = preset==='lg'/);
+  assert.match(badge,/var\(--theme-score-badge-icon-lg\).*4ch \+ 36px/);
+  assert.match(badge,/var\(--theme-score-badge-icon-recruitment\).*4ch \+ 26px/);
+  assert.match(badge,/minWidth:equalized\?equalizedMinWidth:undefined/);
+  const territory=app.slice(app.indexOf("<ScoreBadge type=\"curator\" value={t.curator}"),app.indexOf("function compressScreenshotFile"));
+  assert.equal((territory.match(/equalized \/>/g)||[]).length,6);
+  assert.match(territory,/<ScoreBadge type=\{sortBy==='curator'\?'curator':'community'\} value=\{t\[sortBy\]\} size="lg"\/>/);
 });
