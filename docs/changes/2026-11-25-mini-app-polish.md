@@ -28,3 +28,9 @@ Territories currently store their banner appearance as `banner_color` and `banne
 ## Validation
 
 Added regression coverage for the supported gem withdrawal forms and static UI contracts for badge alignment/animation, center-cropped banners, collapsed award packs, reply spacing, banner editor disabled-state styling, and 36px header controls. The withdrawal parser handles numeric syntax while the command handler separately rejects zero or negative amounts. The GitHub Actions run on the pull request remains the full repository validation gate.
+
+## Direct-main follow-up fixes — 2026-11-25
+
+- **Main-inspector disappearing button.** Fixed the edit modal crash: it previously rendered an undefined `SettingsToggle` component. The existing `ToggleField` component provides the same checked/onChange interface and is now used instead, so the main inspector can open and use the settings dialog without a React render error.
+- **Territory rating selector height.** The outer “По инспекторам / По игрокам” control remains 36px high, and its purple active indicator now also fills all 36px. The change is scoped to this selector; the dark background container is not treated as the active colored element.
+- Added UI regression tests for both fixes.
