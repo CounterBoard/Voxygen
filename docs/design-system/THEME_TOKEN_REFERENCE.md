@@ -336,3 +336,17 @@ Toast contrast update (21.11.2026): success, danger and warning FixedToast surfa
 Segmented selection motion: both the three-item MainTabs control
 Profile settings modal viewport rule (21.11.2026): the settings overlay reserves the fixed bottom navigation height (69 px), a 12 px clearance, and top/bottom device safe areas. The modal is centered within the remaining visible region and its maximum height is capped to that region. Existing modal geometry and content padding remain unchanged.
  and the reusable Segmented control use a single absolutely positioned Purple indicator. Its horizontal position is driven by the selected option index and animated with a 280 ms ease curve. The selected option foreground is white; inactive options keep the muted foreground. The indicator transition is disabled under `prefers-reduced-motion: reduce`.
+
+
+## Territory rating switch — Vox recipe tokens
+
+The “По инспекторам / По игрокам” selector is configured by the Vox token pack in `src/theme/theme-tokens.css`. These tokens keep the dark track and the active purple pill geometrically nested:
+
+- `--theme-recipe-rating-switch-track-bg` — dark raised surface behind the selector.
+- `--theme-recipe-rating-switch-inset` — inset between track and active pill (3px).
+- `--theme-recipe-rating-switch-indicator-height` — active pill height, linked to `--theme-control-height-compact` (36px).
+- `--theme-recipe-rating-switch-track-height` — total track height, indicator height plus the inset on both sides (42px).
+- `--theme-recipe-rating-switch-indicator-radius` — active pill radius (18px, half its 36px height).
+- `--theme-recipe-rating-switch-track-radius` — outer track radius, calculated as the inner radius plus the inset (21px).
+
+Use `R_outer = R_inner + inset` for this nested pair. Keep the component bound to these tokens rather than duplicating numeric geometry in JSX.
