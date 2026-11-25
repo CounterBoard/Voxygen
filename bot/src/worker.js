@@ -1,4 +1,4 @@
-// Voxygen-Version: v53
+// Voxygen-Version: v54
 // ============================================================
 // VOXYGEN BACKEND
 // v43: GitHub Releases is the only map-file storage; D1 stores only its URL and content type
@@ -2997,6 +2997,7 @@ async function grantTerritoryAward(request, env) {
     return json({ ok: false, error: 'У этого города уже есть награда с таким названием' }, 409);
   }
   const notificationText = `🏆 <b>${escapeHtml(territory.name)}</b> получил(а) награду «${escapeHtml(name)}»
+
 <i>Экипированные награды появляются на странице территории</i>`;
   await notifyTerritoryManagers(env, territoryId, notificationText);
   return json({ ok: true, awardId, territoryId, territoryName: territory.name, name, awardedAt });
@@ -7435,7 +7436,7 @@ export default {
     }
 
     if (url.pathname === "/api/telegram-emoji" && request.method === "GET") {
-      return serveTelegramEmoji(request, env);
+      return withCors(await serveTelegramEmoji(request, env));
     }
     if (url.pathname === "/api/telegram-sticker" && request.method === "GET") {
       return serveTelegramAwardSticker(request, env);
