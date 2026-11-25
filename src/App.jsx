@@ -1,4 +1,4 @@
-// Voxygen-Version: v57
+// Voxygen-Version: v58
 import React, { useEffect, useState, useRef, useId } from 'react';
 import lottie from 'lottie-web';
 import { createPortal } from 'react-dom';
@@ -2830,7 +2830,7 @@ function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImag
           </div>
         </div>
       : <div style={{padding: '0 15px'}}>
-          <div style={{marginBottom: 10}}><Segmented value={sortBy} onChange={setSortBy} style={{background:'var(--theme-color-surface-raised)',borderRadius:12,padding:3,display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:0,position:'relative',isolation:'isolate'}} optionStyle={{position:'relative',zIndex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:4,minWidth:0,padding:'6px 6px',borderRadius:999,fontSize:12.5,border:'none',cursor:'pointer',background:'transparent'}} indicatorStyle={{top:3,bottom:3,left:3,width:'calc((100% - 6px) / 2)'}} options={[{value:'curator',label:'По инспекторам'},{value:'community',label:'По игрокам'}]}/></div>
+          <div style={{marginBottom: 10}}><Segmented value={sortBy} onChange={setSortBy} style={{background:'var(--theme-color-surface-raised)',borderRadius:16,padding:3,display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:0,position:'relative',isolation:'isolate'}} optionStyle={{position:'relative',zIndex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:4,minWidth:0,padding:'6px 6px',borderRadius:999,fontSize:12.5,border:'none',cursor:'pointer',background:'transparent'}} indicatorStyle={{top:3,bottom:3,left:3,width:'calc((100% - 6px) / 2)'}} options={[{value:'curator',label:'По инспекторам'},{value:'community',label:'По игрокам'}]}/></div>
           {territories.length===0
             ? <div style={{textAlign:'center',padding: '40px 15px',color:'var(--theme-color-text-muted)',fontSize:13}}>Городов пока нет — станьте первым, кто добавит свой.</div>
             : <div style={{display:'flex',flexDirection:'column',gap: 8}}>
