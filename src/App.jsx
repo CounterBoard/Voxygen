@@ -331,7 +331,7 @@ function TelegramSticker({stickerId,awardId,format='image',emoji='',size=32,styl
 
 function TerritoryAwardIcon({award,size=32,style={},preview=false}) {
   if(award?.sticker_format&&award?.id) {
-    return <TelegramSticker awardId={award.id} format={award.sticker_format} emoji={award.emoji} size={size} style={style} preview={preview} hasThumbnail={Boolean(award.sticker_thumbnail_file_id)}/>;
+    return <TelegramSticker key={'award-'+String(award.id)} awardId={award.id} format={award.sticker_format} emoji={award.emoji} size={size} style={style} preview={preview} hasThumbnail={Boolean(award.sticker_thumbnail_file_id)}/>;
   }
   return <AwardEmoji emoji={award?.emoji} size={size} style={style}/>;
 }
