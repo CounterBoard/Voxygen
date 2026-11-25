@@ -1,4 +1,4 @@
-// Voxygen-Version: v55
+// Voxygen-Version: v56
 import React, { useEffect, useState, useRef, useId } from 'react';
 import lottie from 'lottie-web';
 import { createPortal } from 'react-dom';
@@ -962,11 +962,11 @@ function ScoreBadge({ type, value, size = 'md' }) {
   );
 }
 
-function Segmented({ options, value, onChange, style = {}, optionStyle = {} }) {
+function Segmented({ options, value, onChange, style = {}, optionStyle = {}, indicatorStyle = {} }) {
   const activeIndex=Math.max(0,options.findIndex(opt=>opt.value===value));
   return (
     <div className="atlas-segmented" role="group" style={{'--segmented-count':options.length,'--segmented-index':activeIndex,...style}}>
-      <span className="atlas-segmented__indicator" aria-hidden="true"/>
+      <span className="atlas-segmented__indicator" aria-hidden="true" style={indicatorStyle}/>
       {options.map((opt) => {
         const active = opt.value === value;
         return (
@@ -2828,7 +2828,7 @@ function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImag
           </div>
         </div>
       : <div style={{padding: '0 15px'}}>
-          <div style={{marginBottom: 10}}><Segmented value={sortBy} onChange={setSortBy} style={{height:36,boxSizing:'border-box',padding:0}} optionStyle={{height:'100%',minHeight:0,padding:'0 12px'}} options={[{value:'curator',label:'По инспекторам'},{value:'community',label:'По игрокам'}]}/></div>
+          <div style={{marginBottom: 10}}><Segmented value={sortBy} onChange={setSortBy} style={{height:36,boxSizing:'border-box',padding:0}} optionStyle={{height:'100%',minHeight:0,padding:'0 12px'}} indicatorStyle={{top:0,bottom:0}} options={[{value:'curator',label:'По инспекторам'},{value:'community',label:'По игрокам'}]}/></div>
           {territories.length===0
             ? <div style={{textAlign:'center',padding: '40px 15px',color:'var(--theme-color-text-muted)',fontSize:13}}>Городов пока нет — станьте первым, кто добавит свой.</div>
             : <div style={{display:'flex',flexDirection:'column',gap: 8}}>
@@ -3855,7 +3855,7 @@ function HomeFeatureButtonModal({mode='view',config,onClose,initData,onSaved}){
     <label style={{display:'block',fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700}}>Заголовок<input value={form.title||''} maxLength={80} onChange={e=>patch({title:e.target.value})} style={inputStyle}/></label>
     <label style={{display:'block',fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginTop: 12}}>Подзаголовок<input value={form.subtitle||''} maxLength={140} onChange={e=>patch({subtitle:e.target.value})} style={inputStyle}/></label>
     <label style={{display:'block',fontSize:12,color:'var(--theme-color-text-muted)',fontWeight:700,marginTop: 12}}>Текст<TextAreaField value={form.text||''} maxLength={6000} rows={6} onChange={e=>patch({text:e.target.value})} style={{...inputStyle,resize:'vertical',lineHeight:1.5}}/></label>
-    <div style={{marginTop: 8}}><SettingsToggle label="Скрыть кнопку для пользователей" description="Главный инспектор продолжит видеть кнопку и сможет редактировать её." checked={Boolean(form.hidden)} onChange={hidden=>patch({hidden})}/></div>
+    <div style={{marginTop: 8}}><ToggleField label="Скрыть кнопку для пользователей" description="Главный инспектор продолжит видеть кнопку и сможет редактировать её." checked={Boolean(form.hidden)} onChange={hidden=>patch({hidden})}/></div>
     {error&&<div role="alert" style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop: 8}}>{error}</div>}
     <button onClick={save} disabled={busy} className="press" style={{width:'100%',border:'none',borderRadius:11,padding: '12px',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:750,marginTop: 12}}>{busy?'Сохранение…':'Сохранить'}</button>
   </SimpleModal>;
