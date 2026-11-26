@@ -9,7 +9,8 @@ const territoriesHook = readFileSync(new URL('../src/features/territories/useTer
 test('Telegram profile loading and nickname claiming are owned by a dedicated hook', () => {
   assert.match(app, /import \{ useTelegramProfile \} from '\.\/features\/profile\/useTelegramProfile\.js'/);
   assert.match(app, /role, profile, profileLoadState, profileLoadError, refreshProfile, claimNickname,[\s\S]*?\} = useTelegramProfile\(/);
-  assert.match(app, /onTelegramIdentityChanged:[\s\S]*?setTerritories\(TERRITORIES\)[\s\S]*?loadTerritories\(\)/);
+  assert.match(app, /onTelegramIdentityChanged: \(\) => resetTerritoriesForIdentityRef\.current\(\)/);
+  assert.match(app, /resetTerritoriesForIdentityRef\.current = resetForTelegramIdentity/);
   assert.doesNotMatch(app, /async function claimNickname\(|const refreshProfile = async|profileRequestVersionRef|activeTelegramIdRef/);
   assert.match(hook, /export function useTelegramProfile\(/);
 });
@@ -39,8 +40,9 @@ test('profile role and status mapping remain distinct for members, inspectors an
 test('profile refresh reacts only to a confirmed Telegram identity change', () => {
   assert.match(hook, /responseUserId && activeTelegramIdRef\.current && responseUserId !== activeTelegramIdRef\.current/);
   assert.match(hook, /identityChangeCallbackRef\.current\?\.\(\)/);
-  assert.match(app, /setTerritoriesHasLoaded\(false\)/);
-  assert.match(app, /setTerritoriesError\(null\)/);
+  assert.match(territoriesHook, /setTerritories\(EMPTY_TERRITORIES\)/);
+  assert.match(territoriesHook, /setTerritoriesHasLoaded\(false\)/);
+  assert.match(territoriesHook, /setTerritoriesError\(null\)/);
 });
 
 test('nickname claim keeps its route, payload and user-facing outcomes', () => {
