@@ -102,5 +102,5 @@ test("award sticker delivery exposes safe diagnostic error codes and never cache
   const logPayload=handler.slice(logStart,logEnd);
   assert.ok(logPayload);
   assert.doesNotMatch(logPayload,/awardId|packStickerId|requestedFileId|BOT_TOKEN|filePath|token/i);
-  assert.doesNotMatch(handler,/error: String\\(error/);
+  assert.ok(!handler.includes("error: String"), "raw upstream error details must not be logged");
 });
