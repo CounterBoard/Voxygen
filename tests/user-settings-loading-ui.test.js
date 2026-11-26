@@ -75,7 +75,7 @@ test('missing Telegram init data and request failures retain their previous read
 test('the hook effect remains after profile refresh and its documented boundary matches the implementation', () => {
   assert.ok(app.indexOf('refreshProfile();') < app.indexOf('useUserSettings({'));
   assert.match(doc, /15 seconds/);
-  assert.match(doc, /15 seconds interval/);
+  assert.match(doc, /polls every 15 seconds/);
   assert.match(doc, /AbortController/);
   assert.match(doc, /globalOverrides/);
   assert.match(doc, /GlobalSettingsPanel/);
