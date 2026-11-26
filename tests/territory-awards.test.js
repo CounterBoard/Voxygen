@@ -81,3 +81,26 @@ test("one sticker endpoint resolves either a pack sticker or an issued award; An
   assert.match(worker,/if \(url\.pathname === "\/api\/telegram-sticker" && request\.method === "GET"\)/);
   assert.doesNotMatch(worker,/serveTelegramEmoji|\/api\/telegram-emoji|AnimatedEmojies/);
 });
+
+test("award sticker delivery exposes safe diagnostic error codes and never caches failures",()=>{
+  const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8");
+  const start=worker.indexOf("async function serveTelegramAwardSticker(");
+  const end=worker.indexOf("\n}\n\n",start)+2;
+  assert.ok(start>=0&&end>start);
+  const handler=worker.slice(start,end);
+  for(const reason of [
+    "invalid_query","record_not_found","preview_unavailable","file_id_missing",
+    "telegram_getfile_http","telegram_getfile_api","telegram_file_path_invalid",
+    "file_extension_mismatch","telegram_file_http","file_size_invalid",
+    "tgs_decompression_failed","tgs_json_invalid","tgs_validation_failed","internal_error"
+  ]) assert.ok(handler.includes(reason), "missing diagnostic reason: "+reason);
+  assert.match(handler,/X-Voxygen-Sticker-Error/);
+  assert.match(handler,/Cache-Control': 'no-store'/);
+  assert.ok(handler.includes("console.warn('[award-sticker]'"));
+  const logStart=handler.indexOf("console.warn('[award-sticker]'");
+  const logEnd=handler.indexOf("}));",logStart);
+  const logPayload=handler.slice(logStart,logEnd);
+  assert.ok(logPayload);
+  assert.doesNotMatch(logPayload,/awardId|packStickerId|requestedFileId|BOT_TOKEN|filePath|token/i);
+  assert.ok(!handler.includes("error: String"), "raw upstream error details must not be logged");
+});

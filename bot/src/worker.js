@@ -131,46 +131,67 @@ async function serveTelegramAwardSticker(request, env) {
   const url = new URL(request.url);
   const packStickerId = String(url.searchParams.get('stickerId') || '').trim();
   const awardId = String(url.searchParams.get('awardId') || '').trim();
-  if (Boolean(packStickerId) === Boolean(awardId)) {
-    return withCors(new Response(null, { status: 400, headers: { 'Cache-Control': 'no-store' } }));
-  }
+  const wantsPreview = url.searchParams.get('preview') === '1';
+  let format = 'unknown';
+
+  // Keep public responses intentionally opaque; expose only a stable diagnostic
+  // code in a response header and Cloudflare logs. Never log IDs, file paths,
+  // Telegram responses, or credentials.
+  const fail = (reason, status = 404) => {
+    console.warn('[award-sticker]', JSON.stringify({
+      reason,
+      preview: wantsPreview,
+      format,
+      status,
+    }));
+    return withCors(new Response(null, {
+      status,
+      headers: {
+        'Cache-Control': 'no-store',
+        'X-Voxygen-Sticker-Error': reason,
+        'X-Content-Type-Options': 'nosniff',
+      },
+    }));
+  };
+
+  if (Boolean(packStickerId) === Boolean(awardId)) return fail('invalid_query', 400);
+
   try {
     await ensureWorldTables(env);
     const record = packStickerId
       ? await env.DB.prepare(`SELECT file_id,format,thumbnail_file_id FROM telegram_award_pack_stickers WHERE id=? LIMIT 1`).bind(packStickerId).first()
       : await env.DB.prepare(`SELECT sticker_file_id AS file_id,sticker_format AS format,sticker_thumbnail_file_id AS thumbnail_file_id FROM territory_awards WHERE id=? LIMIT 1`).bind(awardId).first();
-    const wantsPreview = url.searchParams.get('preview') === '1';
-    const isPreviewImage = wantsPreview && (record?.thumbnail_file_id || record?.format === 'image');
+
+    format = String(record?.format || 'unknown');
+    if (!record) return fail('record_not_found');
+    const isPreviewImage = wantsPreview && Boolean(record.thumbnail_file_id || record.format === 'image');
     const requestedFileId = wantsPreview
-      ? (record?.thumbnail_file_id || (record?.format === 'image' ? record?.file_id : null))
-      : record?.file_id;
-    if (!requestedFileId) {
-      return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
-    }
+      ? (record.thumbnail_file_id || (record.format === 'image' ? record.file_id : null))
+      : record.file_id;
+    if (!requestedFileId) return fail(wantsPreview ? 'preview_unavailable' : 'file_id_missing');
+
     const fileInfo = await telegram(env, 'getFile', { file_id: requestedFileId });
     const filePath = String(fileInfo.data?.result?.file_path || '');
-    if (!fileInfo.response.ok || !fileInfo.data?.ok || !filePath || filePath.includes('..') || filePath.startsWith('/')) {
-      return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
-    }
+    if (!fileInfo.response.ok) return fail('telegram_getfile_http', 502);
+    if (!fileInfo.data?.ok) return fail('telegram_getfile_api', 502);
+    if (!filePath || filePath.includes('..') || filePath.startsWith('/')) return fail('telegram_file_path_invalid', 502);
+
     const extension = filePath.split('.').pop().toLowerCase();
-    const format = isPreviewImage ? 'image' : String(record.format || 'image');
-    const allowedExtension = format === 'tgs' ? extension === 'tgs'
-      : format === 'webm' ? extension === 'webm'
+    const responseFormat = isPreviewImage ? 'image' : String(record.format || 'image');
+    const allowedExtension = responseFormat === 'tgs' ? extension === 'tgs'
+      : responseFormat === 'webm' ? extension === 'webm'
       : ['webp', 'png', 'jpg', 'jpeg'].includes(extension);
-    if (!allowedExtension) {
-      return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
-    }
+    if (!allowedExtension) return fail('file_extension_mismatch', 415);
+
     const token = String(env.BOT_TOKEN || '').trim();
     const upstream = await fetch(TELEGRAM_API + '/file/bot' + token + '/' + filePath);
-    if (!upstream.ok) {
-      return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
-    }
+    if (!upstream.ok) return fail('telegram_file_http', 502);
+
     const bytes = await upstream.arrayBuffer();
-    const maxBytes = format === 'tgs' ? 512 * 1024 : 20 * 1024 * 1024;
-    if (!bytes.byteLength || bytes.byteLength > maxBytes) {
-      return withCors(new Response(null, { status: 413, headers: { 'Cache-Control': 'no-store' } }));
-    }
-    if (format === 'tgs') {
+    const maxBytes = responseFormat === 'tgs' ? 512 * 1024 : 20 * 1024 * 1024;
+    if (!bytes.byteLength || bytes.byteLength > maxBytes) return fail('file_size_invalid', 413);
+
+    if (responseFormat === 'tgs') {
       let animationText = '';
       try {
         const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
@@ -183,20 +204,18 @@ async function serveTelegramAwardSticker(request, env) {
           totalBytes += value.byteLength;
           if (totalBytes > 1024 * 1024) {
             await reader.cancel();
-            return withCors(new Response(null, { status: 413, headers: { 'Cache-Control': 'no-store' } }));
+            return fail('tgs_decompressed_size_invalid', 413);
           }
           animationText += decoder.decode(value, { stream: true });
         }
         animationText += decoder.decode();
       } catch {
-        return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
+        return fail('tgs_decompression_failed', 415);
       }
       let animationData;
       try { animationData = JSON.parse(animationText); }
-      catch { return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } })); }
-      if (!isSafeTelegramTgsAnimation(animationData)) {
-        return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
-      }
+      catch { return fail('tgs_json_invalid', 415); }
+      if (!isSafeTelegramTgsAnimation(animationData)) return fail('tgs_validation_failed', 415);
       return withCors(new Response(JSON.stringify(animationData), {
         status: 200,
         headers: {
@@ -207,7 +226,8 @@ async function serveTelegramAwardSticker(request, env) {
         },
       }));
     }
-    const contentType = format === 'webm' ? 'video/webm' : extension === 'png' ? 'image/png' : ['jpg','jpeg'].includes(extension) ? 'image/jpeg' : 'image/webp';
+
+    const contentType = responseFormat === 'webm' ? 'video/webm' : extension === 'png' ? 'image/png' : ['jpg','jpeg'].includes(extension) ? 'image/jpeg' : 'image/webp';
     return withCors(new Response(bytes, {
       status: 200,
       headers: {
@@ -218,8 +238,19 @@ async function serveTelegramAwardSticker(request, env) {
       },
     }));
   } catch (error) {
-    console.error('Telegram award sticker unavailable:', String(error?.message || error).slice(0, 180));
-    return withCors(new Response(null, { status: 404, headers: { 'Cache-Control': 'public, max-age=300' } }));
+    console.error('[award-sticker]', JSON.stringify({
+      reason: 'internal_error',
+      preview: wantsPreview,
+      format,
+    }));
+    return withCors(new Response(null, {
+      status: 500,
+      headers: {
+        'Cache-Control': 'no-store',
+        'X-Voxygen-Sticker-Error': 'internal_error',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    }));
   }
 }
 
