@@ -16,7 +16,7 @@ test("territory award sticker components are isolated from the app shell and ret
   assert.match(awardIcons,/function AwardEmoji\(/);
   assert.match(awardIcons,/hasThumbnail=\{Boolean\(award\.sticker_thumbnail_file_id\)\}/);
   assert.match(awardIcons,/key=\{\'award-\'\+String\(award\.id\)\}/);
-  assert.match(awardIcons,/hasThumbnail=\{Boolean\(sticker\.thumbnail_file_id\)\}/);
+  assert.match(app,/hasThumbnail=\{Boolean\(sticker\.thumbnail_file_id\)\}/);
   assert.match(awardIcons,/const fallbackEmoji=<AwardEmoji emoji=\{emoji\} size=\{size\}\/\>/);
   assert.match(awardIcons,/format==='tgs'/);
   assert.match(awardIcons,/format==='webm'/);
