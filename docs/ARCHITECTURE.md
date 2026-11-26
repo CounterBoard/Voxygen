@@ -16,6 +16,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Event/calendar feature | `src/features/events/` | Event screens and forms, date/time conversion and calendar controls |
 | Territory award rendering and admin manager | `src/features/territory-awards/` | Telegram sticker rendering, award icons, source-pack gallery, award grants and issued-award administration |
 | Admin tools | `src/features/admin-tools/` | Read-only D1 health report and JSON export, inspector assignment/removal, and confirmed-user administration (list/create/edit/delete) |
+| User settings lifecycle | `src/features/settings/useUserSettings.js` | Loads effective theme, timezone and map zoom; manages request cancellation, polling, expiry refresh and readiness/error state |
 | Global settings overlay | `src/features/settings/GlobalSettingsPanel.jsx` | Main-inspector control of global theme/zoom overrides, expiry and per-theme visibility rules |
 | Customization feature | `src/features/customization/` | Visual catalog, account-scope selection, visual creation/editing, purchases, ordering and visibility controls |
 | Territory summary data lifecycle | `src/features/territories/useTerritories.js` | Loads and normalizes the shared territory summary list, preserves fields for degraded API areas, and coalesces overlapping requests; `App.jsx` owns active-screen refresh scheduling |
