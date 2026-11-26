@@ -12,7 +12,7 @@ const profileInventoryIndex = appSource.indexOf("function ProfileInventory(");
 const appWithTerritoryManagement = profileInventoryIndex >= 0
   ? `${appSource.slice(0, profileInventoryIndex)}\n${territoryManagementModule}\n${appSource.slice(profileInventoryIndex)}`
   : `${appSource}\n${territoryManagementModule}`;
-const app = `${appWithTerritoryManagement}\n${visualColorPicker}\n${territoryFeedbackPanel}\n${appShellStyles}`;
+const app = `${appWithTerritoryManagement}\n${visualColorPicker}\n${territoryFeedbackPanel}\n${territoryDetailModule}\n${appShellStyles}`;
 const awardIcons = readFileSync(new URL("../src/features/territory-awards/TelegramSticker.jsx", import.meta.url), "utf8");
 const awardManager = readFileSync(new URL("../src/features/territory-awards/MainInspectorAwardManager.jsx", import.meta.url), "utf8");
 const issuedAwardsPanel = readFileSync(new URL("../src/features/territory-awards/IssuedAwardsPanel.jsx", import.meta.url), "utf8");
