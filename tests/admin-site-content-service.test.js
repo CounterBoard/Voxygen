@@ -118,9 +118,10 @@ test("hidden home feature content is redacted for ordinary users", async () => {
     text: "Private content",
     hidden: true,
   };
+  const env = { DB: dbReturning({ value: JSON.stringify(config) }) };
   const response = await getHomeFeatureButton(
     new Request("https://voxygen.test/api/home-feature-button"),
-    { DB: dbReturning({ value: JSON.stringify(config) }) },
+    env,
     {
       requireUser: async () => ({ user: { id: 123, username: "player" } }),
       ensureWorldTables: async () => { ensureWorld += 1; },
@@ -135,7 +136,7 @@ test("hidden home feature content is redacted for ordinary users", async () => {
   assert.deepEqual(body, { ok: true, config: { ...DEFAULT_HOME_FEATURE_BUTTON, hidden: true } });
   assert.equal(ensureWorld, 1);
   assert.equal(ensureSettings, 1);
-  assert.deepEqual(roleArguments, [{ DB: dbReturning({ value: JSON.stringify(config) }) }, 123, "player"]);
+  assert.deepEqual(roleArguments, [env, 123, "player"]);
 });
 
 test("main inspector can read the configured hidden home feature content", async () => {
