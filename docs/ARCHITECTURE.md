@@ -9,6 +9,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Area | Location | Responsibility |
 | --- | --- | --- |
 | Application shell and screen composition | `src/App.jsx` | App-wide state, navigation, screen composition, shared UI primitives and cross-feature orchestration |
+| Telegram profile lifecycle | `src/features/profile/useTelegramProfile.js` | Profile refresh, session-aware request cancellation/deduplication, role/status state and nickname claims |
 | World map upload and publication UI | `src/features/world-map/MapUploadPanel.jsx` | Square-image validation, binary upload progress, manifest polling and recoverable publication status |
 | World map viewport | `src/features/world-map/VoxMap.jsx` | Pan, pinch and wheel gestures, transform synchronization, visible deep-zoom / URL-grid tile selection, and territory marker rendering |
 | World map asset loader | `src/features/world-map/useWorldMap.js` | Manifest/preview loading, legacy image fallback, retry and stale-request protection |

@@ -1,6 +1,7 @@
 // Voxygen-Version: v63
 import React, { useEffect, useState, useRef, useId } from 'react';
 import { useWorldMap } from './features/world-map/useWorldMap.js';
+import { useTelegramProfile } from './features/profile/useTelegramProfile.js';
 import gemIconUrl from './assets/gem-icon.png';
 import { API_BASE } from './config/api.js';
 import { TerritoryAwardIcon } from './features/territory-awards/TelegramSticker.jsx';
@@ -1470,7 +1471,6 @@ function BottomNav({screen,onNavigate}){const items=[{key:'customization',icon:S
 // ---------------------------------------------------------------------------
 export default function CityRatingApp() {
   const tgUser = getTelegramUser();
-  const [role, setRole] = useState('user');
   const [timezoneOffset,setTimezoneOffset] = useState('UTC+3');
   const [activeTheme,setActiveTheme]=useState(DEFAULT_THEME_ID);
   const [mapZoomPercent,setMapZoomPercent] = useState(88);
@@ -1491,15 +1491,6 @@ export default function CityRatingApp() {
   const [expandedEventId, setExpandedEventId] = useState(null);
   const [territories, setTerritories] = useState(TERRITORIES);
   const territoriesRef = useRef(TERRITORIES);
-  const [profile, setProfile] = useState(() => ({ nickname: '', status: 'none' }));
-  const [profileLoadState, setProfileLoadState] = useState('loading');
-  const [profileLoadError, setProfileLoadError] = useState(null);
-  const profileLoadedOnceRef = useRef(false);
-  const profileRequestRef = useRef(false);
-  const profileRequestInitDataRef = useRef('');
-  const profileAbortRef = useRef(null);
-  const profileRequestVersionRef = useRef(0);
-  const activeTelegramIdRef = useRef(String(tgUser?.id||''));
   const territoriesRequestRef = useRef(false);
   const territoriesRefreshQueuedRef = useRef(false);
   const [showAddTerritory, setShowAddTerritory] = useState(false);
@@ -1518,88 +1509,21 @@ export default function CityRatingApp() {
   const [globalSettingsOpen,setGlobalSettingsOpen]=useState(false);
 
   const { worldMapImage, worldMapSource, worldMapLoading, worldMapError, loadWorldMap, retryWorldMap, onMapSaved } = useWorldMap({ safeCaughtError });
+  const {
+    role, profile, profileLoadState, profileLoadError, refreshProfile, claimNickname,
+  } = useTelegramProfile({
+    initialTelegramId: tgUser?.id,
+    onTelegramIdentityChanged: () => {
+      setTerritories(TERRITORIES);
+      setTerritoriesHasLoaded(false);
+      setTerritoriesError(null);
+      loadTerritories();
+    },
+    ui: { apiErrorMessage, safeCaughtError, parseApiResponse },
+  });
 
   const selected = territories.find((t) => String(t.id) === String(selectedId));
 
-  const refreshProfile = async () => {
-    if (document.visibilityState === 'hidden') return;
-    const initData = window.Telegram?.WebApp?.initData || '';
-    if (!initData) {
-      const message = 'Откройте Voxygen через Telegram, чтобы проверить профиль.';
-      setProfileLoadError(message);
-      if (!profileLoadedOnceRef.current) setProfileLoadState('error');
-      return;
-    }
-    if(profileRequestRef.current && profileRequestInitDataRef.current===initData) return;
-if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) profileAbortRef.current?.abort();
-    const requestVersion=++profileRequestVersionRef.current;
-    const controller=new AbortController();
-    profileAbortRef.current=controller;
-    profileRequestRef.current = true;
-    profileRequestInitDataRef.current=initData;
-    let timedOut=false;
-    const timeout=setTimeout(()=>{timedOut=true;controller.abort();},15000);
-    try {
-      const res = await fetch(`${API_BASE}/api/me`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-        signal: controller.signal,
-        body: JSON.stringify({ initData }),
-      });
-      const data = await res.json().catch(() => null);
-      if(requestVersion!==profileRequestVersionRef.current)return;
-      if (!res.ok || !data?.ok) {
-        const message = apiErrorMessage(res, data, 'Не удалось проверить профиль. Повторите попытку.');
-        setProfileLoadError(message);
-        if (!profileLoadedOnceRef.current) setProfileLoadState('error');
-        console.warn('Voxygen profile refresh failed', { status: res.status, code: data?.code || 'PROFILE_REQUEST_FAILED', requestId: res.headers?.get('X-Request-ID') || null });
-        return;
-      }
-
-      setRole(data.role || 'user');
-      const responseUserId=String(data.user?.id||'');
-      if(responseUserId && activeTelegramIdRef.current && responseUserId!==activeTelegramIdRef.current){
-        activeTelegramIdRef.current=responseUserId;
-        setTerritories(TERRITORIES);setTerritoriesHasLoaded(false);setTerritoriesError(null);
-        loadTerritories();
-      } else if(responseUserId) activeTelegramIdRef.current=responseUserId;
-      if (data.profile) {
-        const nextProfile = {
-          nickname: data.profile.mc_nickname || '',
-          status: data.profile.status || 'none',
-          skinUrl: data.profile.skin_url || null,
-          xuid: data.profile.xuid || null,
-          skinTextureId: data.profile.skin_texture_id || null,
-          city: data.city || null,
-        };
-        setProfile(nextProfile);
-        if (nextProfile.status === 'verified' && nextProfile.nickname) setProfileLoadState('verified');
-        else if (!nextProfile.nickname) setProfileLoadState('needs_nickname');
-        else setProfileLoadState('loaded');
-      } else if (data.role === 'inspector' || data.role === 'main_inspector') {
-        setProfile({ nickname: '', status: 'verified', skinUrl: null, city: data.city || null });
-        setProfileLoadState('verified');
-      } else {
-        // Only a successful /api/me response with an empty profile authorizes
-        // the nickname-claim flow. Errors never fall through to this state.
-        setProfile({ nickname: '', status: 'none', skinUrl: null, city: data.city || null });
-        setProfileLoadState('needs_nickname');
-      }
-      profileLoadedOnceRef.current = true;
-      setProfileLoadError(null);
-    } catch (error) {
-      if(requestVersion!==profileRequestVersionRef.current)return;
-      if(error?.name==='AbortError'&&!timedOut)return;
-      const message = error?.name==='AbortError'&&timedOut ? 'Сервер отвечает дольше обычного. Повторите попытку.' : safeCaughtError(error, 'Не удалось проверить профиль. Повторите попытку.');
-      setProfileLoadError(message);
-      if (!profileLoadedOnceRef.current) setProfileLoadState('error');
-      console.warn('Voxygen profile refresh failed', { code: timedOut?'PROFILE_TIMEOUT':'PROFILE_NETWORK_ERROR' });
-    } finally {
-      clearTimeout(timeout);
-      if(requestVersion===profileRequestVersionRef.current){profileRequestRef.current=false;profileAbortRef.current=null;profileRequestInitDataRef.current='';}
-    }
-  };
 
   useEffect(() => {
     refreshProfile();
@@ -1854,27 +1778,6 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
     setSelectedId(null);
   }
 
-  async function claimNickname(raw) {
-    const nick = (raw || '').trim();
-    if (!nick) return { ok: false, message: 'Введите ник.' };
-    try {
-      const initData = window.Telegram?.WebApp?.initData || '';
-      if (!initData) return { ok: false, message: 'Откройте приложение через Telegram.' };
-      const res = await fetch(`${API_BASE}/api/profile/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nickname: nick, initData }),
-      });
-      const data = await parseApiResponse(res, 'Не удалось отправить заявку на никнейм.');
-      setProfile((prev) => ({ ...prev, nickname: nick, status: data.status || 'pending' }));
-      setProfileLoadState(data.status === 'verified' ? 'verified' : 'loaded');
-      setProfileLoadError(null);
-      profileLoadedOnceRef.current = true;
-      return { ok: true };
-    } catch (error) {
-      return { ok: false, message: safeCaughtError(error, 'Не удалось отправить заявку.') };
-    }
-  }
 
   async function submitTerritoryRequest(data) {
     setShowAddTerritory(false);
