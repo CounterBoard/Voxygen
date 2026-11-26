@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { getD1Diagnostics, sqlIdentifier } from "../bot/src/features/admin-tools/d1-diagnostics.js";
 
 function json(data, status = 200) {
@@ -89,7 +90,7 @@ test("D1 diagnostics returns a read-only inventory and issues only SELECT/PRAGMA
 });
 
 test("the diagnostics service stays read-only and never invokes schema bootstrap", () => {
-  const source = (await import("node:fs")).readFileSync(
+  const source = readFileSync(
     new URL("../bot/src/features/admin-tools/d1-diagnostics.js", import.meta.url),
     "utf8",
   );
