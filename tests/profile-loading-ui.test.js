@@ -46,7 +46,7 @@ test('nickname claim keeps its route, payload and user-facing outcomes', () => {
   assert.match(hook, /\/api\/profile\/claim/);
   assert.match(hook, /JSON\.stringify\(\{ nickname: nick, initData \}\)/);
   assert.match(hook, /Введите ник\./);
-  assert.match(hook, /Откройте Voxygen через Telegram\./);
+  assert.match(hook, /Откройте приложение через Telegram\./);
   assert.match(hook, /Не удалось отправить заявку\./);
   assert.match(hook, /setProfile\(prev => \(\{ \.\.\.prev, nickname: nick, status: data\.status \|\| 'pending' \}\)\)/);
 });
