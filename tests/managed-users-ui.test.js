@@ -10,7 +10,7 @@ const inspector = app.slice(inspectorStart, inspectorEnd);
 
 test('managed users UI is extracted from the main inspector and mounted in its original position', () => {
   assert.match(app, /import \{ ManagedUsersPanel \} from '\.\/features\/admin-tools\/ManagedUsersPanel\.jsx'/);
-  assert.match(inspector, /<ManagedUsersPanel initData=\{initData\} onError=\{setError\} onNotice=\{setNotice\} ui=\{\{Field,MinecraftText,apiErrorMessage,safeCaughtError\}\} \/>/);
+  assert.match(inspector, /<ManagedUsersPanel initData=\{initData\} onError=\{setError\} onNotice=\{showNotice\} ui=\{\{Field,MinecraftText,apiErrorMessage,safeCaughtError\}\} \/>/);
   assert.doesNotMatch(inspector, /managedUsers|newMcNickname|newTelegramId|editingUserId|function addUser|function saveUser|function deleteUser/);
   assert.match(inspector, /<WorldMapUploadPanel[\s\S]*?<ManagedUsersPanel[\s\S]*?ЧиВо/);
   assert.match(panel, /export function ManagedUsersPanel\(/);
