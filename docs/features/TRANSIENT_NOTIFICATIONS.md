@@ -26,7 +26,9 @@ The `revision` prop is an event identity, not a message identity. A caller incre
 - Territory detail: `flash` increments a revision and leaves expiry to `FixedToast`; it no longer schedules independent stale hide timers.
 - Root home screen: `showHomeToast` clears the previous timeout before scheduling a new one; the timer is cleaned up when the root unmounts.
 - Global notifications: the global toast sequence ID is reused as its revision.
+- Events screen: reminder notices and event edit/delete feedback increment a notice revision. Event creation, inline editing and event management each use a separate revision for the two-month date-limit warning; repeated attempts restart the timeout.
+- Other audited source modules do not render the shared `FixedToast` component; their status messages are persistent inline feedback rather than timed portal toasts.
 
 ## Regression coverage
 
-`tests/toast-revision-ui.test.js` guards timer dependencies/cleanup, repeated identical message revisions, the four-award limit notification, territory detail feedback, main inspector and treasury notices, and root home/global notification scheduling.
+`tests/toast-revision-ui.test.js` guards timer dependencies/cleanup, repeated identical message revisions, the four-award limit notification, territory detail feedback, main inspector and treasury notices, and root home/global notification scheduling. `tests/events-toast-ui.test.js` protects event reminder feedback, event create/edit/delete notices and all three date-limit toast instances.
