@@ -1629,6 +1629,8 @@ POST /api/faq
 GET  /api/home-feature-button
 POST /api/home-feature-button
 
+Маршруты FAQ и главной информационной кнопки делегируются в `bot/src/features/admin-tools/site-content.js`. Worker сохраняет маршрутизацию, проверки `requireMainInspector` / `requireUser` и передачу D1 helper-функций; данные остаются в `app_settings`.
+
 VOX Grid:
 GET  /api/vox-grid
 POST /api/vox-grid
