@@ -15,6 +15,7 @@ export function TerritoryDetail({ base, onBack, profile, onGoToProfile, tgUser, 
   const [lightbox, setLightbox] = useState(null);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [toast, setToast] = useState(null);
+  const [toastRevision,setToastRevision]=useState(0);
   const residentCount = Number(t.resident_count ?? ((t.residents || []).length + (t.owner_telegram_id ? 1 : 0)));
   const [showResidents, setShowResidents] = useState(false);
   const [showDonation, setShowDonation] = useState(false);
@@ -78,7 +79,7 @@ export function TerritoryDetail({ base, onBack, profile, onGoToProfile, tgUser, 
     return () => { cancelled = true; };
   }, [base?.id, initData, detailsAttempt]);
 
-  function flash(message) { setToast(message); setTimeout(() => setToast(null), 2200); }
+  function flash(message) { setToast(message); setToastRevision(value=>value+1); }
 
 const approved = (t.screenshots || []).filter(s => s.status === 'approved');
   return (
@@ -140,7 +141,7 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
       {showResidents && <SimpleModal title="Жители" onClose={() => setShowResidents(false)}><div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{(t.managers||[]).map((m,i)=><div key={`manager-${m.telegram_id||i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--theme-color-status-success-soft)', borderRadius: 11 }}><AvatarHead nickname={m.mc_nickname} skinUrl={m.skin_url} size={40}/><div style={{ flex: 1, minWidth:0 }}><MinecraftText text={m.mc_nickname || m.telegram_username || 'Ник не указан'} style={{fontSize:13,fontWeight:700}}/><div style={{ fontSize: 10.5, color: 'var(--theme-color-status-success)' }}>Основатель/мэр</div></div><ShieldCheck size={18} color="var(--theme-color-status-success)" /></div>)}{(t.resident_rows||[]).length===0 ? ((t.residents || []).length === 0 ? <div style={{ fontSize: 12, color: 'var(--theme-color-text-muted)' }}>Кроме основателей/мэров жителей пока нет.</div> : (t.residents || []).map((r,i)=><div key={`legacy-resident-${i}`} style={{ display:'flex',alignItems:'center',gap: 8,padding: '10px 12px',background:'var(--theme-color-surface-raised)',borderRadius:11 }}><AvatarHead nickname={r} size={40}/><MinecraftText text={r} style={{fontSize:13}}/></div>)) : (t.resident_rows||[]).map((r,i)=><div key={`resident-${r.telegram_id||i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--theme-color-surface-raised)', borderRadius: 11 }}><AvatarHead nickname={r.mc_nickname} skinUrl={r.skin_url} size={40}/><div style={{flex:1,minWidth:0}}><MinecraftText text={r.mc_nickname || r.telegram_username || 'Ник не указан'} style={{fontSize:13,fontWeight:700}}/>{r.telegram_username&&<div style={{fontSize:10.5,color:'var(--theme-color-text-muted)'}}>@{String(r.telegram_username).replace(/^@/,'')}</div>}</div></div>)}</div></SimpleModal>}
       {lightbox && <Lightbox shots={approved} index={lightboxIndex} mode="view" onClose={() => setLightbox(null)} onChange={(i)=>{setLightboxIndex(i);setLightbox({shot:approved[i]});}} />}
       {showDonation && <DonationModal territory={t} initData={initData} onClose={()=>setShowDonation(false)} onSuccess={()=>{setShowDonation(false);flash('Донат отправлен');}} onToast={onToast}/>}
-      {toast && <FixedToast key={toast} message={toast}/>}
+      {toast && <FixedToast revision={toastRevision} message={toast}/>}
     </div>
   );
 }
