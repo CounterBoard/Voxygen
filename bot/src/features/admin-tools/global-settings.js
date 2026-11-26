@@ -1,5 +1,5 @@
-import { isSupportedTheme, normalizeThemeId as normalizeVoxygenTheme } from '../../../shared/theme-catalog.js';
-import { normalizeMapZoomPercent } from '../../../shared/world-map-coordinates.js';
+import { isSupportedTheme, normalizeThemeId as normalizeVoxygenTheme } from '../../../../shared/theme-catalog.js';
+import { normalizeMapZoomPercent } from '../../../../shared/world-map-coordinates.js';
 
 export const GLOBAL_SETTING_KEYS = new Set(['theme', 'map_zoom']);
 
