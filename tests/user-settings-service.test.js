@@ -225,7 +225,7 @@ test("POST preserves omitted preferences for older clients and saves only territ
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
-  assert.deepEqual(preferenceWrite.values.slice(0, 9).slice(0, 8), [42, "vox", "UTC-4", 1, 1, 64, 0, 0]);
+  assert.deepEqual(preferenceWrite.values.slice(0, 8), [42, "vox", "UTC-4", 1, 1, 64, 0, 0]);
   assert.equal(preferenceWrite.values[9], 0, "omitted map preference does not change the map global marker");
   assert.equal(preferenceWrite.values[10], 0, "omitted theme preference does not change the theme global marker");
   assert.equal(notificationWrites.length, 1);
@@ -233,7 +233,9 @@ test("POST preserves omitted preferences for older clients and saves only territ
   assert.equal(calls.filter(call => call.name === "ensureWorldTables").length, 2);
   assert.equal(calls.filter(call => call.name === "ensureUserPreferenceTables").length, 2);
   assert.equal(calls.filter(call => call.name === "requireUser").length, 2);
-  assert.equal(calls.at(-1).header, "signed-init-data", "the refresh GET reuses the signed Telegram init data");
+  const authCalls = calls.filter(call => call.name === "requireUser");
+  assert.equal(authCalls.length, 2);
+  assert.equal(authCalls[1].header, "signed-init-data", "the refresh GET reuses the signed Telegram init data");
 });
 
 test("POST records global opt-out markers only when the matching personal setting changed", async () => {
