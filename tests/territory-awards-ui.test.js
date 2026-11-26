@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 const awardIcons = readFileSync(new URL("../src/features/territory-awards/TelegramSticker.jsx", import.meta.url), "utf8");
+const awardManager = readFileSync(new URL("../src/features/territory-awards/MainInspectorAwardManager.jsx", import.meta.url), "utf8");
 const themeTokens = readFileSync(new URL("../src/theme/theme-tokens.css", import.meta.url), "utf8");
 
 test("territory award sticker components are isolated from the app shell and retain their fallbacks",()=>{
@@ -16,7 +17,7 @@ test("territory award sticker components are isolated from the app shell and ret
   assert.match(awardIcons,/function AwardEmoji\(/);
   assert.match(awardIcons,/hasThumbnail=\{Boolean\(award\.sticker_thumbnail_file_id\)\}/);
   assert.match(awardIcons,/key=\{\'award-\'\+String\(award\.id\)\}/);
-  assert.match(app,/hasThumbnail=\{Boolean\(sticker\.thumbnail_file_id\)\}/);
+  assert.match(awardManager,/hasThumbnail=\{Boolean\(sticker\.thumbnail_file_id\)\}/);
   assert.match(awardIcons,/const fallbackEmoji=<AwardEmoji emoji=\{emoji\} size=\{size\}\/\>/);
   assert.match(awardIcons,/format==='tgs'/);
   assert.match(awardIcons,/format==='webm'/);
@@ -80,14 +81,16 @@ test("Telegram TGS payload validation requires a non-empty frame range",()=>{
 });
 
 
-test("main inspector profile replaces purchases with a 9-column custom emoji pack award manager",()=>{
-  assert.match(app,/\{isMainInspector\?<MainInspectorAwardManager initData=\{initData\} territories=\{territories\} onTerritoriesChanged=\{onTerritoriesChanged\}\/>/);
-  assert.match(app,/function MainInspectorAwardManager\(/);
-  assert.match(app,/gridTemplateColumns:'repeat\(9,minmax\(0,1fr\)\)'/);
-  assert.match(app,/border:selected\?'2px solid #6EE7B7'/);
-  assert.match(app,/https:\/\/t\.me\/addemoji\//);
-  assert.match(app,/type="date" value=\{awardDate\}/);
-  assert.match(app,/Выдать награду/);
+test("main inspector profile uses the isolated 9-column custom emoji pack award manager",()=>{
+  assert.match(app,/import \{ MainInspectorAwardManager \} from '\.\/features\/territory-awards\/MainInspectorAwardManager\.jsx'/);
+  assert.match(app,/\{isMainInspector\?<MainInspectorAwardManager initData=\{initData\} territories=\{territories\} onTerritoriesChanged=\{onTerritoriesChanged\} ui=\{\{apiErrorMessage,safeCaughtError\}\}\/\>/);
+  assert.match(awardManager,/export function MainInspectorAwardManager\(/);
+  assert.match(awardManager,/gridTemplateColumns:'repeat\(9,minmax\(0,1fr\)\)'/);
+  assert.match(awardManager,/border:selected\?'2px solid #6EE7B7'/);
+  assert.match(awardManager,/https:\/\/t\.me\/addemoji\//);
+  assert.match(awardManager,/type="date" value=\{awardDate\}/);
+  assert.match(awardManager,/Выдать награду/);
+  assert.match(awardManager,/from '\.\/TelegramSticker\.jsx'/);
 });
 
 test("main inspector issued awards list appears below D1 diagnostics and supports deletion",()=>{
@@ -111,11 +114,11 @@ test("territory rating rows crop the matching banner from its center without sca
 });
 
 test("main inspector emoji pack galleries are collapsed initially and have accessible toggles",()=>{
-  assert.match(app,/useState\(\(\)=>new Set\(\)\)/);
-  assert.match(app,/aria-expanded=\{expandedPackIds\.has\(String\(pack\.id\)\)\}/);
-  assert.match(app,/expandedPackIds\.has\(String\(pack\.id\)\)&&<div style=\{\{display:'grid',gridTemplateColumns:'repeat\(9,minmax\(0,1fr\)\)'/);
-  assert.doesNotMatch(app,/Добавьте публичный Telegram-пак пользовательских эмодзи/);
-  assert.doesNotMatch(app,/Выберите один эмодзи в галерее выше/);
+  assert.match(awardManager,/useState\(\(\)=>new Set\(\)\)/);
+  assert.match(awardManager,/aria-expanded=\{expandedPackIds\.has\(String\(pack\.id\)\)\}/);
+  assert.match(awardManager,/expandedPackIds\.has\(String\(pack\.id\)\)&&<div style=\{\{display:'grid',gridTemplateColumns:'repeat\(9,minmax\(0,1fr\)\)'/);
+  assert.doesNotMatch(awardManager,/Добавьте публичный Telegram-пак пользовательских эмодзи/);
+  assert.doesNotMatch(awardManager,/Выберите один эмодзи в галерее выше/);
 });
 
 test("territory review reply has no extra bottom margin",()=>{
@@ -221,4 +224,14 @@ test("territory award WEBM stickers fall back to the same Telegram thumbnail whe
   assert.match(component,/if\(format==='webm'\)[\s\S]*?<video src=\{src\}/);
   assert.match(component,/failed&&hasThumbnail&&<img src=\{previewSrc\}/);
   assert.match(component,/failed&&\(!hasThumbnail\|\|previewFailed\)&&fallbackEmoji/);
+});
+
+test("award manager owns its catalog and grant workflow while reusing shared error handling",()=>{
+  assert.match(awardManager,/const \{apiErrorMessage,safeCaughtError\}=ui/);
+  assert.match(awardManager,/fetch\(API_BASE\+'\/api\/admin\/awards'/);
+  assert.match(awardManager,/fetch\(API_BASE\+'\/api\/admin\/award-packs'/);
+  assert.match(awardManager,/encodeURIComponent\(pack\.id\)/);
+  assert.match(awardManager,/body:JSON\.stringify\(\{territoryId,stickerId:selectedSticker\.id,name,awardedAt\}\)/);
+  assert.match(awardManager,/voxygen:awards-changed/);
+  assert.match(awardManager,/onTerritoriesChanged\?\.\(\)/);
 });

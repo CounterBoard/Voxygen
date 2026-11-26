@@ -2,7 +2,7 @@
 
 **Status:** current implementation  
 **Updated:** 2026-11-26  
-**Source of truth:** `src/features/territory-awards/TelegramSticker.jsx`, its call sites in `src/App.jsx`, `bot/src/worker.js`, and the D1 tables created by `ensureWorldTables()`.
+**Source of truth:** `src/features/territory-awards/TelegramSticker.jsx`, `src/features/territory-awards/MainInspectorAwardManager.jsx`, their integration in `src/App.jsx`, `bot/src/worker.js`, and the D1 tables created by `ensureWorldTables()`.
 
 This document describes the current award-sticker path after removing the abandoned `AnimatedEmojies` integration. It supersedes earlier notes that describe `GET /api/telegram-emoji` as an active part of award rendering.
 
@@ -186,7 +186,17 @@ The relevant tests are:
 
 The repository CI validation pipeline runs `npm test`, `npm run build`, `node --check bot/src/worker.js`, and a Wrangler Worker dry-run bundle. These checks validate the source and bundle; they do not replace a live Telegram/D1 smoke test with real pack files.
 
-## 10. Source map
+## 10. Main inspector pack manager UI
+
+The protected main-inspector profile embeds `MainInspectorAwardManager` from `src/features/territory-awards/MainInspectorAwardManager.jsx`. The module owns the pack catalog state, collapsed/expanded gallery state, sticker selection, pack add/remove actions, and award-grant form.
+
+- The gallery starts collapsed. Each pack has an accessible expand/collapse control; expanded stickers are displayed in a nine-column grid using the static Telegram thumbnail when one is available.
+- Adding a pack submits its public `t.me/addemoji/<set>` URL to `POST /api/admin/award-packs`. Removing a pack uses `DELETE /api/admin/award-packs/:id`; the Worker preserves the metadata snapshots of awards already granted from that pack.
+- Granting requires a selected sticker, an approved territory, a non-empty award name (up to 80 characters), and a date. The selected sticker ID, territory ID, name and local-noon timestamp are sent to `POST /api/admin/awards`.
+- After a grant, the module dispatches `voxygen:awards-changed` so the issued-awards list can refresh, and calls the existing `onTerritoriesChanged` callback.
+- The module imports its sticker renderer and icon components directly. The app shell supplies the shared API error formatters through the explicit `ui` adapter; no API route, authorization rule, or payload is owned by this UI extraction.
+
+## 11. Source map
 
 | Responsibility | File / symbol |
 | --- | --- |
