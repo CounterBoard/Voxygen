@@ -126,6 +126,8 @@ export function useTerritories({ screen, selectedId, ui = {} }) {
 
   return {
     territories,
+    territoriesLoading,
+    territoriesHasLoaded,
     territoriesError,
     markersReady,
     loadTerritories,
