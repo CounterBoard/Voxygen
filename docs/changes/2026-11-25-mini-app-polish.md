@@ -105,3 +105,11 @@ The GitHub Actions workflow runs `npm test`, `npm run build`, `node --check bot/
 - Moved the two Worker endpoint constants into `src/config/api.js`, which is now the shared frontend configuration source.
 - Kept rendering behavior, request URLs, animation lifecycle, fallbacks, and public component props unchanged. Updated UI regression tests to assert the feature module boundary and its internal rendering contract.
 - Future extractions should follow the same rule: move a cohesive feature with its own tests and stable imports, then verify before proceeding to the next area.
+
+
+## Events and calendar modularization — first extraction — 2026-11-26
+
+- Moved time-zone normalization, event date conversion/validation, global expiry date conversion, UTC month arithmetic, event coordinate formatting and Russian reminder labels into `src/features/events/date-time.js`.
+- Moved the scroll-wheel calendar and reusable date/time fields into `src/features/events/DateTimeFields.jsx`.
+- Kept event screens, creation/edit forms, reminders, API requests and payloads in the application shell for now because they depend on shared app-wide UI components. Their next extraction should follow a shared-UI boundary rather than introducing circular imports.
+- Added dedicated date/time tests and documented the module boundary and time-zone rules in `docs/features/EVENTS_CALENDAR.md`.

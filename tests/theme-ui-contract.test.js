@@ -61,7 +61,7 @@ test('toggle field geometry and typography are fully theme-tokenized', () => {
     '--theme-toggle-label-line-height:', '--theme-toggle-description-size:',
     '--theme-toggle-description-line-height:', '--theme-toggle-description-gap:',
   ]) assert.ok(tokens.includes(token), `Missing toggle token: ${token}`);
-  const toggle = app.slice(app.indexOf('function ToggleField'), app.indexOf('function normalizeTimezoneOffset'));
+  const toggle = app.slice(app.indexOf('function ToggleField'), app.indexOf('function ProfileSettingsModal'));
   assert.match(toggle, /role="switch"/);
   assert.match(toggle, /aria-checked=\{Boolean\(checked\)\}/);
   assert.match(toggle, /disabled=\{disabled\}/);

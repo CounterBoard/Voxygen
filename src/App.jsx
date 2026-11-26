@@ -2,6 +2,14 @@
 import React, { useEffect, useState, useRef, useId } from 'react';
 import { API_BASE, MAP_ASSETS_BASE } from './config/api.js';
 import { TelegramSticker, TerritoryAwardIcon } from './features/territory-awards/TelegramSticker.jsx';
+import {
+  EVENT_DATE_LIMIT_MESSAGE, addUtcCalendarMonths, defaultEventDateParts,
+  defaultGlobalExpiryDateParts, eventDateLabel, eventDatePartsFromTimestamp,
+  eventDatePartsTimestamp, formatEventCoords, globalExpiryDatePartsFromTimestamp,
+  globalExpiryPartsTimestamp, normalizeTimezoneOffset, pluralRu,
+  reminderUnitLabel, sanitizeEventCoords,
+} from './features/events/date-time.js';
+import { EventDateTimeFields } from './features/events/DateTimeFields.jsx';
 import { createPortal } from 'react-dom';
 import { DEFAULT_THEME_ID, THEME_CATALOG, normalizeThemeId } from '../shared/theme-catalog.js';
 import { getBannerGradient, getRandomBannerGradientId, formatDiscountRemaining } from '../shared/customization-visuals.js';
@@ -102,31 +110,6 @@ function MinecraftText({ text = '', as = 'span', style = {}, className }) {
   return <Tag className={className} style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', ...style }}>{pieces.length ? pieces : source}</Tag>;
 }
 
-function timezoneOffsetToMinutes(value) {
-  const normalized = normalizeTimezoneOffset(value || 'UTC+3');
-  const match = normalized.match(/^UTC([+-])(\d{1,2})(?::(\d{2}))?$/);
-  if (!match) return 180;
-  const minutes = Number(match[2]) * 60 + Number(match[3] || 0);
-  return match[1] === '-' ? -minutes : minutes;
-}
-function eventDateLabel(value, timezoneOffset = 'UTC+3') {
-  const timestamp = Number(value);
-  if (!Number.isFinite(timestamp)) return 'Дата не указана';
-  const date = new Date(timestamp + timezoneOffsetToMinutes(timezoneOffset) * 60000);
-  if (Number.isNaN(date.getTime())) return 'Дата не указана';
-  // The preference is a fixed UTC offset, not an IANA region. Shift the UTC
-  // timestamp explicitly so the chosen offset is applied consistently everywhere.
-  return date.toLocaleString('ru-RU', {
-    timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
-  });
-}
-function localDateTimeInput(value) {
-  const d = new Date(Number(value));
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 async function readEventImage(file) {
   if (!file) return null;
   if (!String(file.type || '').startsWith('image/')) throw new Error('Выберите файл изображения.');
@@ -2397,17 +2380,6 @@ function ToggleField({ checked, onChange, disabled = false, label, description }
   </div>;
 }
 
-function normalizeTimezoneOffset(value){
-  const raw=String(value??'').replace(/[\u0000-\u001F\u007F]/g,'').trim().toUpperCase();
-  const offset=raw.startsWith('UTC')?raw.slice(3).trim():raw;
-  const match=offset.match(/^([+-])(\d{1,2})(?::(\d{2}))?$/);
-  if(!match)return 'UTC+3';
-  const sign=match[1],hours=Number(match[2]),minutes=Number(match[3]||0);
-  const maxHours=sign==='-'?12:14;
-  if(hours>maxHours||minutes%15!==0||minutes>=60)return 'UTC+3';
-  if((hours===14&&(sign!=='+'||minutes!==0))||(sign==='-'&&hours===12&&minutes!==0))return 'UTC+3';
-  return `UTC${sign}${hours}${minutes?`:${String(minutes).padStart(2,'0')}`:''}`;
-}
 function ProfileSettingsModal({ initData, onClose, onSaved }) {
   const [settings,setSettings] = useState(null);
   const [loading,setLoading] = useState(true);
@@ -3225,183 +3197,6 @@ function EventsScreen({ initData, territories = [], onSelectTerritory, isMainIns
     {isMainInspector && <div style={{marginTop: 0}}><EventManagementPanel initData={initData} territories={territories} timezoneOffset={timezoneOffset} timezoneReady={timezoneReady}/></div>}
   </div>;
 }
-
-const VOXYGEN_EVENT_MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-const EVENT_TIME_ZONE = 'Europe/Moscow';
-function eventZonedParts(timestamp, timeZone = EVENT_TIME_ZONE) {
-  const date = new Date(Number(timestamp));
-  if (Number.isNaN(date.getTime())) return null;
-  const fixedOffset = String(timeZone || '').trim().toUpperCase().match(/^UTC([+-])(\d{1,2})(?::(\d{2}))?$/);
-  if (fixedOffset) {
-    const shifted = new Date(date.getTime() + timezoneOffsetToMinutes(timeZone) * 60000);
-    return {
-      year: shifted.getUTCFullYear(), month: shifted.getUTCMonth() + 1, day: shifted.getUTCDate(),
-      hour: shifted.getUTCHours(), minute: shifted.getUTCMinutes(), second: shifted.getUTCSeconds()
-    };
-  }
-  const values = {};
-  try {
-    for (const part of new Intl.DateTimeFormat('en-GB', { timeZone, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23' }).formatToParts(date)) {
-      if (part.type !== 'literal') values[part.type] = Number(part.value);
-    }
-  } catch {
-    if (timeZone !== EVENT_TIME_ZONE) return eventZonedParts(timestamp, EVENT_TIME_ZONE);
-    return null;
-  }
-  return values;
-}
-function eventDatePartsFromTimestamp(value, timeZone = EVENT_TIME_ZONE) {
-  const parts = eventZonedParts(Number(value), timeZone);
-  if (!parts) return defaultEventDateParts(timeZone);
-  return { day:parts.day, month:parts.month, hour:parts.hour, minute:parts.minute };
-}
-function defaultEventDateParts(timeZone = EVENT_TIME_ZONE) {
-  // Round up to the next full minute so the default is immediately publishable.
-  return eventDatePartsFromTimestamp(Math.floor(Date.now() / 60000) * 60000 + 60000, timeZone);
-}
-function globalExpiryDatePartsFromTimestamp(timestamp, timeZone = EVENT_TIME_ZONE) {
-  const parts = eventZonedParts(Number(timestamp), timeZone);
-  if (!parts) return defaultGlobalExpiryDateParts(timeZone);
-  return { year:parts.year, day:parts.day, month:parts.month, hour:parts.hour, minute:parts.minute };
-}
-function defaultGlobalExpiryDateParts(timeZone = EVENT_TIME_ZONE) {
-  const timestamp = Math.ceil((Date.now() + 60 * 60000) / 60000) * 60000;
-  return globalExpiryDatePartsFromTimestamp(timestamp, timeZone);
-}
-function globalExpiryPartsTimestamp(parts, timeZone = EVENT_TIME_ZONE) {
-  const year=Number(parts?.year),day=Number(parts?.day),month=Number(parts?.month),hour=Number(parts?.hour),minute=Number(parts?.minute);
-  if (![year,day,month,hour,minute].every(Number.isInteger) || year<2000 || year>2200 || month<1 || month>12 || day<1 || day>new Date(Date.UTC(year,month,0)).getUTCDate() || hour<0 || hour>23 || minute<0 || minute>59) return null;
-  const targetUtc=Date.UTC(year,month-1,day,hour,minute,0,0);
-  let candidate=targetUtc;
-  for(let attempt=0;attempt<5;attempt++){
-    const zoned=eventZonedParts(candidate,timeZone);
-    if(!zoned)return null;
-    const representedUtc=Date.UTC(zoned.year,zoned.month-1,zoned.day,zoned.hour,zoned.minute,zoned.second||0,0);
-    const delta=targetUtc-representedUtc;
-    candidate+=delta;
-    if(delta===0)break;
-  }
-  const check=eventZonedParts(candidate,timeZone);
-  if(!check||check.year!==year||check.month!==month||check.day!==day||check.hour!==hour||check.minute!==minute||candidate<=Date.now())return null;
-  return candidate;
-}
-const EVENT_DATE_LIMIT_MESSAGE='Создавать ивенты можно максимум за 2 месяца до начала';
-function addUtcCalendarMonths(timestamp,months=2){
-  const date=new Date(Number(timestamp));
-  if(!Number.isFinite(date.getTime()))return NaN;
-  const day=date.getUTCDate();date.setUTCDate(1);date.setUTCMonth(date.getUTCMonth()+months);
-  const lastDay=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth()+1,0)).getUTCDate();
-  date.setUTCDate(Math.min(day,lastDay));return date.getTime();
-}
-function eventDatePartsTimestamp(parts, timeZone = EVENT_TIME_ZONE) {
-  const day=Number(parts?.day), month=Number(parts?.month), hour=Number(parts?.hour), minute=Number(parts?.minute);
-  if (![day,month,hour,minute].every(Number.isInteger) || day<1 || day>31 || month<1 || month>12 || hour<0 || hour>23 || minute<0 || minute>59) return null;
-  const now=Date.now();
-  const current=eventZonedParts(now, timeZone);
-  const currentYear=Number(current?.year || new Date(now).getUTCFullYear());
-  for(let year=currentYear;year<=currentYear+8;year++) {
-    const targetUtc=Date.UTC(year,month-1,day,hour,minute,0,0);
-    const targetDate=new Date(targetUtc);
-    if(targetDate.getUTCFullYear()!==year || targetDate.getUTCMonth()!==month-1 || targetDate.getUTCDate()!==day) continue;
-    let candidate=targetUtc;
-    // Convert the wall-clock date/time in the requested timezone to a UTC timestamp.
-    for(let attempt=0;attempt<4;attempt++) {
-      const zoned=eventZonedParts(candidate,timeZone);
-      if(!zoned) break;
-      const representedUtc=Date.UTC(zoned.year,zoned.month-1,zoned.day,zoned.hour,zoned.minute,zoned.second||0,0);
-      const delta=targetUtc-representedUtc;
-      candidate+=delta;
-      if(delta===0) break;
-    }
-    const check=eventZonedParts(candidate,timeZone);
-    if(!check || check.year!==year || check.month!==month || check.day!==day || check.hour!==hour || check.minute!==minute) continue;
-    if(candidate>now) return candidate;
-  }
-  return null;
-}
-function EventWheelColumn({ label, value, options, onChange }) {
-  const scrollerRef=useRef(null), syncRef=useRef(false), interactionRef=useRef(false), settleRef=useRef(null);
-  const rowHeight=36, foundIndex=options.findIndex(option=>Number(option.value)===Number(value));
-  const selectedIndex=Math.max(0,foundIndex);
-  useEffect(()=>{
-    const node=scrollerRef.current;if(!node)return;
-    syncRef.current=true;node.scrollTop=selectedIndex*rowHeight;
-    const frame=requestAnimationFrame(()=>{syncRef.current=false;});
-    return ()=>cancelAnimationFrame(frame);
-  },[selectedIndex,options.length]);
-  useEffect(()=>()=>{if(settleRef.current)clearTimeout(settleRef.current);},[]);
-  function scheduleSettle(){
-    if(settleRef.current)clearTimeout(settleRef.current);
-    // Wait until the finger has lifted and native inertia/snap has stopped.
-    settleRef.current=setTimeout(()=>{
-      const node=scrollerRef.current;if(!node)return;
-      const index=Math.max(0,Math.min(options.length-1,Math.round(node.scrollTop/rowHeight)));
-      const option=options[index];
-      if(option&&Number(option.value)!==Number(value))onChange(option.value);
-    },190);
-  }
-  function handleScroll(){if(syncRef.current||interactionRef.current)return;scheduleSettle();}
-  function startInteraction(){interactionRef.current=true;if(settleRef.current)clearTimeout(settleRef.current);}
-  function endInteraction(){interactionRef.current=false;scheduleSettle();}
-  function choose(option,index){
-    if(settleRef.current)clearTimeout(settleRef.current);
-    if(Number(option.value)!==Number(value))onChange(option.value);
-    const node=scrollerRef.current;if(node){syncRef.current=true;node.scrollTop=index*rowHeight;requestAnimationFrame(()=>{syncRef.current=false;});}
-  }
-  return <label style={{display:'block',minWidth:0,flex:1}}>
-    <span style={{display:'block',fontSize:10.5,color:'var(--theme-color-text-muted)',fontWeight:750,textAlign:'center',marginBottom: 4}}>{label}</span>
-    <div style={{position:'relative',height:108,borderRadius:12,overflow:'hidden',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)'}}>
-      <div aria-hidden="true" style={{position:'absolute',zIndex:1,left:4,right:4,top:36,height:36,borderRadius:9,border:'1px solid var(--theme-color-action-primary-border)',background:'var(--theme-color-action-primary-soft)',pointerEvents:'none'}}/>
-      <div ref={scrollerRef} onScroll={handleScroll} onPointerDown={startInteraction} onPointerUp={endInteraction} onPointerCancel={endInteraction} onTouchStart={startInteraction} onTouchEnd={endInteraction} role="listbox" aria-label={label} aria-activedescendant={`${label}-${value}`} tabIndex={0} style={{position:'relative',height:108,overflowY:'auto',overscrollBehaviorY:'contain',scrollSnapType:'y mandatory',scrollbarWidth:'none',touchAction:'pan-y',boxSizing:'border-box'}}>
-        <div aria-hidden="true" style={{height:36,scrollSnapAlign:'none'}}/>
-        {options.map((option,index)=><div key={option.value} id={`${label}-${option.value}`} role="option" aria-selected={Number(option.value)===Number(value)} onClick={()=>choose(option,index)} style={{height:36,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',scrollSnapAlign:'center',fontSize:label==='Месяц'?11:(Number(option.value)===Number(value)?15:13),fontWeight:Number(option.value)===Number(value)?850:550,color:Number(option.value)===Number(value)?'var(--theme-color-text-primary)':'var(--theme-color-text-muted)',userSelect:'none',cursor:'pointer'}}>{option.label}</div>)}
-        <div aria-hidden="true" style={{height:36,scrollSnapAlign:'none'}}/>
-      </div>
-      <div aria-hidden="true" style={{position:'absolute',zIndex:2,inset:0,pointerEvents:'none',background:'linear-gradient(to bottom,var(--theme-color-surface-raised) 0%,transparent 25%,transparent 75%,var(--theme-color-surface-raised) 100%)',opacity:.56}}/>
-    </div>
-  </label>;
-}
-function EventDateTimeFields({ parts, onChange, includeYear = false, timezoneOffset = EVENT_TIME_ZONE }) {
-  const safe=parts|| (includeYear ? defaultGlobalExpiryDateParts(timezoneOffset) : defaultEventDateParts(timezoneOffset));
-  const currentYear=Number(eventZonedParts(Date.now(),timezoneOffset)?.year)||new Date().getFullYear();
-  const selectedYear=Number(safe.year)||currentYear;
-  const selectedMonth=Number(safe.month)||1;
-  const daysInSelectedMonth=new Date(Date.UTC(selectedYear,selectedMonth,0)).getUTCDate();
-  function setPart(key,value) {
-    const next={...safe,[key]:Number(value)};
-    if(key==='month'||key==='year') {
-      const dayLimit=new Date(Date.UTC(Number(next.year)||selectedYear,Number(next.month)||selectedMonth,0)).getUTCDate();
-      next.day=Math.min(Number(next.day||1),dayLimit);
-    }
-    onChange(next);
-  }
-  const fields=[
-    ...(includeYear?[{key:'year',label:'Год',options:Array.from({length:11},(_,i)=>({value:currentYear+i,label:String(currentYear+i)}))}]:[]),
-    {key:'day',label:'День',options:Array.from({length:daysInSelectedMonth},(_,i)=>({value:i+1,label:String(i+1).padStart(2,'0')}))},
-    {key:'month',label:'Месяц',options:VOXYGEN_EVENT_MONTHS.map((label,i)=>({value:i+1,label}))},
-    {key:'hour',label:'Часы',options:Array.from({length:24},(_,i)=>({value:i,label:String(i).padStart(2,'0')}))},
-    {key:'minute',label:'Минуты',options:Array.from({length:60},(_,i)=>({value:i,label:String(i).padStart(2,'0')}))},
-  ];
-  return <div style={{display:'flex',gap: includeYear?4:6,marginTop: 4,padding: 8,background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:15}}>
-    {fields.map(field=><EventWheelColumn key={field.key} label={field.label} value={safe[field.key]} options={field.options} onChange={value=>setPart(field.key,value)}/>)}
-  </div>;
-}
-function sanitizeEventCoords(value) { return String(value??'').replace(/[\u0000-\u001F\u007F]/g,'').slice(0,180); }
-function formatEventCoords(value) {
-  const raw=sanitizeEventCoords(value).trim();
-  if(!raw)return '';
-  // Coordinates are numeric metadata, not Minecraft-formatted text. Ignore any
-  // formatting codes while recognizing the common stored `X 930 / Z 1260` form.
-  const plain=raw.replace(/§x(?:§[0-9a-fA-F]){6}/gi,'').replace(/§(?:#[0-9a-fA-F]{6}|[0-9a-fK-OrR])/gi,'');
-  const number='(-?\\d+(?:[.,]\\d+)?)';
-  const labelled=plain.match(new RegExp('^\\s*X\\s*[:=]?\\s*'+number+'\\s*(?:\\/|,|;|\\s+)\\s*Z\\s*[:=]?\\s*'+number+'\\s*$','i'));
-  if(labelled)return `${labelled[1]} / ${labelled[2]}`;
-  const pair=plain.match(/^\s*(-?\d+(?:[.,]\d+)?)\s*(?:\/|,|;|\s+)\s*(-?\d+(?:[.,]\d+)?)\s*$/);
-  if(pair)return `${pair[1]} / ${pair[2]}`;
-  return plain.replace(/\b[ZX]\s*[:=]?\s*/gi,'').replace(/\s*\/\s*/g,' / ').trim();
-}
-function pluralRu(value, one, few, many) { const n=Math.abs(Math.trunc(Number(value)||0)),lastTwo=n%100,last=n%10; if(lastTwo>=11&&lastTwo<=14)return many; if(last===1)return one; if(last>=2&&last<=4)return few; return many; }
-function reminderUnitLabel(value, unit) { return unit==='hours'?pluralRu(value,'час','часа','часов'):pluralRu(value,'минуту','минуты','минут'); }
 
 function ProfileEventCreateForm({ initData, territories = [], isMainInspector = false, tgUser = null, embedded = false, timezoneOffset = 'UTC+3', onPublished = () => {} }) {
   const userId=String(tgUser?.id||'');
