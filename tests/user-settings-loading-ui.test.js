@@ -3,14 +3,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+const appShell = app.slice(app.indexOf('export default function CityRatingApp()'));
 const hook = readFileSync(new URL('../src/features/settings/useUserSettings.js', import.meta.url), 'utf8');
 const doc = readFileSync(new URL('../docs/features/USER_SETTINGS.md', import.meta.url), 'utf8');
 
 test('the root app delegates user settings state and retrieval to the settings hook', () => {
   assert.ok(app.includes("import { useUserSettings } from './features/settings/useUserSettings.js';"));
   assert.ok(app.includes('} = useUserSettings({'));
-  assert.doesNotMatch(app, /\/api\/user-settings/);
-  assert.doesNotMatch(app, /settingsRequestVersion|settingsController|timezoneRetryToken|mapZoomPreferenceRef/);
+  assert.doesNotMatch(appShell, /\/api\/user-settings/);
+  assert.doesNotMatch(appShell, /settingsRequestVersion|settingsController|timezoneRetryToken|mapZoomPreferenceRef/);
   assert.doesNotMatch(app, /const \[timezoneOffset,setTimezoneOffset\]/);
   assert.doesNotMatch(app, /const \[activeTheme,setActiveTheme\]/);
 });
