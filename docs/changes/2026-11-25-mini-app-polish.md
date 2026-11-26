@@ -89,3 +89,11 @@ The abandoned `AnimatedEmojies` source has been removed completely from the acti
 ### Validation gate
 
 The GitHub Actions workflow runs `npm test`, `npm run build`, `node --check bot/src/worker.js`, and the Wrangler Worker dry-run bundle. A green CI run confirms repository tests and bundling; it is not a live smoke test against Telegram's Bot API, the production D1 database, or Cloudflare deployment.
+
+
+## Audit follow-up — Telegram sticker robustness and bundle loading — 2026-11-26
+
+- Telegram's `getFile` can return extensionless paths such as `stickers/file_344`. The Worker now extracts suffixes from the final path segment, validates them when present, and relies on the sticker format saved in D1 when Telegram omits a suffix.
+- Added direct regression tests for extensionless paths and mismatched known extensions.
+- `lottie-web` is now dynamically imported only when a full TGS sticker needs rendering. Static-image-only sessions no longer download Lottie as part of the initial JavaScript chunk. Active Lottie instances are still destroyed when their sticker component unmounts.
+- Updated the feature specification and system reference so the file-path and loading behavior are documented in both places.

@@ -127,6 +127,19 @@ function getTelegramStickerFormat(sticker) {
   return 'image';
 }
 
+function getTelegramStickerFileExtension(filePath) {
+  const fileName = String(filePath || '').split('/').pop() || '';
+  const dotIndex = fileName.lastIndexOf('.');
+  return dotIndex > 0 ? fileName.slice(dotIndex + 1).toLowerCase() : '';
+}
+
+function isTelegramStickerExtensionAllowed(responseFormat, extension) {
+  if (!extension) return true;
+  return responseFormat === 'tgs' ? extension === 'tgs'
+    : responseFormat === 'webm' ? extension === 'webm'
+    : ['webp', 'png', 'jpg', 'jpeg'].includes(extension);
+}
+
 async function serveTelegramAwardSticker(request, env) {
   const url = new URL(request.url);
   const packStickerId = String(url.searchParams.get('stickerId') || '').trim();
@@ -180,15 +193,9 @@ async function serveTelegramAwardSticker(request, env) {
     // Telegram file_path may omit the suffix entirely (for example,
     // "stickers/file_344"). In that case, trust the format stored with the
     // sticker record; when a suffix is present, still validate it.
-    const fileName = filePath.split('/').pop() || '';
-    const dotIndex = fileName.lastIndexOf('.');
-    const extension = dotIndex > 0 ? fileName.slice(dotIndex + 1).toLowerCase() : '';
+    const extension = getTelegramStickerFileExtension(filePath);
     const responseFormat = isPreviewImage ? 'image' : String(record.format || 'image');
-    const allowedExtension = !extension
-      || (responseFormat === 'tgs' ? extension === 'tgs'
-        : responseFormat === 'webm' ? extension === 'webm'
-        : ['webp', 'png', 'jpg', 'jpeg'].includes(extension));
-    if (!allowedExtension) return fail('file_extension_mismatch', 415, {
+    if (!isTelegramStickerExtensionAllowed(responseFormat, extension)) return fail('file_extension_mismatch', 415, {
       expectedFormat: responseFormat,
       actualExtension: extension || null,
     });
@@ -7672,4 +7679,4 @@ export default {
   },
 };
 
-export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, isSafeTelegramTgsAnimation, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };
+export { formatGemWithdrawalBankerNotification, applyManagerChange, verifyInitData, parseGemWithdrawalCommand, parseBankCommand, parseVisualDiscountCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, getTelegramStickerFileExtension, isTelegramStickerExtensionAllowed, isSafeTelegramTgsAnimation, eventDateExceedsTwoMonths, addUtcCalendarMonths, calculateDiscountedPrice, parseVisualInventoryCandidates, isPrivateBankerMessage, applyBankBalanceChange, executeIdempotentFinancialTransfer, isTerritoryManager, isEligibleManagerChangeVoter, territoryCanUseVisual, completeRequiredAccountCleanup, claimManagerChangeFinalization, recordManagerChangeVote, transferTerritoryOwnerAfterAccountRemoval, buildStaleDestinationOwnerTransferStatements, preserveAccountHistoryAuthor, buildFounderClaimStatement, buildOrphanedOwnerRepairStatement, buildUnclaimedOwnerRepairStatement };

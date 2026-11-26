@@ -1,6 +1,5 @@
 // Voxygen-Version: v63
 import React, { useEffect, useState, useRef, useId } from 'react';
-import lottie from 'lottie-web';
 import { createPortal } from 'react-dom';
 import { DEFAULT_THEME_ID, THEME_CATALOG, normalizeThemeId } from '../shared/theme-catalog.js';
 import { getBannerGradient, getRandomBannerGradientId, formatDiscountRemaining } from '../shared/customization-visuals.js';
@@ -293,7 +292,9 @@ function TelegramSticker({stickerId,awardId,format='image',emoji='',size=32,styl
       const data=await response.json();
       if(!Array.isArray(data?.layers)||!(Number(data.op)>Number(data.ip)))throw new Error('Invalid sticker animation');
       if(cancelled||!animationRef.current)return;
-      animation=lottie.loadAnimation({
+      const lottieModule=await import('lottie-web');
+      if(cancelled||!animationRef.current)return;
+      animation=lottieModule.default.loadAnimation({
         container:animationRef.current,
         renderer:'svg',
         loop:true,

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { parseGemWithdrawalCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
+import { parseGemWithdrawalCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, getTelegramStickerFileExtension, isTelegramStickerExtensionAllowed, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
 
 test("gem withdrawal parser accepts compact, spaced and slash-prefixed personal debit commands",()=>{
   for(const command of ["-250","- 250","/-250","/ - 250"]){
@@ -59,6 +59,21 @@ test("Telegram custom emoji formats distinguish TGS, WEBM and static image",()=>
   assert.equal(getTelegramStickerFormat(null),"image");
 });
 
+
+test("Telegram file paths may omit extensions while known suffixes stay format-checked",()=>{
+  assert.equal(getTelegramStickerFileExtension("stickers/file_344"),"");
+  assert.equal(getTelegramStickerFileExtension("stickers/pack.v2/file_344"),"");
+  assert.equal(getTelegramStickerFileExtension("stickers/file_344.TGS"),"tgs");
+  assert.equal(getTelegramStickerFileExtension("stickers/file_344.WEBP"),"webp");
+  assert.equal(isTelegramStickerExtensionAllowed("image",""),true);
+  assert.equal(isTelegramStickerExtensionAllowed("tgs",""),true);
+  assert.equal(isTelegramStickerExtensionAllowed("webm",""),true);
+  assert.equal(isTelegramStickerExtensionAllowed("image","webp"),true);
+  assert.equal(isTelegramStickerExtensionAllowed("image","tgs"),false);
+  assert.equal(isTelegramStickerExtensionAllowed("tgs","webp"),false);
+  assert.equal(isTelegramStickerExtensionAllowed("webm","webm"),true);
+  assert.equal(isTelegramStickerExtensionAllowed("image","svg"),false);
+});
 
 test("Telegram sticker set validation accepts the Bot API sticker_type field",()=>{
   assert.equal(isTelegramCustomEmojiSet({sticker_type:"custom_emoji"}),true);

@@ -6,7 +6,8 @@ const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 const themeTokens = readFileSync(new URL("../src/theme/theme-tokens.css", import.meta.url), "utf8");
 
 test("territory awards use their saved Telegram sticker and fall back to the original Unicode emoji",()=>{
-  assert.match(app,/import lottie from ['"]lottie-web['"]/);
+  assert.doesNotMatch(app,/import lottie from ['"]lottie-web['"]/);
+  assert.match(app,/await import\(['"]lottie-web['"]\)/);
   assert.match(app,/function TelegramSticker\(/);
   assert.match(app,/function cloneTelegramStickerAnimationData\(/);
   assert.match(app,/function AwardEmoji\(/);
@@ -62,7 +63,8 @@ test("banner preview updates optimistically and submits the exact selected color
  
 test("each TGS award gets an independent looping Lottie player without AnimatedEmojies",()=>{
   assert.match(app,/cloneTelegramStickerAnimationData\(data\)/);
-  assert.match(app,/lottie\.loadAnimation\(/);
+  assert.match(app,/lottieModule\.default\.loadAnimation\(/);
+  assert.match(app,/animation\?\.destroy\(\)/);
   assert.match(app,/loop:true/);
   assert.match(app,/autoplay:true/);
   assert.match(app,/animation\.addEventListener\('DOMLoaded',onAnimationReady\)/);

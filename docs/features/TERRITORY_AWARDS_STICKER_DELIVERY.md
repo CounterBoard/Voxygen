@@ -92,7 +92,7 @@ All Telegram award files are served through **`GET /api/telegram-sticker`**. Exa
 
 Providing neither selector or providing both returns HTTP 400.
 
-The Worker loads the record from the corresponding table and resolves its Telegram file ID with `getFile`. For preview requests, `preview=1` selects the saved thumbnail. For a static `image` sticker without a separate thumbnail, the full image file may serve as its own preview. A TGS/WEBM preview request without a stored thumbnail returns 404; callers must check thumbnail availability before requesting that path.
+The Worker loads the record from the corresponding table and resolves its Telegram file ID with `getFile`. Telegram may return a `file_path` without a filename suffix (for example, `stickers/file_344`). The Worker validates the path itself and checks a filename extension against the saved sticker format only when a suffix is present; without a suffix, the format stored in D1 remains authoritative for decoding and the response content type. For preview requests, `preview=1` selects the saved thumbnail. For a static `image` sticker without a separate thumbnail, the full image file may serve as its own preview. A TGS/WEBM preview request without a stored thumbnail returns 404; callers must check thumbnail availability before requesting that path.
 
 | Request | Response |
 | --- | --- |
@@ -107,7 +107,7 @@ The route applies the shared CORS helper on successful and error responses. This
 
 ### TGS
 
-Telegram's compressed TGS file is fetched from Telegram, decompressed in the Worker, parsed as JSON, and validated before being returned to the browser.
+Telegram's compressed TGS file is fetched from Telegram, decompressed in the Worker, parsed as JSON, and validated before being returned to the browser. The frontend dynamically imports `lottie-web` only when it needs to render a full TGS sticker, so static-image-only sessions do not download the animation engine in the initial JavaScript bundle. Each visible award gets its own looping player; the player is destroyed when its component unmounts.
 
 Validation requires:
 
