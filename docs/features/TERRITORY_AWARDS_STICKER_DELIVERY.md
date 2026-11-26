@@ -183,6 +183,7 @@ The relevant tests are:
 
 - `tests/territory-awards-ui.test.js` — display surfaces, independent looping TGS players, thumbnail behavior, WEBM fallback, and the rule that Unicode is not shown while TGS is still loading;
 - `tests/territory-awards.test.js` — sticker format mapping, pack URL validation, TGS safety validation, thumbnail fields in territory/profile queries, and both `stickerId` and `awardId` routes.
+- `tests/telegram-award-sticker-service.test.js` — direct service behavior for invalid selectors, missing records, unavailable TGS previews, and the existing Worker route/CORS integration.
 
 The repository CI validation pipeline runs `npm test`, `npm run build`, `node --check bot/src/worker.js`, and a Wrangler Worker dry-run bundle. These checks validate the source and bundle; they do not replace a live Telegram/D1 smoke test with real pack files.
 
@@ -205,7 +206,22 @@ The main inspector's issued-award list is owned by `src/features/territory-award
 - Deletion uses `DELETE /api/admin/awards/:id`, asks for confirmation, removes the row from local state after a successful response and invokes the existing territory-refresh callback.
 - The shared API error formatter, fallback formatter and award-date formatter are passed through the explicit `ui` adapter. The API route, authorization and response contract remain in the Worker.
 
-## 12. Source map
+
+## 12. Backend service boundary
+
+The public file-delivery endpoint remains registered in `bot/src/worker.js`, but the implementation is isolated in `bot/src/features/territory-awards/sticker-delivery.js`.
+
+The service receives four explicit infrastructure dependencies from the router:
+- `TELEGRAM_API` — the Telegram API base URL;
+- `withCors` — the shared CORS response wrapper;
+- `ensureWorldTables` — idempotent D1 table initialization;
+- `telegram` — the shared Telegram Bot API request helper.
+
+The module owns the delivery-specific helpers and `serveTelegramAwardSticker`: selector validation, D1 record lookup, thumbnail selection, Telegram file resolution, extension and size checks, TGS decompression/validation, response content types, cache policy and safe diagnostic responses. It does not own route matching, authentication policy, D1 schema/migrations or pack import/grant operations.
+
+The helper exports are re-exported from `worker.js` to preserve the existing test/import surface while callers are migrated deliberately. The route path, method, query parameters and response contract are unchanged.
+
+## 13. Source map
 
 | Responsibility | File / symbol |
 | --- | --- |
