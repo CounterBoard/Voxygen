@@ -17,6 +17,8 @@ This document is the entry point for understanding the repository. Feature-level
 | Shared frontend utilities | `src/shared/` | Small utilities used by more than one feature |
 | API and asset configuration | `src/config/api.js` | Frontend API and map asset base URLs |
 | Theme catalogue and visual rules | `shared/theme-catalog.js`, `shared/customization-visuals.js`, `src/theme/` | Theme definitions, visual recipes and CSS tokens |
+| Global application shell styles | `src/theme/app-shell.css` | Global layout, typography, shared component states, overlays, animation rules and responsive styling |
+| Static frontend assets | `src/assets/` | Bundled image assets referenced by frontend components |
 
 ## Backend and data
 
