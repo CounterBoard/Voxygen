@@ -25,7 +25,7 @@ The loader keeps the legacy `/api/map` HEAD/GET bridge strictly for the no-manif
 
 ## Dependency contract
 
-The viewport receives map data and callbacks through props. `mapUtils` is an explicit adapter supplied by `App.jsx` for territory coordinate validation/conversion, ownership visibility, marker defaults/sizing and Minecraft text cleanup. This avoids importing the application shell into the feature module and prevents a circular dependency.
+The viewport receives map data and callbacks through props. `mapUtils` is an explicit adapter supplied by `App.jsx` for territory coordinate validation/conversion, ownership visibility, marker defaults/sizing and Minecraft text cleanup. This avoids importing the application shell into the feature module and prevents a circular dependency. Every injected marker helper and dimension must be read through `mapUtils` at every use site; the shared zoom constants and conversion helper are imported directly from `shared/world-map-coordinates.js`.
 
 The module reads the shared `MAP_ASSETS_BASE` configuration for relative tile paths. A map source may override this with its own `assetBase`.
 
