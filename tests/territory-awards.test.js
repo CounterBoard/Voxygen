@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseGemWithdrawalCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, getTelegramStickerFileExtension, isTelegramStickerExtensionAllowed, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
+import { serveTelegramAwardSticker } from "../bot/src/features/territory-awards/sticker-delivery.js";
 
 test("gem withdrawal parser accepts compact, spaced and slash-prefixed personal debit commands",()=>{
   for(const command of ["-250","- 250","/-250","/ - 250"]){
@@ -91,18 +92,20 @@ test("public territory and profile award responses include each saved sticker th
 
 test("one sticker endpoint resolves either a pack sticker or an issued award; AnimatedEmojies is removed",()=>{
   const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8");
-  assert.match(worker,/SELECT file_id,format,thumbnail_file_id FROM telegram_award_pack_stickers WHERE id=\?/);
-  assert.match(worker,/SELECT sticker_file_id AS file_id,sticker_format AS format,sticker_thumbnail_file_id AS thumbnail_file_id FROM territory_awards WHERE id=\?/);
+  const stickerDelivery=readFileSync(new URL("../bot/src/features/territory-awards/sticker-delivery.js",import.meta.url),"utf8");
+  assert.match(stickerDelivery,/SELECT file_id,format,thumbnail_file_id FROM telegram_award_pack_stickers WHERE id=\?/);
+  assert.match(stickerDelivery,/SELECT sticker_file_id AS file_id,sticker_format AS format,sticker_thumbnail_file_id AS thumbnail_file_id FROM territory_awards WHERE id=\?/);
   assert.match(worker,/if \(url\.pathname === "\/api\/telegram-sticker" && request\.method === "GET"\)/);
+  assert.match(worker,/return serveTelegramAwardSticker\(request, env, \{ TELEGRAM_API, withCors, ensureWorldTables, telegram \}\)/);
   assert.doesNotMatch(worker,/serveTelegramEmoji|\/api\/telegram-emoji|AnimatedEmojies/);
 });
 
 test("award sticker delivery exposes safe diagnostic error codes and never caches failures",()=>{
-  const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8");
-  const start=worker.indexOf("async function serveTelegramAwardSticker(");
-  const end=worker.indexOf("\n}\n\n",start)+2;
+  const stickerDelivery=readFileSync(new URL("../bot/src/features/territory-awards/sticker-delivery.js",import.meta.url),"utf8");
+  const start=stickerDelivery.indexOf("export async function serveTelegramAwardSticker(");
+  const end=stickerDelivery.indexOf("\n}\n",start)+2;
   assert.ok(start>=0&&end>start);
-  const handler=worker.slice(start,end);
+  const handler=stickerDelivery.slice(start,end);
   for(const reason of [
     "invalid_query","record_not_found","preview_unavailable","file_id_missing",
     "telegram_getfile_http","telegram_getfile_api","telegram_file_path_invalid",

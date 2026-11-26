@@ -214,8 +214,8 @@ The main inspector's issued-award list is owned by `src/features/territory-award
 | TGS player lifecycle | `src/App.jsx` — `cloneTelegramStickerAnimationData` and the Lottie effect in `TelegramSticker` |
 | Pack import | `bot/src/worker.js` — `addTelegramAwardPack` |
 | Grant snapshot | `bot/src/worker.js` — `grantTerritoryAward` |
-| File delivery | `bot/src/worker.js` — `serveTelegramAwardSticker` |
-| TGS safety | `bot/src/worker.js` — `isSafeTelegramTgsAnimation` |
+| File delivery | `bot/src/features/territory-awards/sticker-delivery.js` — `serveTelegramAwardSticker`; `bot/src/worker.js` owns the route and injects CORS, Telegram and D1 bootstrap dependencies |
+| TGS safety and Telegram file format validation | `bot/src/features/territory-awards/sticker-delivery.js` — `isSafeTelegramTgsAnimation`, pack URL validation, sticker format/path helpers |
 | Territory public response | `bot/src/worker.js` — `getTerritories` |
 | Profile/customization response | `bot/src/worker.js` — `getCustomization` |
 | D1 schema and idempotent additions | `bot/src/worker.js` — `ensureWorldTables` |
