@@ -249,3 +249,15 @@ test("award manager owns its catalog and grant workflow while reusing shared err
   assert.match(awardManager,/voxygen:awards-changed/);
   assert.match(awardManager,/onTerritoriesChanged\?\.\(\)/);
 });
+
+
+test("the TGS JSX comment is not rendered as visible text behind animated stickers",()=>{
+  assert.match(awardIcons, /\{\/\* Keep the slot visually quiet while the animation is loading\. Unicode is only a failure fallback\. \*\/\}/);
+  assert.doesNotMatch(awardIcons, /^\s*\/\/ Keep the slot visually quiet/m);
+});
+
+test("award and marker selection do not use a shared busy lock that discards other clicks",()=>{
+  assert.doesNotMatch(territoryManagementModule, /awardBusyId|setAwardBusyId/);
+  assert.match(territoryManagementModule, /markerMutationQueueRef\.current=markerMutationQueueRef\.current\.then\(save,save\)/);
+  assert.match(territoryManagementModule, /awardMutationQueueRef\.current=awardMutationQueueRef\.current\.then\(save,save\)/);
+});
