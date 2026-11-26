@@ -1360,18 +1360,20 @@ export default function CityRatingApp() {
   const [globalSettingsOpen,setGlobalSettingsOpen]=useState(false);
 
   const { worldMapImage, worldMapSource, worldMapLoading, worldMapError, loadWorldMap, retryWorldMap, onMapSaved } = useWorldMap({ safeCaughtError });
-  const { territories, territoriesError, markersReady, loadTerritories, resetForTelegramIdentity } = useTerritories({
-    screen,
-    selectedId,
-    ui: { apiErrorMessage, safeCaughtError, finiteCoordinate },
-  });
+  const resetTerritoriesForIdentityRef = useRef(() => {});
   const {
     role, profile, profileLoadState, profileLoadError, refreshProfile, claimNickname,
   } = useTelegramProfile({
     initialTelegramId: tgUser?.id,
-    onTelegramIdentityChanged: resetForTelegramIdentity,
+    onTelegramIdentityChanged: () => resetTerritoriesForIdentityRef.current(),
     ui: { apiErrorMessage, safeCaughtError, parseApiResponse },
   });
+  const { territories, territoriesLoading, territoriesHasLoaded, territoriesError, markersReady, loadTerritories, resetForTelegramIdentity } = useTerritories({
+    screen,
+    selectedId,
+    ui: { apiErrorMessage, safeCaughtError, finiteCoordinate },
+  });
+  resetTerritoriesForIdentityRef.current = resetForTelegramIdentity;
 
   const selected = territories.find((t) => String(t.id) === String(selectedId));
 
