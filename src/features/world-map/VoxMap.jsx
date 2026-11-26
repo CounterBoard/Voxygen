@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MAP_ASSETS_BASE } from '../../config/api.js';
+import { MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale } from '../../../shared/world-map-coordinates.js';
 
 /**
  * Interactive world-map viewport.
@@ -411,8 +412,8 @@ export function VoxMap({ image, source = null, territories, onSelect, resetSigna
             width: mapUtils.MAP_MARKER_WIDTH, height: mapUtils.MAP_MARKER_HEIGHT,
             pointerEvents: 'auto',
           }} title={mapUtils.stripMinecraftCodes(city.name)}>
-            <img src={markerSrc} alt={stripMinecraftCodes(city.name)} draggable={false} style={{
-              width: MAP_MARKER_WIDTH, height: MAP_MARKER_HEIGHT, objectFit: 'contain', display: 'block',
+            <img src={markerSrc} alt={mapUtils.stripMinecraftCodes(city.name)} draggable={false} style={{
+              width: mapUtils.MAP_MARKER_WIDTH, height: mapUtils.MAP_MARKER_HEIGHT, objectFit: 'contain', display: 'block',
             }}/>
           </button>;
         })}
