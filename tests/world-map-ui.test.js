@@ -29,12 +29,12 @@ test('world map feature documentation explains module ownership and invariants',
 });
 
 test('world map runtime helpers and marker dimensions are resolved from their declared owners', () => {
-  assert.match(map, /import \\{ MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale \\} from '\\.\\.\\/\\.\\.\\/\\.\\.\\/shared\\/world-map-coordinates\\.js'/);
-  assert.match(map, /const MAX_MAP_ZOOM = MAP_ZOOM_MAX_SCALE/);
-  assert.match(map, /const defaultScale = mapZoomPercentToScale\\(mapZoomPercent\\)/);
-  assert.match(map, /alt=\\{mapUtils\\.stripMinecraftCodes\\(city\\.name\\)\\}/);
-  assert.match(map, /width: mapUtils\\.MAP_MARKER_WIDTH, height: mapUtils\\.MAP_MARKER_HEIGHT/);
-  assert.doesNotMatch(map, /alt=\\{stripMinecraftCodes\\(city\\.name\\)\\}/);
-  assert.doesNotMatch(map, /width: MAP_MARKER_WIDTH/);
-  assert.doesNotMatch(map, /height: MAP_MARKER_HEIGHT/);
+  assert.ok(map.includes("import { MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale } from '../../../shared/world-map-coordinates.js';"));
+  assert.ok(map.includes('const MAX_MAP_ZOOM = MAP_ZOOM_MAX_SCALE;'));
+  assert.ok(map.includes('const defaultScale = mapZoomPercentToScale(mapZoomPercent);'));
+  assert.ok(map.includes('alt={mapUtils.stripMinecraftCodes(city.name)}'));
+  assert.ok(map.includes('width: mapUtils.MAP_MARKER_WIDTH, height: mapUtils.MAP_MARKER_HEIGHT'));
+  assert.ok(!map.includes('alt={stripMinecraftCodes(city.name)}'));
+  assert.ok(!map.includes('width: MAP_MARKER_WIDTH'));
+  assert.ok(!map.includes('height: MAP_MARKER_HEIGHT'));
 });
