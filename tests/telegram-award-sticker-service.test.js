@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { serveTelegramAwardSticker } from "../bot/src/features/territory-awards/sticker-delivery.js";
+import worker from "../bot/src/worker.js";
 
 function withCors(response) {
   const headers = new Headers(response.headers);
@@ -113,4 +114,17 @@ test("TGS preview without a saved thumbnail is rejected without asking Telegram 
 test("the extracted handler receives infrastructure dependencies explicitly", () => {
   const source = readFileSync(new URL("../bot/src/features/territory-awards/sticker-delivery.js", import.meta.url), "utf8");
   assert.match(source, /serveTelegramAwardSticker\(request, env, \{ TELEGRAM_API, withCors, ensureWorldTables, telegram \}\)/);
+});
+
+test("the Worker exposes the extracted service through the existing public route and CORS contract", async () => {
+  const response = await worker.fetch(
+    new Request("https://voxygen.test/api/telegram-sticker"),
+    { BOT_TOKEN: "test-token" },
+    { waitUntil() {} },
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { ok: false, code: "invalid_query" });
+  assert.equal(response.headers.get("X-Voxygen-Sticker-Error"), "invalid_query");
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "*");
 });
