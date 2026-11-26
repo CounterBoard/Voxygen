@@ -18,7 +18,7 @@ export {
   getTelegramStickerFormat,
   getTelegramStickerFileExtension,
   isTelegramStickerExtensionAllowed,
-} from './features/territory-awards/sticker-delivery.js';
+};
 import {
   isSafeTelegramTgsAnimation,
   parseTelegramEmojiSetName,
