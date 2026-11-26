@@ -199,7 +199,9 @@ test("deleting an issued award closes its equipment slot and compacts later slot
     DB: {
       prepare(sql) {
         return {
-          bind(...values) { batch.push({ sql, values }); return this; },
+          sql,
+          values: [],
+          bind(...values) { this.values = values; return this; },
           async first() { return { territory_id: "city-1", slot_index: 1 }; },
         };
       },
