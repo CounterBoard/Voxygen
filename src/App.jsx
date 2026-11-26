@@ -11,6 +11,7 @@ import { ManagedInspectorsPanel } from './features/admin-tools/ManagedInspectors
 import { GlobalSettingsPanel } from './features/settings/GlobalSettingsPanel.jsx';
 import { CustomizationScreen } from './features/customization/CustomizationScreen.jsx';
 import { TerritoryFeedbackPanel } from './features/territory-details/TerritoryFeedbackPanel.jsx';
+import { TerritoryScreenshotsPanel } from './features/territory-details/TerritoryScreenshotsPanel.jsx';
 import { ColorDot, VISUAL_COLORS } from './features/customization/VisualColorPicker.jsx';
 import {
   defaultGlobalExpiryDateParts, globalExpiryDatePartsFromTimestamp,
@@ -1270,32 +1271,6 @@ function HomeScreen({ territories, onSelect, onAddTerritory, mode='map', mapImag
     }
   </div>;
 }
-function compressScreenshotFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const max = 1280;
-        const ratio = Math.min(1, max / Math.max(img.width, img.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(img.width * ratio));
-        canvas.height = Math.max(1, Math.round(img.height * ratio));
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(blob => {
-          if (!blob) return reject(new Error('Не удалось подготовить скриншот'));
-          const name = String(file?.name || 'screenshot.jpg').replace(/\.[^.]+$/, '') + '.jpg';
-          resolve(new File([blob], name, { type: 'image/jpeg' }));
-        }, 'image/jpeg', 0.70);
-      };
-      img.onerror = () => reject(new Error('Не удалось прочитать скриншот'));
-      img.src = reader.result;
-    };
-    reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
-    reader.readAsDataURL(file);
-  });
-}
 function DonationModal({territory,initData,onClose,onSuccess,onToast}){
   const [amount,setAmount]=useState(''),[balance,setBalance]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
   useEffect(()=>{(async()=>{try{const r=await fetch(`${API_BASE}/api/customization?lite=1`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});const d=await r.json().catch(() => null);if(r.ok&&d.ok)setBalance(Number(d.personalBalance??0));}catch{}})()},[initData]);
@@ -1317,7 +1292,6 @@ function TerritoryDetail({ base, onBack, profile, onGoToProfile, tgUser, role, m
   const [showResidents, setShowResidents] = useState(false);
   const [showDonation, setShowDonation] = useState(false);
   const [selectedTerritoryAward,setSelectedTerritoryAward]=useState(null);
-  const fileInputRef = useRef(null);
   const detailPayloadRef = useRef({ territoryId: String(base?.id || ''), payload: null });
   const [detailsLoading, setDetailsLoading] = useState(true);
   const [detailsError, setDetailsError] = useState('');
@@ -1379,30 +1353,7 @@ function TerritoryDetail({ base, onBack, profile, onGoToProfile, tgUser, role, m
 
   function flash(message) { setToast(message); setTimeout(() => setToast(null), 2200); }
 
-  async function deleteShot(id) {
-    try {
-      const r = await fetch(`${API_BASE}/api/screenshots/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData }) });
-      const d = await r.json().catch(() => null);
-      if (!r.ok || !d.ok) throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));
-      setT(v => ({ ...v, screenshots: (v.screenshots || []).filter(s => s.id !== id) }));
-      setLightbox(null); flash('Скрин удалён');
-    } catch (e) { flash(safeCaughtError(e, 'Не удалось удалить скрин')); }
-  }
-
-  async function handleFile(e) {
-    const file = e.target.files?.[0]; e.target.value = '';
-    if (!file) return;
-    try {
-      const prepared = await compressScreenshotFile(file);
-      const fd = new FormData(); fd.append('territoryId', t.id); fd.append('photo', prepared, prepared.name); fd.append('initData', initData);
-      const r = await fetch(`${API_BASE}/api/screenshots`, { method: 'POST', headers: { 'X-Telegram-Init-Data': initData }, body: fd });
-      const d = await r.json().catch(() => null);
-      if (!r.ok || !d.ok) throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));
-      flash(isGovernment ? 'Скрин опубликован' : 'Скрин отправлен основателю/мэру на одобрение');
-    } catch (e2) { flash(safeCaughtError(e2, 'Не удалось отправить скрин')); }
-  }
 const approved = (t.screenshots || []).filter(s => s.status === 'approved');
-  const canDeleteShot = isMainInspector || (!isGovernment && isOwner);
   return (
     <div className="atlas-page atlas-page--territory" style={{ paddingBottom: 90, position: 'relative' }}>
       <div style={{ position: 'relative', height: 150, overflow:'hidden', background:getBannerGradient(t.banner_color||'none',t.banner_gradient||'aurora',t.accent) }}>
@@ -1421,11 +1372,20 @@ const approved = (t.screenshots || []).filter(s => s.status === 'approved');
           {!isGovernment&&<button onClick={()=>setShowDonation(true)} className="press" style={{height:48,minWidth:72,padding: '0 12px',border:'1px solid var(--theme-color-status-danger)',borderRadius:14,background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',display:'flex',alignItems:'center',justifyContent:'center',gap: 4,fontWeight:800}}><Heart size={17} strokeWidth={2.2}/><span>Донат</span></button>}
         </div>
         {String(t.additional_info || '').trim() && <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:14,padding: '12px 12px',marginTop: -6,marginBottom: 18}}><TelegramMinecraftText text={t.additional_info} interactive style={{fontSize:13.5,lineHeight:1.55,color:'var(--theme-color-text-primary)'}} /></div>}
-        <SectionTitle icon={<Camera size={15} />} title="Скрины" count={approved.length} />
-        <div className="atlas-scroll" style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginBottom: 12 }}>
-          {approved.map((s, shotIndex) => <div key={s.id} className="atlas-shot-reveal" style={{ position: 'relative', flexShrink: 0, animationDelay: `${Math.min(shotIndex * 35, 175)}ms` }}><ShotThumb shot={s} onOpen={() => { setLightboxIndex(approved.findIndex(x => x.id === s.id)); setLightbox({ shot: s }); }} />{canDeleteShot && <button onClick={() => deleteShot(s.id)} className="press" style={{ position: 'absolute', right: 3, top: 3, width: 24, height: 24, border: 'none', borderRadius: '50%', background: 'rgba(0,0,0,.72)', color: 'var(--theme-color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trash2 size={12} /></button>}</div>)}
-          {hasNickname && (!isOwner || isGovernment) && <><input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} /><button onClick={() => fileInputRef.current?.click()} className="press" style={{ flexShrink: 0, width: 96, height: 68, borderRadius: 12, border: '1px dashed var(--theme-color-border)', background: 'transparent', color: 'var(--theme-color-text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 11 }}><Plus size={16} /> Добавить</button></>}
-        </div>
+        <TerritoryScreenshotsPanel
+          approved={approved}
+          territoryId={t.id}
+          initData={initData}
+          hasNickname={hasNickname}
+          isOwner={isOwner}
+          isGovernment={isGovernment}
+          isMainInspector={isMainInspector}
+          onTerritoryChange={setT}
+          onOpenShot={(index, shot) => { setLightboxIndex(index); setLightbox({ shot }); }}
+          onCloseLightbox={() => setLightbox(null)}
+          onFlash={flash}
+          ui={{apiErrorMessage,safeCaughtError,SectionTitle,ShotThumb}}
+        />
         {!isGovernment&&<button onClick={() => setShowResidents(true)} className="press" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--theme-color-surface)', border: '1px solid var(--theme-color-border)', borderRadius: 14, padding: '11px 13px', margin: '0 0 15px', color: 'var(--theme-color-text-primary)' }}><span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600 }}><Users size={15} /> Жители</span><span style={{ fontSize: 12, color: 'var(--theme-color-text-muted)' }}>{residentCount} →</span></button>}
         <TerritoryFeedbackPanel
           base={base}
