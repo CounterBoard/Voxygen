@@ -18,6 +18,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Admin tools | `src/features/admin-tools/` | Read-only D1 health report and JSON export, inspector assignment/removal, and confirmed-user administration (list/create/edit/delete) |
 | Global settings overlay | `src/features/settings/GlobalSettingsPanel.jsx` | Main-inspector control of global theme/zoom overrides, expiry and per-theme visibility rules |
 | Customization feature | `src/features/customization/` | Visual catalog, account-scope selection, visual creation/editing, purchases, ordering and visibility controls |
+| Territory detail screen | `src/features/territory-details/TerritoryDetail.jsx` | Loads and composes the selected territory, owns its local overlays and lightbox, and delegates screenshots and feedback to child feature modules |
 | Territory feedback | `src/features/territory-details/TerritoryFeedbackPanel.jsx` | Territory rating, review creation/moderation and founder/manager replies |
 | Territory screenshots | `src/features/territory-details/TerritoryScreenshotsPanel.jsx` | Screenshot gallery, image compression, upload approval request and owner/inspector deletion |
 | Territory management | `src/features/territory-management/CityManagementProfile.jsx` | Owner/manager controls for residents, managers, recruitment, banner, marker and award placement |
