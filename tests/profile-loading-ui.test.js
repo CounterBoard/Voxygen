@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 const hook = readFileSync(new URL('../src/features/profile/useTelegramProfile.js', import.meta.url), 'utf8');
+const territoriesHook = readFileSync(new URL('../src/features/territories/useTerritories.js', import.meta.url), 'utf8');
 
 test('Telegram profile loading and nickname claiming are owned by a dedicated hook', () => {
   assert.match(app, /import \{ useTelegramProfile \} from '\.\/features\/profile\/useTelegramProfile\.js'/);
