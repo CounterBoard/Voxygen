@@ -95,5 +95,5 @@ test("the diagnostics service stays read-only and never invokes schema bootstrap
     "utf8",
   );
   assert.match(source, /deliberately avoids ensureWorldTables/);
-  assert.doesNotMatch(source, /await ensureWorldTables\\(|CREATE TABLE|INSERT INTO|UPDATE .* SET|DELETE FROM/);
+  assert.doesNotMatch(source, /await ensureWorldTables\(|CREATE TABLE|INSERT INTO|UPDATE .* SET|DELETE FROM/);
 });
