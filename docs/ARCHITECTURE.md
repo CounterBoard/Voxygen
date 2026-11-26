@@ -13,7 +13,7 @@ This document is the entry point for understanding the repository. Feature-level
 | World map viewport | `src/features/world-map/VoxMap.jsx` | Pan, pinch and wheel gestures, transform synchronization, visible deep-zoom / URL-grid tile selection, and territory marker rendering |
 | Event/calendar feature | `src/features/events/` | Event screens and forms, date/time conversion and calendar controls |
 | Territory award rendering and admin manager | `src/features/territory-awards/` | Telegram sticker rendering, award icons, source-pack gallery, award grants and issued-award administration |
-| Admin diagnostics | `src/features/admin-tools/` | Read-only D1 health report, orphan/FK counters and JSON export |
+| Admin tools | `src/features/admin-tools/` | Read-only D1 health report, orphan/FK counters, JSON export and confirmed-user administration (list/create/edit/delete) |
 | Shared frontend utilities | `src/shared/` | Small utilities used by more than one feature |
 | API and asset configuration | `src/config/api.js` | Frontend API and map asset base URLs |
 | Theme catalogue and visual rules | `shared/theme-catalog.js`, `shared/customization-visuals.js`, `src/theme/` | Theme definitions, visual recipes and CSS tokens |
