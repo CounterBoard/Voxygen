@@ -1,4 +1,4 @@
-# Main inspector inspector administration modularization — 2026-11-26
+# Main inspector management modularization — 2026-11-26
 
 ## Scope
 

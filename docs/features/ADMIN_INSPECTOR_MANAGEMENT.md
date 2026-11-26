@@ -1,4 +1,4 @@
-# Main inspector inspector administration
+# Inspector management in the main inspector
 
 **Status:** current implementation  
 **Updated:** 2026-11-26  
