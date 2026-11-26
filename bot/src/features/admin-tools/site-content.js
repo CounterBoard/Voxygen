@@ -57,7 +57,7 @@ export async function saveFaq(request, env, { requireMainInspector, ensureMapSet
   }
 }
 
-const DEFAULT_HOME_FEATURE_BUTTON = Object.freeze({
+export const DEFAULT_HOME_FEATURE_BUTTON = Object.freeze({
   imageData: '',
   title: 'Информация',
   subtitle: '',
