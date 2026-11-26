@@ -26,7 +26,7 @@ function createDb({ overrideRows = [], accessRows = [] } = {}) {
         values: [],
         bind(...values) { this.values = values; return this; },
         async all() {
-          if (this.sql.includes("FROM global_setting_overrides")) return { results: overrideRows };
+          if (this.sql.includes("FROM global_setting_overrides")) return { results: overrideRows.filter(row => ["map_zoom", "theme"].includes(row.setting_key)) };
           if (this.sql.includes("FROM theme_access_settings")) return { results: accessRows };
           return { results: [] };
         },
@@ -136,7 +136,8 @@ test("POST theme access normalizes usernames and upserts through the existing ta
   assert.equal(response.status, 200);
   assert.match(write.sql, /INSERT INTO theme_access_settings/);
   assert.match(write.sql, /ON CONFLICT\(theme_id\) DO UPDATE/);
-  assert.deepEqual(write.values.slice(0, 3), ["vox", "private", '["alpha_1","beta_22"]']);
+  assert.deepEqual(write.values.slice(0, 2), ["vox", "private"]);
+  assert.deepEqual(JSON.parse(write.values[2]).sort(), ["alpha_1", "beta_22"]);
   assert.equal(write.values[4], 77);
   assert.equal(ensured, 2, "save and refresh both ensure the existing settings table");
 });
