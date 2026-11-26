@@ -26,12 +26,12 @@ test('temporary and permanent global overrides preserve expiry and payload seman
   assert.match(panel, /if\(!permanent&&!expiresAt\)throw new Error\('Выберите корректную дату и время в будущем\.'\)/);
   assert.match(panel, /const payload=\{initData,settings:\{\[key\]:value\},\.\.\.\(permanent\?\{permanent:true\}:\{expiresAt\}\)\}/);
   assert.match(panel, /JSON\.stringify\(payload\)/);
-  assert.match(panel, /'Применить до даты'/);
-  assert.match(panel, /'Навсегда'/);
+  assert.ok(panel.includes('Применить до даты'))
+  assert.ok(panel.includes('Навсегда'))
 });
 
 test('theme access keeps username normalization, visibility and refresh behavior', () => {
-  assert.match(panel, /split\(\/[\\\\n,;]+\//);
+  assert.ok(panel.includes('split(/[\\\\n,;]+/)'))
   assert.match(panel, /replace\(\/\^@\+\//);
   assert.match(panel, /toLowerCase\(\)/);
   assert.match(panel, /themeAccess:\{themeId,visibility,usernames:names\}/);
