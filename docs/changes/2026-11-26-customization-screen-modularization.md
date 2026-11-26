@@ -19,4 +19,4 @@ Extracted the shared `VISUAL_COLORS` palette and `ColorDot` control into `src/fe
 - Added `docs/features/CUSTOMIZATION.md`.
 - Updated `docs/ARCHITECTURE.md` with the customization feature boundary.
 - Added `tests/customization-ui.test.js` for account scope, request contracts, stale-response guards, editor operations and palette sharing.
-- Updated `tests/theme-ui-contract.test.js` to inspect the extracted customization and palette modules along with the app shell.
+- Updated `tests/theme-ui-contract.test.js` and `tests/territory-awards-ui.test.js` to inspect the extracted customization/palette modules where they verify shared styling contracts.

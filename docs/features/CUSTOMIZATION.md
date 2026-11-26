@@ -42,4 +42,4 @@ Existing Telegram init-data headers, payloads, role-dependent controls, account-
 
 ## Regression coverage
 
-`tests/customization-ui.test.js` checks the module boundary, account-scope and stale-response guards, API routes/payloads, purchase and editor operations, palette sharing and event refresh behavior. Existing theme UI contract tests also load the extracted customization and palette modules.
+`tests/customization-ui.test.js` checks the module boundary, account-scope and stale-response guards, API routes/payloads, purchase and editor operations, palette sharing and event refresh behavior. Existing theme and award UI contract tests also load the extracted customization/palette modules where they verify the shared styling contracts.

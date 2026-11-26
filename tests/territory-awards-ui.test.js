@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+const visualColorPicker = readFileSync(new URL("../src/features/customization/VisualColorPicker.jsx", import.meta.url), "utf8");
 const appShellStyles = readFileSync(new URL("../src/theme/app-shell.css", import.meta.url), "utf8");
-const app = `${appSource}\n${appShellStyles}`;
+const app = `${appSource}\n${visualColorPicker}\n${appShellStyles}`;
 const awardIcons = readFileSync(new URL("../src/features/territory-awards/TelegramSticker.jsx", import.meta.url), "utf8");
 const awardManager = readFileSync(new URL("../src/features/territory-awards/MainInspectorAwardManager.jsx", import.meta.url), "utf8");
 const issuedAwardsPanel = readFileSync(new URL("../src/features/territory-awards/IssuedAwardsPanel.jsx", import.meta.url), "utf8");
