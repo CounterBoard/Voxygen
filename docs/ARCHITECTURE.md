@@ -9,6 +9,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Area | Location | Responsibility |
 | --- | --- | --- |
 | Application shell and screen composition | `src/App.jsx` | App-wide state, navigation, screen composition, shared UI primitives and cross-feature orchestration |
+| World map upload and publication UI | `src/features/world-map/MapUploadPanel.jsx` | Square-image validation, binary upload progress, manifest polling and recoverable publication status |
 | World map viewport | `src/features/world-map/VoxMap.jsx` | Pan, pinch and wheel gestures, transform synchronization, visible deep-zoom / URL-grid tile selection, and territory marker rendering |
 | Event/calendar feature | `src/features/events/` | Event screens and forms, date/time conversion and calendar controls |
 | Territory awards | `src/features/territory-awards/TelegramSticker.jsx` | Award emoji, Telegram sticker rendering and territory award icon |
@@ -20,7 +21,7 @@ This document is the entry point for understanding the repository. Feature-level
 
 | Area | Location | Responsibility |
 | --- | --- | --- |
-| Cloudflare Worker | `bot/src/worker.js` | HTTP API, Telegram integration, authorization and business rules |
+| Cloudflare Worker | `bot/src/worker.js` | HTTP API, Telegram integration, authorization and business rules; world-map upload streaming, GitHub Release storage and publication dispatch |
 | Database schema | `bot/schema.sql` | D1 tables and indexes |
 | Worker configuration | `bot/wrangler.toml` | Cloudflare deployment configuration |
 | Shared world geometry | `shared/world-map-coordinates.js` | Canonical world coordinate bounds and coordinate conversion |

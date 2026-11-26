@@ -10,6 +10,7 @@ import { EventsScreen } from './features/events/Events.jsx';
 import { readEventImage } from './shared/image-utils.js';
 import { EventDateTimeFields } from './features/events/DateTimeFields.jsx';
 import { VoxMap } from './features/world-map/VoxMap.jsx';
+import { WorldMapUploadPanel } from './features/world-map/MapUploadPanel.jsx';
 import { createPortal } from 'react-dom';
 import { DEFAULT_THEME_ID, THEME_CATALOG, normalizeThemeId } from '../shared/theme-catalog.js';
 import { getBannerGradient, getRandomBannerGradientId, formatDiscountRemaining } from '../shared/customization-visuals.js';
@@ -1235,73 +1236,10 @@ function AddTerritoryModal({ onClose, onSubmit, isMainInspector = false }) {
 // Interactive Vox map
 // ---------------------------------------------------------------------------
 function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritoriesChanged, onFaqSaved }) {
-  const [inspectors,setInspectors]=useState([]),[inspectorInput,setInspectorInput]=useState(''),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[mapSaving,setMapSaving]=useState(false),[mapProcessing,setMapProcessing]=useState(false),[mapProgress,setMapProgress]=useState(0),[error,setError]=useState(''),[notice,setNotice]=useState('');
+  const [inspectors,setInspectors]=useState([]),[inspectorInput,setInspectorInput]=useState(''),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   const [managedUsers,setManagedUsers]=useState([]),[usersLoading,setUsersLoading]=useState(true),[userSaving,setUserSaving]=useState(false),[newMcNickname,setNewMcNickname]=useState(''),[newTelegramId,setNewTelegramId]=useState(''),[editingUserId,setEditingUserId]=useState(null),[editingUser,setEditingUser]=useState({mcNickname:'',telegramId:''});
   const [faqText,setFaqText]=useState(''),[faqSaving,setFaqSaving]=useState(false),[faqLoading,setFaqLoading]=useState(true),[faqLoadError,setFaqLoadError]=useState('');
   const [managerModalCity,setManagerModalCity]=useState(null);
-  const fileRef=useRef(null);
-  const mapPublicationGenerationRef=useRef(0);
-  const MAP_PUBLICATION_STORAGE_KEY='voxygen:map-publication-pending';
-
-  async function readRasterDimensions(file){
-    return new Promise((resolve,reject)=>{
-      const url=URL.createObjectURL(file);
-      const image=new Image();
-      image.onload=()=>{const result={width:image.naturalWidth,height:image.naturalHeight};URL.revokeObjectURL(url);resolve(result);};
-      image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Не удалось прочитать размеры изображения карты.'));};
-      image.src=url;
-    });
-  }
-
-  async function waitForPublishedMap(expectedVersion){
-    const generation=++mapPublicationGenerationRef.current;
-    const deadline=Date.now()+25*60*1000;
-    while(Date.now()<deadline&&generation===mapPublicationGenerationRef.current){
-      try{
-        const response=await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`,{cache:'no-store'});
-        if(response.ok){
-          const manifest=await response.json();
-          const source=manifest?.source;
-          if(manifest?.mapVersion===expectedVersion&&source&&['deepzoom','url-grid'].includes(source.type)){
-            if(source.type==='deepzoom'&&(!Number.isFinite(Number(source.width))||!Number.isFinite(Number(source.height))||Number(source.width)<1||Number(source.height)<1))throw new Error('Манифест содержит некорректные размеры растровой карты.');
-            if(!coordinateGeometryMatchesManifest(source.coordinateSystem))throw new Error('Манифест карты содержит несовместимые границы игрового мира.');
-            const previewPath=source.previewUrl||manifest.previewUrl;
-            if(!previewPath)throw new Error('В манифесте карты отсутствует previewUrl.');
-            const previewUrl=/^https?:\/\//i.test(previewPath)?previewPath:new URL(previewPath,MAP_ASSETS_BASE).href;
-            const preview=new Image();preview.decoding='async';preview.fetchPriority='high';preview.src=previewUrl;
-            if(typeof preview.decode==='function')await preview.decode();
-            else await new Promise((resolve,reject)=>{preview.onload=resolve;preview.onerror=()=>reject(new Error('Не удалось загрузить превью карты.'));});
-            if(!preview.naturalWidth||!preview.naturalHeight)throw new Error('Превью опубликованной карты не удалось декодировать.');
-            if(generation!==mapPublicationGenerationRef.current)return false;
-            const publishedSource={...source,assetBase:MAP_ASSETS_BASE,mapVersion:manifest.mapVersion};
-            try{localStorage.removeItem(MAP_PUBLICATION_STORAGE_KEY);}catch{}
-            setMapProgress(100);setNotice('Карта мира обновлена');setError('');
-            onMapSaved?.({image:previewUrl,source:publishedSource});
-            return true;
-          }
-        }
-      }catch(error){
-        if(/некорректные размеры растровой карты|границы игрового мира|previewUrl|превью опубликованной карты/.test(String(error?.message||'')))throw error;
-      }
-      await new Promise(resolve=>window.setTimeout(resolve,5000));
-    }
-    if(generation===mapPublicationGenerationRef.current)setError('Исходный файл загружен. Публикация тайлов ещё не завершена; проверка сохранена и продолжится при следующем открытии приложения.');
-    return false;
-  }
-
-  useEffect(()=>{
-    let pending=null;
-    try{pending=JSON.parse(localStorage.getItem(MAP_PUBLICATION_STORAGE_KEY)||'null');}catch{}
-    const version=String(pending?.mapVersion||'').trim();
-    if(!version)return undefined;
-    setMapSaving(true);setMapProcessing(true);setError('');
-    setNotice('Возобновляем проверку публикации карты…');
-    waitForPublishedMap(version).catch(error=>setError(safeCaughtError(error,'Не удалось завершить публикацию карты.'))).finally(()=>{
-      setMapSaving(false);setMapProcessing(false);window.setTimeout(()=>setMapProgress(0),900);
-    });
-    return ()=>{mapPublicationGenerationRef.current+=1;};
-  },[initData]);
-
   const [d1Diagnostics,setD1Diagnostics]=useState(null);
   const [d1DiagnosticsLoading,setD1DiagnosticsLoading]=useState(false);
   const [d1DiagnosticsError,setD1DiagnosticsError]=useState('');
@@ -1376,43 +1314,6 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
   async function saveFaq(){const text=faqText.trim();if(!text){setError('Текст ЧиВо не может быть пустым');return}try{setFaqSaving(true);setError('');const r=await fetch(`${API_BASE}/api/faq`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,text})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setFaqText(d.text||text);onFaqSaved?.(d.text||text);setNotice('ЧиВо сохранено')}catch(e){setError(safeCaughtError(e, 'Не удалось сохранить ЧиВо'))}finally{setFaqSaving(false)}}
   async function add(){const value=inspectorInput.trim();if(!value){setError('Укажите username или Telegram ID.');return}const numeric=/^\d+$/.test(value);try{setSaving(true);setError('');const r=await fetch(`${API_BASE}/api/inspectors`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,telegramId:numeric?value:null,username:numeric?null:value})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setInspectorInput('');setNotice('Инспектор добавлен');loadInspectors()}catch(e){setError(safeCaughtError(e, 'Не удалось добавить инспектора'))}finally{setSaving(false)}}
   async function remove(id){if(!window.confirm('Удалить этого инспектора?'))return;try{const r=await fetch(`${API_BASE}/api/inspectors/${id}`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setNotice('Инспектор удалён');loadInspectors()}catch(e){setError(safeCaughtError(e, 'Не удалось удалить инспектора'))}}
-  async function saveMap(file) {
-    if (!file) return;
-    try {
-      setError(''); setNotice(''); setMapSaving(true); setMapProcessing(false); setMapProgress(0);
-      const maxBytes=90_000_000;
-      if(!['image/png','image/jpeg','image/webp'].includes(String(file.type||'').toLowerCase()))throw new Error('Поддерживаются только PNG, JPG и WebP.');
-      if(!Number.isFinite(file.size)||file.size<=0||file.size>maxBytes)throw new Error('Размер файла должен быть не больше 90 МБ.');
-      const dimensions=await readRasterDimensions(file);
-      if(dimensions.width!==dimensions.height)throw new Error('Изображение карты должно быть квадратным. Разрешение может быть любым.');
-
-      const uploadResult=await new Promise((resolve,reject)=>{
-        const xhr=new XMLHttpRequest();
-        xhr.open('POST',`${API_BASE}/api/map`,true);
-        xhr.timeout=600000;
-        xhr.setRequestHeader('Content-Type',file.type);
-        xhr.setRequestHeader('X-Telegram-Init-Data',initData);
-        xhr.setRequestHeader('X-Map-Size',String(file.size));
-        xhr.upload.onprogress=event=>{if(event.lengthComputable&&event.total>0)setMapProgress(Math.min(100,Math.round(event.loaded/event.total*100)));};
-        xhr.onload=()=>{let data=null;try{data=JSON.parse(xhr.responseText||'null');}catch{}if(xhr.status>=200&&xhr.status<300&&data?.ok)resolve(data);else reject(new Error(data?.error||`Не удалось загрузить карту (HTTP ${xhr.status||'ошибка'}).`));};
-        xhr.onerror=()=>reject(new Error('Соединение прервалось. Если файл не был полностью передан, загрузите его повторно.'));
-        xhr.ontimeout=()=>reject(new Error('Загрузка заняла больше 10 минут. Проверьте соединение и повторите попытку.'));
-        xhr.onabort=()=>reject(new Error('Загрузка карты отменена.'));
-        xhr.send(file);
-      });
-      const expectedVersion=String(uploadResult?.mapVersion||'').trim();
-      if(!expectedVersion)throw new Error('Worker сохранил файл, но не вернул версию для обработки карты.');
-      try{localStorage.setItem(MAP_PUBLICATION_STORAGE_KEY,JSON.stringify({mapVersion:expectedVersion,startedAt:Date.now()}));}catch{}
-      setMapProcessing(true);setNotice('Файл загружен. Продолжаем генерацию и публикацию тайлов…');
-      const published=await waitForPublishedMap(expectedVersion);
-      if(!published)throw new Error('Публикация ещё продолжается. Её проверка сохранена и автоматически возобновится при следующем открытии приложения.');
-    } catch(e) {
-      setError(safeCaughtError(e,'Не удалось сохранить карту'));
-    } finally {
-      setMapSaving(false);setMapProcessing(false);window.setTimeout(()=>setMapProgress(0),900);
-      if(fileRef.current)fileRef.current.value='';
-    }
-  }
   async function addUser(){const mc=newMcNickname.trim();const tid=Number(newTelegramId.trim());if(!mc||!Number.isSafeInteger(tid)||tid<=0){setError('Укажите Minecraft никнейм и корректный Telegram ID');return}try{setUserSaving(true);setError('');const r=await fetch(`${API_BASE}/api/admin/users`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,mcNickname:mc,telegramId:tid})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setNewMcNickname('');setNewTelegramId('');setNotice(d.user?.telegram_username?`Пользователь добавлен: @${String(d.user.telegram_username).replace(/^@/,'')}`:'Пользователь добавлен. Username появится после входа в Voxygen.');await loadUsers()}catch(e){setError(safeCaughtError(e, 'Не удалось добавить пользователя'))}finally{setUserSaving(false)}}
   function startEdit(u){setEditingUserId(u.id);setEditingUser({mcNickname:u.mc_nickname||'',telegramId:u.telegram_id==null?'':String(u.telegram_id)})}
   async function saveUser(id){const mc=editingUser.mcNickname.trim();const tid=String(editingUser.telegramId||'').trim();if(!mc||!tid){setError('Укажите Minecraft никнейм и Telegram ID');return}try{setUserSaving(true);setError('');const r=await fetch(`${API_BASE}/api/admin/users/update/${encodeURIComponent(id)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,mcNickname:mc,telegramId:Number(tid)})});let d=null;try{d=await r.json().catch(() => null)}catch{throw new Error(`HTTP ${r.status}`)}if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setEditingUserId(null);setNotice(d.user?.telegram_username?`Данные сохранены: @${String(d.user.telegram_username).replace(/^@/,'')}`:'Данные сохранены. Username обновится после входа пользователя.');await loadUsers()}catch(e){setError(safeCaughtError(e, 'Не удалось сохранить пользователя'))}finally{setUserSaving(false)}}
@@ -1424,13 +1325,7 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
     <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding: 'var(--theme-space-4)',marginBottom: 12}}><div style={{display:'flex',alignItems:'center',gap: 8,marginBottom: 12}}><Users size={16} color="var(--theme-color-status-warning)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Инспекторы</div><span style={{marginLeft: 'auto',fontSize:11,color:'var(--theme-color-text-muted)'}}>{inspectors.length}</span></div><Field value={inspectorInput} onChange={e=>setInspectorInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')add()}} placeholder="Username или Telegram ID" style={{marginBottom: 8}}/><button onClick={add} disabled={saving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding: '10px 12px',background:'var(--theme-color-status-warning)',color:'var(--theme-color-status-warning-contrast)',fontWeight:700}}>{saving?'Добавление…':'Добавить инспектора'}</button>{loading?null:inspectors.map(i=><div key={i.telegram_id} style={{display:'flex',alignItems:'center',gap: 10,padding: '10px 0',borderTop:'1px solid var(--theme-color-border)'}}><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{i.telegram_username?`@${String(i.telegram_username).replace(/^@/,'')}`:'Username не указан'}</div><div style={{fontSize:11,color:'var(--theme-color-text-muted)'}}>Telegram ID: {i.telegram_id}</div></div><button onClick={()=>remove(i.telegram_id)} className="press" style={{border:'none',background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',borderRadius:9,padding: '8px'}}><Trash2 size={14}/></button></div>)}</div>
 
     <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding: 'var(--theme-space-4)',marginBottom: 12}}><div style={{display:'flex',alignItems:'center',gap: 8,marginBottom: 10}}><Trash2 size={16} color="var(--theme-color-status-danger)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Города</div><span style={{marginLeft: 'auto',fontSize:11,color:'var(--theme-color-text-muted)'}}>{territories.length}</span></div>{territories.length===0?<div style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>Городов пока нет.</div>:territories.map(city=><div key={city.id} style={{display:'flex',alignItems:'center',gap: 6,padding: '10px 0',borderTop:'1px solid var(--theme-color-border)'}}><div style={{flex:1,minWidth:0}}><MinecraftText text={city.name} as="div" style={{fontSize:13,fontWeight:700}}/><div style={{fontSize:11,color:'var(--theme-color-text-muted)'}}><MinecraftText text={city.owner}/> · {formatTerritoryCoords(city.coords)}</div></div><button onClick={()=>moveCity(city)} className="press" style={{border:'1px solid var(--theme-color-border)',background:'var(--theme-color-surface-raised)',color:'var(--theme-color-text-primary)',borderRadius:9,padding: '6px 8px',fontSize:11}}>Коорд.</button><button onClick={()=>changeFounder(city)} className="press" style={{border:'1px solid var(--theme-color-border)',background:'var(--theme-color-surface-raised)',color:'var(--theme-color-status-success)',borderRadius:9,padding: '6px 8px',fontSize:11}}>Мэр</button><button onClick={()=>deleteCity(city.id)} className="press" style={{border:'none',background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',borderRadius:9,padding: '6px 8px'}}><Trash2 size={14}/></button></div>)}</div>
-    <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding: 'var(--theme-space-4)',marginBottom: 12}}>
-      <div style={{display:'flex',alignItems:'center',gap: 8,marginBottom: 8}}><MapIcon size={16} color="var(--theme-color-action-primary)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Карта мира</div></div>
-      <div style={{fontSize:12,color:'var(--theme-color-text-muted)',lineHeight:1.5,marginBottom: 10}}>Загрузите квадратную карту PNG, JPG или WebP любого разрешения. Размер и разрешение изображения не меняют фиксированную систему координат игрового мира. Размер файла — до 90 МБ; исходник хранится в GitHub Releases, а тайлы публикуются отдельно.</div>
-      <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{display:'none'}} onChange={e=>saveMap(e.target.files?.[0])}/>
-      <button onClick={()=>fileRef.current?.click()} disabled={mapSaving} className="press" style={{width:'100%',border:'none',borderRadius:10,padding: '11px',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:700}}>{mapSaving?(mapProcessing?'Обработка карты…':'Загрузка карты…'):'Загрузить карту мира'}</button>
-      {mapSaving&&<div role="status" aria-live="polite" style={{marginTop: 10}}><div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--theme-color-text-muted)',marginBottom: 4}}><span>{mapProcessing?'Генерация тайлов и публикация…':(mapProgress>=100?'Файл передан, запускаем обработку…':'Загрузка файла')}</span><span>{mapProcessing?'В работе':`${mapProgress}%`}</span></div><div style={{height:6,background:'var(--theme-color-surface-elevated)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',width:`${mapProgress}%`,background:'var(--theme-color-action-primary)',borderRadius:99,transition:'width 120ms linear'}}/></div></div>}
-    </div>
+    <WorldMapUploadPanel initData={initData} onMapSaved={onMapSaved} onError={setError} onNotice={setNotice} safeCaughtError={safeCaughtError} />
     <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding: 'var(--theme-space-4)',marginBottom: 12}}>
       <div style={{display:'flex',alignItems:'center',gap: 8,marginBottom: 12}}><Users size={16} color="var(--theme-color-action-primary)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Пользователи</div><span style={{marginLeft: 'auto',fontSize:11,color:'var(--theme-color-text-muted)'}}>{managedUsers.length}</span></div>
       <Field value={newMcNickname} onChange={e=>setNewMcNickname(e.target.value)} placeholder="Никнейм в Minecraft" style={{width:'100%',boxSizing:'border-box',background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:10,padding: '10px 12px',color:'var(--theme-color-text-primary)',marginBottom: 8}}/>
