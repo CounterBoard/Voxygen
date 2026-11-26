@@ -2,7 +2,7 @@
 
 **Status:** current implementation  
 **Updated:** 2026-11-26  
-**Source of truth:** `src/features/territory-awards/TelegramSticker.jsx`, `src/features/territory-awards/MainInspectorAwardManager.jsx`, their integration in `src/App.jsx`, `bot/src/worker.js`, and the D1 tables created by `ensureWorldTables()`.
+**Source of truth:** `src/features/territory-awards/TelegramSticker.jsx`, `src/features/territory-awards/MainInspectorAwardManager.jsx`, `src/features/territory-awards/IssuedAwardsPanel.jsx`, their integration in `src/App.jsx`, `bot/src/worker.js`, and the D1 tables created by `ensureWorldTables()`.
 
 This document describes the current award-sticker path after removing the abandoned `AnimatedEmojies` integration. It supersedes earlier notes that describe `GET /api/telegram-emoji` as an active part of award rendering.
 
@@ -196,7 +196,16 @@ The protected main-inspector profile embeds `MainInspectorAwardManager` from `sr
 - After a grant, the module dispatches `voxygen:awards-changed` so the issued-awards list can refresh, and calls the existing `onTerritoriesChanged` callback.
 - The module imports its sticker renderer and icon components directly. The app shell supplies the shared API error formatters through the explicit `ui` adapter; no API route, authorization rule, or payload is owned by this UI extraction.
 
-## 11. Source map
+## 11. Issued-award administration panel
+
+The main inspector's issued-award list is owned by `src/features/territory-awards/IssuedAwardsPanel.jsx`. It is separate from the source-pack gallery and from public award rendering.
+
+- On mount, the panel requests `GET /api/admin/awards?view=issued` using the existing `X-Telegram-Init-Data` header and displays each issued award with its stored date and Telegram thumbnail/preview.
+- The panel listens for `voxygen:awards-changed`; the source-pack/grant manager dispatches this event after a successful grant so the issued list refreshes without a page reload.
+- Deletion uses `DELETE /api/admin/awards/:id`, asks for confirmation, removes the row from local state after a successful response and invokes the existing territory-refresh callback.
+- The shared API error formatter, fallback formatter and award-date formatter are passed through the explicit `ui` adapter. The API route, authorization and response contract remain in the Worker.
+
+## 12. Source map
 
 | Responsibility | File / symbol |
 | --- | --- |

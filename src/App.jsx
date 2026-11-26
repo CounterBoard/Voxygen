@@ -3,6 +3,8 @@ import React, { useEffect, useState, useRef, useId } from 'react';
 import { API_BASE, MAP_ASSETS_BASE } from './config/api.js';
 import { TerritoryAwardIcon } from './features/territory-awards/TelegramSticker.jsx';
 import { MainInspectorAwardManager } from './features/territory-awards/MainInspectorAwardManager.jsx';
+import { MainInspectorIssuedAwardsPanel } from './features/territory-awards/IssuedAwardsPanel.jsx';
+import { MainInspectorD1DiagnosticsPanel } from './features/admin-tools/D1DiagnosticsPanel.jsx';
 import {
   defaultGlobalExpiryDateParts, globalExpiryDatePartsFromTimestamp,
   globalExpiryPartsTimestamp, normalizeTimezoneOffset,
@@ -1241,65 +1243,8 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
   const [managedUsers,setManagedUsers]=useState([]),[usersLoading,setUsersLoading]=useState(true),[userSaving,setUserSaving]=useState(false),[newMcNickname,setNewMcNickname]=useState(''),[newTelegramId,setNewTelegramId]=useState(''),[editingUserId,setEditingUserId]=useState(null),[editingUser,setEditingUser]=useState({mcNickname:'',telegramId:''});
   const [faqText,setFaqText]=useState(''),[faqSaving,setFaqSaving]=useState(false),[faqLoading,setFaqLoading]=useState(true),[faqLoadError,setFaqLoadError]=useState('');
   const [managerModalCity,setManagerModalCity]=useState(null);
-  const [d1Diagnostics,setD1Diagnostics]=useState(null);
-  const [d1DiagnosticsLoading,setD1DiagnosticsLoading]=useState(false);
-  const [d1DiagnosticsError,setD1DiagnosticsError]=useState('');
-  const [d1ReportCopyText,setD1ReportCopyText]=useState('');
-  const [d1ReportCopyNotice,setD1ReportCopyNotice]=useState('');
-  const [issuedAwards,setIssuedAwards]=useState([]);
-  const [issuedAwardsLoading,setIssuedAwardsLoading]=useState(true);
-  const [issuedAwardsError,setIssuedAwardsError]=useState('');
-  const [issuedAwardDeletingId,setIssuedAwardDeletingId]=useState('');
 
-  async function loadD1Diagnostics(){
-    try{
-      setD1DiagnosticsLoading(true);setD1DiagnosticsError('');
-      const response=await fetch(`${API_BASE}/api/admin/diagnostics/d1`,{method:'GET',headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
-      const report=await parseApiResponse(response,'Не удалось проверить базу данных.');
-      if(report.readOnly!==true)throw new Error('Диагностика вернула неожиданный формат.');
-      setD1Diagnostics(report);setD1ReportCopyText('');setD1ReportCopyNotice('');
-    }catch(error){setD1DiagnosticsError(safeCaughtError(error,'Не удалось получить read-only отчёт D1.'))}
-    finally{setD1DiagnosticsLoading(false)}
-  }
-  async function copyD1Diagnostics(){
-    if(!d1Diagnostics)return;
-    const text=JSON.stringify(d1Diagnostics,null,2);
-    try{
-      if(!navigator.clipboard?.writeText)throw new Error('Clipboard unavailable');
-      await navigator.clipboard.writeText(text);setD1ReportCopyText('');setD1ReportCopyNotice('JSON-отчёт скопирован. Его можно отправить для анализа.');
-    }catch{
-      setD1ReportCopyNotice('Автокопирование недоступно. Выделите текст ниже и скопируйте его вручную.');setD1ReportCopyText(text);
-    }
-  }
-  async function loadIssuedAwards(){
-    try{
-      setIssuedAwardsLoading(true);setIssuedAwardsError('');
-      const response=await fetch(API_BASE+'/api/admin/awards?view=issued',{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'});
-      const data=await response.json().catch(()=>null);
-      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось загрузить выданные награды.'));
-      setIssuedAwards(Array.isArray(data.awards)?data.awards:[]);
-    }catch(error){setIssuedAwardsError(safeCaughtError(error,'Не удалось загрузить выданные награды.'))}
-    finally{setIssuedAwardsLoading(false)}
-  }
-  useEffect(()=>{
-    if(!initData)return;
-    loadIssuedAwards();
-    const refresh=()=>loadIssuedAwards();
-    window.addEventListener('voxygen:awards-changed',refresh);
-    return ()=>window.removeEventListener('voxygen:awards-changed',refresh);
-  },[initData]);
-  async function deleteIssuedAward(award){
-    if(!window.confirm('Удалить награду «'+award.name+'» из города «'+award.territory_name+'»?'))return;
-    try{
-      setIssuedAwardDeletingId(String(award.id));setIssuedAwardsError('');
-      const response=await fetch(API_BASE+'/api/admin/awards/'+encodeURIComponent(award.id),{method:'DELETE',headers:{'X-Telegram-Init-Data':initData}});
-      const data=await response.json().catch(()=>null);
-      if(!response.ok||!data?.ok)throw new Error(apiErrorMessage(response,data,'Не удалось удалить награду.'));
-      setIssuedAwards(current=>current.filter(item=>String(item.id)!==String(award.id)));
-      Promise.resolve(onTerritoriesChanged?.()).catch(()=>{});
-    }catch(error){setIssuedAwardsError(safeCaughtError(error,'Не удалось удалить награду.'))}
-    finally{setIssuedAwardDeletingId('')}
-  }
+
   async function loadInspectors(){try{setLoading(true);const r=await fetch(`${API_BASE}/api/inspectors/list`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData}),cache:'no-store'}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setInspectors(d.inspectors||[])}catch(e){setError(safeCaughtError(e, 'Не удалось загрузить инспекторов'))}finally{setLoading(false)}}
   async function loadUsers(){try{setUsersLoading(true);const r=await fetch(`${API_BASE}/api/admin/users`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setManagedUsers(d.users||[])}catch(e){setError(safeCaughtError(e, 'Не удалось загрузить пользователей'))}finally{setUsersLoading(false)}}
   async function loadFaq(){
@@ -1357,49 +1302,8 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
     {managerModalCity&&<MainInspectorManagersModal city={managerModalCity} initData={initData} onClose={()=>setManagerModalCity(null)} onSaved={(message)=>{setNotice(message);onTerritoriesChanged?.()}} />}
     {notice&&<FixedToast key={notice} message={notice}/>}
     {error&&<div style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop: 8}}>{error}</div>}
-    <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding: 'var(--theme-space-4)',marginBottom: 12}}>
-      <div style={{display:'flex',alignItems:'center',gap: 8,marginBottom: 8}}><ShieldCheck size={16} color="var(--theme-color-status-success)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Диагностика D1</div><span style={{marginLeft: 'auto',fontSize:10,color:'var(--theme-color-status-success)',fontWeight:700}}>ТОЛЬКО ЧТЕНИЕ</span></div>
-      <div style={{fontSize:12,color:'var(--theme-color-text-muted)',lineHeight:1.45,marginBottom: 10}}>Проверка количества записей, осиротевших связей, статусов и объёма больших полей. Отчёт не удаляет и не изменяет данные.</div>
-      <button onClick={loadD1Diagnostics} disabled={d1DiagnosticsLoading} className="press" style={{width:'100%',border:'none',borderRadius:10,padding: '10px 12px',background:'var(--theme-color-status-success)',color:'var(--theme-color-status-success-contrast)',fontWeight:700}}>{'Получить read-only отчёт'}</button>
-      {d1DiagnosticsError&&<div role="alert" style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop: 8}}>{d1DiagnosticsError}</div>}
-      {d1Diagnostics&&<div style={{marginTop: 12,fontSize:12,lineHeight:1.5}}>
-        <div style={{color:'var(--theme-color-text-muted)',marginBottom: 8}}>Снимок: {new Date(d1Diagnostics.generatedAt).toLocaleString()} · таблиц: {(d1Diagnostics.tables||[]).length}</div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap: 8,marginBottom: 10}}>
-          <div style={{background:'var(--theme-color-surface-raised)',borderRadius:10,padding: 10}}><div style={{color:'var(--theme-color-text-muted)',fontSize:10}}>Orphan по территориям</div><div style={{fontSize:18,fontWeight:800,color:(d1Diagnostics.orphanTerritories||[]).length?'var(--theme-color-status-danger)':'var(--theme-color-status-success)'}}>{(d1Diagnostics.orphanTerritories||[]).reduce((sum,item)=>sum+Number(item.rows||0),0)}</div></div>
-          <div style={{background:'var(--theme-color-surface-raised)',borderRadius:10,padding: 10}}><div style={{color:'var(--theme-color-text-muted)',fontSize:10}}>Orphan связей</div><div style={{fontSize:18,fontWeight:800,color:(d1Diagnostics.orphanRelations||[]).length?'var(--theme-color-status-danger)':'var(--theme-color-status-success)'}}>{(d1Diagnostics.orphanRelations||[]).reduce((sum,item)=>sum+Number(item.rows||0),0)}</div></div>
-          <div style={{background:'var(--theme-color-surface-raised)',borderRadius:10,padding: 10}}><div style={{color:'var(--theme-color-text-muted)',fontSize:10}}>FK нарушения</div><div style={{fontSize:18,fontWeight:800,color:Number(d1Diagnostics.foreignKeyViolations?.count||0)?'var(--theme-color-status-danger)':'var(--theme-color-status-success)'}}>{Number(d1Diagnostics.foreignKeyViolations?.count||0)}</div></div>
-          <div style={{background:'var(--theme-color-surface-raised)',borderRadius:10,padding: 10}}><div style={{color:'var(--theme-color-text-muted)',fontSize:10}}>Предупреждения отчёта</div><div style={{fontSize:18,fontWeight:800}}>{(d1Diagnostics.warnings||[]).length}</div></div>
-        </div>
-        <details style={{borderTop:'1px solid var(--theme-color-border)',paddingTop: 8}}>
-          <summary style={{cursor:'pointer',fontWeight:700}}>Подробности отчёта (JSON)</summary>
-          <pre style={{maxHeight:340,overflow:'auto',whiteSpace:'pre-wrap',overflowWrap:'anywhere',fontSize:10.5,lineHeight:1.4,background:'var(--theme-color-surface-raised)',borderRadius:9,padding: 8}}>{JSON.stringify(d1Diagnostics, null, 2)}</pre>
-        </details>
-        <button onClick={copyD1Diagnostics} className="press" style={{width:'100%',border:'1px solid var(--theme-color-border)',borderRadius:10,padding: '8px 12px',marginTop: 10,background:'var(--theme-color-surface-raised)',color:'var(--theme-color-text-primary)',fontWeight:700}}>Скопировать JSON отчёта</button>
-        {d1ReportCopyNotice&&<div role="status" style={{fontSize:11,color:'var(--theme-color-text-muted)',marginTop: 6}}>{d1ReportCopyNotice}</div>}
-        {d1ReportCopyText&&<textarea readOnly value={d1ReportCopyText} onFocus={event=>event.currentTarget.select()} rows={7} aria-label="JSON отчёта D1" style={{width:'100%',boxSizing:'border-box',marginTop: 8,background:'var(--theme-color-surface-raised)',border:'1px solid var(--theme-color-border)',borderRadius:9,padding: 8,color:'var(--theme-color-text-primary)',fontSize:10,lineHeight:1.4}}/>}
-        <div style={{color:'var(--theme-color-text-muted)',marginTop: 8}}>Отчёт не является резервной копией. Перед очисткой нужно проверить результаты и сделать отдельный снимок базы.</div>
-      </div>}
-    </div>
-    <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding:'var(--theme-space-4)',marginBottom:12}}>
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-        <Star size={16} color="var(--theme-color-status-success)"/>
-        <div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Выданные награды</div>
-        <span style={{marginLeft:'auto',fontSize:11,color:'var(--theme-color-text-muted)'}}>{issuedAwards.length}</span>
-      </div>
-      {issuedAwardsLoading?<div role="status" style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>Загрузка наград…</div>
-        : issuedAwards.length===0?<div style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>Пока нет выданных наград.</div>
-        : <div style={{display:'flex',flexDirection:'column'}}>
-            {issuedAwards.map(award=><div key={award.id} style={{display:'flex',alignItems:'center',gap:9,padding:'9px 0',borderTop:'1px solid var(--theme-color-border)'}}>
-              <TerritoryAwardIcon award={award} size={34} preview={Boolean(award.sticker_thumbnail_file_id)}/>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:700,overflowWrap:'anywhere'}}>{award.name}</div>
-                <div style={{fontSize:11,color:'var(--theme-color-text-muted)',overflowWrap:'anywhere'}}>{award.territory_name} · {formatTerritoryAwardDate(award.awarded_at)}</div>
-              </div>
-              <button type="button" onClick={()=>deleteIssuedAward(award)} disabled={issuedAwardDeletingId===String(award.id)} aria-label={'Удалить награду '+award.name} title="Удалить награду" className="press" style={{width:34,height:34,flex:'0 0 34px',display:'flex',alignItems:'center',justifyContent:'center',border:'none',borderRadius:9,background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',opacity:issuedAwardDeletingId===String(award.id)?0.5:1}}><Trash2 size={15}/></button>
-            </div>)}
-          </div>}
-      {issuedAwardsError&&<div role="alert" style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop:8}}>{issuedAwardsError}<button type="button" onClick={loadIssuedAwards} className="press" style={{marginLeft:8,border:'1px solid var(--theme-color-border)',borderRadius:8,padding:'5px 8px',background:'var(--theme-color-surface-raised)',color:'var(--theme-color-text-primary)'}}>Повторить</button></div>}
-    </div>
+    <MainInspectorD1DiagnosticsPanel initData={initData} ui={{parseApiResponse,safeCaughtError}} />
+    <MainInspectorIssuedAwardsPanel initData={initData} onTerritoriesChanged={onTerritoriesChanged} ui={{apiErrorMessage,safeCaughtError,formatTerritoryAwardDate}} />
   </div>;
 }
 

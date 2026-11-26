@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 const awardIcons = readFileSync(new URL("../src/features/territory-awards/TelegramSticker.jsx", import.meta.url), "utf8");
 const awardManager = readFileSync(new URL("../src/features/territory-awards/MainInspectorAwardManager.jsx", import.meta.url), "utf8");
+const issuedAwardsPanel = readFileSync(new URL("../src/features/territory-awards/IssuedAwardsPanel.jsx", import.meta.url), "utf8");
 const themeTokens = readFileSync(new URL("../src/theme/theme-tokens.css", import.meta.url), "utf8");
 
 test("territory award sticker components are isolated from the app shell and retain their fallbacks",()=>{
@@ -93,13 +94,18 @@ test("main inspector profile uses the isolated 9-column custom emoji pack award 
   assert.match(awardManager,/from '\.\/TelegramSticker\.jsx'/);
 });
 
-test("main inspector issued awards list appears below D1 diagnostics and supports deletion",()=>{
-  const diagnostics=app.indexOf("Диагностика D1");
-  const issued=app.indexOf("Выданные награды");
+test("main inspector issued awards panel follows D1 diagnostics and owns refresh/delete behavior",()=>{
+  const diagnostics=app.indexOf("<MainInspectorD1DiagnosticsPanel");
+  const issued=app.indexOf("<MainInspectorIssuedAwardsPanel");
   assert.ok(diagnostics>=0&&issued>diagnostics);
-  assert.match(app,/async function loadIssuedAwards\(/);
-  assert.match(app,/async function deleteIssuedAward\(/);
-  assert.match(app,/\/api\/admin\/awards\/'\+encodeURIComponent\(award\.id\)/);
+  assert.match(app,/import \{ MainInspectorIssuedAwardsPanel \} from '\.\/features\/territory-awards\/IssuedAwardsPanel\.jsx'/);
+  assert.match(app,/<MainInspectorIssuedAwardsPanel initData=\{initData\} onTerritoriesChanged=\{onTerritoriesChanged\} ui=\{\{apiErrorMessage,safeCaughtError,formatTerritoryAwardDate\}\} \/>/);
+  assert.match(issuedAwardsPanel,/export function MainInspectorIssuedAwardsPanel\(/);
+  assert.match(issuedAwardsPanel,/\/api\/admin\/awards\?view=issued/);
+  assert.match(issuedAwardsPanel,/\/api\/admin\/awards\/'?\s*\+/);
+  assert.match(issuedAwardsPanel,/voxygen:awards-changed/);
+  assert.match(issuedAwardsPanel,/onTerritoriesChanged\?\.\(\)/);
+  assert.match(issuedAwardsPanel,/TerritoryAwardIcon award=\{award\} size=\{34\}/);
 });
 
 test("territory award badges center their icons and reveal each badge in sequence",()=>{
