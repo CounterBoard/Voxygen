@@ -38,7 +38,7 @@ test('marker equipment, award slots and conflict feedback keep their API contrac
   assert.match(panel, /markerItemId:nextId/);
   assert.match(panel, /\/api\/customization\/city\/award/);
   assert.match(panel, /awardId:award\.id/);
-  assert.match(panel, /response\.status===409/);
+  assert.match(panel, /lastError\.status===409/);
   assert.match(panel, /Максимум 4 награды на странице территории/);
   assert.match(panel, /updateInventory\(value=>value\?\{\.\.\.value,equippedMarkerItemId:nextId\}:value\)/);
 });
