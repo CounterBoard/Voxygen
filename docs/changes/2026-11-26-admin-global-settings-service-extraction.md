@@ -28,3 +28,5 @@ No table creation, migration, schema, route path, authorization rule or settings
 ## CI findings
 
 The initial unit-test run exposed an incorrect relative import depth for the shared theme and map-zoom modules. The paths were corrected from the new `bot/src/features/admin-tools` directory to the repository-root `shared/` directory. The failing tests were module-load failures before handler execution; the implementation logic was unchanged. The full test, app build, Worker syntax and Wrangler dry-run suite must pass on the corrected commit before merge.
+
+The first handler-level test run also exposed two mock/expectation mismatches: the D1 mock returned an out-of-allowlist row despite the real SQL filter, and the theme access test asserted username ordering instead of the normalized set. The mock now applies the query's key filter and the assertion verifies the normalized de-duplicated values independent of row ordering. Runtime behavior was not changed.
