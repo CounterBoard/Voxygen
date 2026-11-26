@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 const visualColorPicker = readFileSync(new URL("../src/features/customization/VisualColorPicker.jsx", import.meta.url), "utf8");
 const territoryFeedbackPanel = readFileSync(new URL("../src/features/territory-details/TerritoryFeedbackPanel.jsx", import.meta.url), "utf8");
+const territoryDetailModule = readFileSync(new URL("../src/features/territory-details/TerritoryDetail.jsx", import.meta.url), "utf8");
 const territoryManagementModule = readFileSync(new URL("../src/features/territory-management/CityManagementProfile.jsx", import.meta.url), "utf8");
 const appShellStyles = readFileSync(new URL("../src/theme/app-shell.css", import.meta.url), "utf8");
 const profileInventoryIndex = appSource.indexOf("function ProfileInventory(");
@@ -68,7 +69,7 @@ test("banner preview updates optimistically and submits the exact selected color
   assert.ok(handler.includes("bannerColor:next.bannerColor,bannerGradient:next.bannerGradient"));
   assert.ok(handler.includes("setInventory(current=>current?{...current,...previous}:current)"),"failed saves roll back the preview");
   const editor=app.slice(app.indexOf("function CityManagementProfile("),app.indexOf("function ProfileInventory("));
-  const publicPage=app.slice(app.indexOf("function TerritoryDetail("),app.indexOf("function WorldMap("));
+  const publicPage=territoryDetailModule;
   assert.ok(editor.includes("background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent)"));
   assert.ok(publicPage.includes("background:getBannerGradient(t.banner_color||'none',t.banner_gradient||'aurora',t.accent)"));
 });
