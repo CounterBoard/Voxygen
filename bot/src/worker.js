@@ -177,12 +177,21 @@ async function serveTelegramAwardSticker(request, env) {
     if (!fileInfo.data?.ok) return fail('telegram_getfile_api', 502);
     if (!filePath || filePath.includes('..') || filePath.startsWith('/')) return fail('telegram_file_path_invalid', 502);
 
-    const extension = filePath.split('.').pop().toLowerCase();
+    // Telegram file_path may omit the suffix entirely (for example,
+    // "stickers/file_344"). In that case, trust the format stored with the
+    // sticker record; when a suffix is present, still validate it.
+    const fileName = filePath.split('/').pop() || '';
+    const dotIndex = fileName.lastIndexOf('.');
+    const extension = dotIndex > 0 ? fileName.slice(dotIndex + 1).toLowerCase() : '';
     const responseFormat = isPreviewImage ? 'image' : String(record.format || 'image');
-    const allowedExtension = responseFormat === 'tgs' ? extension === 'tgs'
-      : responseFormat === 'webm' ? extension === 'webm'
-      : ['webp', 'png', 'jpg', 'jpeg'].includes(extension);
-    if (!allowedExtension) return fail('file_extension_mismatch', 415, { expectedFormat: responseFormat, actualExtension: extension });
+    const allowedExtension = !extension
+      || (responseFormat === 'tgs' ? extension === 'tgs'
+        : responseFormat === 'webm' ? extension === 'webm'
+        : ['webp', 'png', 'jpg', 'jpeg'].includes(extension));
+    if (!allowedExtension) return fail('file_extension_mismatch', 415, {
+      expectedFormat: responseFormat,
+      actualExtension: extension || null,
+    });
 
     const token = String(env.BOT_TOKEN || '').trim();
     const upstream = await fetch(TELEGRAM_API + '/file/bot' + token + '/' + filePath);
