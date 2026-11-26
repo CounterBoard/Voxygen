@@ -4,7 +4,7 @@
 
 Moved the territory summary state and refresh lifecycle out of `src/App.jsx` into `src/features/territories/useTerritories.js`.
 
-The hook now owns the summary list, request/queue refs, normalization, partial-data preservation, error/loading/readiness state, identity reset and active-screen refresh scheduling. The root app keeps navigation and selected-territory state and passes the hook's refresh callback to existing consumers.
+The hook now owns the summary list, request/queue refs, normalization, partial-data preservation, error/loading/readiness state and identity reset. The root app keeps navigation, selected-territory state and the original active-screen/visibility refresh effect, and passes the hook's refresh callback to existing consumers.
 
 ## Preserved behavior
 
@@ -13,7 +13,7 @@ The hook now owns the summary list, request/queue refs, normalization, partial-d
 - Kept `degradedAreas`-based per-field preservation from the previous row.
 - Kept in-flight request coalescing, queued follow-up refresh, hidden-document suppression, visibility refresh and 60-second polling.
 - Kept marker readiness on the next animation frame.
-- Preserved the order of profile and territory refresh effects at startup; Telegram identity reset still runs through the profile hook callback.
+- Kept the screen/visibility/60-second scheduling effect in its original location in `App.jsx`, preserving startup effect order; Telegram identity reset still runs through the profile hook callback.
 
 No Worker routes, API payloads, database schema, permissions or screen UI behavior were intentionally changed.
 
