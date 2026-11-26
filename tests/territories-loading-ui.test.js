@@ -24,7 +24,7 @@ test('the summary request keeps Telegram authentication, no-store caching and bo
 
 test('territory normalization retains the fields consumed by map, profile, awards and detail screens', () => {
   for (const field of [
-    'id:', 'name:', 'owner:', 'coords:', 'accent:', 'curator:', 'community:', 'votes:',
+    'id:', 'name:', 'owner,', 'coords,', 'accent:', 'curator:', 'community:', 'votes:',
     'residents:', 'reviews:', 'screenshots:', 'vox_x:', 'vox_z:', 'owner_telegram_id:',
     'owner_telegram_username:', 'owner_mc_nickname:', 'founder_mc_nickname:', 'marker_url:',
     'banner_color:', 'banner_gradient:', 'awards:', 'resident_count:', 'resident_telegram_ids:',
@@ -78,7 +78,7 @@ test('marker readiness is still delayed until the normalized list has been commi
 });
 
 test('feature documentation describes the summary payload, degraded-data preservation and refresh lifecycle', () => {
-  assert.match(doc, /GET `\/api\/territories\?view=summary`/);
+  assert.ok(doc.includes('GET `/api/territories?view=summary`'));
   assert.match(doc, /degradedAreas/);
   assert.match(doc, /coalesced/);
   assert.match(doc, /60 seconds/);
