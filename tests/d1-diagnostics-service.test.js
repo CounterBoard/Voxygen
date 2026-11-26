@@ -85,8 +85,8 @@ test("D1 diagnostics returns a read-only inventory and issues only SELECT/PRAGMA
     { table: "users", rows: 0 },
   ]);
   assert.ok(statements.length >= 4);
-  assert.ok(statements.every(sql => /^(SELECT|PRAGMA)\\b/i.test(sql.trimStart())), statements.join("\n"));
-  assert.ok(!statements.some(sql => /\\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|REPLACE)\\b/i.test(sql)));
+  assert.ok(statements.every(sql => /^(SELECT|PRAGMA)\b/i.test(sql.trimStart())), statements.join("\n"));
+  assert.ok(!statements.some(sql => /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|REPLACE)\b/i.test(sql)));
 });
 
 test("the diagnostics service stays read-only and never invokes schema bootstrap", () => {
