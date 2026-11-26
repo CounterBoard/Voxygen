@@ -26,9 +26,9 @@ test('banner preview retains optimistic update and rollback with the same payloa
   const start = panel.indexOf('async function changeBannerColor(value)');
   const end = panel.indexOf('async function rename()', start);
   const handler = panel.slice(start, end);
-  const optimistic = handler.indexOf('setInventory(current=>current?{...current,...next}:current)');
+  const optimistic = handler.indexOf('updateInventory(current=>current?{...current,...next}:current)');
   const request = handler.indexOf('/api/customization/city');
-  const rollback = handler.indexOf('setInventory(current=>current?{...current,...previous}:current)');
+  const rollback = handler.indexOf('updateInventory(current=>current?{...current,...previous}:current)');
   assert.ok(optimistic >= 0 && request > optimistic);
   assert.ok(rollback > request);
   assert.match(handler, /bannerColor:next\.bannerColor,bannerGradient:next\.bannerGradient/);
@@ -77,4 +77,36 @@ test('recruitment editor preserves read-only text and publish/hide controls', ()
   assert.match(recruitment, /save\(false\)/);
   assert.match(recruitment, /Объявление опубликовано/);
   assert.match(recruitment, /Объявление скрыто/);
+});
+
+
+test('marker equipment applies immediately and serializes background saves without dropping clicks', () => {
+  const start = panel.indexOf('function equip(itemId)');
+  const end = panel.indexOf('function toggleAwardPlacement(award)', start);
+  const handler = panel.slice(start, end);
+  const optimistic = handler.indexOf('updateInventory(value=>value?{...value,equippedMarkerItemId:nextId}:value)');
+  const request = handler.indexOf('await fetch(');
+  assert.ok(optimistic >= 0 && request > optimistic, 'marker selection changes before the API request');
+  assert.match(handler, /markerMutationQueueRef\.current=markerMutationQueueRef\.current\.then\(save,save\)/);
+  assert.match(handler, /markerPendingCountRef\.current\+\+/);
+  assert.match(handler, /if\(markerPendingCountRef\.current===0\)/);
+  assert.doesNotMatch(panel, /awardBusyId|setAwardBusyId/);
+});
+
+test('award slots and notifications update optimistically; rapid taps are serialized instead of ignored', () => {
+  const start = panel.indexOf('function toggleAwardPlacement(award)');
+  const end = panel.indexOf('if(!territory)return null;', start);
+  const handler = panel.slice(start, end);
+  const optimistic = handler.indexOf('updateInventory(value=>{');
+  const notification = handler.indexOf("setNotice(nextNotice)");
+  const request = handler.indexOf('await fetch(');
+  assert.ok(optimistic >= 0 && notification > optimistic && request > notification);
+  assert.match(handler, /awardMutationQueueRef\.current=awardMutationQueueRef\.current\.then\(save,save\)/);
+  assert.match(handler, /awardPendingCountRef\.current\+\+/);
+  assert.match(handler, /if\(equipped\.length>=4\)/);
+  assert.match(handler, /slot_index:Number\(item\.slot_index\)-1/);
+  assert.match(handler, /setAwardLimitToast\(value=>value\+1\)/);
+  assert.doesNotMatch(handler, /if\(readOnly\|\|!award\?\.id\|\|awardBusyId\)/);
+  assert.match(panel, /<FixedToast revision=\{awardLimitToast\}/);
+  assert.match(panel, /<FixedToast revision=\{noticeRevision\}/);
 });
