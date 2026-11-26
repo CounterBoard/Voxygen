@@ -2,7 +2,7 @@
 
 **Status:** current implementation  
 **Updated:** 2026-11-26  
-**Source of truth:** `src/App.jsx`, `bot/src/worker.js`, and the D1 tables created by `ensureWorldTables()`.
+**Source of truth:** `src/features/territory-awards/TelegramSticker.jsx`, its call sites in `src/App.jsx`, `bot/src/worker.js`, and the D1 tables created by `ensureWorldTables()`.
 
 This document describes the current award-sticker path after removing the abandoned `AnimatedEmojies` integration. It supersedes earlier notes that describe `GET /api/telegram-emoji` as an active part of award rendering.
 
@@ -190,7 +190,8 @@ The repository CI validation pipeline runs `npm test`, `npm run build`, `node --
 
 | Responsibility | File / symbol |
 | --- | --- |
-| Award rendering and UI state | `src/App.jsx` — `TelegramSticker`, `TerritoryAwardIcon`, `AwardEmoji` |
+| Award sticker rendering and loading state | `src/features/territory-awards/TelegramSticker.jsx` — `TelegramSticker`, `TerritoryAwardIcon`, `AwardEmoji` |
+| Award placement and screen integration | `src/App.jsx` — inspector, inventory, territory banner and modal call sites |
 | TGS player lifecycle | `src/App.jsx` — `cloneTelegramStickerAnimationData` and the Lottie effect in `TelegramSticker` |
 | Pack import | `bot/src/worker.js` — `addTelegramAwardPack` |
 | Grant snapshot | `bot/src/worker.js` — `grantTerritoryAward` |

@@ -97,3 +97,11 @@ The GitHub Actions workflow runs `npm test`, `npm run build`, `node --check bot/
 - Added direct regression tests for extensionless paths and mismatched known extensions.
 - `lottie-web` is now dynamically imported only when a full TGS sticker needs rendering. Static-image-only sessions no longer download Lottie as part of the initial JavaScript chunk. Active Lottie instances are still destroyed when their sticker component unmounts.
 - Updated the feature specification and system reference so the file-path and loading behavior are documented in both places.
+
+
+## Frontend modularization — first extraction — 2026-11-26
+
+- Extracted the Telegram territory-award rendering components (`AwardEmoji`, `TelegramSticker`, and `TerritoryAwardIcon`) from the application shell into `src/features/territory-awards/TelegramSticker.jsx`.
+- Moved the two Worker endpoint constants into `src/config/api.js`, which is now the shared frontend configuration source.
+- Kept rendering behavior, request URLs, animation lifecycle, fallbacks, and public component props unchanged. Updated UI regression tests to assert the feature module boundary and its internal rendering contract.
+- Future extractions should follow the same rule: move a cohesive feature with its own tests and stable imports, then verify before proceeding to the next area.
