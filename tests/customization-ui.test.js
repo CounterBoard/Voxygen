@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+const territoryManagement = readFileSync(new URL('../src/features/territory-management/CityManagementProfile.jsx', import.meta.url), 'utf8');
 const panel = readFileSync(new URL('../src/features/customization/CustomizationScreen.jsx', import.meta.url), 'utf8');
 const palette = readFileSync(new URL('../src/features/customization/VisualColorPicker.jsx', import.meta.url), 'utf8');
 
@@ -56,6 +57,6 @@ test('shared visual palette and color dot preserve their original values and geo
   assert.match(palette, /export function ColorDot\(/);
   assert.match(palette, /width:26,height:26,borderRadius:'50%'/);
   assert.match(panel, /VISUAL_COLORS\.map/);
-  assert.match(app, /import \{ ColorDot, VISUAL_COLORS \} from '\.\/features\/customization\/VisualColorPicker\.jsx'/);
-  assert.match(app, /VISUAL_COLORS\.filter/);
+  assert.match(territoryManagement, /import \{ ColorDot, VISUAL_COLORS \} from '\.\.\/customization\/VisualColorPicker\.jsx'/);
+  assert.match(territoryManagement, /VISUAL_COLORS\.filter/);
 });

@@ -14,7 +14,7 @@ The customization screen displays the visual catalog and inventory, allows users
 
 - `CustomizationScreen` owns catalog/inventory state, personal-vs-treasury scope, stale-request guards, purchase and reorder operations, filters and account-balance refresh.
 - `VisualEditModal`, `AchievementFields` and `makeVisualForm` own the visual editor form and its fields.
-- `VisualColorPicker` exports the palette and circular color control shared with territory banner editing in `App.jsx`.
+- `VisualColorPicker` exports the palette and circular color control shared with territory banner editing in `src/features/territory-management/CityManagementProfile.jsx`.
 - The app shell supplies `apiErrorMessage`, `safeCaughtError`, `useAnimatedClose`, `IconButton`, `Field`, `readImageData`, `GemHex` and `MinecraftText` through the `ui` adapter. Root navigation still owns screen selection and supplies `initData`, profile, role, territory list and global toast callback.
 
 ## API and event contracts

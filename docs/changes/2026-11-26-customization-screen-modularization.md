@@ -4,7 +4,7 @@
 
 Moved the customization screen, visual editor form and achievement fields from `src/App.jsx` into `src/features/customization/CustomizationScreen.jsx`.
 
-Extracted the shared `VISUAL_COLORS` palette and `ColorDot` control into `src/features/customization/VisualColorPicker.jsx`. The same palette/control are used by both visual customization and territory banner editing.
+Extracted the shared `VISUAL_COLORS` palette and `ColorDot` control into `src/features/customization/VisualColorPicker.jsx`. The same palette/control are used by both visual customization and territory banner editing in the territory-management feature.
 
 ## Contracts preserved
 
