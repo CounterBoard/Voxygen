@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 const events = readFileSync(new URL('../src/features/events/Events.jsx', import.meta.url), 'utf8');
+const worldMap = readFileSync(new URL('../src/features/world-map/VoxMap.jsx', import.meta.url), 'utf8');
 const tokens = readFileSync(new URL('../src/theme/theme-tokens.css', import.meta.url), 'utf8');
 const catalog = readFileSync(new URL('../shared/theme-catalog.js', import.meta.url), 'utf8');
 
@@ -181,7 +182,7 @@ test('App styles consume semantic theme roles instead of legacy color aliases', 
   assert.match(tokens, /--gem: var\(--content-color-gem\)/);
   assert.match(app, /var\(--slider-fill\)/);
   assert.match(app, /var\(--slider-progress\)/);
-  assert.match(app, /var\(--vox-marker-inverse-scale, 1\)/);
+  assert.match(worldMap, /var\(--vox-marker-inverse-scale, 1\)/);
 });
 
 
