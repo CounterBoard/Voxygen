@@ -40,7 +40,7 @@ test('marker equipment, award slots and conflict feedback keep their API contrac
   assert.match(panel, /awardId:award\.id/);
   assert.match(panel, /response\.status===409/);
   assert.match(panel, /Максимум 4 награды на странице территории/);
-  assert.match(panel, /setInventory\(v=>v\?\{\.\.\.v,equippedMarkerItemId:nextId\}:v\)/);
+  assert.match(panel, /updateInventory\(value=>value\?\{\.\.\.value,equippedMarkerItemId:nextId\}:value\)/);
 });
 
 test('generic management mutations and recruitment updates retain their endpoint payloads', () => {
