@@ -242,7 +242,6 @@ async function serveTelegramAwardSticker(request, env) {
       reason: 'internal_error',
       preview: wantsPreview,
       format,
-      error: String(error?.message || error).slice(0, 180),
     }));
     return withCors(new Response(null, {
       status: 500,
