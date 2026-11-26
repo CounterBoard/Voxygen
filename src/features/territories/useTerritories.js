@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { API_BASE } from '../../config/api.js';
 
 const EMPTY_TERRITORIES = [];
 
-export function useTerritories({ screen, selectedId, ui = {} }) {
+export function useTerritories({ ui = {} }) {
   const { apiErrorMessage, safeCaughtError, finiteCoordinate } = ui;
   const [territoriesLoading, setTerritoriesLoading] = useState(true);
   const [territoriesHasLoaded, setTerritoriesHasLoaded] = useState(false);
@@ -108,21 +108,6 @@ export function useTerritories({ screen, selectedId, ui = {} }) {
     setTerritoriesError(null);
     loadTerritories();
   }, [loadTerritories]);
-
-  useEffect(() => {
-    if (screen === 'cities' && !selectedId) loadTerritories();
-    const onVisible = () => {
-      if (document.visibilityState === 'visible' && screen === 'cities' && !selectedId) loadTerritories();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible' && screen === 'cities' && !selectedId) loadTerritories();
-    }, 60000);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisible);
-      clearInterval(timer);
-    };
-  }, [screen, selectedId, loadTerritories]);
 
   return {
     territories,
