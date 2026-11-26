@@ -633,10 +633,10 @@ test('profile bottom padding clears the fixed navigation and safe area', () => {
 });
 
 test('reminder amount label and all three control radii are consistent', () => {
-  assert.ok(app.includes('placeholder="Количество"'));
-  assert.match(app, /event-reminder-unit-switch[\s\S]*?borderRadius:'var\(--theme-radius-control\)'/);
-  assert.match(app, /placeholder="Количество" style=\{\{[^}]*borderRadius:'var\(--theme-radius-control\)'/);
-  assert.match(app, /borderRadius:'var\(--theme-radius-control\)'[^}]*fontWeight:800\}\}>\{busy\?'Сохранение…':event\.reminder\?'Сохранить изменения':'Подтвердить напоминание'\}/);
+  assert.ok(events.includes('placeholder="Количество"'));
+  assert.match(events, /event-reminder-unit-switch[\s\S]*?borderRadius:'var\(--theme-radius-control\)'/);
+  assert.match(events, /placeholder="Количество" style=\{\{[^}]*borderRadius:'var\(--theme-radius-control\)'/);
+  assert.match(events, /borderRadius:'var\(--theme-radius-control\)'[^}]*fontWeight:800\}\}>\{busy\?'Сохранение…':event\.reminder\?'Сохранить изменения':'Подтвердить напоминание'\}/);
 });
 
 test('field borders transition from Purple to Mint, with the inspector review inverse', () => {
