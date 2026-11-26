@@ -872,7 +872,7 @@ test('SimpleModal portals above animated territory content so its blur covers th
 });
 
 test('donation modal insufficient funds uses a global toast visible above the modal layer', () => {
-  const donation=app.slice(app.indexOf('function DonationModal('),app.indexOf('function TerritoryDetail('));
+  const donation=app.slice(app.indexOf('function DonationModal('),app.indexOf('function ResidentsModal('));
   assert.ok(donation.includes('function DonationModal({territory,initData,onClose,onSuccess,onToast})'));
   assert.ok(donation.includes("onToast?.('Недостаточно самоцветов','error')"));
   assert.ok(app.includes('onToast={onToast}/>'));
