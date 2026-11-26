@@ -17,7 +17,7 @@ The Worker retains route dispatch and injects its existing `json`, `requireMainI
 
 ## Tests and documentation
 
-- Added `tests/admin-site-content-service.test.js` for default fallback, authorization order, validation, normalization, hidden-content redaction and route dependency wiring.
+- Added `tests/admin-site-content-service.test.js` for default fallback, authorization order, validation, successful FAQ and home-button writes, normalization, hidden-content redaction and route dependency wiring.
 - Added `GET /api/home-feature-button` to `tests/route-auth-matrix.test.js`.
 - Added `docs/features/ADMIN_SITE_CONTENT.md`.
 - Updated `docs/ARCHITECTURE.md` and `Functional_System.txt`.
