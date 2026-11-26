@@ -7,13 +7,14 @@ const globalSettingsPanel = readFileSync(new URL('../src/features/settings/Globa
 const customizationModule = readFileSync(new URL('../src/features/customization/CustomizationScreen.jsx', import.meta.url), 'utf8');
 const visualColorPicker = readFileSync(new URL('../src/features/customization/VisualColorPicker.jsx', import.meta.url), 'utf8');
 const territoryFeedbackPanel = readFileSync(new URL('../src/features/territory-details/TerritoryFeedbackPanel.jsx', import.meta.url), 'utf8');
+const territoryDetailModule = readFileSync(new URL('../src/features/territory-details/TerritoryDetail.jsx', import.meta.url), 'utf8');
 const territoryManagementModule = readFileSync(new URL('../src/features/territory-management/CityManagementProfile.jsx', import.meta.url), 'utf8');
 const appShellStyles = readFileSync(new URL('../src/theme/app-shell.css', import.meta.url), 'utf8');
 const profileInventoryIndex = appSource.indexOf('function ProfileInventory(');
 const appWithTerritoryManagement = profileInventoryIndex >= 0
   ? `${appSource.slice(0, profileInventoryIndex)}\n${territoryManagementModule}\n${appSource.slice(profileInventoryIndex)}`
   : `${appSource}\n${territoryManagementModule}`;
-const app = `${appWithTerritoryManagement}\n${globalSettingsPanel}\n${customizationModule}\n${visualColorPicker}\n${territoryFeedbackPanel}\n${appShellStyles}`;
+const app = `${appWithTerritoryManagement}\n${globalSettingsPanel}\n${customizationModule}\n${visualColorPicker}\n${territoryFeedbackPanel}\n${territoryDetailModule}\n${appShellStyles}`;
 const events = readFileSync(new URL('../src/features/events/Events.jsx', import.meta.url), 'utf8');
 const worldMap = readFileSync(new URL('../src/features/world-map/VoxMap.jsx', import.meta.url), 'utf8');
 const tokens = readFileSync(new URL('../src/theme/theme-tokens.css', import.meta.url), 'utf8');
@@ -590,7 +591,7 @@ test('Vox profile textarea rhythm and action states follow the shared UI contrac
 
   const lightbox = app.slice(app.indexOf('function Lightbox('), app.indexOf('\nfunction ', app.indexOf('function Lightbox(') + 10));
   assert.match(lightbox, /width:44, height:44/);
-  const territoryHeader = app.slice(app.indexOf('function TerritoryDetail('), app.indexOf('\nfunction ', app.indexOf('function TerritoryDetail(') + 10));
+  const territoryHeader = territoryDetailModule;
   assert.match(territoryHeader, /width: 44, height: 44/);
 
   const visualFilters = customizationModule;
@@ -718,7 +719,7 @@ test('profile and event description textareas explicitly use the shared field re
 test('territory profile includes awards inventory, Telegram emoji previews and 52px banner plates', () => {
   const profile=app.slice(app.indexOf('function ProfileInventory('),app.indexOf('function TreasuryCard('));
   const city=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
-  const detail=app.slice(app.indexOf('function TerritoryDetail('),app.indexOf('function TerritoryCard('));
+  const detail=territoryDetailModule;
   assert.ok(profile.includes("columns={4} aspectRatio=\"1 / 1\" imageFit=\"contain\""));
   assert.ok(city.includes("columns={4} aspectRatio=\"1 / 1\" imageFit=\"contain\""));
   const banner=city.indexOf('>Баннер</div>');
@@ -859,7 +860,7 @@ test('equipped award cards have a visible mint cover in addition to the mint bor
 });
 
 test('donation modal uses a compact 6px title-to-content gap', () => {
-  const donation=app.slice(app.indexOf('function DonationModal('),app.indexOf('function TerritoryDetail('));
+  const donation=app.slice(app.indexOf('function DonationModal('),app.indexOf('function ResidentsModal('));
   assert.ok(donation.includes('<SimpleModal title="Донат в казну" titleGap={6} onClose={onClose}>'));
 });
 
@@ -871,7 +872,7 @@ test('SimpleModal portals above animated territory content so its blur covers th
 });
 
 test('donation modal insufficient funds uses a global toast visible above the modal layer', () => {
-  const donation=app.slice(app.indexOf('function DonationModal('),app.indexOf('function TerritoryDetail('));
+  const donation=app.slice(app.indexOf('function DonationModal('),app.indexOf('function ResidentsModal('));
   assert.ok(donation.includes('function DonationModal({territory,initData,onClose,onSuccess,onToast})'));
   assert.ok(donation.includes("onToast?.('Недостаточно самоцветов','error')"));
   assert.ok(app.includes('onToast={onToast}/>'));
@@ -927,7 +928,7 @@ test('equipped award feedback is one-based and removal feedback is an error toas
 
  
 test('territory exit control uses the same dark blurred surface as award badges',()=>{
-  const city=app.slice(app.indexOf('function TerritoryDetail('),app.indexOf('function WorldMap('));
+  const city=territoryDetailModule;
   const exit=city.slice(city.indexOf('<button onClick={onBack}'),city.indexOf('</button>',city.indexOf('<button onClick={onBack}')));
   const award=city.slice(city.indexOf('className="press atlas-award-badge"'),city.indexOf('</button>',city.indexOf('className="press atlas-award-badge"')));
   assert.ok(exit.includes("background: 'rgba(8,13,34,.72)'"));

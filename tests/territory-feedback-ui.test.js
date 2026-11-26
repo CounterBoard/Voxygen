@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+const detail = readFileSync(new URL('../src/features/territory-details/TerritoryDetail.jsx', import.meta.url), 'utf8');
 const panel = readFileSync(new URL('../src/features/territory-details/TerritoryFeedbackPanel.jsx', import.meta.url), 'utf8');
 
 test('territory detail delegates rating and reviews to the dedicated feedback module', () => {
-  assert.match(app, /import \{ TerritoryFeedbackPanel \} from '\.\/features\/territory-details\/TerritoryFeedbackPanel\.jsx'/);
-  assert.match(app, /<TerritoryFeedbackPanel[\s\S]*?territory=\{t\}[\s\S]*?setTerritory=\{setT\}[\s\S]*?onFlash=\{flash\}/);
+  assert.match(app, /import \{ TerritoryDetail \} from '\.\/features\/territory-details\/TerritoryDetail\.jsx'/);
+  assert.match(detail, /import \{ TerritoryFeedbackPanel \} from '\.\/TerritoryFeedbackPanel\.jsx'/);
+  assert.match(detail, /<TerritoryFeedbackPanel[\s\S]*?territory=\{t\}[\s\S]*?setTerritory=\{setT\}[\s\S]*?onFlash=\{flash\}/);
   assert.doesNotMatch(app, /function ReplyBox\(|function formatRatingCooldown\(|const CRITERIA =/);
   assert.match(panel, /export function TerritoryFeedbackPanel\(/);
 });
