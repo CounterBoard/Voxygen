@@ -183,6 +183,8 @@ The relevant tests are:
 
 - `tests/territory-awards-ui.test.js` — display surfaces, independent looping TGS players, thumbnail behavior, WEBM fallback, and the rule that Unicode is not shown while TGS is still loading;
 - `tests/territory-awards.test.js` — sticker format mapping, pack URL validation, TGS safety validation, thumbnail fields in territory/profile queries, and both `stickerId` and `awardId` routes.
+- `tests/territory-award-management-service.test.js` — main-inspector authorization ordering, pack URL/duplicate validation, award grant snapshot persistence and manager notification, and award deletion slot compaction.
+- `tests/route-auth-matrix.test.js` — unauthenticated access to award listing, grant/delete, pack add/delete and equipment routes is rejected before protected work.
 
 The repository CI validation pipeline runs `npm test`, `npm run build`, `node --check bot/src/worker.js`, and a Wrangler Worker dry-run bundle. These checks validate the source and bundle; they do not replace a live Telegram/D1 smoke test with real pack files.
 
@@ -205,15 +207,29 @@ The main inspector's issued-award list is owned by `src/features/territory-award
 - Deletion uses `DELETE /api/admin/awards/:id`, asks for confirmation, removes the row from local state after a successful response and invokes the existing territory-refresh callback.
 - The shared API error formatter, fallback formatter and award-date formatter are passed through the explicit `ui` adapter. The API route, authorization and response contract remain in the Worker.
 
-## 12. Source map
+
+## 12. Backend award-management boundary
+
+The main-inspector award catalog and grant lifecycle is implemented in `bot/src/features/territory-awards/award-management.js`:
+- `getAdminAwards` loads the issued-award list and source-pack catalog;
+- `addTelegramAwardPack` validates the public Telegram custom-emoji URL, imports the pack metadata and stores sticker rows;
+- `deleteTelegramAwardPack` removes a source pack and its sticker rows;
+- `grantTerritoryAward` validates the selected approved territory and sticker, snapshots Telegram metadata into `territory_awards`, and notifies territory managers;
+- `deleteTerritoryAwardById` removes an issued award and compacts the remaining equipped slots.
+
+The Worker keeps route matching and injects the existing main-inspector authorization helper, D1 initialization, JSON response helper, Telegram API helper, notification helper and small formatting/validation functions. The service does not own HTTP routing, authentication implementation, shared D1 schema initialization, or the public sticker-file delivery endpoint.
+
+`toggleTerritoryAwardPlacement` remains in `bot/src/worker.js` for now. It is a user/territory-manager operation tied to territory customization and is intentionally not moved with the main-inspector pack/grant administration handlers in this extraction.
+
+## 13. Source map
 
 | Responsibility | File / symbol |
 | --- | --- |
 | Award sticker rendering and loading state | `src/features/territory-awards/TelegramSticker.jsx` — `TelegramSticker`, `TerritoryAwardIcon`, `AwardEmoji` |
 | Award placement and screen integration | `src/App.jsx` — inspector, inventory, territory banner and modal call sites |
 | TGS player lifecycle | `src/App.jsx` — `cloneTelegramStickerAnimationData` and the Lottie effect in `TelegramSticker` |
-| Pack import | `bot/src/worker.js` — `addTelegramAwardPack` |
-| Grant snapshot | `bot/src/worker.js` — `grantTerritoryAward` |
+| Pack catalog and grant lifecycle | `bot/src/features/territory-awards/award-management.js` — `getAdminAwards`, `addTelegramAwardPack`, `deleteTelegramAwardPack`, `grantTerritoryAward`, `deleteTerritoryAwardById` |
+| Award placement | `bot/src/worker.js` — `toggleTerritoryAwardPlacement` |
 | File delivery | `bot/src/features/territory-awards/sticker-delivery.js` — `serveTelegramAwardSticker`; `bot/src/worker.js` owns the route and injects CORS, Telegram and D1 bootstrap dependencies |
 | TGS safety and Telegram file format validation | `bot/src/features/territory-awards/sticker-delivery.js` — `isSafeTelegramTgsAnimation`, pack URL validation, sticker format/path helpers |
 | Territory public response | `bot/src/worker.js` — `getTerritories` |
