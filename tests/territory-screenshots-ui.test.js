@@ -7,8 +7,9 @@ const detail = readFileSync(new URL('../src/features/territory-details/Territory
 const panel = readFileSync(new URL('../src/features/territory-details/TerritoryScreenshotsPanel.jsx', import.meta.url), 'utf8');
 
 test('territory detail delegates screenshot gallery and upload controls to the feature module', () => {
-  assert.match(app, /import \{ TerritoryScreenshotsPanel \} from '\.\/features\/territory-details\/TerritoryScreenshotsPanel\.jsx'/);
-  assert.match(app, /<TerritoryScreenshotsPanel[\s\S]*?approved=\{approved\}[\s\S]*?territoryId=\{t\.id\}[\s\S]*?onTerritoryChange=\{setT\}[\s\S]*?onOpenShot=/);
+  assert.match(app, /import \{ TerritoryDetail \} from '\.\/features\/territory-details\/TerritoryDetail\.jsx'/);
+  assert.match(detail, /import \{ TerritoryScreenshotsPanel \} from '\.\/TerritoryScreenshotsPanel\.jsx'/);
+  assert.match(detail, /<TerritoryScreenshotsPanel[\s\S]*?approved=\{approved\}[\s\S]*?territoryId=\{t\.id\}[\s\S]*?onTerritoryChange=\{setT\}[\s\S]*?onOpenShot=/);
   assert.doesNotMatch(app, /function compressScreenshotFile\(|async function handleFile\(e\)|async function deleteShot\(id\)/);
   assert.match(panel, /export function TerritoryScreenshotsPanel\(/);
 });
@@ -41,5 +42,5 @@ test('screenshot upload and delete permissions retain the existing role rules', 
 
 test('screenshot thumbnails continue to open through the parent-owned lightbox', () => {
   assert.match(panel, /onOpenShot\?\.\(approved\.findIndex\(item => item\.id === shot\.id\), shot\)/);
-  assert.match(app, /<Lightbox shots=\{approved\} index=\{lightboxIndex\} mode="view"/);
+  assert.match(detail, /<Lightbox shots=\{approved\} index=\{lightboxIndex\} mode="view"/);
 });
