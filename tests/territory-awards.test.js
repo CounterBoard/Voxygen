@@ -23,6 +23,7 @@ test("gem withdrawal parser rejects incomplete and unrelated commands",()=>{
 
 test("main-inspector award grants send notices through territory notification preferences",()=>{
   const service=readFileSync(new URL("../bot/src/features/territory-awards/award-management.js",import.meta.url),"utf8");
+  const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8");
   const start=service.indexOf("export async function grantTerritoryAward(");
   const end=service.indexOf("export async function deleteTerritoryAwardById(",start);
   assert.ok(start>=0&&end>start);
