@@ -22,11 +22,12 @@ test("gem withdrawal parser rejects incomplete and unrelated commands",()=>{
 });
 
 test("main-inspector award grants send notices through territory notification preferences",()=>{
+  const service=readFileSync(new URL("../bot/src/features/territory-awards/award-management.js",import.meta.url),"utf8");
   const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8");
-  const start=worker.indexOf("async function grantTerritoryAward(");
-  const end=worker.indexOf("async function deleteTerritoryAwardById(",start);
+  const start=service.indexOf("export async function grantTerritoryAward(");
+  const end=service.indexOf("export async function deleteTerritoryAwardById(",start);
   assert.ok(start>=0&&end>start);
-  const handler=worker.slice(start,end);
+  const handler=service.slice(start,end);
   assert.ok(handler.indexOf("const notificationText")>handler.indexOf("if (!Number(inserted.meta?.changes || 0))"));
   assert.ok(handler.includes("»\n\n<i>Экипированные награды появляются на странице территории</i>"), "guidance must be a separate italic paragraph");
   assert.match(handler,/await notifyTerritoryManagers\(env, territoryId, notificationText\)/);

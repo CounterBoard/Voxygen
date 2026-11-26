@@ -36,6 +36,7 @@ This document is the entry point for understanding the repository. Feature-level
 | --- | --- | --- |
 | Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, shared auth/CORS/Telegram/D1 infrastructure, scheduled tasks and cross-feature orchestration |
 | Telegram award sticker delivery | `bot/src/features/territory-awards/sticker-delivery.js` | Telegram sticker file lookup, preview selection, path/format/size validation, TGS decompression and safe response headers; injected Worker infrastructure keeps this service independent of the router |
+| Territory award management | `bot/src/features/territory-awards/award-management.js` | Main-inspector award catalog, Telegram pack import/removal, metadata snapshot grants, manager notifications and issued-award deletion; authorization and D1 bootstrap are injected by the Worker |
 | D1 diagnostics service | `bot/src/features/admin-tools/d1-diagnostics.js` | Main-inspector-only, read-only database inventory, orphan/FK checks and data-volume report; receives auth and JSON helpers from the Worker and never initializes schema |
 | Admin site content service | `bot/src/features/admin-tools/site-content.js` | FAQ and home feature button defaults, normalization, role-aware reads and authenticated writes using existing `app_settings` table helpers |
 | Admin global settings service | `bot/src/features/admin-tools/global-settings.js` | Main-inspector-only theme/map-zoom override reads, writes, clearing and theme-access rules; Worker retains DDL/cache and the shared personal-settings reader |
