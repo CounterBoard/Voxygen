@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+const appShellStyles = readFileSync(new URL('../src/theme/app-shell.css', import.meta.url), 'utf8');
+const app = `${appSource}\n${appShellStyles}`;
 const events = readFileSync(new URL('../src/features/events/Events.jsx', import.meta.url), 'utf8');
 const worldMap = readFileSync(new URL('../src/features/world-map/VoxMap.jsx', import.meta.url), 'utf8');
 const tokens = readFileSync(new URL('../src/theme/theme-tokens.css', import.meta.url), 'utf8');

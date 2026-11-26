@@ -29,4 +29,4 @@ The gem icon was moved byte-for-byte from its previous PNG data URL into `src/as
 
 ## Regression coverage
 
-`tests/frontend-static-assets.test.js` checks the stylesheet entry import, the retained font links, removal of inline static CSS and base64 image data from `App.jsx`, the gem asset import, and the PNG signature/dimensions.
+`tests/frontend-static-assets.test.js` checks the stylesheet entry import, the retained font links, removal of inline static CSS and base64 image data from `App.jsx`, the gem asset import, and the PNG signature/dimensions. Existing theme and award UI contract tests read both `App.jsx` and `app-shell.css`, so their style assertions continue to cover the same rules after the stylesheet move.

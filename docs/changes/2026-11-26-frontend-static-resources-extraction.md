@@ -19,3 +19,4 @@ Moved two static resources out of `src/App.jsx`:
 - Added `docs/features/FRONTEND_STATIC_ASSETS.md`.
 - Updated `docs/ARCHITECTURE.md` with stylesheet and static asset ownership.
 - Added `tests/frontend-static-assets.test.js` to validate imports, source boundaries and the extracted PNG.
+- Updated the theme and award UI contract tests to inspect the extracted shell stylesheet as well as the app source, preserving their original CSS assertions.
