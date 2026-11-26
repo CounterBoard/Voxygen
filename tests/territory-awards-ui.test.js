@@ -41,7 +41,7 @@ test("territory award sticker components are isolated from the app shell and ret
   assert.match(app,/<TerritoryAwardIcon award=\{selectedTerritoryAward\} size=\{56\}\/>/);
 });
 test("changing one award does not disable or fade the rest of the award inventory",()=>{
-  assert.match(app,/disabled=\{readOnly\|\|Boolean\(awardBusyId&&String\(awardBusyId\)===String\(award\.id\)\)\}/);
+  assert.match(app,/disabled=\{readOnly\}/);
   assert.match(app,/atlas-award-inventory-card:disabled\{opacity:1!important;filter:none!important;/);
   assert.match(app,/padding:6,opacity:1\}\}/);
 });
@@ -63,11 +63,11 @@ test("banner preview updates optimistically and submits the exact selected color
   const end=app.indexOf("async function rename()",start);
   assert.ok(start>=0&&end>start);
   const handler=app.slice(start,end);
-  const optimistic=handler.indexOf("setInventory(current=>current?{...current,...next}:current)");
+  const optimistic=handler.indexOf("updateInventory(current=>current?{...current,...next}:current)");
   const request=handler.indexOf("const response=await fetch(");
   assert.ok(optimistic>=0&&request>optimistic,"preview state changes before the save request");
   assert.ok(handler.includes("bannerColor:next.bannerColor,bannerGradient:next.bannerGradient"));
-  assert.ok(handler.includes("setInventory(current=>current?{...current,...previous}:current)"),"failed saves roll back the preview");
+  assert.ok(handler.includes("updateInventory(current=>current?{...current,...previous}:current)"),"failed saves roll back the preview");
   const editor=app.slice(app.indexOf("function CityManagementProfile("),app.indexOf("function ProfileInventory("));
   const publicPage=territoryDetailModule;
   assert.ok(editor.includes("background:getBannerGradient(inventory?.bannerColor||'none',inventory?.bannerGradient||'aurora',territory?.accent)"));
@@ -248,4 +248,16 @@ test("award manager owns its catalog and grant workflow while reusing shared err
   assert.match(awardManager,/body:JSON\.stringify\(\{territoryId,stickerId:selectedSticker\.id,name,awardedAt\}\)/);
   assert.match(awardManager,/voxygen:awards-changed/);
   assert.match(awardManager,/onTerritoriesChanged\?\.\(\)/);
+});
+
+
+test("the TGS JSX comment is not rendered as visible text behind animated stickers",()=>{
+  assert.match(awardIcons, /\{\/\* Keep the slot visually quiet while the animation is loading\. Unicode is only a failure fallback\. \*\/\}/);
+  assert.doesNotMatch(awardIcons, /^\s*\/\/ Keep the slot visually quiet/m);
+});
+
+test("award and marker selection do not use a shared busy lock that discards other clicks",()=>{
+  assert.doesNotMatch(territoryManagementModule, /awardBusyId|setAwardBusyId/);
+  assert.match(territoryManagementModule, /markerMutationQueueRef\.current=markerMutationQueueRef\.current\.then\(save,save\)/);
+  assert.match(territoryManagementModule, /awardMutationQueueRef\.current=awardMutationQueueRef\.current\.then\(save,save\)/);
 });

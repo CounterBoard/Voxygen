@@ -737,11 +737,13 @@ test('territory profile includes awards inventory, Telegram emoji previews and 5
   assert.ok(city.includes('marginTop:8,height:72'));
   assert.ok(city.includes("justifyContent:'center',gap: 8,flexWrap:'wrap',marginBottom:0"),'Profile banner colors are horizontally centered');
   assert.doesNotMatch(city, /На баннере ·/);
-  assert.ok(city.includes("setNotice(`Награда установлена в слот ${nextSlot}`)"));
-  assert.ok(city.includes("setNotice('Награда снята')"));
-  assert.ok(city.includes("setNoticeType('success')"));
-  assert.ok(city.includes("setNoticeType('error')"));
-  assert.ok(city.includes('<FixedToast key={noticeRevision} message={notice} type={noticeType}/>'));
+  assert.ok(city.includes("const nextSlot=Math.max(-1,...equipped.map(item=>Number(item.slot_index)||0))+1;"));
+  assert.ok(city.includes("nextNotice=`Награда установлена в слот ${nextSlot+1}`"));
+  assert.ok(city.includes("nextNotice='Награда снята'"));
+  assert.ok(city.includes("nextNoticeType='success'"));
+  assert.ok(city.includes("nextNoticeType='error'"));
+  assert.ok(city.includes('setNotice(nextNotice)'));
+  assert.ok(city.includes('<FixedToast revision={noticeRevision} message={notice} type={noticeType}/>'));
   assert.ok(!city.includes("territory?.name||'Название территории'"));
   assert.ok(city.includes("gridColumn:'1 / -1'")&&city.includes("gridTemplateColumns:'48px minmax(0,1fr)'"));
   assert.ok(city.includes("background:'var(--theme-color-surface-raised)'"),'Award cards use the same raised surface as marker tiles');
@@ -807,7 +809,7 @@ test('repeating the same territory action creates a fresh toast instance', () =>
   const cityProfile=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
   assert.ok(cityProfile.includes('[noticeRevision,setNoticeRevision]=useState(0)'));
   assert.ok(cityProfile.includes('setNoticeRevision(value=>value+1)'));
-  assert.ok(cityProfile.includes('<FixedToast key={noticeRevision} message={notice} type={noticeType}/>'));
+  assert.ok(cityProfile.includes('<FixedToast revision={noticeRevision} message={notice} type={noticeType}/>'));
 });
 
 test('toast width follows its text and darkens only the covered backdrop', () => {
@@ -833,7 +835,7 @@ test('insufficient-gems purchase failure uses the app-level red FixedToast', () 
   assert.doesNotMatch(customization,/purchaseToast|setPurchaseToast/);
   assert.ok(app.includes("const [globalToast,setGlobalToast]=useState(null)"));
   assert.ok(app.includes("onToast={showGlobalToast}"));
-  assert.ok(app.includes('<FixedToast key={globalToast.id} message={globalToast.message} type={globalToast.type}/>'));
+  assert.ok(app.includes('<FixedToast revision={globalToast.id} message={globalToast.message} type={globalToast.type}/>'));
 });
 
 test('toast sits 4px above the persistent navigation strip', () => {
@@ -913,18 +915,24 @@ test('inspector/player segmented switch uses a sliding Purple indicator', () => 
  
 test('territory marker selection is not a toggle and never emits a marker-removal notice', () => {
   const city=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
-  assert.ok(city.includes("if(String(equippedId||'')===String(itemId||''))return;"));
-  assert.ok(city.includes("post('/api/customization/city',{territoryId:territory.id,markerItemId:nextId},'Метка города обновлена')"));
+  const start=city.indexOf('function equip(itemId)');
+  const end=city.indexOf('function toggleAwardPlacement(award)',start);
+  const handler=city.slice(start,end);
+  assert.ok(handler.includes("if(String(previousId||'')===String(nextId||''))return;"));
+  assert.ok(handler.indexOf('updateInventory(value=>value?{...value,equippedMarkerItemId:nextId}:value)')<handler.indexOf('await fetch('));
+  assert.ok(handler.includes('markerItemId:nextId'));
   assert.doesNotMatch(city,/Метка города снята/);
 });
 
 test('equipped award feedback is one-based and removal feedback is an error toast', () => {
   const city=app.slice(app.indexOf('function CityManagementProfile('),app.indexOf('function ProfileInventory('));
-  assert.ok(city.includes('const nextSlot=Number(data.slotIndex)+1;'));
-  assert.ok(city.includes("`Награда установлена в слот ${nextSlot}`"));
-  assert.ok(city.includes("setNotice('Награда снята')"));
-  assert.ok(city.includes("setNoticeType('error')"));
-  assert.ok(city.includes('disabled={readOnly||Boolean(awardBusyId&&String(awardBusyId)===String(award.id))}'));
+  assert.ok(city.includes("const nextSlot=Math.max(-1,...equipped.map(item=>Number(item.slot_index)||0))+1;"));
+  assert.ok(city.includes("nextNotice=`Награда установлена в слот ${nextSlot+1}`"));
+  assert.ok(city.includes("nextNotice='Награда снята'"));
+  assert.ok(city.includes("nextNoticeType='error'"));
+  assert.ok(city.includes('setNotice(nextNotice)'));
+  assert.ok(city.includes('disabled={readOnly}'));
+  assert.ok(city.includes('awardMutationQueueRef.current=awardMutationQueueRef.current.then(save,save)'));
 });
 
  

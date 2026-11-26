@@ -629,7 +629,7 @@ function SelectField({ label, id, className = '', style = {}, containerStyle = {
   );
 }
 
-function FixedToast({ message, type = null }) {
+function FixedToast({ message, type = null, revision = 0 }) {
   const [visible,setVisible]=useState(Boolean(message));
   const [exiting,setExiting]=useState(false);
   useEffect(()=>{
@@ -639,7 +639,7 @@ function FixedToast({ message, type = null }) {
     const exitTimer=setTimeout(()=>setExiting(true),Math.max(0,duration-180));
     const hideTimer=setTimeout(()=>setVisible(false),duration);
     return ()=>{clearTimeout(exitTimer);clearTimeout(hideTimer)};
-  },[message,type]);
+  },[message,type,revision]);
   if(!message || !visible) return null;
   const resolvedType = type || (/ошиб|не удалось|нет соединения|недостаточно прав|не найдена|временно недоступен|не выполнена|не получилось/i.test(String(message))?'error':/ожидает|повторите|проверьте|не подтверждён/i.test(String(message))?'warning':'success');
   const toast=<div className="atlas-toast-viewport"><div className={`atlas-fixed-toast atlas-fixed-toast--${resolvedType}${exiting?' atlas-toast-exiting':''}`} role={resolvedType==='error'?'alert':'status'} aria-live={resolvedType==='error'?'assertive':'polite'}>{message}</div></div>;
@@ -726,7 +726,8 @@ function AddTerritoryModal({ onClose, onSubmit, isMainInspector = false }) {
 // Interactive Vox map
 // ---------------------------------------------------------------------------
 function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritoriesChanged, onFaqSaved }) {
-  const [error,setError]=useState(''),[notice,setNotice]=useState('');
+  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[noticeRevision,setNoticeRevision]=useState(0);
+  const showNotice=(message)=>{setNotice(message);setNoticeRevision(value=>value+1)};
   const [faqText,setFaqText]=useState(''),[faqSaving,setFaqSaving]=useState(false),[faqLoading,setFaqLoading]=useState(true),[faqLoadError,setFaqLoadError]=useState('');
   const [managerModalCity,setManagerModalCity]=useState(null);
 
@@ -741,16 +742,16 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
     finally{setFaqLoading(false)}
   }
   useEffect(()=>{if(initData){loadFaq()}},[initData]);
-  async function saveFaq(){const text=faqText.trim();if(!text){setError('Текст ЧиВо не может быть пустым');return}try{setFaqSaving(true);setError('');const r=await fetch(`${API_BASE}/api/faq`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,text})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setFaqText(d.text||text);onFaqSaved?.(d.text||text);setNotice('ЧиВо сохранено')}catch(e){setError(safeCaughtError(e, 'Не удалось сохранить ЧиВо'))}finally{setFaqSaving(false)}}
-  async function deleteCity(id){if(!window.confirm('Удалить этот город? Это действие нельзя отменить.'))return;try{const r=await fetch(`${API_BASE}/api/admin/territories/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,territoryId:id})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setNotice('Город удалён');onTerritoriesChanged?.()}catch(e){setError(safeCaughtError(e, 'Не удалось удалить город'))}}
-  async function moveCity(city){const raw=window.prompt('Новые координаты X Z (от −3008 до 3007)',`${city.vox_x??0} ${city.vox_z??0}`);if(raw===null)return;const m=raw.trim().replace(/−/g,'-').match(/^(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)$/);if(!m){setError('Формат: X Z');return}const x=Number(m[1].replace(',','.')),z=Number(m[2].replace(',','.'));if(!isValidWorldCoordinate(x,z)){setError('Координаты должны быть от −3008 до 3007');return}try{const r=await fetch(`${API_BASE}/api/admin/territories/coords`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,territoryId:city.id,x,z})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setNotice('Координаты обновлены');onTerritoriesChanged?.()}catch(e){setError(safeCaughtError(e, 'Не удалось изменить координаты'))}}
+  async function saveFaq(){const text=faqText.trim();if(!text){setError('Текст ЧиВо не может быть пустым');return}try{setFaqSaving(true);setError('');const r=await fetch(`${API_BASE}/api/faq`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,text})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setFaqText(d.text||text);onFaqSaved?.(d.text||text);showNotice('ЧиВо сохранено')}catch(e){setError(safeCaughtError(e, 'Не удалось сохранить ЧиВо'))}finally{setFaqSaving(false)}}
+  async function deleteCity(id){if(!window.confirm('Удалить этот город? Это действие нельзя отменить.'))return;try{const r=await fetch(`${API_BASE}/api/admin/territories/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,territoryId:id})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));showNotice('Город удалён');onTerritoriesChanged?.()}catch(e){setError(safeCaughtError(e, 'Не удалось удалить город'))}}
+  async function moveCity(city){const raw=window.prompt('Новые координаты X Z (от −3008 до 3007)',`${city.vox_x??0} ${city.vox_z??0}`);if(raw===null)return;const m=raw.trim().replace(/−/g,'-').match(/^(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)$/);if(!m){setError('Формат: X Z');return}const x=Number(m[1].replace(',','.')),z=Number(m[2].replace(',','.'));if(!isValidWorldCoordinate(x,z)){setError('Координаты должны быть от −3008 до 3007');return}try{const r=await fetch(`${API_BASE}/api/admin/territories/coords`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,territoryId:city.id,x,z})}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));showNotice('Координаты обновлены');onTerritoriesChanged?.()}catch(e){setError(safeCaughtError(e, 'Не удалось изменить координаты'))}}
   function changeFounder(city){ setManagerModalCity(city); setError(''); }
   return <div style={{marginTop: 12}}>
-    <ManagedInspectorsPanel initData={initData} onError={setError} onNotice={setNotice} ui={{Field,apiErrorMessage,safeCaughtError}} />
+    <ManagedInspectorsPanel initData={initData} onError={setError} onNotice={showNotice} ui={{Field,apiErrorMessage,safeCaughtError}} />
 
     <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding: 'var(--theme-space-4)',marginBottom: 12}}><div style={{display:'flex',alignItems:'center',gap: 8,marginBottom: 10}}><Trash2 size={16} color="var(--theme-color-status-danger)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>Города</div><span style={{marginLeft: 'auto',fontSize:11,color:'var(--theme-color-text-muted)'}}>{territories.length}</span></div>{territories.length===0?<div style={{fontSize:12,color:'var(--theme-color-text-muted)'}}>Городов пока нет.</div>:territories.map(city=><div key={city.id} style={{display:'flex',alignItems:'center',gap: 6,padding: '10px 0',borderTop:'1px solid var(--theme-color-border)'}}><div style={{flex:1,minWidth:0}}><MinecraftText text={city.name} as="div" style={{fontSize:13,fontWeight:700}}/><div style={{fontSize:11,color:'var(--theme-color-text-muted)'}}><MinecraftText text={city.owner}/> · {formatTerritoryCoords(city.coords)}</div></div><button onClick={()=>moveCity(city)} className="press" style={{border:'1px solid var(--theme-color-border)',background:'var(--theme-color-surface-raised)',color:'var(--theme-color-text-primary)',borderRadius:9,padding: '6px 8px',fontSize:11}}>Коорд.</button><button onClick={()=>changeFounder(city)} className="press" style={{border:'1px solid var(--theme-color-border)',background:'var(--theme-color-surface-raised)',color:'var(--theme-color-status-success)',borderRadius:9,padding: '6px 8px',fontSize:11}}>Мэр</button><button onClick={()=>deleteCity(city.id)} className="press" style={{border:'none',background:'var(--theme-color-status-danger-soft)',color:'var(--theme-color-status-danger)',borderRadius:9,padding: '6px 8px'}}><Trash2 size={14}/></button></div>)}</div>
-    <WorldMapUploadPanel initData={initData} onMapSaved={onMapSaved} onError={setError} onNotice={setNotice} safeCaughtError={safeCaughtError} />
-    <ManagedUsersPanel initData={initData} onError={setError} onNotice={setNotice} ui={{Field,MinecraftText,apiErrorMessage,safeCaughtError}} />
+    <WorldMapUploadPanel initData={initData} onMapSaved={onMapSaved} onError={setError} onNotice={showNotice} safeCaughtError={safeCaughtError} />
+    <ManagedUsersPanel initData={initData} onError={setError} onNotice={showNotice} ui={{Field,MinecraftText,apiErrorMessage,safeCaughtError}} />
     <div style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding: 'var(--theme-space-4)',marginBottom: 12}}>
       <div style={{display:'flex',alignItems:'center',gap: 8,marginBottom: 10}}><MessageCircle size={16} color="var(--theme-color-action-primary)"/><div className="atlas-display" style={{fontSize:16,fontWeight:700}}>ЧиВо</div></div>
       {faqLoading&&<div role="status" style={{fontSize:12,color:'var(--theme-color-text-muted)',marginBottom: 8}}>Загрузка сохранённого текста…</div>}
@@ -759,8 +760,8 @@ function MainInspectorPanel({ initData, onMapSaved, territories = [], onTerritor
       <button onClick={saveFaq} disabled={faqSaving||faqLoading||Boolean(faqLoadError)} className="press" style={{width:'100%',border:'none',borderRadius:10,padding: '10px 12px',background:'var(--theme-color-action-primary)',color:'var(--theme-color-action-primary-contrast)',fontWeight:700,opacity:faqSaving||faqLoading||faqLoadError?0.55:1}}>{faqSaving?'Сохранение…':'Сохранить ЧиВо'}</button>
     </div>
 
-    {managerModalCity&&<MainInspectorManagersModal city={managerModalCity} initData={initData} onClose={()=>setManagerModalCity(null)} onSaved={(message)=>{setNotice(message);onTerritoriesChanged?.()}} />}
-    {notice&&<FixedToast key={notice} message={notice}/>}
+    {managerModalCity&&<MainInspectorManagersModal city={managerModalCity} initData={initData} onClose={()=>setManagerModalCity(null)} onSaved={(message)=>{showNotice(message);onTerritoriesChanged?.()}} />}
+    {notice&&<FixedToast revision={noticeRevision} message={notice}/>}
     {error&&<div style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop: 8}}>{error}</div>}
     <MainInspectorD1DiagnosticsPanel initData={initData} ui={{parseApiResponse,safeCaughtError}} />
     <MainInspectorIssuedAwardsPanel initData={initData} onTerritoriesChanged={onTerritoriesChanged} ui={{apiErrorMessage,safeCaughtError,formatTerritoryAwardDate}} />
@@ -848,10 +849,10 @@ function ProfileInventory({initData,role,tgUser,territory}={}){
 }
 
 function TreasuryCard({city,initData,tgUser,onToast}={}){
-  const [data,setData]=useState(null),[amount,setAmount]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+  const [data,setData]=useState(null),[amount,setAmount]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[noticeRevision,setNoticeRevision]=useState(0);
   async function load(){if(!city)return;try{setError('');const r=await fetch(`${API_BASE}/api/treasury?territoryId=${encodeURIComponent(city.id)}`,{headers:{'X-Telegram-Init-Data':initData},cache:'no-store'}),d=await r.json().catch(() => null);if(!r.ok||!d.ok)throw new Error(apiErrorMessage(r, d, "Операция не выполнена."));setData(d)}catch(e){setError(safeCaughtError(e, 'Не удалось загрузить казну'))}}
   useEffect(()=>{load()},[city?.id,initData]);
-  async function deposit(){const n=Math.floor(Number(amount));if(!Number.isSafeInteger(n)||n<=0){setError('');return}const operation=getFinancialOperationToken('treasury-deposit',city.id,n);if(operation.blocked){setError(`Предыдущая операция на ${operation.amount} сц ещё не подтверждена. Верните прежнюю сумму и повторите попытку.`);return}try{setBusy(true);setError('');setNotice('');const r=await fetch(`${API_BASE}/api/treasury/deposit`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,territoryId:city.id,amount:n,operationId:operation.id})}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok){if([400,401,403,404,422].includes(r.status))clearFinancialOperationToken(operation);throw new Error(apiErrorMessage(r,d,"Операция не выполнена."));}clearFinancialOperationToken(operation);setData(d);setAmount('');setNotice('Казна пополнена');window.dispatchEvent(new Event('voxygen:currency-changed'))}catch(e){const message=safeCaughtError(e, 'Не удалось пополнить казну');if(/недостаточно самоцветов/i.test(message)){setError('');onToast?.('Недостаточно самоцветов','error');}else setError(message)}finally{setBusy(false)}}
+  async function deposit(){const n=Math.floor(Number(amount));if(!Number.isSafeInteger(n)||n<=0){setError('');return}const operation=getFinancialOperationToken('treasury-deposit',city.id,n);if(operation.blocked){setError(`Предыдущая операция на ${operation.amount} сц ещё не подтверждена. Верните прежнюю сумму и повторите попытку.`);return}try{setBusy(true);setError('');setNotice('');const r=await fetch(`${API_BASE}/api/treasury/deposit`,{method:'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':initData},body:JSON.stringify({initData,territoryId:city.id,amount:n,operationId:operation.id})}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok){if([400,401,403,404,422].includes(r.status))clearFinancialOperationToken(operation);throw new Error(apiErrorMessage(r,d,"Операция не выполнена."));}clearFinancialOperationToken(operation);setData(d);setAmount('');setNotice('Казна пополнена');setNoticeRevision(value=>value+1);window.dispatchEvent(new Event('voxygen:currency-changed'))}catch(e){const message=safeCaughtError(e, 'Не удалось пополнить казну');if(/недостаточно самоцветов/i.test(message)){setError('');onToast?.('Недостаточно самоцветов','error');}else setError(message)}finally{setBusy(false)}}
   if(!city)return null;
   return <div className="atlas-page-panel" style={{background:'var(--theme-color-surface)',border:'1px solid var(--theme-color-border)',borderRadius:'var(--theme-radius-card)',padding: 10,marginBottom: 8}}>
     <div className="atlas-display" style={{fontSize:18,fontWeight:800,marginBottom: 4}}>Казна: <MinecraftText text={city.name}/></div>
@@ -861,7 +862,7 @@ function TreasuryCard({city,initData,tgUser,onToast}={}){
     </div>
     <div className="atlas-treasury-deposit-row" style={{display:'flex',alignItems:'stretch',gap: 8,width:'100%',boxSizing:'border-box'}}><div style={{flex:'1 1 auto',minWidth:0,marginBottom: 0}}><Field value={amount} onChange={e=>setAmount(e.target.value.replace(/\D/g,''))} inputMode="numeric" placeholder="Количество сц" style={{width:'100%'}}/></div><Button onClick={deposit} disabled={busy||!amount} size="md" style={{flex:'0 0 120px',width:120,minWidth:120,maxWidth:120,height:'var(--theme-control-height)',minHeight:'var(--theme-control-height)',padding: '0 10px',fontSize:13,whiteSpace:'nowrap',transform:'none'}}>{busy?'…':'Пополнить'}</Button></div>
     {error&&<div style={{fontSize:12,color:'var(--theme-color-status-danger)',marginTop: 8}}>{error}</div>}
-    {notice&&<FixedToast key={notice} message={notice}/>}
+    {notice&&<FixedToast revision={noticeRevision} message={notice}/>}
   </div>;
 }
 function ToggleField({ checked, onChange, disabled = false, label, description }) {
@@ -1340,6 +1341,14 @@ export default function CityRatingApp() {
   const [expandedEventId, setExpandedEventId] = useState(null);
   const [showAddTerritory, setShowAddTerritory] = useState(false);
   const [homeToast, setHomeToast] = useState(null);
+  const [homeToastRevision,setHomeToastRevision]=useState(0);
+  const homeToastTimerRef=useRef(null);
+  const showHomeToast=(message,duration=5000)=>{
+    if(homeToastTimerRef.current!==null)clearTimeout(homeToastTimerRef.current);
+    setHomeToast(message);
+    setHomeToastRevision(value=>value+1);
+    homeToastTimerRef.current=setTimeout(()=>{setHomeToast(null);homeToastTimerRef.current=null;},duration);
+  };
   const [globalToast,setGlobalToast]=useState(null);
   const globalToastSequenceRef=useRef(0);
   const showGlobalToast=(message,type='success')=>setGlobalToast({id:++globalToastSequenceRef.current,message,type});
@@ -1351,6 +1360,8 @@ export default function CityRatingApp() {
   const [homeFeatureButtonReady,setHomeFeatureButtonReady]=useState(false);
   const [homeFeatureOpen,setHomeFeatureOpen]=useState(false);
   const [globalSettingsOpen,setGlobalSettingsOpen]=useState(false);
+
+  useEffect(()=>()=>{if(homeToastTimerRef.current!==null)clearTimeout(homeToastTimerRef.current)},[]);
 
   const { worldMapImage, worldMapSource, worldMapLoading, worldMapError, loadWorldMap, retryWorldMap, onMapSaved } = useWorldMap({ safeCaughtError });
   const { territories, territoriesLoading, territoriesHasLoaded, territoriesError, markersReady, loadTerritories, resetForTelegramIdentity } = useTerritories({
@@ -1396,8 +1407,7 @@ export default function CityRatingApp() {
       setFaqOpen(true);
     }catch(error){
       console.error('Load FAQ error:',error);
-      setHomeToast(safeCaughtError(error,'Не удалось загрузить ЧиВо. Нажмите кнопку ещё раз.'));
-      setTimeout(()=>setHomeToast(null),3500);
+      showHomeToast(safeCaughtError(error,'Не удалось загрузить ЧиВо. Нажмите кнопку ещё раз.'),3500);
     }finally{faqRequestRef.current=false;}
   }
 
@@ -1477,13 +1487,12 @@ export default function CityRatingApp() {
         body: JSON.stringify({ ...data, initData }),
       });
       const result = await parseApiResponse(response, 'Не удалось отправить заявку на территорию.');
-      setHomeToast(result?.status === 'approved' ? 'Город добавлен без подтверждения' : 'Заявка отправлена инспектору на подтверждение');
+      showHomeToast(result?.status === 'approved' ? 'Город добавлен без подтверждения' : 'Заявка отправлена инспектору на подтверждение');
       if (result?.status === 'approved') loadTerritories();
     } catch (error) {
       console.warn('Voxygen territory submit failed', { code: 'TERRITORY_SUBMIT_FAILED' });
-      setHomeToast(`Ошибка: ${safeCaughtError(error, 'Не удалось отправить заявку.')}`);
+      showHomeToast(`Ошибка: ${safeCaughtError(error, 'Не удалось отправить заявку.')}`);
     }
-    setTimeout(() => setHomeToast(null), 5000);
   }
 
   return (
@@ -1564,8 +1573,8 @@ export default function CityRatingApp() {
         {faqOpen && <FaqModal text={faqText} onClose={()=>setFaqOpen(false)} />}
         {homeFeatureOpen&&<HomeFeatureButtonModal mode={role==='main_inspector'?'edit':'view'} config={homeFeatureButton} initData={window.Telegram?.WebApp?.initData||''} onClose={()=>setHomeFeatureOpen(false)} onSaved={setHomeFeatureButton}/>}
 
-        {homeToast && <FixedToast key={homeToast} message={homeToast}/>}
-        {globalToast && <FixedToast key={globalToast.id} message={globalToast.message} type={globalToast.type}/>}
+        {homeToast && <FixedToast revision={homeToastRevision} message={homeToast}/>}
+        {globalToast && <FixedToast revision={globalToast.id} message={globalToast.message} type={globalToast.type}/>}
       </div>
     </div>
   );

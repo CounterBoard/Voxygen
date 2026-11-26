@@ -10,7 +10,7 @@ const inspector = app.slice(inspectorStart, inspectorEnd);
 
 test('inspector administration is isolated and keeps its original position in the admin screen', () => {
   assert.match(app, /import \{ ManagedInspectorsPanel \} from '\.\/features\/admin-tools\/ManagedInspectorsPanel\.jsx'/);
-  assert.match(inspector, /<ManagedInspectorsPanel initData=\{initData\} onError=\{setError\} onNotice=\{setNotice\} ui=\{\{Field,apiErrorMessage,safeCaughtError\}\} \/>/);
+  assert.match(inspector, /<ManagedInspectorsPanel initData=\{initData\} onError=\{setError\} onNotice=\{showNotice\} ui=\{\{Field,apiErrorMessage,safeCaughtError\}\} \/>/);
   assert.doesNotMatch(inspector, /inspectorInput|setInspectors|loadInspectors|function add\(|function remove\(/);
   assert.match(inspector, /<ManagedInspectorsPanel[\s\S]*?<div[\s\S]*?>[\s\S]*?Города/);
   assert.match(panel, /export function ManagedInspectorsPanel\(/);
