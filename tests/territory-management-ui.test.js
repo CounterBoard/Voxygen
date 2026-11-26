@@ -37,7 +37,7 @@ test('banner preview retains optimistic update and rollback with the same payloa
 test('marker equipment, award slots and conflict feedback keep their API contracts', () => {
   assert.match(panel, /markerItemId:nextId/);
   assert.match(panel, /\/api\/customization\/city\/award/);
-  assert.match(panel, /awardId:award\.id/);
+  assert.match(panel, /awardId:currentAward\.id/);
   assert.match(panel, /lastError\.status===409/);
   assert.match(panel, /Максимум 4 награды на странице территории/);
   assert.match(panel, /updateInventory\(value=>value\?\{\.\.\.value,equippedMarkerItemId:nextId\}:value\)/);
@@ -88,7 +88,7 @@ test('marker equipment applies immediately and serializes background saves witho
   const request = handler.indexOf('await fetch(');
   assert.ok(optimistic >= 0 && request > optimistic, 'marker selection changes before the API request');
   assert.match(handler, /markerMutationQueueRef\.current=markerMutationQueueRef\.current\.then\(save,save\)/);
-  assert.match(handler, /markerPendingCountRef\.current\+\+/);
+  assert.match(handler, /markerPendingCountRef\.current\+=1/);
   assert.match(handler, /if\(markerPendingCountRef\.current===0\)/);
   assert.doesNotMatch(panel, /awardBusyId|setAwardBusyId/);
 });
@@ -102,7 +102,7 @@ test('award slots and notifications update optimistically; rapid taps are serial
   const request = handler.indexOf('await fetch(');
   assert.ok(optimistic >= 0 && notification > optimistic && request > notification);
   assert.match(handler, /awardMutationQueueRef\.current=awardMutationQueueRef\.current\.then\(save,save\)/);
-  assert.match(handler, /awardPendingCountRef\.current\+\+/);
+  assert.match(handler, /awardPendingCountRef\.current\+=1/);
   assert.match(handler, /if\(equipped\.length>=4\)/);
   assert.match(handler, /slot_index:Number\(item\.slot_index\)-1/);
   assert.match(handler, /setAwardLimitToast\(value=>value\+1\)/);
