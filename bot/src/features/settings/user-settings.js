@@ -1,9 +1,7 @@
 import { THEME_CATALOG, normalizeThemeId as normalizeVoxygenTheme } from '../../../../shared/theme-catalog.js';
 import { normalizeMapZoomPercent } from '../../../../shared/world-map-coordinates.js';
 
-export const USER_DEFAULT_TIMEZONE = 'UTC+3';
-
-function normalizeUserTimezone(value) {
+export function normalizeUserTimezone(value) {
   const raw = String(value ?? '').replace(/[\u0000-\u001F\u007F]/g, '').trim().toUpperCase();
   const offset = raw.startsWith('UTC') ? raw.slice(3).trim() : raw;
   const match = offset.match(/^([+-])(\d{1,2})(?::(\d{2}))?$/);
@@ -85,7 +83,7 @@ export async function getUserSettings(request, env, dependencies) {
 }
 
 export async function saveUserSettings(request, env, dependencies) {
-  const { requireUser, ensureWorldTables, ensureUserPreferenceTables, readGlobalSettingOverrides, getRoleByTelegramId, ensureGlobalSettingsTable, json } = dependencies;
+  const { requireUser, ensureWorldTables, ensureUserPreferenceTables, readGlobalSettingOverrides } = dependencies;
   const auth = await requireUser(request, env);
   if (auth.error) return auth.error;
   let body; try { body = await request.json(); } catch { return json({ ok: false, error: 'Invalid JSON' }, 400); }
