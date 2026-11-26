@@ -43,6 +43,7 @@ const protectedRoutes = [
   ["GET", "/api/user-settings"],
   ["GET", "/api/admin/global-settings"],
   ["POST", "/api/admin/global-settings"],
+  ["GET", "/api/home-feature-button"],
   ["POST", "/api/map"],
   ["POST", "/api/faq"],
   ["POST", "/api/home-feature-button"],
