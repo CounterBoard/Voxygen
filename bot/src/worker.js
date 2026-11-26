@@ -137,14 +137,14 @@ async function serveTelegramAwardSticker(request, env) {
   // Keep public responses intentionally opaque; expose only a stable diagnostic
   // code in a response header and Cloudflare logs. Never log IDs, file paths,
   // Telegram responses, or credentials.
-  const fail = (reason, status = 404) => {
+  const fail = (reason, status = 404, diagnostics = null) => {
     console.warn('[award-sticker]', JSON.stringify({
       reason,
       preview: wantsPreview,
       format,
       status,
     }));
-    return withCors(new Response(JSON.stringify({ ok: false, code: reason }), {
+    return withCors(new Response(JSON.stringify({ ok: false, code: reason, ...(diagnostics || {}) }), {
       status,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
@@ -182,7 +182,7 @@ async function serveTelegramAwardSticker(request, env) {
     const allowedExtension = responseFormat === 'tgs' ? extension === 'tgs'
       : responseFormat === 'webm' ? extension === 'webm'
       : ['webp', 'png', 'jpg', 'jpeg'].includes(extension);
-    if (!allowedExtension) return fail('file_extension_mismatch', 415);
+    if (!allowedExtension) return fail('file_extension_mismatch', 415, { expectedFormat: responseFormat, actualExtension: extension });
 
     const token = String(env.BOT_TOKEN || '').trim();
     const upstream = await fetch(TELEGRAM_API + '/file/bot' + token + '/' + filePath);
