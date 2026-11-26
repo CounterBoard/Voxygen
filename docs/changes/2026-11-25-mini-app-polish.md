@@ -121,3 +121,12 @@ The GitHub Actions workflow runs `npm test`, `npm run build`, `node --check bot/
 - The event feature receives shared UI primitives and error handlers through a single `ui` dependency object from the app shell, preventing a circular import from the feature module back into `App.jsx`.
 - Moved the reusable image preparation helper to `src/shared/image-utils.js`; event image uploads and the home-feature button editor continue to use the same JPEG resizing and size-limit behavior.
 - Kept event API endpoints, request headers, payloads, local draft persistence, permissions and time-zone/date validation logic unchanged. Updated the feature documentation and UI contracts to follow the new module boundary.
+
+
+## 2026-11-26 — World map viewport extraction
+
+- Moved the interactive `VoxMap` viewport from `src/App.jsx` to `src/features/world-map/VoxMap.jsx`.
+- Kept map loading, source metadata, zoom preferences and persistent view state in the app shell; the extracted view receives territory helpers through an explicit `mapUtils` adapter.
+- Preserved direct DOM transform painting during gestures, pointer/pinch/wheel interactions, throttled visible-tile refresh, marker counter-scaling and parent view-state synchronization.
+- Added `docs/features/WORLD_MAP.md`, the repository-level `docs/ARCHITECTURE.md` map and focused UI contract tests.
+- No API routes, map upload/publication behavior, tile metadata or coordinate geometry were changed.
