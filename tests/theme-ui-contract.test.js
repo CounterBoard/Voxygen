@@ -4,8 +4,10 @@ import { readFileSync } from 'node:fs';
 
 const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 const globalSettingsPanel = readFileSync(new URL('../src/features/settings/GlobalSettingsPanel.jsx', import.meta.url), 'utf8');
+const customizationModule = readFileSync(new URL('../src/features/customization/CustomizationScreen.jsx', import.meta.url), 'utf8');
+const visualColorPicker = readFileSync(new URL('../src/features/customization/VisualColorPicker.jsx', import.meta.url), 'utf8');
 const appShellStyles = readFileSync(new URL('../src/theme/app-shell.css', import.meta.url), 'utf8');
-const app = `${appSource}\n${globalSettingsPanel}\n${appShellStyles}`;
+const app = `${appSource}\n${globalSettingsPanel}\n${customizationModule}\n${visualColorPicker}\n${appShellStyles}`;
 const events = readFileSync(new URL('../src/features/events/Events.jsx', import.meta.url), 'utf8');
 const worldMap = readFileSync(new URL('../src/features/world-map/VoxMap.jsx', import.meta.url), 'utf8');
 const tokens = readFileSync(new URL('../src/theme/theme-tokens.css', import.meta.url), 'utf8');
@@ -585,7 +587,7 @@ test('Vox profile textarea rhythm and action states follow the shared UI contrac
   const territoryHeader = app.slice(app.indexOf('function TerritoryDetail('), app.indexOf('\nfunction ', app.indexOf('function TerritoryDetail(') + 10));
   assert.match(territoryHeader, /width: 44, height: 44/);
 
-  const visualFilters = app.slice(app.indexOf('function CustomizationScreen('), app.indexOf('function BottomNav('));
+  const visualFilters = customizationModule;
   assert.match(visualFilters, /var\(--theme-color-border-strong\)/);
   assert.match(visualFilters, /var\(--theme-color-action-primary-border\)/);
 
@@ -752,7 +754,7 @@ test('territory profile includes awards inventory, Telegram emoji previews and 5
 });
 test('visual color palettes are horizontally centered in editor, creation form and filters', () => {
   const editor=app.slice(app.indexOf('function VisualEditModal('),app.indexOf('function profileAccountLabel('));
-  const visual=app.slice(app.indexOf('function CustomizationScreen('),app.indexOf('function BottomNav('));
+  const visual=customizationModule;
   assert.equal((editor.match(/justifyContent:'center',gap: 6,marginBottom: 8/g)||[]).length,1);
   assert.ok(visual.includes("justifyContent:'center',gap: 6,flexWrap:'wrap'"));
 });
@@ -817,8 +819,8 @@ test('toast width follows its text and darkens only the covered backdrop', () =>
 
 
 test('insufficient-gems purchase failure uses the app-level red FixedToast', () => {
-  const customization=app.slice(app.indexOf('function CustomizationScreen('),app.indexOf('function BottomNav('));
-  assert.ok(customization.includes("function CustomizationScreen({initData,tgUser,role,territories,profile,onToast})"));
+  const customization=customizationModule;
+  assert.ok(customization.includes("export function CustomizationScreen({initData,tgUser,role,territories,profile,onToast,ui={}})"));
   assert.ok(customization.includes("onToast?.('Недостаточно самоцветов','error')"));
   assert.doesNotMatch(customization,/purchaseToast|setPurchaseToast/);
   assert.ok(app.includes("const [globalToast,setGlobalToast]=useState(null)"));
