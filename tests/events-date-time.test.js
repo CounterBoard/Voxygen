@@ -11,6 +11,8 @@ import {
 import { readFileSync } from "node:fs";
 
 const dateFieldsSource=readFileSync(new URL("../src/features/events/DateTimeFields.jsx",import.meta.url),"utf8");
+const eventsSource=readFileSync(new URL("../src/features/events/Events.jsx",import.meta.url),"utf8");
+const appSource=readFileSync(new URL("../src/App.jsx",import.meta.url),"utf8");
 
 test("timezone offsets are normalized and bounded to valid quarter-hour offsets",()=>{
   assert.equal(normalizeTimezoneOffset("UTC+5:30"),"UTC+5:30");
@@ -89,4 +91,16 @@ test("date wheel component retains scroll snapping, touch settling and date-fiel
   assert.match(dateFieldsSource,/daysInSelectedMonth/);
   assert.match(dateFieldsSource,/includeYear\?/);
   assert.match(dateFieldsSource,/function EventDateTimeFields\(/);
+});
+
+test("event screens, creation, editing and management live in the events feature module",()=>{
+  assert.match(appSource,/from '\.\/features\/events\/Events\.jsx'/);
+  assert.match(appSource,/<EventsScreen ui=\{EVENT_UI\}/);
+  assert.doesNotMatch(appSource,/function EventsScreen\(|function ProfileEventCreateForm\(|function EventInlineEditor\(|function EventManagementPanel\(/);
+  for(const component of ["EventsScreen","ProfileEventCreateForm","EventInlineEditor","EventManagementPanel"])assert.match(eventsSource,new RegExp("function "+component+"\\("));
+  assert.match(eventsSource,/ui=\{ui\}/);
+  assert.match(eventsSource,/\/api\/events\/reminder/);
+  assert.match(eventsSource,/\/api\/events/);
+  assert.match(eventsSource,/localStorage\.getItem\(draftStorageKey\)/);
+  assert.match(eventsSource,/localStorage\.setItem\(draftStorageKey/);
 });

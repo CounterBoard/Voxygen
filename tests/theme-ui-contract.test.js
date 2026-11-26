@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+const events = readFileSync(new URL('../src/features/events/Events.jsx', import.meta.url), 'utf8');
 const tokens = readFileSync(new URL('../src/theme/theme-tokens.css', import.meta.url), 'utf8');
 const catalog = readFileSync(new URL('../shared/theme-catalog.js', import.meta.url), 'utf8');
 
@@ -591,15 +592,15 @@ test('Vox profile textarea rhythm and action states follow the shared UI contrac
 });
 
 test('event reminder unit switch is a flush two-half segmented control', () => {
-  assert.match(app, /className="event-reminder-unit-switch" style=\{\{display:'flex',minHeight:44,padding:0,borderRadius:'var\(--theme-radius-control\)',overflow:'hidden'[^}]*gap:0\}\}/);
-  assert.match(app, /className="press event-reminder-unit-option" style=\{\{flex:'1 1 50%',minWidth:0,minHeight:42,padding:0,border:0,borderRadius:0/);
+  assert.match(events, /className="event-reminder-unit-switch" style=\{\{display:'flex',minHeight:44,padding:0,borderRadius:'var\(--theme-radius-control\)',overflow:'hidden'[^}]*gap:0\}\}/);
+  assert.match(events, /className="press event-reminder-unit-option" style=\{\{flex:'1 1 50%',minWidth:0,minHeight:42,padding:0,border:0,borderRadius:0/);
   assert.ok(app.includes('#root .atlas-root .event-reminder-unit-switch>.event-reminder-unit-option{flex:1 1 0!important;min-width:0!important;width:50%!important;max-width:50%!important;margin:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;transform:none!important;}'));
   assert.ok(app.includes('.event-reminder-unit-switch>.event-reminder-unit-option:active{transform:none!important;filter:none!important;}'));
-  assert.match(app, /background:draft\.unit===unit\.value\?'var\(--theme-color-action-primary\)':'var\(--theme-color-surface-raised\)'/);
+  assert.match(events, /background:draft\.unit===unit\.value\?'var\(--theme-color-action-primary\)':'var\(--theme-color-surface-raised\)'/);
 });
 
 test('events page starts at the same 15px inset as its horizontal content', () => {
-  assert.ok(app.includes("className=\"atlas-page atlas-page--events\" style={{ padding: '15px 15px 100px' }}"));
+  assert.ok(events.includes("className=\"atlas-page atlas-page--events\" style={{ padding: '15px 15px 100px' }}"));
 });
 
 test('fixed toast uses 12px content-sized padding', () => {
@@ -698,7 +699,7 @@ test('resident read-only additional information never turns usernames into links
 test('profile and event description textareas explicitly use the shared field recipe', () => {
   assert.ok(app.includes('className="atlas-profile-additional-field"'));
   assert.ok(app.includes('className="atlas-recruitment-description-field"'));
-  assert.equal((app.match(/className="atlas-event-description-field"/g)||[]).length,3);
+  assert.equal((events.match(/className="atlas-event-description-field"/g)||[]).length,3);
   assert.ok(app.includes('#root .atlas-root textarea.atlas-profile-additional-field,#root .atlas-root textarea.atlas-recruitment-description-field,#root .atlas-root textarea.atlas-event-description-field{border-color:var(--theme-recipe-field-border)!important;}'));
 });
 

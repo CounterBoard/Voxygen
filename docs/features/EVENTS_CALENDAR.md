@@ -11,11 +11,11 @@ The first extraction isolates reusable date/time rules and the visual date/time 
 | --- | --- |
 | Time-zone normalization, event wall-clock conversion, date validation, reminder labels and coordinate formatting | `src/features/events/date-time.js` |
 | Scroll-wheel calendar and date/time fields | `src/features/events/DateTimeFields.jsx` |
-| Image preparation shared by event and home-feature forms | `src/App.jsx` — `readEventImage` |
-| Event listing, reminders, create/edit forms and inspector management | `src/App.jsx` — `EventsScreen`, `ProfileEventCreateForm`, `EventInlineEditor`, `EventManagementPanel` |
+| Image preparation shared by event and home-feature forms | `src/shared/image-utils.js` — `readEventImage` |
+| Event listing, reminders, create/edit forms and inspector management | `src/features/events/Events.jsx` — `EventsScreen`, `ProfileEventCreateForm`, `EventInlineEditor`, `EventManagementPanel` |
 | Backend routes and persistence | `bot/src/worker.js` — event/reminder routes and tables |
 
-The screen and forms remain in `App.jsx` in this stage because they use application-wide UI primitives (fields, toast, Minecraft text, modal and shared request/error handling). Moving those dependencies before establishing shared UI modules would create circular imports or duplicate components. This boundary keeps current behavior unchanged and makes calendar logic independently testable.
+The screen and forms now live in `Events.jsx`. Their shared app-wide UI primitives (fields, toast, Minecraft text, error mapping and image preparation) are injected from the application shell through one stable `ui` object. This avoids circular imports and duplicate components while keeping the feature module independent from the app shell.
 
 ## Time-zone behavior
 

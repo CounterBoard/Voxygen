@@ -113,3 +113,11 @@ The GitHub Actions workflow runs `npm test`, `npm run build`, `node --check bot/
 - Moved the scroll-wheel calendar and reusable date/time fields into `src/features/events/DateTimeFields.jsx`.
 - Kept event screens, creation/edit forms, reminders, API requests and payloads in the application shell for now because they depend on shared app-wide UI components. Their next extraction should follow a shared-UI boundary rather than introducing circular imports.
 - Added dedicated date/time tests and documented the module boundary and time-zone rules in `docs/features/EVENTS_CALENDAR.md`.
+
+
+## Events interface modularization — second extraction — 2026-11-26
+
+- Moved event listing, reminder actions, creation form, inline editor and main-inspector management panel into `src/features/events/Events.jsx`.
+- The event feature receives shared UI primitives and error handlers through a single `ui` dependency object from the app shell, preventing a circular import from the feature module back into `App.jsx`.
+- Moved the reusable image preparation helper to `src/shared/image-utils.js`; event image uploads and the home-feature button editor continue to use the same JPEG resizing and size-limit behavior.
+- Kept event API endpoints, request headers, payloads, local draft persistence, permissions and time-zone/date validation logic unchanged. Updated the feature documentation and UI contracts to follow the new module boundary.
