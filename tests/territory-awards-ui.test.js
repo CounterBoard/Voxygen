@@ -4,8 +4,9 @@ import { readFileSync } from "node:fs";
 
 const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 const visualColorPicker = readFileSync(new URL("../src/features/customization/VisualColorPicker.jsx", import.meta.url), "utf8");
+const territoryFeedbackPanel = readFileSync(new URL("../src/features/territory-details/TerritoryFeedbackPanel.jsx", import.meta.url), "utf8");
 const appShellStyles = readFileSync(new URL("../src/theme/app-shell.css", import.meta.url), "utf8");
-const app = `${appSource}\n${visualColorPicker}\n${appShellStyles}`;
+const app = `${appSource}\n${visualColorPicker}\n${territoryFeedbackPanel}\n${appShellStyles}`;
 const awardIcons = readFileSync(new URL("../src/features/territory-awards/TelegramSticker.jsx", import.meta.url), "utf8");
 const awardManager = readFileSync(new URL("../src/features/territory-awards/MainInspectorAwardManager.jsx", import.meta.url), "utf8");
 const issuedAwardsPanel = readFileSync(new URL("../src/features/territory-awards/IssuedAwardsPanel.jsx", import.meta.url), "utf8");
@@ -131,9 +132,7 @@ test("main inspector emoji pack galleries are collapsed initially and have acces
 });
 
 test("territory review reply has no extra bottom margin",()=>{
-  const start=app.indexOf("function ReplyBox("),end=app.indexOf("function ResidentsModal(",start);
-  assert.ok(start>=0&&end>start);
-  assert.match(app.slice(start,end),/marginBottom:\s*0/);
+  assert.match(territoryFeedbackPanel,/function ReplyBox\([\s\S]*?marginBottom:\s*0/);
 });
 
 test("equipped-award guidance is not shown in the profile and profile banner controls are not dimmed when disabled",()=>{

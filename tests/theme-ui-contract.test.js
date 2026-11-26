@@ -6,8 +6,9 @@ const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8
 const globalSettingsPanel = readFileSync(new URL('../src/features/settings/GlobalSettingsPanel.jsx', import.meta.url), 'utf8');
 const customizationModule = readFileSync(new URL('../src/features/customization/CustomizationScreen.jsx', import.meta.url), 'utf8');
 const visualColorPicker = readFileSync(new URL('../src/features/customization/VisualColorPicker.jsx', import.meta.url), 'utf8');
+const territoryFeedbackPanel = readFileSync(new URL('../src/features/territory-details/TerritoryFeedbackPanel.jsx', import.meta.url), 'utf8');
 const appShellStyles = readFileSync(new URL('../src/theme/app-shell.css', import.meta.url), 'utf8');
-const app = `${appSource}\n${globalSettingsPanel}\n${customizationModule}\n${visualColorPicker}\n${appShellStyles}`;
+const app = `${appSource}\n${globalSettingsPanel}\n${customizationModule}\n${visualColorPicker}\n${territoryFeedbackPanel}\n${appShellStyles}`;
 const events = readFileSync(new URL('../src/features/events/Events.jsx', import.meta.url), 'utf8');
 const worldMap = readFileSync(new URL('../src/features/world-map/VoxMap.jsx', import.meta.url), 'utf8');
 const tokens = readFileSync(new URL('../src/theme/theme-tokens.css', import.meta.url), 'utf8');
@@ -591,7 +592,7 @@ test('Vox profile textarea rhythm and action states follow the shared UI contrac
   assert.match(visualFilters, /var\(--theme-color-border-strong\)/);
   assert.match(visualFilters, /var\(--theme-color-action-primary-border\)/);
 
-  const reviewCompose = app.slice(app.indexOf('className="atlas-review-compose-row"'), app.indexOf('!hasNickname', app.indexOf('className="atlas-review-compose-row"')));
+  const reviewCompose = territoryFeedbackPanel.slice(territoryFeedbackPanel.indexOf('className="atlas-review-compose-row"'), territoryFeedbackPanel.indexOf('!hasNickname', territoryFeedbackPanel.indexOf('className="atlas-review-compose-row"')));
   assert.match(reviewCompose, /background:isInspectorRole\?'var\(--theme-color-status-success\)':'var\(--theme-color-action-primary\)'/);
   assert.match(reviewCompose, /color:isInspectorRole\?'var\(--theme-color-status-success-contrast\)':'var\(--theme-color-action-primary-contrast\)'/);
   assert.match(reviewCompose, /width:44,height:44/);
