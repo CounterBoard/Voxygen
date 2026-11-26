@@ -20,5 +20,6 @@ No Worker routes, response payloads, authorization, database schema or UI presen
 ## Tests and documentation
 
 - Added `tests/user-settings-loading-ui.test.js` for the lifecycle and integration contracts.
+- Updated `tests/theme-ui-contract.test.js` to assert that theme state is owned by `useUserSettings` while the root host continues to bind `data-theme`.
 - Added `docs/features/USER_SETTINGS.md`.
 - Updated `docs/ARCHITECTURE.md`.
