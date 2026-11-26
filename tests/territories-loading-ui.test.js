@@ -9,7 +9,7 @@ const doc = readFileSync(new URL('../docs/features/TERRITORY_DATA.md', import.me
 test('the app delegates territory summary ownership and refresh behavior to the feature hook', () => {
   assert.ok(app.includes("import { useTerritories } from './features/territories/useTerritories.js';"));
   assert.ok(app.includes('} = useTerritories({'));
-  assert.ok(app.includes('resetTerritoriesForIdentityRef.current = resetForTelegramIdentity'));
+  assert.ok(app.includes('onTelegramIdentityChanged: resetForTelegramIdentity'));
   assert.doesNotMatch(app, /async function loadTerritories\(/);
   assert.doesNotMatch(app, /territoriesRequestRef|territoriesRefreshQueuedRef|territoriesLoadedRef/);
 });
@@ -55,13 +55,14 @@ test('in-flight refreshes are coalesced and queued refreshes run after the curre
   assert.ok(hook.includes('territoriesRequestRef.current = false'));
 });
 
-test('visibility and periodic refresh behavior remains scoped to the active city-list screen', () => {
+test('the app keeps active-screen, visibility and 60-second refresh scheduling outside the data hook', () => {
   assert.ok(hook.includes("if (document.visibilityState === 'hidden') return"));
-  assert.ok(hook.includes("screen === 'cities' && !selectedId"));
-  assert.ok(hook.includes("document.addEventListener('visibilitychange', onVisible)"));
-  assert.ok(hook.includes('setInterval(() => {'));
-  assert.ok(hook.includes('}, 60000)'));
-  assert.ok(hook.includes('clearInterval(timer)'));
+  assert.ok(app.includes("if (screen === 'cities' && !selectedId) loadTerritories()"));
+  assert.ok(app.includes("document.addEventListener('visibilitychange', onVisible)"));
+  assert.ok(app.includes('setInterval(() => {'));
+  assert.ok(app.includes('}, 60000)'));
+  assert.ok(app.includes('clearInterval(timer)'));
+  assert.ok(!hook.includes('document.addEventListener'));
 });
 
 test('Telegram identity reset clears the list and its error before requesting the new identity data', () => {
