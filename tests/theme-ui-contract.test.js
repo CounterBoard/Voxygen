@@ -7,8 +7,13 @@ const globalSettingsPanel = readFileSync(new URL('../src/features/settings/Globa
 const customizationModule = readFileSync(new URL('../src/features/customization/CustomizationScreen.jsx', import.meta.url), 'utf8');
 const visualColorPicker = readFileSync(new URL('../src/features/customization/VisualColorPicker.jsx', import.meta.url), 'utf8');
 const territoryFeedbackPanel = readFileSync(new URL('../src/features/territory-details/TerritoryFeedbackPanel.jsx', import.meta.url), 'utf8');
+const territoryManagementModule = readFileSync(new URL('../src/features/territory-management/CityManagementProfile.jsx', import.meta.url), 'utf8');
 const appShellStyles = readFileSync(new URL('../src/theme/app-shell.css', import.meta.url), 'utf8');
-const app = `${appSource}\n${globalSettingsPanel}\n${customizationModule}\n${visualColorPicker}\n${territoryFeedbackPanel}\n${appShellStyles}`;
+const profileInventoryIndex = appSource.indexOf('function ProfileInventory(');
+const appWithTerritoryManagement = profileInventoryIndex >= 0
+  ? `${appSource.slice(0, profileInventoryIndex)}\n${territoryManagementModule}\n${appSource.slice(profileInventoryIndex)}`
+  : `${appSource}\n${territoryManagementModule}`;
+const app = `${appWithTerritoryManagement}\n${globalSettingsPanel}\n${customizationModule}\n${visualColorPicker}\n${territoryFeedbackPanel}\n${appShellStyles}`;
 const events = readFileSync(new URL('../src/features/events/Events.jsx', import.meta.url), 'utf8');
 const worldMap = readFileSync(new URL('../src/features/world-map/VoxMap.jsx', import.meta.url), 'utf8');
 const tokens = readFileSync(new URL('../src/theme/theme-tokens.css', import.meta.url), 'utf8');

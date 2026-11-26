@@ -5,8 +5,13 @@ import { readFileSync } from "node:fs";
 const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 const visualColorPicker = readFileSync(new URL("../src/features/customization/VisualColorPicker.jsx", import.meta.url), "utf8");
 const territoryFeedbackPanel = readFileSync(new URL("../src/features/territory-details/TerritoryFeedbackPanel.jsx", import.meta.url), "utf8");
+const territoryManagementModule = readFileSync(new URL("../src/features/territory-management/CityManagementProfile.jsx", import.meta.url), "utf8");
 const appShellStyles = readFileSync(new URL("../src/theme/app-shell.css", import.meta.url), "utf8");
-const app = `${appSource}\n${visualColorPicker}\n${territoryFeedbackPanel}\n${appShellStyles}`;
+const profileInventoryIndex = appSource.indexOf("function ProfileInventory(");
+const appWithTerritoryManagement = profileInventoryIndex >= 0
+  ? `${appSource.slice(0, profileInventoryIndex)}\n${territoryManagementModule}\n${appSource.slice(profileInventoryIndex)}`
+  : `${appSource}\n${territoryManagementModule}`;
+const app = `${appWithTerritoryManagement}\n${visualColorPicker}\n${territoryFeedbackPanel}\n${appShellStyles}`;
 const awardIcons = readFileSync(new URL("../src/features/territory-awards/TelegramSticker.jsx", import.meta.url), "utf8");
 const awardManager = readFileSync(new URL("../src/features/territory-awards/MainInspectorAwardManager.jsx", import.meta.url), "utf8");
 const issuedAwardsPanel = readFileSync(new URL("../src/features/territory-awards/IssuedAwardsPanel.jsx", import.meta.url), "utf8");
@@ -137,7 +142,7 @@ test("territory review reply has no extra bottom margin",()=>{
 
 test("equipped-award guidance is not shown in the profile and profile banner controls are not dimmed when disabled",()=>{
   assert.doesNotMatch(app,/Экипированные награды появляются на странице территории/);
-  const dot=app.slice(app.indexOf("function ColorDot("),app.indexOf("function ToggleField(",app.indexOf("function ColorDot(")));
+  const dot=visualColorPicker;
   assert.match(dot,/opacity:1,filter:'none'/);
   assert.match(app,/aria-label="Предпросмотр текущего баннера территории"[\s\S]*?opacity:1,filter:'none'/);
 });

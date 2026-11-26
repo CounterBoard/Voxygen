@@ -18,6 +18,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Customization feature | `src/features/customization/` | Visual catalog, account-scope selection, visual creation/editing, purchases, ordering and visibility controls |
 | Territory feedback | `src/features/territory-details/TerritoryFeedbackPanel.jsx` | Territory rating, review creation/moderation and founder/manager replies |
 | Territory screenshots | `src/features/territory-details/TerritoryScreenshotsPanel.jsx` | Screenshot gallery, image compression, upload approval request and owner/inspector deletion |
+| Territory management | `src/features/territory-management/CityManagementProfile.jsx` | Owner/manager controls for residents, managers, recruitment, banner, marker and award placement |
 | Shared frontend utilities | `src/shared/` | Small utilities used by more than one feature |
 | API and asset configuration | `src/config/api.js` | Frontend API and map asset base URLs |
 | Theme catalogue and visual rules | `shared/theme-catalog.js`, `shared/customization-visuals.js`, `src/theme/` | Theme definitions, visual recipes and CSS tokens |
