@@ -11,6 +11,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Application shell and screen composition | `src/App.jsx` | App-wide state, navigation, screen composition, shared UI primitives and cross-feature orchestration |
 | World map upload and publication UI | `src/features/world-map/MapUploadPanel.jsx` | Square-image validation, binary upload progress, manifest polling and recoverable publication status |
 | World map viewport | `src/features/world-map/VoxMap.jsx` | Pan, pinch and wheel gestures, transform synchronization, visible deep-zoom / URL-grid tile selection, and territory marker rendering |
+| World map asset loader | `src/features/world-map/useWorldMap.js` | Manifest/preview loading, legacy image fallback, retry and stale-request protection |
 | Event/calendar feature | `src/features/events/` | Event screens and forms, date/time conversion and calendar controls |
 | Territory award rendering and admin manager | `src/features/territory-awards/` | Telegram sticker rendering, award icons, source-pack gallery, award grants and issued-award administration |
 | Admin tools | `src/features/admin-tools/` | Read-only D1 health report and JSON export, inspector assignment/removal, and confirmed-user administration (list/create/edit/delete) |

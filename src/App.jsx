@@ -1,7 +1,8 @@
 // Voxygen-Version: v63
 import React, { useEffect, useState, useRef, useId } from 'react';
+import { useWorldMap } from './features/world-map/useWorldMap.js';
 import gemIconUrl from './assets/gem-icon.png';
-import { API_BASE, MAP_ASSETS_BASE } from './config/api.js';
+import { API_BASE } from './config/api.js';
 import { TerritoryAwardIcon } from './features/territory-awards/TelegramSticker.jsx';
 import { MainInspectorAwardManager } from './features/territory-awards/MainInspectorAwardManager.jsx';
 import { MainInspectorIssuedAwardsPanel } from './features/territory-awards/IssuedAwardsPanel.jsx';
@@ -26,7 +27,7 @@ import { WorldMapUploadPanel } from './features/world-map/MapUploadPanel.jsx';
 import { createPortal } from 'react-dom';
 import { DEFAULT_THEME_ID, THEME_CATALOG, normalizeThemeId } from '../shared/theme-catalog.js';
 import { getBannerGradient } from '../shared/customization-visuals.js';
-import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, isValidWorldCoordinate, coordinateGeometryMatchesManifest, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
+import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, isValidWorldCoordinate, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
 import {
   Map as MapIcon, List as ListIcon, Users, MessageCircle, ThumbsUp, ThumbsDown,
   Flag, X, ChevronLeft, ChevronRight, Camera, Check, Plus, Star, Heart,
@@ -1501,17 +1502,11 @@ export default function CityRatingApp() {
   const activeTelegramIdRef = useRef(String(tgUser?.id||''));
   const territoriesRequestRef = useRef(false);
   const territoriesRefreshQueuedRef = useRef(false);
-  const mapImageLoadedRef = useRef(false);
-  const mapLoadGenerationRef = useRef(0);
   const [showAddTerritory, setShowAddTerritory] = useState(false);
   const [homeToast, setHomeToast] = useState(null);
   const [globalToast,setGlobalToast]=useState(null);
   const globalToastSequenceRef=useRef(0);
   const showGlobalToast=(message,type='success')=>setGlobalToast({id:++globalToastSequenceRef.current,message,type});
-  const [worldMapImage, setWorldMapImage] = useState(null);
-  const [worldMapSource, setWorldMapSource] = useState(null);
-  const [worldMapLoading, setWorldMapLoading] = useState(true);
-  const [worldMapError, setWorldMapError] = useState('');
   const [voxView, setVoxView] = useState(null);
   const [markersReady, setMarkersReady] = useState(false);
   const [faqOpen, setFaqOpen] = useState(false);
@@ -1521,6 +1516,8 @@ export default function CityRatingApp() {
   const [homeFeatureButtonReady,setHomeFeatureButtonReady]=useState(false);
   const [homeFeatureOpen,setHomeFeatureOpen]=useState(false);
   const [globalSettingsOpen,setGlobalSettingsOpen]=useState(false);
+
+  const { worldMapImage, worldMapSource, worldMapLoading, worldMapError, loadWorldMap, retryWorldMap, onMapSaved } = useWorldMap({ safeCaughtError });
 
   const selected = territories.find((t) => String(t.id) === String(selectedId));
 
@@ -1691,112 +1688,6 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
     };
   }, [timezoneRetryToken]);
 
-  async function loadWorldMap() {
-    if (mapImageLoadedRef.current) return;
-    const generation = ++mapLoadGenerationRef.current;
-    const isCurrent = () => generation === mapLoadGenerationRef.current;
-    setWorldMapLoading(true);
-    setWorldMapError('');
-    try {
-      const manifestResponse = await fetch(`${MAP_ASSETS_BASE}/world-map/manifest.json?check=${Date.now()}`, { cache: 'no-store' });
-      if (!isCurrent()) return;
-      if (manifestResponse.status !== 404) {
-        if (!manifestResponse.ok) throw new Error(`Не удалось проверить манифест карты (HTTP ${manifestResponse.status}).`);
-        const manifest = await manifestResponse.json();
-        if (!isCurrent()) return;
-        const source = manifest?.source;
-        if (!manifest?.mapVersion || !source || !['deepzoom', 'url-grid'].includes(source.type)) {
-          throw new Error('Опубликованная карта имеет неподдерживаемый формат.');
-        }
-        if (source.type === 'deepzoom' && (!Number.isFinite(Number(source.width)) || !Number.isFinite(Number(source.height)) || Number(source.width) < 1 || Number(source.height) < 1)) {
-          throw new Error('Манифест содержит некорректные размеры растровой карты.');
-        }
-        if (!coordinateGeometryMatchesManifest(source.coordinateSystem)) {
-          throw new Error('Манифест карты содержит несовместимые границы игрового мира.');
-        }
-        const previewPath = source.previewUrl || manifest.previewUrl;
-        if (!previewPath) throw new Error('В манифесте карты отсутствует previewUrl.');
-        const previewUrl = /^https?:\/\//i.test(previewPath) ? previewPath : new URL(previewPath, MAP_ASSETS_BASE).href;
-        const preloadImage = new Image();
-        preloadImage.decoding = 'async';
-        preloadImage.fetchPriority = 'high';
-        preloadImage.src = previewUrl;
-        if (typeof preloadImage.decode === 'function') {
-          await preloadImage.decode();
-        } else {
-          await new Promise((resolve, reject) => {
-            if (preloadImage.complete) {
-              if (preloadImage.naturalWidth > 0) resolve();
-              else reject(new Error('Не удалось загрузить превью карты.'));
-              return;
-            }
-            preloadImage.onload = resolve;
-            preloadImage.onerror = () => reject(new Error('Не удалось загрузить превью карты.'));
-          });
-        }
-        if (!isCurrent()) return;
-        if (!preloadImage.naturalWidth || !preloadImage.naturalHeight) {
-          throw new Error('Превью карты не удалось декодировать.');
-        }
-        setWorldMapImage(previewUrl);
-        setWorldMapSource({ ...source, assetBase: MAP_ASSETS_BASE, mapVersion: manifest.mapVersion });
-        mapImageLoadedRef.current = true;
-        return;
-      }
-
-      // Legacy image delivery is a temporary bridge only while no manifest
-      // exists. A present-but-invalid manifest must never be bypassed.
-      const probe = await fetch(`${API_BASE}/api/map`, { method: 'HEAD', cache: 'no-store' });
-      if (!isCurrent()) return;
-      if (!probe.ok) {
-        const errorData = await fetch(`${API_BASE}/api/map`, { cache: 'no-store' })
-          .then(response => response.json().catch(() => null))
-          .catch(() => null);
-        if (!isCurrent()) return;
-        throw new Error(errorData?.error || `Не удалось получить карту (HTTP ${probe.status}).`);
-      }
-      const contentType = String(probe.headers.get('Content-Type') || '').toLowerCase();
-      if (!['image/png', 'image/jpeg', 'image/webp'].includes(contentType.split(';')[0].trim())) {
-        throw new Error('GitHub вернул неподдерживаемый формат карты. Загрузите PNG, JPG или WebP.');
-      }
-      const mapVersion = String(probe.headers.get('X-Map-Version') || '').trim();
-      const mapUrl = `${API_BASE}/api/map${mapVersion ? `?v=${encodeURIComponent(mapVersion)}` : ''}`;
-      const preloadImage = new Image();
-      preloadImage.decoding = 'async';
-      preloadImage.fetchPriority = 'high';
-      preloadImage.src = mapUrl;
-      if (typeof preloadImage.decode === 'function') {
-        await preloadImage.decode();
-      } else {
-        await new Promise((resolve, reject) => {
-          if (preloadImage.complete) {
-            if (preloadImage.naturalWidth > 0) resolve();
-            else reject(new Error('Не удалось загрузить изображение карты.'));
-            return;
-          }
-          preloadImage.onload = resolve;
-          preloadImage.onerror = () => reject(new Error('Не удалось загрузить изображение карты.'));
-        });
-      }
-      if (!isCurrent()) return;
-      setWorldMapSource(null);
-      setWorldMapImage(mapUrl);
-      mapImageLoadedRef.current = true;
-    } catch (error) {
-      if (!isCurrent()) return;
-      setWorldMapImage(null);
-      setWorldMapSource(null);
-      setWorldMapError(safeCaughtError(error, 'Не удалось загрузить карту мира.'));
-      console.error('Load world map error:', String(error?.message || error));
-    } finally {
-      if (isCurrent()) setWorldMapLoading(false);
-    }
-  }
-
-  function retryWorldMap() {
-    mapImageLoadedRef.current = false;
-    loadWorldMap();
-  }
 
   async function openFaq(){
     if(faqRequestRef.current)return;
@@ -1948,7 +1839,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
     };
   }, [screen, selectedId]);
 
-  useEffect(() => { if (screen === 'cities' && mainTab === 'map') loadWorldMap(); }, [screen, mainTab]);
+  useEffect(() => { if (screen === 'cities' && mainTab === 'map') loadWorldMap(); }, [screen, mainTab, loadWorldMap]);
 
   function navigate(key) {
     setScreen(key);
@@ -2014,7 +1905,7 @@ if(profileRequestRef.current && profileRequestInitDataRef.current!==initData) pr
       <div style={{ maxWidth: 'var(--theme-content-max-width)', margin: '0 auto', position: 'relative' }}>
         <div className="atlas-screen-transition" key={`${screen}-${selected?.id || 'none'}`}>
         {screen === 'profile' ? (
-          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={map=>{mapLoadGenerationRef.current+=1;mapImageLoadedRef.current=true;setWorldMapImage(typeof map==='string'?map:map?.image||null);setWorldMapSource(typeof map==='string'?null:(map?.source||null));setWorldMapError('');setWorldMapLoading(false)}} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setActiveTheme(normalizeThemeId(settings.theme??settings.defaultTheme??DEFAULT_THEME_ID));const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??88);setTimezoneRetryToken(value=>value+1);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));const zoomChanged=mapZoomPreferenceRef.current===null||mapZoomPreferenceRef.current!==nextZoom;mapZoomPreferenceRef.current=nextZoom;setMapZoomPercent(nextZoom);if(zoomChanged)setVoxView({x:0,y:0,scale:mapZoomPercentToScale(nextZoom)});setMapZoomReady(true);setTimezoneReady(true);setTimezoneLoadError('');}} onOpenGlobalSettings={()=>setGlobalSettingsOpen(true)} onToast={showGlobalToast} />
+          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={onMapSaved} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setActiveTheme(normalizeThemeId(settings.theme??settings.defaultTheme??DEFAULT_THEME_ID));const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??88);setTimezoneRetryToken(value=>value+1);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));const zoomChanged=mapZoomPreferenceRef.current===null||mapZoomPreferenceRef.current!==nextZoom;mapZoomPreferenceRef.current=nextZoom;setMapZoomPercent(nextZoom);if(zoomChanged)setVoxView({x:0,y:0,scale:mapZoomPercentToScale(nextZoom)});setMapZoomReady(true);setTimezoneReady(true);setTimezoneLoadError('');}} onOpenGlobalSettings={()=>setGlobalSettingsOpen(true)} onToast={showGlobalToast} />
         ) : screen === 'customization' ? (
           <CustomizationScreen initData={window.Telegram?.WebApp?.initData || ''} tgUser={tgUser} role={role} territories={territories} profile={profile} onToast={showGlobalToast} ui={{apiErrorMessage,safeCaughtError,useAnimatedClose,IconButton,Field,readImageData,GemHex,MinecraftText}} />
         ) : screen === 'events' ? (
