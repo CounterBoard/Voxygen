@@ -36,6 +36,7 @@ This document is the entry point for understanding the repository. Feature-level
 | --- | --- | --- |
 | Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, shared auth/CORS/Telegram/D1 infrastructure, scheduled tasks and cross-feature orchestration |
 | Telegram award sticker delivery | `bot/src/features/territory-awards/sticker-delivery.js` | Telegram sticker file lookup, preview selection, path/format/size validation, TGS decompression and safe response headers; injected Worker infrastructure keeps this service independent of the router |
+| D1 diagnostics service | `bot/src/features/admin-tools/d1-diagnostics.js` | Main-inspector-only, read-only database inventory, orphan/FK checks and data-volume report; receives auth and JSON helpers from the Worker and never initializes schema |
 | Database schema | `bot/schema.sql` | D1 tables and indexes |
 | Worker configuration | `bot/wrangler.toml` | Cloudflare deployment configuration |
 | Shared world geometry | `shared/world-map-coordinates.js` | Canonical world coordinate bounds and coordinate conversion |
