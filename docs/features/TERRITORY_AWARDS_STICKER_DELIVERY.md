@@ -115,7 +115,7 @@ Validation requires:
 - a `layers` array;
 - no remote asset references in the `assets` array.
 
-The compressed file is limited to 512 KiB and decompressed JSON to 1 MiB. The frontend creates a separate Lottie player for each visible award and deep-clones the JSON for each player because Lottie mutates animation data internally. Playback is looping and starts automatically. The player is destroyed when the component unmounts.
+The compressed file is limited to 512 KiB and decompressed JSON to 1 MiB. Each animation player uses a deep-cloned JSON payload because Lottie mutates its input data. Playback is looping and starts automatically.
 
 ### WEBM
 
