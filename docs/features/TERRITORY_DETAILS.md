@@ -12,7 +12,7 @@ The territory detail screen composes the selected territory's cover, score badge
 
 ## Ownership and state flow
 
-- `App.jsx` owns page navigation, the selected territory ID, the latest summary list, profile/role state and global notifications. It selects `TerritoryDetail` and passes the selected summary record plus callbacks.
+- `App.jsx` owns page navigation, the selected territory ID, profile/role state and global notifications. It uses `useTerritories` for the shared summary list, selects `TerritoryDetail` and passes the selected summary record plus callbacks.
 - `TerritoryDetail` owns the selected territory's enriched detail state, authenticated detail request, retry/error state, screenshot lightbox selection, resident and award overlays, and local feedback toast.
 - `TerritoryScreenshotsPanel` owns screenshot upload, compression and deletion behavior. It reports territory updates and opens/closes the parent-owned lightbox through callbacks.
 - `TerritoryFeedbackPanel` owns ratings, review creation/moderation and replies. It updates the shared territory detail state through `setTerritory`.
