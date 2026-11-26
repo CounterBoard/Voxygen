@@ -3,17 +3,12 @@ import React, { useEffect, useState, useRef, useId } from 'react';
 import { API_BASE, MAP_ASSETS_BASE } from './config/api.js';
 import { TelegramSticker, TerritoryAwardIcon } from './features/territory-awards/TelegramSticker.jsx';
 import {
-  EVENT_DATE_LIMIT_MESSAGE, addUtcCalendarMonths, defaultEventDateParts,
-  defaultGlobalExpiryDateParts, eventDateLabel, eventDatePartsFromTimestamp,
-  eventDatePartsTimestamp, formatEventCoords, globalExpiryDatePartsFromTimestamp,
-  globalExpiryPartsTimestamp, normalizeTimezoneOffset, pluralRu,
-  reminderUnitLabel, sanitizeEventCoords,
+  defaultGlobalExpiryDateParts, globalExpiryDatePartsFromTimestamp,
+  globalExpiryPartsTimestamp, normalizeTimezoneOffset,
 } from './features/events/date-time.js';
 import { EventsScreen } from './features/events/Events.jsx';
 import { readEventImage } from './shared/image-utils.js';
 import { EventDateTimeFields } from './features/events/DateTimeFields.jsx';
-const EVENT_UI = { MinecraftText, FixedToast, Field, TextAreaField, apiErrorMessage, safeCaughtError, stripMinecraftCodes, readEventImage };
-
 import { createPortal } from 'react-dom';
 import { DEFAULT_THEME_ID, THEME_CATALOG, normalizeThemeId } from '../shared/theme-catalog.js';
 import { getBannerGradient, getRandomBannerGradientId, formatDiscountRemaining } from '../shared/customization-visuals.js';
@@ -23,6 +18,8 @@ import {
   Flag, X, ChevronLeft, ChevronRight, Camera, Check, Plus, Star, Heart,
   User, Send, Sparkles, UserPlus, Trash2, Pencil, ShieldCheck, Clock, ChevronUp, ChevronDown, CalendarDays, Bell, MapPin, ExternalLink, Eye, EyeOff, ImagePlus, Settings
 } from 'lucide-react';
+
+const EVENT_UI = { MinecraftText, FixedToast, Field, TextAreaField, apiErrorMessage, safeCaughtError, stripMinecraftCodes, readEventImage };
 
 // ---------------------------------------------------------------------------
 // Canonical Voxygen baseline v2. Restore previously fixed UX/backend regressions without changing unrelated behavior.
