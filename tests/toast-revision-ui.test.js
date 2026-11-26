@@ -38,8 +38,8 @@ test('root notifications use revisions and cancel an earlier home-toast timeout 
   assert.match(app, /if\(homeToastTimerRef\.current!==null\)clearTimeout\(homeToastTimerRef\.current\)/);
   assert.match(app, /setHomeToastRevision\(value=>value\+1\)/);
   assert.match(app, /homeToastTimerRef\.current=setTimeout\(\(\)=>\{setHomeToast\(null\);homeToastTimerRef\.current=null;\},duration\)/);
-  assert.match(app, /<FixedToast revision=\{homeToastRevision\} message=\{homeToast\} \/>/);
-  assert.match(app, /<FixedToast revision=\{globalToast\.id\} message=\{globalToast\.message\} type=\{globalToast\.type\} \/>/);
+  assert.match(app, /<FixedToast revision=\{homeToastRevision\} message=\{homeToast\}\/>/);
+  assert.match(app, /<FixedToast revision=\{globalToast\.id\} message=\{globalToast\.message\} type=\{globalToast\.type\}\/>/);
   assert.doesNotMatch(app, /<FixedToast key=\{/);
   assert.match(app, /useEffect\(\(\)=>\(\)=>\{if\(homeToastTimerRef\.current!==null\)clearTimeout\(homeToastTimerRef\.current\)\},\[\]\)/);
 });
