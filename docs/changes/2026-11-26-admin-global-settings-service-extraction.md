@@ -24,3 +24,7 @@ No table creation, migration, schema, route path, authorization rule or settings
 - Existing route-auth tests continue to protect both admin global-settings methods.
 - Added `docs/features/ADMIN_GLOBAL_SETTINGS.md`.
 - Updated `docs/ARCHITECTURE.md` and section 12.3 of `Functional_System.txt`.
+
+## CI findings
+
+The initial unit-test run exposed an incorrect relative import depth for the shared theme and map-zoom modules. The paths were corrected from the new `bot/src/features/admin-tools` directory to the repository-root `shared/` directory. The failing tests were module-load failures before handler execution; the implementation logic was unchanged. The full test, app build, Worker syntax and Wrangler dry-run suite must pass on the corrected commit before merge.
