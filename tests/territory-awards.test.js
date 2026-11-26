@@ -96,8 +96,11 @@ test("award sticker delivery exposes safe diagnostic error codes and never cache
   ]) assert.ok(handler.includes(reason), "missing diagnostic reason: "+reason);
   assert.match(handler,/X-Voxygen-Sticker-Error/);
   assert.match(handler,/Cache-Control': 'no-store'/);
-  assert.match(handler,/console\.warn\('\[award-sticker\]'/);
-  const logPayload=handler.match(/console\\.warn\\('\\[award-sticker\\]', JSON\\.stringify\\(\\{([\\s\\S]*?)\\}\\)\\)/)?.[1] || "";
+  assert.ok(handler.includes("console.warn('[award-sticker]'"));
+  const logStart=handler.indexOf("console.warn('[award-sticker]'");
+  const logEnd=handler.indexOf("}));",logStart);
+  const logPayload=handler.slice(logStart,logEnd);
   assert.ok(logPayload);
   assert.doesNotMatch(logPayload,/awardId|packStickerId|requestedFileId|BOT_TOKEN|filePath|token/i);
+  assert.doesNotMatch(handler,/error: String\\(error/);
 });
