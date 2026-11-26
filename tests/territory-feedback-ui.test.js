@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+const detail = readFileSync(new URL('../src/features/territory-details/TerritoryDetail.jsx', import.meta.url), 'utf8');
 const panel = readFileSync(new URL('../src/features/territory-details/TerritoryFeedbackPanel.jsx', import.meta.url), 'utf8');
 
 test('territory detail delegates rating and reviews to the dedicated feedback module', () => {
