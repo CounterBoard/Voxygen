@@ -3,7 +3,8 @@
 **Status:** current implementation  
 **Updated:** 2026-11-26  
 **UI source:** `src/features/admin-tools/D1DiagnosticsPanel.jsx`  
-**API source:** `bot/src/worker.js` — `GET /api/admin/diagnostics/d1`
+**API route:** `bot/src/worker.js` — `GET /api/admin/diagnostics/d1`  
+**Read-only report service:** `bot/src/features/admin-tools/d1-diagnostics.js` — `getD1Diagnostics`, `sqlIdentifier`
 
 ## Purpose
 
@@ -32,8 +33,8 @@ The report is not a database backup and must not be treated as one. Before any c
 
 ## Module boundary
 
-`MainInspectorD1DiagnosticsPanel` owns its loading, error, report and copy-fallback state. The app shell supplies the Telegram init data and the shared `parseApiResponse` / `safeCaughtError` helpers through the `ui` adapter. The panel does not own authorization rules, SQL, migrations or repair logic; those remain in the Worker.
+`MainInspectorD1DiagnosticsPanel` owns its loading, error, report and copy-fallback state. The app shell supplies the Telegram init data and the shared `parseApiResponse` / `safeCaughtError` helpers through the `ui` adapter. The panel does not own authorization rules, SQL or repair logic. The Worker router keeps the main-inspector authorization dependency and injects it into `getD1Diagnostics`; the feature service owns the read-only SQL inventory and report shaping. The service deliberately does not call `ensureWorldTables`, so it cannot trigger schema creation or migrations.
 
 ## Regression coverage
 
-`tests/admin-diagnostics-ui.test.js` checks the component boundary, the explicit read-only response contract, the absence of mutation methods, JSON inspection, clipboard handling and manual fallback.
+`tests/admin-diagnostics-ui.test.js` checks the component boundary, the explicit read-only response contract, the absence of mutation methods, JSON inspection, clipboard handling and manual fallback. `tests/d1-diagnostics-service.test.js` checks authorization-before-D1, missing-binding behavior, SQL identifier escaping and that the report issues only `SELECT` / `PRAGMA` statements.
