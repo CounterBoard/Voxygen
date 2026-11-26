@@ -78,7 +78,7 @@ test('marker readiness is still delayed until the normalized list has been commi
 });
 
 test('feature documentation describes the summary payload, degraded-data preservation and refresh lifecycle', () => {
-  assert.ok(doc.includes('GET `/api/territories?view=summary`'));
+  assert.ok(doc.includes('GET /api/territories?view=summary'));
   assert.match(doc, /degradedAreas/);
   assert.match(doc, /coalesced/);
   assert.match(doc, /60 seconds/);
