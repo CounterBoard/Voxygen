@@ -47,4 +47,4 @@ It does not import `worker.js` and does not own router dispatch.
 
 ## Regression coverage
 
-`tests/admin-site-content-service.test.js` protects public FAQ fallback, main-inspector write authorization, FAQ length checks, home button normalization and image validation, hidden-content redaction, main-inspector visibility and explicit route/service wiring. `tests/route-auth-matrix.test.js` verifies that the authenticated-user GET home-button route rejects unauthenticated requests, alongside the existing main-inspector write routes.
+`tests/admin-site-content-service.test.js` protects public FAQ fallback, main-inspector write authorization, FAQ length checks and successful persistence, home button normalization and image validation, hidden-content redaction, main-inspector visibility and successful persistence, plus explicit route/service wiring. `tests/route-auth-matrix.test.js` verifies that the authenticated-user GET home-button route rejects unauthenticated requests, alongside the existing main-inspector write routes.
