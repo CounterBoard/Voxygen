@@ -1360,20 +1360,16 @@ export default function CityRatingApp() {
   const [globalSettingsOpen,setGlobalSettingsOpen]=useState(false);
 
   const { worldMapImage, worldMapSource, worldMapLoading, worldMapError, loadWorldMap, retryWorldMap, onMapSaved } = useWorldMap({ safeCaughtError });
-  const resetTerritoriesForIdentityRef = useRef(() => {});
+  const { territories, territoriesLoading, territoriesHasLoaded, territoriesError, markersReady, loadTerritories, resetForTelegramIdentity } = useTerritories({
+    ui: { apiErrorMessage, safeCaughtError, finiteCoordinate },
+  });
   const {
     role, profile, profileLoadState, profileLoadError, refreshProfile, claimNickname,
   } = useTelegramProfile({
     initialTelegramId: tgUser?.id,
-    onTelegramIdentityChanged: () => resetTerritoriesForIdentityRef.current(),
+    onTelegramIdentityChanged: resetForTelegramIdentity,
     ui: { apiErrorMessage, safeCaughtError, parseApiResponse },
   });
-  const { territories, territoriesLoading, territoriesHasLoaded, territoriesError, markersReady, loadTerritories, resetForTelegramIdentity } = useTerritories({
-    screen,
-    selectedId,
-    ui: { apiErrorMessage, safeCaughtError, finiteCoordinate },
-  });
-  resetTerritoriesForIdentityRef.current = resetForTelegramIdentity;
 
   const selected = territories.find((t) => String(t.id) === String(selectedId));
 
@@ -1513,6 +1509,21 @@ export default function CityRatingApp() {
       } catch (e) {}
     };
   }, []);
+
+  useEffect(() => {
+    if (screen === 'cities' && !selectedId) loadTerritories();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && screen === 'cities' && !selectedId) loadTerritories();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible' && screen === 'cities' && !selectedId) loadTerritories();
+    }, 60000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(timer);
+    };
+  }, [screen, selectedId, loadTerritories]);
 
   useEffect(() => { if (screen === 'cities' && mainTab === 'map') loadWorldMap(); }, [screen, mainTab, loadWorldMap]);
 
