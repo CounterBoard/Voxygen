@@ -90,6 +90,46 @@ test("FAQ save rejects empty and oversized text before table access", async () =
   assert.equal(ensured, 0);
 });
 
+test("FAQ writes to the existing app_settings key after main-inspector authorization", async () => {
+  let sql = "";
+  let values = null;
+  let writes = 0;
+  let ensured = 0;
+  const env = {
+    DB: {
+      prepare(statement) {
+        sql = statement;
+        return {
+          bind(...args) { values = args; return this; },
+          async run() { writes += 1; return { success: true }; },
+        };
+      },
+    },
+  };
+  const response = await saveFaq(
+    new Request("https://voxygen.test/api/faq", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: "Обновлённый FAQ" }),
+    }),
+    env,
+    {
+      requireMainInspector: async () => ({ user: { id: 1 } }),
+      ensureMapSettingsTable: async () => { ensured += 1; },
+      json,
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { ok: true, text: "Обновлённый FAQ" });
+  assert.match(sql, /INSERT INTO app_settings \(key, value, updated_at\)/);
+  assert.match(sql, /ON CONFLICT\(key\) DO UPDATE/);
+  assert.equal(values[0], "Обновлённый FAQ");
+  assert.equal(typeof values[1], "number");
+  assert.equal(writes, 1);
+  assert.equal(ensured, 1);
+});
+
 test("home feature button normalization limits fields and accepts only a bounded data image", () => {
   const normalized = normalizeHomeFeatureButton(JSON.stringify({
     imageData: "https://example.com/image.png",
@@ -174,6 +214,60 @@ test("saving an unsupported home button image returns 413 before settings-table 
 
   assert.equal(response.status, 413);
   assert.equal(ensured, 0);
+});
+
+test("home feature button saves the bounded configuration to its existing app_settings key", async () => {
+  let sql = "";
+  let values = null;
+  let writes = 0;
+  let ensured = 0;
+  const env = {
+    DB: {
+      prepare(statement) {
+        sql = statement;
+        return {
+          bind(...args) { values = args; return this; },
+          async run() { writes += 1; return { success: true }; },
+        };
+      },
+    },
+  };
+  const response = await saveHomeFeatureButton(
+    new Request("https://voxygen.test/api/home-feature-button", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageData: "data:image/png;base64,AAAA",
+        title: "  Новая кнопка  ",
+        subtitle: "  Подзаголовок  ",
+        text: "  Текст  ",
+        hidden: true,
+      }),
+    }),
+    env,
+    {
+      requireMainInspector: async () => ({ user: { id: 1 } }),
+      ensureMapSettingsTable: async () => { ensured += 1; },
+      json,
+    },
+  );
+
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(body.config, {
+    imageData: "data:image/png;base64,AAAA",
+    title: "Новая кнопка",
+    subtitle: "Подзаголовок",
+    text: "Текст",
+    hidden: true,
+  });
+  assert.match(sql, /INSERT INTO app_settings \(key, value, updated_at\)/);
+  assert.match(sql, /ON CONFLICT\(key\) DO UPDATE/);
+  assert.equal(values[0], "home_feature_button");
+  assert.deepEqual(JSON.parse(values[1]), body.config);
+  assert.equal(typeof values[2], "number");
+  assert.equal(writes, 1);
+  assert.equal(ensured, 1);
 });
 
 test("Worker keeps the existing public/private route split and delegates to the content service", () => {
