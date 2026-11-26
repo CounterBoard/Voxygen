@@ -9,8 +9,7 @@ const territoriesHook = readFileSync(new URL('../src/features/territories/useTer
 test('Telegram profile loading and nickname claiming are owned by a dedicated hook', () => {
   assert.match(app, /import \{ useTelegramProfile \} from '\.\/features\/profile\/useTelegramProfile\.js'/);
   assert.match(app, /role, profile, profileLoadState, profileLoadError, refreshProfile, claimNickname,[\s\S]*?\} = useTelegramProfile\(/);
-  assert.match(app, /onTelegramIdentityChanged: \(\) => resetTerritoriesForIdentityRef\.current\(\)/);
-  assert.match(app, /resetTerritoriesForIdentityRef\.current = resetForTelegramIdentity/);
+  assert.match(app, /onTelegramIdentityChanged: resetForTelegramIdentity/);
   assert.doesNotMatch(app, /async function claimNickname\(|const refreshProfile = async|profileRequestVersionRef|activeTelegramIdRef/);
   assert.match(hook, /export function useTelegramProfile\(/);
 });
