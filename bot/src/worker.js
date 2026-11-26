@@ -4683,9 +4683,8 @@ async function claimTerritoryOwner(request, env) {
     if(Number(fresh?.owner_telegram_id||0)===Number(auth.user.id))return json({ok:true,changed:false});
     return json({ok:false,error:'Территорию уже успел занять другой пользователь. Обновите данные.'},409);
   }
-  await evaluateAchievementsForTerritory(env,territorye button settings error:', error);
-    return json({ ok: false, error: 'Database error', details: String(error) }, 500);
-  }
+  await evaluateAchievementsForTerritory(env,territoryId).catch(error=>console.error('Achievement evaluation after founder claim:',error));
+  return json({ok:true,changed:true});
 }
 
 async function requestInspectorRating(request, env) {
