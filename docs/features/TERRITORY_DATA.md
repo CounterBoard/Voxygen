@@ -9,7 +9,7 @@
 
 `useTerritories` owns the frontend's shared territory summary list and its refresh lifecycle. It loads the records used by the city map/list, recruitment screen, profile and territory detail entry point.
 
-`App.jsx` continues to own navigation and the selected territory ID. It passes the active screen and selection to the hook, uses the returned list to select the current territory, and passes `loadTerritories` to screens that need to refresh the list after a successful mutation.
+`App.jsx` continues to own navigation, the selected territory ID and refresh scheduling. It uses the returned list to select the current territory, triggers `loadTerritories` when the city list becomes active / visible and every 60 seconds while visible, and passes the callback to screens that need to refresh the list after a successful mutation.
 
 The selected territory detail screen has a separate enriched-data request, documented in `TERRITORY_DETAILS.md`. The summary loader must not become the owner of detail-only UI state or detail overlays.
 
@@ -33,11 +33,11 @@ When the API reports `degradedAreas`, the hook preserves the previous value only
 
 - A request is skipped while the document is hidden.
 - If another refresh is requested while one is in flight, it is coalesced into a queued refresh. The queued request starts after the current request completes, provided the document is visible.
-- The active city-list screen triggers an initial load, refreshes on `visibilitychange`, and polls every 60 seconds while visible.
+- The root app's existing effect triggers an initial load when the city list is active, refreshes on `visibilitychange`, and polls every 60 seconds while visible.
 - Successful normalization updates the list and its previous-value ref, clears or updates the error state, and marks map markers ready on the next animation frame.
 - A confirmed Telegram identity change clears the visible list and current error, resets the loaded indicator, then requests data for the new identity.
 
-The hook deliberately keeps the existing request and queue semantics. Do not add overlapping parallel requests or clear the previous-value ref as an incidental refactor.
+The hook deliberately keeps the existing request and queue semantics, while the root app keeps the original scheduling effect in its previous position so startup effect ordering remains unchanged. Do not add overlapping parallel requests or clear the previous-value ref as an incidental refactor.
 
 ## Dependency boundary
 
