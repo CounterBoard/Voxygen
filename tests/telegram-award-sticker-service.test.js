@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { serveTelegramAwardSticker } from "../bot/src/features/territory-awards/sticker-delivery.js";
 
 function withCors(response) {
