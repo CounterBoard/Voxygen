@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 const globalSettingsPanel = readFileSync(new URL('../src/features/settings/GlobalSettingsPanel.jsx', import.meta.url), 'utf8');
+const userSettingsModule = readFileSync(new URL('../src/features/settings/useUserSettings.js', import.meta.url), 'utf8');
 const customizationModule = readFileSync(new URL('../src/features/customization/CustomizationScreen.jsx', import.meta.url), 'utf8');
 const visualColorPicker = readFileSync(new URL('../src/features/customization/VisualColorPicker.jsx', import.meta.url), 'utf8');
 const territoryFeedbackPanel = readFileSync(new URL('../src/features/territory-details/TerritoryFeedbackPanel.jsx', import.meta.url), 'utf8');
@@ -14,7 +15,7 @@ const profileInventoryIndex = appSource.indexOf('function ProfileInventory(');
 const appWithTerritoryManagement = profileInventoryIndex >= 0
   ? `${appSource.slice(0, profileInventoryIndex)}\n${territoryManagementModule}\n${appSource.slice(profileInventoryIndex)}`
   : `${appSource}\n${territoryManagementModule}`;
-const app = `${appWithTerritoryManagement}\n${globalSettingsPanel}\n${customizationModule}\n${visualColorPicker}\n${territoryFeedbackPanel}\n${territoryDetailModule}\n${appShellStyles}`;
+const app = `${appWithTerritoryManagement}\n${globalSettingsPanel}\n${userSettingsModule}\n${customizationModule}\n${visualColorPicker}\n${territoryFeedbackPanel}\n${territoryDetailModule}\n${appShellStyles}`;
 const events = readFileSync(new URL('../src/features/events/Events.jsx', import.meta.url), 'utf8');
 const worldMap = readFileSync(new URL('../src/features/world-map/VoxMap.jsx', import.meta.url), 'utf8');
 const tokens = readFileSync(new URL('../src/theme/theme-tokens.css', import.meta.url), 'utf8');
@@ -35,7 +36,7 @@ test('effective server theme is applied and personal theme choices use the share
   assert.doesNotMatch(app, /<SelectField value=\{normalizeThemeId\(settings\.personalTheme/);
   assert.match(app, /settings\.personalTheme\?\?settings\.defaultTheme/);
   assert.match(app, /setPersonalThemeChanged\(true\)/);
-  assert.match(app, /onSettingsSaved=\{settings=>\{setActiveTheme/);
+  assert.match(app, /onSettingsSaved=\{settings=>\{applyUserSettings\(settings,/);
   assert.match(app, /maxWidth: 'var\(--theme-content-max-width\)'/);
   assert.equal((app.match(/min\(var\(--theme-modal-max-width\),100%\)/g)||[]).length, 3, 'all compact modal widths must use the theme token');
   assert.equal((app.match(/maxWidth:'var\(--theme-modal-max-width\)'/g)||[]).length, 2, 'all wide modal widths must use the theme token');
