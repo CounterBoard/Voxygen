@@ -11,14 +11,6 @@ import {
   normalizeMapZoomPercent,
 } from '../../shared/world-map-coordinates.js';
 import { THEME_CATALOG, isSupportedTheme, normalizeThemeId as normalizeVoxygenTheme } from '../../shared/theme-catalog.js';
-export {
-  isSafeTelegramTgsAnimation,
-  parseTelegramEmojiSetName,
-  isTelegramCustomEmojiSet,
-  getTelegramStickerFormat,
-  getTelegramStickerFileExtension,
-  isTelegramStickerExtensionAllowed,
-};
 import {
   isSafeTelegramTgsAnimation,
   parseTelegramEmojiSetName,
@@ -28,6 +20,14 @@ import {
   isTelegramStickerExtensionAllowed,
   serveTelegramAwardSticker,
 } from './features/territory-awards/sticker-delivery.js';
+export {
+  isSafeTelegramTgsAnimation,
+  parseTelegramEmojiSetName,
+  isTelegramCustomEmojiSet,
+  getTelegramStickerFormat,
+  getTelegramStickerFileExtension,
+  isTelegramStickerExtensionAllowed,
+};
 
 
 const TELEGRAM_API = "https://api.telegram.org";
