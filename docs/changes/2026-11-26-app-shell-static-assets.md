@@ -19,3 +19,9 @@ The implementation already uses `src/main.jsx` to import `src/theme/theme-tokens
 No component behavior, API contract, backend Worker, database schema, authorization rule, theme token value or visual design was changed.
 
 The test and documentation changes are a finalization of stage 1, not a second extraction of resources that are already separated.
+
+## Existing test drift found during CI
+
+The first CI run executed 355 tests: 354 passed and one failed in the pre-existing `tests/profile-loading-ui.test.js` assertion. That assertion expected the old Telegram prompt `Откройте Voxygen через Telegram.`, while the current `useTelegramProfile` implementation correctly returns `Откройте приложение через Telegram.` for nickname claiming.
+
+Updated only the stale test expectation to match the current user-facing implementation. No application runtime code was changed. CI is being rerun before merge.
