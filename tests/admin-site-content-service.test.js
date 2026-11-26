@@ -263,9 +263,9 @@ test("home feature button saves the bounded configuration to its existing app_se
   });
   assert.match(sql, /INSERT INTO app_settings \(key, value, updated_at\)/);
   assert.match(sql, /ON CONFLICT\(key\) DO UPDATE/);
-  assert.equal(values[0], "home_feature_button");
-  assert.deepEqual(JSON.parse(values[1]), body.config);
-  assert.equal(typeof values[2], "number");
+  assert.match(sql, /VALUES \\('home_feature_button', \\?, \\?\\)/);
+  assert.deepEqual(JSON.parse(values[0]), body.config);
+  assert.equal(typeof values[1], "number");
   assert.equal(writes, 1);
   assert.equal(ensured, 1);
 });
