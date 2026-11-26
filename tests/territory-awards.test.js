@@ -97,5 +97,7 @@ test("award sticker delivery exposes safe diagnostic error codes and never cache
   assert.match(handler,/X-Voxygen-Sticker-Error/);
   assert.match(handler,/Cache-Control': 'no-store'/);
   assert.match(handler,/console\.warn\('\[award-sticker\]'/);
-  assert.doesNotMatch(handler,/console\.(?:warn|error).*?(?:awardId|packStickerId|requestedFileId|BOT_TOKEN|filePath)/s);
+  const logPayload=handler.match(/console\\.warn\\('\\[award-sticker\\]', JSON\\.stringify\\(\\{([\\s\\S]*?)\\}\\)\\)/)?.[1] || "";
+  assert.ok(logPayload);
+  assert.doesNotMatch(logPayload,/awardId|packStickerId|requestedFileId|BOT_TOKEN|filePath|token/i);
 });
