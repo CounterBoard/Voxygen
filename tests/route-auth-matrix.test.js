@@ -74,6 +74,12 @@ const protectedRoutes = [
   ["GET", "/api/city/management"],
   ["POST", "/api/recruitment"],
   ["POST", "/api/recruitment/contact"],
+  ["GET", "/api/admin/awards"],
+  ["POST", "/api/admin/awards"],
+  ["DELETE", "/api/admin/awards/award-123"],
+  ["POST", "/api/admin/award-packs"],
+  ["DELETE", "/api/admin/award-packs/pack-123"],
+  ["POST", "/api/customization/city/award"],
   ["GET", "/api/admin/diagnostics/d1"],
   ["GET", "/api/events?manage=1"],
 ];
