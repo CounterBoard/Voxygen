@@ -840,6 +840,8 @@ global_setting_overrides
 - время обновления;
 - ID главного инспектора, изменившего настройку.
 
+Backend handlers `getAdminGlobalSettings` и `saveAdminGlobalSetting` находятся в `bot/src/features/admin-tools/global-settings.js`. Worker сохраняет `ensureGlobalSettingsTable` (DDL и WeakMap-кэш) и `readGlobalSettingOverrides`, который используется персональными настройками. Сервис получает `requireMainInspector`, `ensureGlobalSettingsTable` и `json` через явную передачу зависимостей.
+
 Масштаб и тема применяются и снимаются независимо. Для каждого параметра можно установить срок действия или включить постоянный режим. Допустимый срок — до 10 лет.
 
 Глобальное значение является временным значением по умолчанию/переопределением, а не безусловной блокировкой пользовательского выбора.
