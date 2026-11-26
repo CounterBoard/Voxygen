@@ -21,7 +21,7 @@ function withCors(response) {
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Headers", "Content-Type, X-Telegram-Init-Data, X-Map-Size, If-None-Match");
   headers.set("Access-Control-Allow-Methods", "GET, HEAD, POST, PATCH, DELETE, OPTIONS");
-  headers.set("Access-Control-Expose-Headers", "X-Request-ID, Server-Timing, X-Map-Version");
+  headers.set("Access-Control-Expose-Headers", "X-Request-ID, Server-Timing, X-Map-Version, X-Voxygen-Sticker-Error");
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -144,9 +144,10 @@ async function serveTelegramAwardSticker(request, env) {
       format,
       status,
     }));
-    return withCors(new Response(null, {
+    return withCors(new Response(JSON.stringify({ ok: false, code: reason }), {
       status,
       headers: {
+        'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store',
         'X-Voxygen-Sticker-Error': reason,
         'X-Content-Type-Options': 'nosniff',
@@ -243,9 +244,10 @@ async function serveTelegramAwardSticker(request, env) {
       preview: wantsPreview,
       format,
     }));
-    return withCors(new Response(null, {
+    return withCors(new Response(JSON.stringify({ ok: false, code: 'internal_error' }), {
       status: 500,
       headers: {
+        'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store',
         'X-Voxygen-Sticker-Error': 'internal_error',
         'X-Content-Type-Options': 'nosniff',
