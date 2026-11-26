@@ -21,3 +21,7 @@ The Worker retains route dispatch and injects its existing `json`, `requireMainI
 - Added `GET /api/home-feature-button` to `tests/route-auth-matrix.test.js`.
 - Added `docs/features/ADMIN_SITE_CONTENT.md`.
 - Updated `docs/ARCHITECTURE.md` and `Functional_System.txt`.
+
+## CI findings
+
+The first CI run exposed a malformed boundary in the adjacent founder-claim handler after the content block was removed. The handler's original success path was restored verbatim before continuing; the issue was unrelated to FAQ or home-button behavior. The full Worker syntax check and unit suite must pass on the corrected commit before merge.
