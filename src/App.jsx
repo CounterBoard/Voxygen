@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef, useId } from 'react';
 import { useWorldMap } from './features/world-map/useWorldMap.js';
 import { useTerritories } from './features/territories/useTerritories.js';
+import { useUserSettings } from './features/settings/useUserSettings.js';
 import { useTelegramProfile } from './features/profile/useTelegramProfile.js';
 import gemIconUrl from './assets/gem-icon.png';
 import { API_BASE } from './config/api.js';
@@ -26,9 +27,9 @@ import { EventDateTimeFields } from './features/events/DateTimeFields.jsx';
 import { VoxMap } from './features/world-map/VoxMap.jsx';
 import { WorldMapUploadPanel } from './features/world-map/MapUploadPanel.jsx';
 import { createPortal } from 'react-dom';
-import { DEFAULT_THEME_ID, THEME_CATALOG, normalizeThemeId } from '../shared/theme-catalog.js';
+import { THEME_CATALOG, normalizeThemeId } from '../shared/theme-catalog.js';
 import { getBannerGradient } from '../shared/customization-visuals.js';
-import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, isValidWorldCoordinate, MAP_ZOOM_MAX_SCALE, mapZoomPercentToScale, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
+import { WORLD_MAP_GEOMETRY, worldCoordinateToPercent, isValidWorldCoordinate, MAP_ZOOM_MAX_SCALE, normalizeMapZoomPercent } from '../shared/world-map-coordinates.js';
 import {
   Map as MapIcon, List as ListIcon, Users, MessageCircle, ThumbsUp, ThumbsDown,
   Flag, X, ChevronLeft, ChevronRight, Camera, Check, Plus, Star, Heart,
@@ -1331,14 +1332,6 @@ function BottomNav({screen,onNavigate}){const items=[{key:'customization',icon:S
 // ---------------------------------------------------------------------------
 export default function CityRatingApp() {
   const tgUser = getTelegramUser();
-  const [timezoneOffset,setTimezoneOffset] = useState('UTC+3');
-  const [activeTheme,setActiveTheme]=useState(DEFAULT_THEME_ID);
-  const [mapZoomPercent,setMapZoomPercent] = useState(88);
-  const [mapZoomReady,setMapZoomReady] = useState(false);
-  const mapZoomPreferenceRef = useRef(null);
-  const [timezoneReady,setTimezoneReady] = useState(false);
-  const [timezoneLoadError,setTimezoneLoadError] = useState('');
-  const [timezoneRetryToken,setTimezoneRetryToken] = useState(0);
 
   const [screen, setScreen] = useState('cities');
   const [mainTab, setMainTab] = useState('map');
@@ -1382,84 +1375,13 @@ export default function CityRatingApp() {
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    let intervalTimer = null;
-    let expiryTimer = null;
-    let settingsRequestVersion = 0;
-    let settingsController = null;
-    const initData = window.Telegram?.WebApp?.initData || '';
-    if (!initData) { setTimezoneReady(true); setMapZoomReady(true); return () => { cancelled = true; }; }
-    setTimezoneReady(false); setTimezoneLoadError('');
-
-    const cancelSettingsRequest = () => {
-      settingsRequestVersion += 1;
-      settingsController?.abort();
-      settingsController = null;
-    };
-
-    const loadSettings = async () => {
-      if (cancelled || document.visibilityState === 'hidden') return;
-      const requestVersion = ++settingsRequestVersion;
-      settingsController?.abort();
-      const controller = new AbortController();
-      settingsController = controller;
-      const requestTimeout = window.setTimeout(() => controller.abort(), 15000);
-      try {
-        const response = await fetch(`${API_BASE}/api/user-settings`, {
-          headers: { 'X-Telegram-Init-Data': initData },
-          cache: 'no-store',
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error(`Settings fetch failed (HTTP ${response.status})`);
-        const data = await response.json().catch(() => null);
-        if (cancelled || requestVersion !== settingsRequestVersion) return;
-        if (!response.ok || !data?.ok || !data?.settings) throw new Error(apiErrorMessage(response, data, 'Settings fetch failed'));
-        const value = data.settings;
-        setActiveTheme(normalizeThemeId(value.theme ?? value.defaultTheme ?? DEFAULT_THEME_ID));
-        const nextZoom=normalizeMapZoomPercent(value.mapZoomPercent ?? value.personalMapZoomPercent ?? 88);
-        const zoomPreferenceChanged=mapZoomPreferenceRef.current===null||mapZoomPreferenceRef.current!==nextZoom;
-        mapZoomPreferenceRef.current=nextZoom;
-        setTimezoneOffset(normalizeTimezoneOffset(value.timezone));
-        setMapZoomPercent(nextZoom);
-        if(zoomPreferenceChanged)setVoxView({x:0,y:0,scale:mapZoomPercentToScale(nextZoom)});
-        setMapZoomReady(true);
-        setTimezoneReady(true); setTimezoneLoadError('');
-        if (expiryTimer !== null) window.clearTimeout(expiryTimer);
-        const expiries = [value.globalOverrides?.mapZoomPercent?.expiresAt].map(Number).filter(at => Number.isFinite(at) && at > Date.now());
-        if (expiries.length) {
-          const nextExpiry = Math.min(...expiries);
-          expiryTimer = window.setTimeout(loadSettings, Math.min(2147480000, Math.max(500, nextExpiry - Date.now() + 250)));
-        }
-      } catch (error) {
-        if (cancelled || requestVersion !== settingsRequestVersion) return;
-        console.warn('Voxygen settings load failed', error);
-        const message = error?.name === 'AbortError'
-          ? 'Сервер не ответил за 15 секунд. Повторите загрузку настроек.'
-          : 'Не удалось загрузить ваши настройки. Создание и редактирование ивентов временно недоступно.';
-        setTimezoneLoadError(message);
-        setVoxView(current=>current||{x:0,y:0,scale:1});
-        setMapZoomReady(true);
-      } finally {
-        window.clearTimeout(requestTimeout);
-        if (settingsController === controller) settingsController = null;
-      }
-    };
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') loadSettings();
-      else cancelSettingsRequest();
-    };
-    loadSettings();
-    intervalTimer = window.setInterval(loadSettings, 15000);
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      cancelled = true;
-      cancelSettingsRequest();
-      if (intervalTimer !== null) window.clearInterval(intervalTimer);
-      if (expiryTimer !== null) window.clearTimeout(expiryTimer);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, [timezoneRetryToken]);
+  const {
+    activeTheme, mapZoomPercent, mapZoomReady, timezoneOffset, timezoneReady, timezoneLoadError,
+    applyUserSettings, retryUserSettings,
+  } = useUserSettings({
+    setVoxView,
+    ui: { apiErrorMessage },
+  });
 
 
   async function openFaq(){
@@ -1570,11 +1492,11 @@ export default function CityRatingApp() {
       <div style={{ maxWidth: 'var(--theme-content-max-width)', margin: '0 auto', position: 'relative' }}>
         <div className="atlas-screen-transition" key={`${screen}-${selected?.id || 'none'}`}>
         {screen === 'profile' ? (
-          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={onMapSaved} onFaqSaved={setFaqText} onSettingsSaved={settings=>{setActiveTheme(normalizeThemeId(settings.theme??settings.defaultTheme??DEFAULT_THEME_ID));const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??88);setTimezoneRetryToken(value=>value+1);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));const zoomChanged=mapZoomPreferenceRef.current===null||mapZoomPreferenceRef.current!==nextZoom;mapZoomPreferenceRef.current=nextZoom;setMapZoomPercent(nextZoom);if(zoomChanged)setVoxView({x:0,y:0,scale:mapZoomPercentToScale(nextZoom)});setMapZoomReady(true);setTimezoneReady(true);setTimezoneLoadError('');}} onOpenGlobalSettings={()=>setGlobalSettingsOpen(true)} onToast={showGlobalToast} />
+          <ProfileScreen profile={profile} profileLoadState={profileLoadState} profileLoadError={profileLoadError} claimNickname={claimNickname} role={role} tgUser={tgUser} refreshProfile={refreshProfile} territories={territories} onTerritoriesChanged={loadTerritories} onMapSaved={onMapSaved} onFaqSaved={setFaqText} onSettingsSaved={settings=>{applyUserSettings(settings,{markTimezoneReady:true,clearTimezoneError:true});retryUserSettings();}} onOpenGlobalSettings={()=>setGlobalSettingsOpen(true)} onToast={showGlobalToast} />
         ) : screen === 'customization' ? (
           <CustomizationScreen initData={window.Telegram?.WebApp?.initData || ''} tgUser={tgUser} role={role} territories={territories} profile={profile} onToast={showGlobalToast} ui={{apiErrorMessage,safeCaughtError,useAnimatedClose,IconButton,Field,readImageData,GemHex,MinecraftText}} />
         ) : screen === 'events' ? (
-          <EventsScreen ui={EVENT_UI} initData={window.Telegram?.WebApp?.initData || ''} territories={territories} tgUser={tgUser} isMainInspector={role==='main_inspector'} expandedEventId={expandedEventId} setExpandedEventId={setExpandedEventId} timezoneOffset={timezoneOffset} timezoneReady={timezoneReady} timezoneLoadError={timezoneLoadError} onRetryTimezone={()=>setTimezoneRetryToken(value=>value+1)} onSelectTerritory={id=>{setReturnToEvents(true);setScreen('cities');setMainTab('map');setSelectedId(id)}} />
+          <EventsScreen ui={EVENT_UI} initData={window.Telegram?.WebApp?.initData || ''} territories={territories} tgUser={tgUser} isMainInspector={role==='main_inspector'} expandedEventId={expandedEventId} setExpandedEventId={setExpandedEventId} timezoneOffset={timezoneOffset} timezoneReady={timezoneReady} timezoneLoadError={timezoneLoadError} onRetryTimezone={retryUserSettings} onSelectTerritory={id=>{setReturnToEvents(true);setScreen('cities');setMainTab('map');setSelectedId(id)}} />
         ) : selected ? (
           <TerritoryDetail
             base={selected}
@@ -1634,7 +1556,7 @@ export default function CityRatingApp() {
         )}
         </div>
         <BottomNav screen={screen} onNavigate={navigate} />
-        {globalSettingsOpen&&role==='main_inspector'&&<GlobalSettingsPanel timezoneOffset={timezoneOffset} initData={window.Telegram?.WebApp?.initData||''} onSettingsChanged={settings=>{setActiveTheme(normalizeThemeId(settings.theme??settings.defaultTheme??DEFAULT_THEME_ID));const nextZoom=normalizeMapZoomPercent(settings.mapZoomPercent??settings.personalMapZoomPercent??88);const zoomChanged=mapZoomPreferenceRef.current===null||mapZoomPreferenceRef.current!==nextZoom;mapZoomPreferenceRef.current=nextZoom;setMapZoomPercent(nextZoom);if(zoomChanged)setVoxView({x:0,y:0,scale:mapZoomPercentToScale(nextZoom)});setMapZoomReady(true);setTimezoneOffset(normalizeTimezoneOffset(settings.timezone));}} onClose={()=>setGlobalSettingsOpen(false)} ui={{apiErrorMessage,safeCaughtError,useAnimatedClose,IconButton,SelectField,Slider,TextAreaField}}/>}
+        {globalSettingsOpen&&role==='main_inspector'&&<GlobalSettingsPanel timezoneOffset={timezoneOffset} initData={window.Telegram?.WebApp?.initData||''} onSettingsChanged={applyUserSettings} onClose={()=>setGlobalSettingsOpen(false)} ui={{apiErrorMessage,safeCaughtError,useAnimatedClose,IconButton,SelectField,Slider,TextAreaField}}/>}
 
         {showAddTerritory && (
           <AddTerritoryModal onClose={() => setShowAddTerritory(false)} onSubmit={submitTerritoryRequest} isMainInspector={role==='main_inspector'} />
