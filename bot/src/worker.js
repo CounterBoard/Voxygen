@@ -11,6 +11,7 @@ import {
   normalizeMapZoomPercent,
 } from '../../shared/world-map-coordinates.js';
 import { THEME_CATALOG, isSupportedTheme, normalizeThemeId as normalizeVoxygenTheme } from '../../shared/theme-catalog.js';
+import { json, withCors } from './shared/responses.js';
 import { getD1Diagnostics } from './features/admin-tools/d1-diagnostics.js';
 import { GLOBAL_SETTING_KEYS, getAdminGlobalSettings, saveAdminGlobalSetting } from './features/admin-tools/global-settings.js';
 import {
@@ -48,43 +49,6 @@ export {
 const TELEGRAM_API = "https://api.telegram.org";
 const EVENT_TABLES_INIT_CACHE = new WeakMap();
 const USER_PREFERENCE_TABLES_INIT_CACHE = new WeakMap();
-
-function withCors(response) {
-  const headers = new Headers(response.headers);
-  headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, X-Telegram-Init-Data, X-Map-Size, If-None-Match");
-  headers.set("Access-Control-Allow-Methods", "GET, HEAD, POST, PATCH, DELETE, OPTIONS");
-  headers.set("Access-Control-Expose-Headers", "X-Request-ID, Server-Timing, X-Map-Version, X-Voxygen-Sticker-Error");
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
-}
-
-function json(data, status = 200) {
-  // Never expose raw SQL/runtime details to Mini App clients. Detailed context is
-  // kept in structured server logs and correlated with X-Request-ID.
-  let safeData = data;
-  if (data && typeof data === "object" && !Array.isArray(data)) {
-    safeData = { ...data };
-    delete safeData.details;
-    if (safeData.ok === false && !safeData.code) {
-      safeData.code = status === 400 ? "INVALID_INPUT"
-        : status === 401 ? "AUTHENTICATION_REQUIRED"
-        : status === 403 ? "FORBIDDEN"
-        : status === 404 ? "NOT_FOUND"
-        : status === 409 ? "CONFLICT"
-        : status === 413 ? "PAYLOAD_TOO_LARGE"
-        : status === 429 ? "RATE_LIMITED"
-        : status >= 500 ? "SERVER_ERROR" : "REQUEST_FAILED";
-    }
-  }
-  return withCors(new Response(JSON.stringify(safeData), {
-    status,
-    headers: { "Content-Type": "application/json; charset=utf-8" },
-  }));
-}
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({
