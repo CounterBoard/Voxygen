@@ -2,12 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const source = readFileSync(new URL("../bot/src/worker.js", import.meta.url), "utf8");
+const workerSource = readFileSync(new URL("../bot/src/worker.js", import.meta.url), "utf8");
+const treasurySource = readFileSync(new URL("../bot/src/features/treasury/service.js", import.meta.url), "utf8");
 function bodyOf(name) {
-  const start = source.indexOf(`function ${name}(`);
-  assert.notEqual(start, -1, `function ${name} exists`);
-  const next = source.indexOf("\nfunction ", start + 1);
-  return source.slice(start, next === -1 ? source.length : next);
+  const declaration = new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(`);
+  for (const currentSource of [workerSource, treasurySource]) {
+    const match = declaration.exec(currentSource);
+    if (!match) continue;
+    const start = match.index;
+    const nextPattern = /\\n\\s*(?:async\\s+)?function\\s+[A-Za-z_$][\\w$]*\\s*\\(/g;
+    nextPattern.lastIndex = start + match[0].length;
+    const next = nextPattern.exec(currentSource);
+    return currentSource.slice(start, next ? next.index : currentSource.length);
+  }
+  assert.fail(`function ${name} exists in Worker or treasury service`);
 }
 
 test("financial transfer helper keeps idempotency insert, debit, credit and status in one D1 batch", () => {
@@ -59,7 +67,6 @@ test("banker transfers refuse locked accounts without attempting currency insert
 
 
 test("treasury transfer entry points and idempotent batch fail closed for deletion-locked users", () => {
-  const source = readFileSync(new URL("../bot/src/worker.js", import.meta.url), "utf8").replace(/\s+/g, " ");
   for (const name of ["treasuryDeposit", "treasuryDonate", "treasuryWithdraw", "getCustomization"]) {
     const body = bodyOf(name).replace(/\s+/g, " ");
     assert.ok(body.includes("INSERT OR IGNORE INTO user_currency") && body.includes("NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)"), name+" must guard balance initialization");
