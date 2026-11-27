@@ -4,9 +4,10 @@ import { readFileSync } from "node:fs";
 
 const workerSource = readFileSync(new URL("../bot/src/worker.js", import.meta.url), "utf8");
 const treasurySource = readFileSync(new URL("../bot/src/features/treasury/service.js", import.meta.url), "utf8");
+const bankMessagesSource = readFileSync(new URL("../bot/src/features/treasury/bank-messages.js", import.meta.url), "utf8");
 function bodyOf(name) {
   const declaration = new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(`);
-  for (const currentSource of [workerSource, treasurySource]) {
+  for (const currentSource of [workerSource, treasurySource, bankMessagesSource]) {
     const match = declaration.exec(currentSource);
     if (!match) continue;
     const start = match.index;
@@ -15,7 +16,7 @@ function bodyOf(name) {
     const next = nextPattern.exec(currentSource);
     return currentSource.slice(start, next ? next.index : currentSource.length);
   }
-  assert.fail(`function ${name} exists in Worker or treasury service`);
+  assert.fail(`function ${name} exists in Worker or treasury modules`);
 }
 
 test("financial transfer helper keeps idempotency insert, debit, credit and status in one D1 batch", () => {
