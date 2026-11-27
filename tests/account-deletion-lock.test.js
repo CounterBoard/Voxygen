@@ -11,7 +11,6 @@ async function readBackendSource() {
     readFile(new URL("../bot/src/features/events/service.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/features/customization/telegram-inventory.js", import.meta.url), "utf8"),
   ]);
-  const [inventory, ...rest] = [];
   return `${worker}\n${worldMigration}\n${databaseInitialization}\n${telegramWebhook}\n${eventsService}\n${inventorySource}`.replace(/\s+/g, " ");
 }
 
