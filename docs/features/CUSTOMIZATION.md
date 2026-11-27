@@ -4,7 +4,7 @@
 **Updated:** 2026-11-27  
 **UI source:** `src/features/customization/CustomizationScreen.jsx`  
 **Shared palette:** `src/features/customization/VisualColorPicker.jsx`  
-**API source:** `bot/src/worker.js` composes `bot/src/features/customization/catalog-service.js`, `admin-service.js`, `achievements.js`, `purchase-service.js`, `city-appearance-service.js` and `visual-equipment-service.js`; Telegram discount and inventory handling live in their respective customization feature modules.
+**API source:** `bot/src/worker.js` composes `bot/src/features/customization/catalog-service.js`, `admin-service.js`, `achievements.js`, `purchase-service.js`, `city-appearance-service.js`, `image-service.js` and `visual-equipment-service.js`; Telegram discount and inventory handling live in their respective customization feature modules.
 
 ## Purpose
 
@@ -21,6 +21,7 @@ The customization screen displays the visual catalog and inventory, allows users
 - `bot/src/features/customization/admin-service.js` owns main-inspector visual creation/editing, visibility, soft deletion and visual/tag ordering. Tag normalization/upsert and government-marker synchronization live with these operations; category cleanup and achievement evaluation remain injected Worker dependencies, while equipment reconciliation is supplied by `visual-equipment-service.js`.
 - `bot/src/features/customization/catalog-service.js` owns authenticated full/lite catalog reads, account-scope resolution, role-based item visibility, active discount pricing and personal/territory inventory aggregation. Treasury manager lookup, role resolution, territory manager rows, marker setup from `visual-equipment-service.js`, category cleanup and discounted-price calculation are injected through Worker composition.
 - `bot/src/features/customization/visual-equipment-service.js` owns `visualHasTag`, `ensureFirstCityMarker`, `territoryCanUseVisual` and `reconcileTerritoryVisualEquipment`. It keeps the territory/government type and inventory-ownership rules in one place, selects a deterministic first marker, and restores an achievement marker when an equipped marker becomes unavailable. Worker composes the service for HTTP handlers, Telegram inventory, purchases, achievements and membership/ownership lifecycle handlers.
+- `bot/src/features/customization/image-service.js` owns the image response handler for `GET /api/customization/items/:id/image`. It reads stored `data:image/...;base64,...` content, returns decoded bytes with the original image MIME type, bounded cache headers, `nosniff`, timing metadata and CORS. It deliberately does not hide an image only because a visual is inactive or hidden from the catalogue: a territory may still be using an already-selected item.
 - `bot/src/features/customization/city-appearance-service.js` owns the authenticated `GET` and `POST /api/customization/city` handlers. It assembles territory marker/banner data and available marker inventory, and validates manager changes to markers, banner colors and gradients. Authorization, D1 initialization, the shared `visualHasTag` helper, manager rows and JSON responses are injected from Worker.
 - `bot/src/features/customization/purchase-service.js` owns the authenticated visual purchase endpoint, discounted purchase-price snapshot, personal/territory debit, inventory grant, `gem_spend_log` write, banker/manager receipts and post-purchase marker/achievement checks. The marker initializer is supplied by `visual-equipment-service.js` through Worker composition; the API route and `ctx.waitUntil` contract remain in Worker.
 - The app shell supplies `apiErrorMessage`, `safeCaughtError`, `useAnimatedClose`, `IconButton`, `Field`, `readImageData`, `GemHex` and `MinecraftText` through the `ui` adapter. Root navigation still owns screen selection and supplies `initData`, profile, role, territory list and global toast callback.
@@ -32,6 +33,7 @@ The catalog read is implemented by `bot/src/features/customization/catalog-servi
 The module retains the existing API operations:
 - `GET /api/customization?account=...` for the full inventory/catalog view;
 - `GET /api/customization?lite=1&account=...` to refresh only account balance after `voxygen:currency-changed`;
+- `GET /api/customization/items/:id/image` to serve an existing visual image. Worker retains the route and delegates image validation/decoding and response headers to `image-service.js`;
 - `POST /api/achievements/recheck` for the main inspector;
 - `POST /api/customization/items` to create a visual;
 - `PATCH /api/customization/items/:id` to edit a visual;
@@ -40,6 +42,14 @@ The module retains the existing API operations:
 - `GET /api/customization/city?territoryId=...` to read a manager's territory appearance, eligible markers, award placements and recruitment contact;
 - `POST /api/customization/city` to update the territory marker, banner color or banner gradient. Both routes delegate to `bot/src/features/customization/city-appearance-service.js`.
 - `POST /api/customization/purchase` to purchase an item. The route delegates to `bot/src/features/customization/purchase-service.js`.
+
+## Visual image delivery
+
+- The Worker keeps the route matcher for `GET /api/customization/items/:id/image`; `image-service.js` owns the response handler and receives the shared CORS wrapper from Worker.
+- The item ID is trimmed and limited to 160 characters before querying D1. The handler reads the stored `image_data` and accepts only base64 data URIs with an `image/*` media type.
+- Valid content is decoded to bytes and returned with its stored MIME type, `X-Content-Type-Options: nosniff`, a five-minute public cache and `Server-Timing`.
+- Missing items/images return 404, unsupported data-URI formats return 415, and unexpected D1/decoding failures return a generic 500 response. Failure responses use `Cache-Control: no-store` and expose only a bounded diagnostic code in Worker logs.
+- The query intentionally does not filter by `active` or catalogue visibility. Those settings govern whether a visual appears in the catalogue, not whether an already-equipped territory marker or banner can load its image.
 
 ## Territory appearance API
 
