@@ -32,7 +32,9 @@ function createHarness({
           calls.sql.push(query);
           return {
             async first() {
-              if (query.sql.includes("SELECT * FROM manager_change_requests WHERE id=? AND status='finalizing'")) {
+              if (query.sql.includes("FROM manager_change_requests")
+                && query.sql.includes("status='finalizing'")
+                && query.sql.includes("finalizing_at=?")) {
                 return current
                   && current.status === "finalizing"
                   && Number(current.finalizing_at) === Number(query.values[1])
