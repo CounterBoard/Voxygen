@@ -12,6 +12,7 @@ import {
 } from '../../shared/world-map-coordinates.js';
 import { THEME_CATALOG, isSupportedTheme, normalizeThemeId as normalizeVoxygenTheme } from '../../shared/theme-catalog.js';
 import { json, withCors } from './shared/responses.js';
+import { parseRequestCoords, parseTwoCoordinates } from './shared/validation.js';
 import { getD1Diagnostics } from './features/admin-tools/d1-diagnostics.js';
 import { GLOBAL_SETTING_KEYS, getAdminGlobalSettings, saveAdminGlobalSetting } from './features/admin-tools/global-settings.js';
 import {
@@ -67,16 +68,6 @@ function formatTerritoryCoords(raw) {
   const parsed=parseRequestCoords(value);
   if(parsed)return `${parsed.x} / ${parsed.z}`;
   return value||'Координаты не указаны';
-}
-
-function parseRequestCoords(raw) {
-  const s = String(raw || "").trim().replace(/−/g, "-");
-  let m = s.match(/X\s*[:=]?\s*(-?\d+(?:[.,]\d+)?)\s*(?:\/|,|;|\s+)\s*Z\s*[:=]?\s*(-?\d+(?:[.,]\d+)?)/i);
-  if (!m) m = s.match(/(-?\d+(?:[.,]\d+)?)\s*(?:[,;\/]|\s+)\s*(-?\d+(?:[.,]\d+)?)/);
-  if (!m) return null;
-  const x = Number(String(m[1]).replace(",", "."));
-  const z = Number(String(m[2]).replace(",", "."));
-  return Number.isFinite(x) && Number.isFinite(z) ? { x, z } : null;
 }
 
 async function telegram(env, method, payload) {
@@ -149,15 +140,6 @@ async function getCurrentUser(request, env) {
   const user = await verifyInitData(initData, String(env.BOT_TOKEN || "").trim());
   if (!user) return null;
   return { ...user, initData };
-}
-
-function parseTwoCoordinates(raw) {
-  const s = String(raw || '').trim().replace(/−/g, '-');
-  const m = s.match(/^(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)$/);
-  if (!m) return null;
-  const x = Number(String(m[1]).replace(',', '.'));
-  const z = Number(String(m[2]).replace(',', '.'));
-  return Number.isFinite(x) && Number.isFinite(z) ? { x, z } : null;
 }
 
 function normalizeUsername(username) {
