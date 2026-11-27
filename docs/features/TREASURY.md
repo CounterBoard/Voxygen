@@ -6,10 +6,10 @@
 
 - `bot/src/features/treasury/service.js` owns personal and territory treasury reads, API deposits/donations/withdrawals, financial-operation identifiers and the shared idempotent D1 transfer helper.
 - `bot/src/features/treasury/telegram-withdrawal.js` owns Telegram personal and territory treasury withdrawal commands, their parsing, normalized territory lookup and banker notification formatting.
-- `bot/src/features/treasury/telegram-bank.js` owns configured-banker message validation, bank command parsing, player/territory resolution, atomic balance updates and the `bank_transactions` ledger. It receives the visual-discount parser/handler as callbacks; customization discount implementation remains in Worker.
+- `bot/src/features/treasury/telegram-bank.js` owns configured-banker message validation, bank command parsing, player/territory resolution, atomic balance updates and the `bank_transactions` ledger. Visual-discount messages are delegated to the customization feature through injected parser/handler callbacks.
 - `bot/src/telegram/formatting.js` provides escaped, copyable inline-code formatting for Minecraft nicknames in bot messages.
 - `bot/src/worker.js` composes these modules with D1 initialization, permissions, Telegram delivery and the HTTP router.
-- `bot/src/telegram/webhook.js` keeps the Telegram message dispatch order and calls the injected withdrawal handler before the injected banker handler and inspector commands. Banker balance transfers are handled by the treasury module; visual-discount implementation remains a separate Worker responsibility.
+- `bot/src/telegram/webhook.js` keeps the Telegram message dispatch order and calls the injected withdrawal handler before the injected banker handler and inspector commands. Banker balance transfers are handled by the treasury module; visual discounts are delegated to `bot/src/features/customization/telegram-discounts.js`.
 
 ## Telegram withdrawal behavior
 
@@ -19,7 +19,7 @@ A withdrawal must be a safe positive integer and may not exceed 1,000,000,000 ge
 
 ## Banker commands and ledger invariants
 
-- Only a message from `BANKER_TELEGRAM_ID` in that user's private chat is accepted for bank/discount command processing.
+- Only a message from `BANKER_TELEGRAM_ID` in that user's private chat is accepted for bank/discount command processing. The treasury handler routes discount commands to the customization handler.
 - Player targets resolve through the existing `users` and `user_directory` lookup and must identify exactly one Telegram user. Approved territory names are checked first; ambiguous territory names are rejected rather than interpreted as player names.
 - Each accepted bank command reserves its Telegram `update_id` in `bank_transactions`. Replayed updates with a terminal ledger status do not perform another balance change.
 - The balance update and transition of the ledger row to `success` or `rejected` are committed in one D1 batch. User balance changes also require the target account not to be deletion-locked.
