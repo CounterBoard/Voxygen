@@ -1034,8 +1034,8 @@ async function demoteManager(request, env) {
   const initiator=await env.DB.prepare('SELECT mc_nickname,telegram_username FROM users WHERE telegram_id=?').bind(Number(auth.user.id)).first();
   const initiatorName=String(initiator?.mc_nickname||'').trim() || String(initiator?.telegram_username||'').replace(/^@+/,'').trim() || `id${auth.user.id}`;
   await notifyTerritoryManagers(env,territoryId,`⚖️ <b>Голосование за понижение основателя/мэра</b>\n\n🏙 <b>${escapeHtml(territory.name)}</b>\n👤 Кандидат на понижение: ${formatTelegramNickname(target?.mc_nickname||`id${targetId}`)}\n\nИнициатор: ${formatTelegramNickname(initiatorName)}\n\nОдобрить понижение?`,auth.user.id,{reply_markup:{inline_keyboard:[[{text:'✅ Одобрить',callback_data:`manager_vote:yes:${id}`},{text:'❌ Отклонить',callback_data:`manager_vote:no:${id}`}]]}});
-  try{await telegram(env,'sendMessage',{chat_id:targetId,text:`⏳ В отношении вас запущено голосование о понижении в городе «${escapeonsole.error('Achievement evaluation after manager role change:',error));
-  return changed;
+  try{await telegram(env,'sendMessage',{chat_id:targetId,text:`⏳ В отношении вас запущено голосование о понижении в городе «${escapeHtml(territory.name)}».`,parse_mode:'HTML'})}catch{}
+  return json({ok:true,pending:true});
 }
 
 async function claimManagerChangeFinalization(env,requestId,requestStatus,now,leaseMs=60_000) {
