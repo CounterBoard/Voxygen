@@ -1,7 +1,7 @@
 # Territory award sticker delivery
 
 **Status:** current implementation  
-**Updated:** 2026-11-26  
+**Updated:** 2026-11-27  
 **Source of truth:** `src/features/territory-awards/TelegramSticker.jsx`, `src/features/territory-awards/MainInspectorAwardManager.jsx`, `src/features/territory-awards/IssuedAwardsPanel.jsx`, their integration in `src/App.jsx`, `bot/src/worker.js`, and the D1 tables created by `ensureWorldTables()`.
 
 This document describes the current award-sticker path after removing the abandoned `AnimatedEmojies` integration. It supersedes earlier notes that describe `GET /api/telegram-emoji` as an active part of award rendering.
@@ -219,7 +219,14 @@ The main-inspector award catalog and grant lifecycle is implemented in `bot/src/
 
 The Worker keeps route matching and injects the existing main-inspector authorization helper, D1 initialization, JSON response helper, Telegram API helper, notification helper and small formatting/validation functions. The service does not own HTTP routing, authentication implementation, shared D1 schema initialization, or the public sticker-file delivery endpoint.
 
-`toggleTerritoryAwardPlacement` remains in `bot/src/worker.js` for now. It is a user/territory-manager operation tied to territory customization and is intentionally not moved with the main-inspector pack/grant administration handlers in this extraction.
+User-facing award placement is implemented separately in `bot/src/features/awards/placement-service.js`. It owns the authenticated territory-manager equip/unequip operation and receives user authorization, D1 initialization, the territory-manager check and JSON response creation from Worker. The route remains `POST /api/customization/city/award`; Worker retains route dispatch.
+
+### Territory-manager award placement
+
+- `POST /api/customization/city/award` requires an authenticated user, an approved non-government territory and territory-manager permissions.
+- The selected award must belong to the requested territory. An equipped award is removed from its slot and later slots are compacted in one D1 batch.
+- Equipping uses a conditional update that assigns the next slot only while fewer than four awards are equipped. A concurrent request that already equipped the same award returns its current slot; a fifth distinct award receives HTTP 409.
+- The placement service is separate from main-inspector pack/grant administration. The Worker keeps the route and injects its existing authorization and database helpers.
 
 ## 13. Source map
 
@@ -229,7 +236,7 @@ The Worker keeps route matching and injects the existing main-inspector authoriz
 | Award placement and screen integration | `src/App.jsx` — inspector, inventory, territory banner and modal call sites |
 | TGS player lifecycle | `src/App.jsx` — `cloneTelegramStickerAnimationData` and the Lottie effect in `TelegramSticker` |
 | Pack catalog and grant lifecycle | `bot/src/features/territory-awards/award-management.js` — `getAdminAwards`, `addTelegramAwardPack`, `deleteTelegramAwardPack`, `grantTerritoryAward`, `deleteTerritoryAwardById` |
-| Award placement | `bot/src/worker.js` — `toggleTerritoryAwardPlacement` |
+| Award placement | `bot/src/features/awards/placement-service.js` — `toggleTerritoryAwardPlacement`; `bot/src/worker.js` retains `POST /api/customization/city/award` dispatch |
 | File delivery | `bot/src/features/territory-awards/sticker-delivery.js` — `serveTelegramAwardSticker`; `bot/src/worker.js` owns the route and injects CORS, Telegram and D1 bootstrap dependencies |
 | TGS safety and Telegram file format validation | `bot/src/features/territory-awards/sticker-delivery.js` — `isSafeTelegramTgsAnimation`, pack URL validation, sticker format/path helpers |
 | Territory public response | `bot/src/worker.js` — `getTerritories` |

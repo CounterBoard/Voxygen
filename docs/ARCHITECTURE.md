@@ -34,7 +34,7 @@ This document is the entry point for understanding the repository. Feature-level
 
 | Area | Location | Responsibility |
 | --- | --- | --- |
-| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, remaining business handlers, authorization wiring and scheduled tasks; composes shared, auth, DB, Telegram and feature modules including treasury operations, customization catalog/admin/purchase/city appearance, banking and achievement services, and copyable nickname formatting |
+| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, remaining business handlers, authorization wiring and scheduled tasks; composes shared, auth, DB, Telegram and feature modules including treasury operations, customization catalog/admin/purchase/city appearance, territory-award placement, banking and achievement services, and copyable nickname formatting |
 | Telegram Web App authentication | `bot/src/auth/telegram.js` | Verifies initData HMAC and freshness, then extracts the signed Telegram user from request body, header or query string |
 | Telegram Bot API client | `bot/src/telegram/api.js` | Shared outbound Telegram Bot API POST client; obtains the configured bot token and returns the raw Response plus parsed JSON payload |
 | Telegram webhook dispatcher | `bot/src/telegram/webhook.js` | Validates the Telegram webhook secret, enforces account-deletion locks, syncs incoming Telegram identities and dispatches callback queries and messages to injected business handlers |
@@ -56,6 +56,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Shared backend HTTP responses | `bot/src/shared/responses.js` | Common CORS response wrapper and safe JSON response normalization, including stable HTTP error codes |
 | Telegram award sticker delivery | `bot/src/features/awards/sticker-delivery.js` | Telegram sticker file lookup, preview selection, path/format/size validation, TGS decompression and safe response headers; injected Worker infrastructure keeps this service independent of the router |
 | Territory award management | `bot/src/features/awards/award-management.js` | Main-inspector award catalog, Telegram pack import/removal, metadata snapshot grants, manager notifications and issued-award deletion; authorization and D1 bootstrap are injected by the Worker |
+| Territory award placement service | `bot/src/features/awards/placement-service.js` | Authenticated territory-manager equip/unequip operations, atomic slot clearing/compaction and the four-award placement limit; Worker retains the HTTP route |
 | D1 diagnostics service | `bot/src/features/diagnostics/d1-diagnostics.js` | Main-inspector-only, read-only database inventory, orphan/FK checks and data-volume report; receives auth and JSON helpers from the Worker and never initializes schema |
 | Admin site content service | `bot/src/features/admin-tools/site-content.js` | FAQ and home feature button defaults, normalization, role-aware reads and authenticated writes using existing `app_settings` table helpers |
 | Admin global settings service | `bot/src/features/admin-tools/global-settings.js` | Main-inspector-only theme/map-zoom override reads, writes, clearing and theme-access rules; Worker retains DDL/cache and the shared personal-settings reader |
