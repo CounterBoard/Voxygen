@@ -226,3 +226,98 @@ test("scheduled invite delivery respects the notification claim and returns deli
   assert.match(scan.sql, /LIMIT 50/);
   assert.match(scan.sql, /account_deletion_locks/);
 });
+
+
+test("a manager can cancel only a still-pending resident invitation", async () => {
+  const h = createHarness({
+    first: query => query.sql.includes("FROM city_invites")
+      ? { id: "invite-3", territory_id: "city-1" }
+      : null,
+  });
+
+  const result = await h.cancelResidentInvite(h.request({ inviteId: "invite-3" }), h.env);
+
+  assert.deepEqual(result.body, { ok: true });
+  assert.equal(h.calls.managerChecks.length, 1);
+  const update = h.calls.runs.find(query => query.sql.includes("SET status='cancelled'"));
+  assert.ok(update);
+  assert.deepEqual(update.values.slice(1), ["invite-3"]);
+});
+
+test("rejecting an invitation changes its status without creating membership", async () => {
+  const h = createHarness({
+    manager: false,
+    first: query => {
+      if (query.sql.includes("account_deletion_locks")) return null;
+      if (query.sql.includes("FROM city_invites")) {
+        return { id: "invite-4", territory_id: "city-1", target_telegram_id: 99, status: "pending" };
+      }
+      if (query.sql.includes("SELECT status FROM users")) return { status: "verified" };
+      return null;
+    },
+  });
+
+  const result = await h.handleResidentInviteCallback(h.env, {
+    id: "callback-2",
+    data: "resident_reject:invite-4",
+    from: { id: 99 },
+    message: { chat: { id: 99 }, message_id: 56 },
+  });
+
+  assert.deepEqual(result, { body: { ok: true }, status: 200 });
+  assert.ok(h.calls.runs.some(query => query.sql.includes("SET status='rejected'")));
+  assert.equal(h.calls.runs.some(query => query.sql.includes("INSERT OR IGNORE INTO city_memberships")), false);
+  assert.equal(h.calls.firstMarker.length, 0);
+  assert.ok(h.calls.telegram.some(([, method, payload]) => method === "answerCallbackQuery" && payload.text === "Приглашение отклонено"));
+});
+
+test("a resident can leave a territory and triggers the existing departure maintenance", async () => {
+  const h = createHarness({
+    manager: false,
+    first: query => {
+      if (query.sql.includes("FROM territories")) return { id: "city-1", name: "Test City" };
+      if (query.sql.includes("FROM city_memberships")) return { telegram_id: 99 };
+      if (query.sql.includes("SELECT mc_nickname,telegram_username FROM users")) {
+        return { mc_nickname: "Player", telegram_username: "player" };
+      }
+      return null;
+    },
+  });
+
+  const result = await h.leaveTerritory(h.request({ territoryId: "city-1" }), h.env);
+
+  assert.deepEqual(result.body, { ok: true });
+  assert.ok(h.calls.runs.some(query => query.sql.includes("DELETE FROM city_memberships")));
+  assert.equal(h.calls.managerNotifications.length, 1);
+  assert.equal(h.calls.recruitmentCleanup.length, 1);
+  assert.equal(h.calls.equipmentReconciliation.length, 1);
+  assert.equal(h.calls.achievements.length, 1);
+});
+
+test("a newly verified nickname receives its stored invitation exactly once", async () => {
+  const h = createHarness({
+    first: query => {
+      if (query.sql.includes("account_deletion_locks")) return null;
+      if (query.sql.includes("FROM users")) {
+        return { telegram_id: 99, mc_nickname: "Player", status: "verified" };
+      }
+      return null;
+    },
+    all: query => query.sql.includes("FROM city_invites")
+      ? { results: [{
+        id: "invite-5", territory_id: "city-1", target_telegram_id: 99,
+        target_nickname: "Player", invite_type: "join", city_name: "Test City",
+      }] }
+      : { results: [] },
+  });
+
+  await h.notifyPendingInvitesForUser(h.env, 99);
+
+  const binding = h.calls.runs.find(query => query.sql.includes("SET target_telegram_id = ?"));
+  assert.ok(binding);
+  assert.deepEqual(binding.values, [99, "Player"]);
+  assert.equal(h.calls.telegram.length, 1);
+  assert.equal(h.calls.telegram[0][1], "sendMessage");
+  assert.ok(h.calls.runs.some(query => query.sql.includes("SET notification_claimed_at")));
+  assert.ok(h.calls.runs.some(query => query.sql.includes("SET notification_sent_at")));
+});
