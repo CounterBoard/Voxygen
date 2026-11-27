@@ -1,4 +1,4 @@
-const TELEGRAM_API = "https://api.telegram.org";
+export const TELEGRAM_API = "https://api.telegram.org";
 
 export async function telegram(env, method, payload) {
   const token = String(env.BOT_TOKEN || "").trim();

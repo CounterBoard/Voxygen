@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { telegram } from "../bot/src/telegram/api.js";
+import { TELEGRAM_API, telegram } from "../bot/src/telegram/api.js";
+
+test("Telegram API module exposes the shared Bot API base URL", () => {
+  assert.equal(TELEGRAM_API, "https://api.telegram.org");
+});
 
 test("telegram API rejects a missing bot token before making a request", async () => {
   await assert.rejects(
