@@ -6,7 +6,7 @@ import {
   deleteTelegramAwardPack,
   grantTerritoryAward,
   deleteTerritoryAwardById,
-} from "../bot/src/features/territory-awards/award-management.js";
+} from "../bot/src/features/awards/award-management.js";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {

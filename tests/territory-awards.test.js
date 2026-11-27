@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parseGemWithdrawalCommand, parseTelegramEmojiSetName, isTelegramCustomEmojiSet, getTelegramStickerFormat, getTelegramStickerFileExtension, isTelegramStickerExtensionAllowed, isSafeTelegramTgsAnimation } from "../bot/src/worker.js";
-import { serveTelegramAwardSticker } from "../bot/src/features/territory-awards/sticker-delivery.js";
+import { serveTelegramAwardSticker } from "../bot/src/features/awards/sticker-delivery.js";
 
 test("gem withdrawal parser accepts compact, spaced and slash-prefixed personal debit commands",()=>{
   for(const command of ["-250","- 250","/-250","/ - 250"]){
@@ -22,7 +22,7 @@ test("gem withdrawal parser rejects incomplete and unrelated commands",()=>{
 });
 
 test("main-inspector award grants send notices through territory notification preferences",()=>{
-  const service=readFileSync(new URL("../bot/src/features/territory-awards/award-management.js",import.meta.url),"utf8");
+  const service=readFileSync(new URL("../bot/src/features/awards/award-management.js",import.meta.url),"utf8");
   const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8");
   const start=service.indexOf("export async function grantTerritoryAward(");
   const end=service.indexOf("export async function deleteTerritoryAwardById(",start);
@@ -93,7 +93,7 @@ test("public territory and profile award responses include each saved sticker th
 
 test("one sticker endpoint resolves either a pack sticker or an issued award; AnimatedEmojies is removed",()=>{
   const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8");
-  const stickerDelivery=readFileSync(new URL("../bot/src/features/territory-awards/sticker-delivery.js",import.meta.url),"utf8");
+  const stickerDelivery=readFileSync(new URL("../bot/src/features/awards/sticker-delivery.js",import.meta.url),"utf8");
   assert.match(stickerDelivery,/SELECT file_id,format,thumbnail_file_id FROM telegram_award_pack_stickers WHERE id=\?/);
   assert.match(stickerDelivery,/SELECT sticker_file_id AS file_id,sticker_format AS format,sticker_thumbnail_file_id AS thumbnail_file_id FROM territory_awards WHERE id=\?/);
   assert.match(worker,/if \(url\.pathname === "\/api\/telegram-sticker" && request\.method === "GET"\)/);
@@ -102,7 +102,7 @@ test("one sticker endpoint resolves either a pack sticker or an issued award; An
 });
 
 test("award sticker delivery exposes safe diagnostic error codes and never caches failures",()=>{
-  const stickerDelivery=readFileSync(new URL("../bot/src/features/territory-awards/sticker-delivery.js",import.meta.url),"utf8");
+  const stickerDelivery=readFileSync(new URL("../bot/src/features/awards/sticker-delivery.js",import.meta.url),"utf8");
   const start=stickerDelivery.indexOf("export async function serveTelegramAwardSticker(");
   const end=stickerDelivery.indexOf("\n}\n",start)+2;
   assert.ok(start>=0&&end>start);
