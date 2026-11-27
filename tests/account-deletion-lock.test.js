@@ -11,8 +11,9 @@ async function readBackendSource() {
     readFile(new URL("../bot/src/features/events/service.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/features/customization/telegram-inventory.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/features/customization/purchase-service.js", import.meta.url), "utf8"),
+    readFile(new URL("../bot/src/features/territories/membership-service.js", import.meta.url), "utf8"),
   ]);
-  return `${worker}\n${worldMigration}\n${databaseInitialization}\n${telegramWebhook}\n${eventsService}\n${inventorySource}\n${purchaseService}`.replace(/\s+/g, " ");
+  return `${worker}\n${worldMigration}\n${databaseInitialization}\n${telegramWebhook}\n${eventsService}\n${inventorySource}\n${purchaseService}\n${membershipService}`.replace(/\s+/g, " ");
 }
 
 test("account deletion lock is durable and guards account resurrection writes", async () => {
