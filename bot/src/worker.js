@@ -4906,6 +4906,7 @@ const handleUserGemWithdrawal = createGemWithdrawalHandler({
   telegram,
   json,
   stripMinecraftFormatting,
+  notifyTerritoryManagers,
 });
 
 const {
