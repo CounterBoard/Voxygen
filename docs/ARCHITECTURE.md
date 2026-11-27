@@ -34,7 +34,7 @@ This document is the entry point for understanding the repository. Feature-level
 
 | Area | Location | Responsibility |
 | --- | --- | --- |
-| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, remaining world/event/user schema bootstraps, authorization wiring, Telegram webhook routing and scheduled tasks; composes shared, auth, DB and feature modules |
+| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, remaining event/user schema bootstraps, authorization wiring, Telegram webhook routing and scheduled tasks; composes shared, auth, DB and feature modules |
 | Telegram Web App authentication | `bot/src/auth/telegram.js` | Verifies initData HMAC and freshness, then extracts the signed Telegram user from request body, header or query string |
 | Authorization and role checks | `bot/src/auth/permissions.js` | Resolves user/inspector roles and checks authenticated, verified-user, main-inspector and territory-manager permissions using injected runtime dependencies |
 | Shared backend request validation | `bot/src/shared/validation.js` | Pure parsing of coordinate input formats; deliberately does not apply territory range, authorization or persistence rules |
@@ -44,7 +44,8 @@ This document is the entry point for understanding the repository. Feature-level
 | D1 diagnostics service | `bot/src/features/admin-tools/d1-diagnostics.js` | Main-inspector-only, read-only database inventory, orphan/FK checks and data-volume report; receives auth and JSON helpers from the Worker and never initializes schema |
 | Admin site content service | `bot/src/features/admin-tools/site-content.js` | FAQ and home feature button defaults, normalization, role-aware reads and authenticated writes using existing `app_settings` table helpers |
 | Admin global settings service | `bot/src/features/admin-tools/global-settings.js` | Main-inspector-only theme/map-zoom override reads, writes, clearing and theme-access rules; Worker retains DDL/cache and the shared personal-settings reader |
-| Lazy database initialization | `bot/src/db/initialization.js` | Environment-scoped promise caches for recruitment and `app_settings` table creation; includes the existing versioned recruitment migration for `contact_username`. Other legacy schema bootstraps remain in the Worker for staged extraction |
+| Lazy database initialization | `bot/src/db/initialization.js` | Environment-scoped promise caches for recruitment, `app_settings` and the versioned world schema; coordinates the world migration's manager-change, customization-cleanup and user-directory dependencies |
+| Versioned world schema migration | `bot/src/db/migrations/world-schema.js` | World database schema migration `2026-11-v41`; owns table/column/index/trigger DDL and injects manager-change setup, customization cleanup and user-directory bootstrap to preserve the existing sequence |
 | Database schema | `bot/schema.sql` | D1 tables and indexes |
 | Worker configuration | `bot/wrangler.toml` | Cloudflare deployment configuration |
 | Shared world geometry | `shared/world-map-coordinates.js` | Canonical world coordinate bounds and coordinate conversion |

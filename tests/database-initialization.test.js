@@ -2,7 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createDatabaseInitialization } from "../bot/src/db/initialization.js";
 
-function createDb({ schemaVersion = null, recruitmentColumns = [], failRunCount = 0 } = {}) {
+function worldDependencies(calls = []) {
+  return {
+    ensureManagerChangeTables: async () => { calls.push("ensureManagerChangeTables"); },
+    cleanupCustomizationCategories: async () => { calls.push("cleanupCustomizationCategories"); },
+    ensureUserDirectoryTable: async () => { calls.push("ensureUserDirectoryTable"); },
+  };
+}
+
+function createDb({
+  schemaVersion = null,
+  worldSchemaVersion = null,
+  recruitmentColumns = [],
+  failRunCount = 0,
+} = {}) {
   const calls = [];
   let failuresRemaining = failRunCount;
 
@@ -23,6 +36,9 @@ function createDb({ schemaVersion = null, recruitmentColumns = [], failRunCount 
         calls.push({ method: "first", sql: String(sql), values });
         if (String(sql).includes("recruitment_schema_version")) {
           return schemaVersion ? { value: schemaVersion } : null;
+        }
+        if (String(sql).includes("world_schema_version")) {
+          return worldSchemaVersion ? { value: worldSchemaVersion } : null;
         }
         return null;
       },
@@ -90,6 +106,53 @@ test("failed recruitment initialization clears its cache so a retry can succeed"
 
   await assert.rejects(ensureRecruitmentTable(env), /simulated D1 failure/);
   await ensureRecruitmentTable(env);
+
+  const metaCreates = db.calls.filter(call => call.sql.includes("CREATE TABLE IF NOT EXISTS voxygen_schema_meta"));
+  assert.equal(metaCreates.length, 2);
+});
+
+test("world schema initialization is cached and skips a recorded current version", async () => {
+  const calls = [];
+  const initialization = createDatabaseInitialization(worldDependencies(calls));
+  const db = createDb({ worldSchemaVersion: "2026-11-v41" });
+  const env = { DB: db.DB };
+
+  await Promise.all([
+    initialization.ensureWorldTables(env),
+    initialization.ensureWorldTables(env),
+    initialization.ensureWorldTables(env),
+  ]);
+
+  const metaCreates = db.calls.filter(call => call.sql.includes("CREATE TABLE IF NOT EXISTS voxygen_schema_meta"));
+  assert.equal(metaCreates.length, 1);
+  assert.deepEqual(calls, []);
+});
+
+test("world schema migration keeps its dependent cleanup/bootstrap steps and writes version last", async () => {
+  const calls = [];
+  const initialization = createDatabaseInitialization(worldDependencies(calls));
+  const db = createDb();
+  const env = { DB: db.DB };
+
+  await initialization.ensureWorldTables(env);
+
+  assert.deepEqual(calls, [
+    "ensureManagerChangeTables",
+    "cleanupCustomizationCategories",
+    "ensureUserDirectoryTable",
+  ]);
+  const lastRun = db.calls.filter(call => call.method === "run").at(-1);
+  assert.match(lastRun.sql, /world_schema_version/);
+});
+
+test("failed world schema initialization clears its cache so a retry can succeed", async () => {
+  const calls = [];
+  const initialization = createDatabaseInitialization(worldDependencies(calls));
+  const db = createDb({ worldSchemaVersion: "2026-11-v41", failRunCount: 1 });
+  const env = { DB: db.DB };
+
+  await assert.rejects(initialization.ensureWorldTables(env), /simulated D1 failure/);
+  await initialization.ensureWorldTables(env);
 
   const metaCreates = db.calls.filter(call => call.sql.includes("CREATE TABLE IF NOT EXISTS voxygen_schema_meta"));
   assert.equal(metaCreates.length, 2);
