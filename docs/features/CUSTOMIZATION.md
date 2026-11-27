@@ -4,7 +4,7 @@
 **Updated:** 2026-11-27  
 **UI source:** `src/features/customization/CustomizationScreen.jsx`  
 **Shared palette:** `src/features/customization/VisualColorPicker.jsx`  
-**API source:** `bot/src/worker.js` — customization, achievement and purchase routes; Telegram discount handling lives in `bot/src/features/customization/telegram-discounts.js`
+**API source:** `bot/src/worker.js` composes `bot/src/features/customization/catalog-service.js`, `admin-service.js`, `achievements.js` and the purchase route; Telegram discount and inventory handling live in their respective customization feature modules.
 
 ## Purpose
 
@@ -19,9 +19,12 @@ The customization screen displays the visual catalog and inventory, allows users
 - `bot/src/features/customization/telegram-inventory.js` owns main-inspector Telegram commands for granting/removing visuals from personal and territory inventories. It receives DB initialization, identity lookup, formatting, equipment reconciliation, marker initialization, achievement checks and Telegram delivery as explicit dependencies; `worker.js` retains the shared text normalizer and webhook composition.
 - `bot/src/features/customization/achievements.js` owns achievement requirement parsing/validation, territory progress evaluation, automatic visual/award persistence and the main-inspector recheck endpoint. It receives score calculation, marker setup, notification, authorization, DB initialization and response helpers from Worker.
 - `bot/src/features/customization/admin-service.js` owns main-inspector visual creation/editing, visibility, soft deletion and visual/tag ordering. Tag normalization/upsert and government-marker synchronization live with these operations; category cleanup, achievement evaluation and equipment reconciliation remain injected Worker dependencies.
+- `bot/src/features/customization/catalog-service.js` owns authenticated full/lite catalog reads, account-scope resolution, role-based item visibility, active discount pricing and personal/territory inventory aggregation. Treasury manager lookup, role resolution, territory manager rows, marker setup, category cleanup and discounted-price calculation are injected from Worker.
 - The app shell supplies `apiErrorMessage`, `safeCaughtError`, `useAnimatedClose`, `IconButton`, `Field`, `readImageData`, `GemHex` and `MinecraftText` through the `ui` adapter. Root navigation still owns screen selection and supplies `initData`, profile, role, territory list and global toast callback.
 
 ## API and event contracts
+
+The catalog read is implemented by `bot/src/features/customization/catalog-service.js`; Worker preserves the route and injects authorization, treasury scope, role, cleanup and pricing dependencies.
 
 The module retains the existing API operations:
 - `GET /api/customization?account=...` for the full inventory/catalog view;

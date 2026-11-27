@@ -87,8 +87,9 @@ test("Telegram sticker set validation accepts the Bot API sticker_type field",()
 
 test("public territory and profile award responses include each saved sticker thumbnail id",()=>{
   const worker=readFileSync(new URL("../bot/src/worker.js",import.meta.url),"utf8");
+  const catalog=readFileSync(new URL("../bot/src/features/customization/catalog-service.js",import.meta.url),"utf8");
   assert.match(worker,/SELECT id,territory_id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index,sticker_format,sticker_thumbnail_file_id,sticker_set_name FROM territory_awards WHERE slot_index IS NOT NULL/);
-  assert.match(worker,/SELECT id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index,sticker_format,sticker_thumbnail_file_id,sticker_set_name FROM territory_awards WHERE territory_id=\?/);
+  assert.match(catalog,/SELECT id,name,emoji,awarded_by_telegram_id,awarded_at,slot_index,sticker_format,sticker_thumbnail_file_id,sticker_set_name FROM territory_awards WHERE territory_id=\?/);
 });
 
 test("one sticker endpoint resolves either a pack sticker or an issued award; AnimatedEmojies is removed",()=>{
