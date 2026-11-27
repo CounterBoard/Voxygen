@@ -10,7 +10,7 @@ function bodyOf(name) {
     const match = declaration.exec(currentSource);
     if (!match) continue;
     const start = match.index;
-    const nextPattern = /\\n\\s*(?:async\\s+)?function\\s+[A-Za-z_$][\\w$]*\\s*\\(/g;
+    const nextPattern = /\n\s*(?:async\s+)?function\s+[A-Za-z_$][\w$]*\s*\(/g;
     nextPattern.lastIndex = start + match[0].length;
     const next = nextPattern.exec(currentSource);
     return currentSource.slice(start, next ? next.index : currentSource.length);
