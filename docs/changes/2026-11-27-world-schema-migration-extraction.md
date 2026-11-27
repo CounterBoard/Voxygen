@@ -9,6 +9,7 @@
 - The initializer injects the three Worker-owned steps used by the migration: manager-change table/trigger setup, customization-category cleanup, and user-directory table setup.
 - The migration keeps its original DDL order, `PRAGMA` checks, duplicate-column handling, trigger creation and final schema-version write.
 - Added tests for current-version short-circuit, per-environment concurrent cache reuse, dependent-step ordering and retry after a rejected initialization.
+- Updated account-deletion-lock source contracts to scan both the Worker and extracted migration module, so trigger guarantees remain covered after the structural move.
 - Updated `docs/ARCHITECTURE.md`.
 
 ## Compatibility boundary
