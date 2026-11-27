@@ -1,7 +1,7 @@
 # Customization screen and visual editor
 
 **Status:** current implementation  
-**Updated:** 2026-11-26  
+**Updated:** 2026-11-27  
 **UI source:** `src/features/customization/CustomizationScreen.jsx`  
 **Shared palette:** `src/features/customization/VisualColorPicker.jsx`  
 **API source:** `bot/src/worker.js` — customization, achievement and purchase routes; Telegram discount handling lives in `bot/src/features/customization/telegram-discounts.js`
@@ -17,6 +17,7 @@ The customization screen displays the visual catalog and inventory, allows users
 - `VisualColorPicker` exports the palette and circular color control shared with territory banner editing in `src/features/territory-management/CityManagementProfile.jsx`.
 - `bot/src/features/customization/telegram-discounts.js` owns Telegram banker discount parsing, active visual selection, atomic application, expiry and duplicate-update protection. Worker injects shared normalization, visual-tag matching, DB initialization, Telegram and response helpers.
 - `bot/src/features/customization/telegram-inventory.js` owns main-inspector Telegram commands for granting/removing visuals from personal and territory inventories. It receives DB initialization, identity lookup, formatting, equipment reconciliation, marker initialization, achievement checks and Telegram delivery as explicit dependencies; `worker.js` retains the shared text normalizer and webhook composition.
+- `bot/src/features/customization/achievements.js` owns achievement requirement parsing/validation, territory progress evaluation, automatic visual/award persistence and the main-inspector recheck endpoint. It receives score calculation, marker setup, notification, authorization, DB initialization and response helpers from Worker.
 - The app shell supplies `apiErrorMessage`, `safeCaughtError`, `useAnimatedClose`, `IconButton`, `Field`, `readImageData`, `GemHex` and `MinecraftText` through the `ui` adapter. Root navigation still owns screen selection and supplies `initData`, profile, role, territory list and global toast callback.
 
 ## API and event contracts
@@ -30,6 +31,16 @@ The module retains the existing API operations:
 - `POST /api/customization/items/visibility` to change catalog visibility;
 - `POST /api/customization/items/reorder` and `POST /api/customization/tags/reorder` for ordering;
 - `POST /api/customization/purchase` to purchase an item.
+
+## Territory visual achievements
+
+- Achievement conditions support residents, spent gems, inspector score, player score, approved screenshots, comments and distinct active visuals in the territory inventory. Blank conditions are ignored; at least one condition must be specified for an achievement to be eligible.
+- Requirement input is validated when a main inspector creates or edits a visual: count values are non-negative integers, score values are between 0 and 10, and out-of-range values are rejected with a field-specific response.
+- Territory progress uses only visuals owned by that territory for the visual-count condition; personal inventory items owned by residents/managers are not counted.
+- When every configured condition is met, the service idempotently adds the visual to `city_items` and records `achievement_awards`. It repairs a missing territory-inventory row even if the award ledger already exists.
+- Achievements are evaluated in passes. A newly granted visual may satisfy the visual-count condition of another achievement, which can unlock in the same evaluation cycle.
+- A new reward triggers the first-marker setup when applicable and notifies the territory founder. Notification delivery is best-effort and does not undo the award.
+- `POST /api/achievements/recheck` remains main-inspector-only and returns checked, skipped, awarded and error counts for approved territories.
 
 ## Main-inspector Telegram visual inventory commands
 
