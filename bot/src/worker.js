@@ -18,7 +18,7 @@ import { TELEGRAM_API, telegram } from './telegram/api.js';
 import { createTelegramWebhookHandler } from './telegram/webhook.js';
 import { createDatabaseInitialization } from './db/initialization.js';
 import { parseRequestCoords, parseTwoCoordinates } from './shared/validation.js';
-import { getD1Diagnostics } from './features/admin-tools/d1-diagnostics.js';
+import { getD1Diagnostics } from './features/diagnostics/d1-diagnostics.js';
 import { GLOBAL_SETTING_KEYS, getAdminGlobalSettings, saveAdminGlobalSetting } from './features/admin-tools/global-settings.js';
 import {
   getFaq,
