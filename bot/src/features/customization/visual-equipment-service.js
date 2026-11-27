@@ -1,4 +1,4 @@
-function visualHasTag(row, target) {
+export function visualHasTag(row, target) {
   const wanted = String(target || '').trim().toLocaleLowerCase('ru-RU');
   const fields = [row?.category_name, row?.categories_text];
   return fields.some(value => String(value || '').split(',').map(x => x.trim()).some(tag => tag.toLocaleLowerCase('ru-RU') === wanted));
