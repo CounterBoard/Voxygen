@@ -1,3 +1,5 @@
+import { formatTelegramNickname } from '../../telegram/formatting.js';
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -39,6 +41,7 @@ export function createGemWithdrawalHandler({
   telegram,
   json,
   stripMinecraftFormatting,
+  notifyTerritoryManagers,
 } = {}) {
   async function handleUserGemWithdrawal(env, update, message) {
   const command = parseGemWithdrawalCommand(message.text || message.caption || '');
@@ -100,13 +103,18 @@ export function createGemWithdrawalHandler({
     ?await env.DB.prepare('SELECT balance FROM user_currency WHERE telegram_id=?').bind(uid).first()
     :await env.DB.prepare('SELECT balance FROM city_treasury WHERE territory_id=?').bind(targetId).first();
   const balance=Number(balanceRow?.balance||0);
+  const profile=await env.DB.prepare('SELECT mc_nickname,telegram_username FROM users WHERE telegram_id=? LIMIT 1').bind(uid).first();
   const bankerId=String(env.BANKER_TELEGRAM_ID||'').trim();
   if(/^\d+$/.test(bankerId)){
     try{
-      const profile=await env.DB.prepare('SELECT mc_nickname,telegram_username FROM users WHERE telegram_id=? LIMIT 1').bind(uid).first();
       const notice=formatGemWithdrawalBankerNotification({nickname:profile?.mc_nickname||message.from?.first_name,username:profile?.telegram_username||message.from?.username,territoryName:territory?.name,personal:targetType==='personal',amount,balance});
       await telegram(env,'sendMessage',{chat_id:Number(bankerId),text:notice,parse_mode:'HTML'});
     }catch(error){console.error('Gem withdrawal banker notification failed:',String(error?.message||error));}
+  }
+  if(targetType==='treasury' && typeof notifyTerritoryManagers==='function'){
+    const spenderNickname=String(profile?.mc_nickname||message.from?.first_name||'').trim()||'Ник не указан';
+    const notice=`💸 <b>Трата из казны</b>\n\n🏙 <b>${escapeHtml(territory.name)}</b>\n👤 Кто: ${formatTelegramNickname(spenderNickname)}\n💎 Сумма: <b>${amount} сц</b>`;
+    await notifyTerritoryManagers(env,targetId,notice,uid,{managersOnly:true}).catch(error=>console.error('Telegram treasury withdrawal notification failed:',error));
   }
   await telegram(env,'sendMessage',{chat_id:message.chat.id,text:`✅ Снято ${amount} самоцветов. Остаток: ${balance} сц.`,reply_to_message_id:message.message_id});
   return json({ok:true,handled:targetType==='personal'?'gem_personal_withdraw':'gem_treasury_withdraw'});
