@@ -7,7 +7,7 @@ const panel = await readFile(new URL("../src/features/territory-management/CityM
 
 test("a demotion with no eligible voters is applied immediately instead of creating an impossible vote", () => {
   const start = worker.indexOf("async function demoteManager(");
-  const end = worker.indexOf("\nasync function applyManagerChange(", start);
+  const end = worker.indexOf("\nasync function claimManagerChangeFinalization(", start);
   assert.ok(start >= 0 && end > start, "demoteManager handler exists");
   const handler = worker.slice(start, end);
   assert.match(handler, /const voterCount=Math\.max\(0,managers\.length-excludedVoters\)/);
@@ -18,7 +18,7 @@ test("a demotion with no eligible voters is applied immediately instead of creat
 
 test("larger groups retain the existing manager voting flow", () => {
   const start = worker.indexOf("async function demoteManager(");
-  const end = worker.indexOf("\nasync function applyManagerChange(", start);
+  const end = worker.indexOf("\nasync function claimManagerChangeFinalization(", start);
   const handler = worker.slice(start, end);
   assert.match(handler, /INSERT INTO manager_change_requests/);
   assert.match(handler, /\.bind\(id,territoryId,targetId,Number\(auth\.user\.id\),'demote',required,voterCount,'pending'/);
