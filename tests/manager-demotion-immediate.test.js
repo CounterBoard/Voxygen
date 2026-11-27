@@ -20,7 +20,8 @@ test("larger groups retain the existing manager voting flow", () => {
   const start = worker.indexOf("async function demoteManager(");
   const end = worker.indexOf("\nasync function applyManagerChange(", start);
   const handler = worker.slice(start, end);
-  assert.match(handler, /INSERT INTO manager_change_requests[\s\S]*?'demote','pending'/);
+  assert.match(handler, /INSERT INTO manager_change_requests/);
+  assert.match(handler, /\.bind\(id,territoryId,targetId,Number\(auth\.user\.id\),'demote',required,voterCount,'pending'/);
   assert.match(handler, /manager_vote:yes:/);
   assert.match(handler, /return json\(\{ok:true,pending:true\}\)/);
 });
