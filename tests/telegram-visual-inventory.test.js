@@ -6,9 +6,9 @@ function normalize(value) {
   return String(value || "")
     .replace(/§[0-9a-fk-or]/gi, "")
     .normalize("NFKC")
-    .replace(/<\\/?(?:b|strong|i|em|u|s|code|pre)>/gi, "")
-    .replace(/[\\u200B-\\u200D\\u2060\\uFEFF]/g, "")
-    .replace(/\\s+/g, " ")
+    .replace(/<\/?(?:b|strong|i|em|u|s|code|pre)>/gi, "")
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
+    .replace(/\s+/g, " ")
     .trim()
     .toLocaleLowerCase("ru-RU");
 }
@@ -129,7 +129,7 @@ test("personal visual removal reconciles all affected territories", async () => 
   const deletion = h.calls.sql.find(call => call.sql.includes("DELETE FROM user_items"));
   assert.deepEqual(deletion.values, [2002, "visual-1"]);
   assert.deepEqual(h.calls.reconcile, ["city-1", "city-2"]);
-  assert.match(h.calls.telegram[0].payload.text, /<code>Steve<\\/code>/);
+  assert.match(h.calls.telegram[0].payload.text, /<code>Steve<\/code>/);
 });
 
 test("personal visual grant is blocked while the target account has a deletion lock", async () => {
@@ -139,7 +139,7 @@ test("personal visual grant is blocked while the target account has a deletion l
   assert.deepEqual(result.body, { ok: true, handled: "visual_inventory_granted", target: "user" });
   assert.match(h.calls.telegram[0].payload.text, /не выдан: аккаунт находится в процессе удаления/);
   const insert = h.calls.sql.find(call => call.sql.includes("INSERT OR IGNORE INTO user_items"));
-  assert.match(insert.sql, /NOT EXISTS\\(SELECT 1 FROM account_deletion_locks/);
+  assert.match(insert.sql, /NOT EXISTS\(SELECT 1 FROM account_deletion_locks/);
 });
 
 test("inactive visuals cannot be granted", async () => {
@@ -163,7 +163,7 @@ test("ambiguous recipients are rejected without changing any inventory", async (
   const result = await h.handler(h.env, h.message("Alex Blue Banner"), "Alex Blue Banner");
 
   assert.deepEqual(result.body, { ok: true, handled: "visual_inventory_target_not_found" });
-  assert.match(h.calls.telegram[0].payload.text, /Найдено несколько пользователей\\/территорий/);
+  assert.match(h.calls.telegram[0].payload.text, /Найдено несколько пользователей\/территорий/);
   assert.equal(h.calls.sql.some(call => call.sql.includes("INSERT OR IGNORE INTO user_items")), false);
 });
 
