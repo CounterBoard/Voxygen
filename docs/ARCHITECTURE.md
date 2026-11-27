@@ -34,7 +34,7 @@ This document is the entry point for understanding the repository. Feature-level
 
 | Area | Location | Responsibility |
 | --- | --- | --- |
-| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, remaining business handlers, authorization wiring and scheduled tasks; composes shared, auth, DB, Telegram and feature modules including treasury operations, banker commands, visual discounts and copyable nickname formatting |
+| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, remaining business handlers, authorization wiring and scheduled tasks; composes shared, auth, DB, Telegram and feature modules including treasury operations, banker commands, visual discounts, visual inventory commands and copyable nickname formatting |
 | Telegram Web App authentication | `bot/src/auth/telegram.js` | Verifies initData HMAC and freshness, then extracts the signed Telegram user from request body, header or query string |
 | Telegram Bot API client | `bot/src/telegram/api.js` | Shared outbound Telegram Bot API POST client; obtains the configured bot token and returns the raw Response plus parsed JSON payload |
 | Telegram webhook dispatcher | `bot/src/telegram/webhook.js` | Validates the Telegram webhook secret, enforces account-deletion locks, syncs incoming Telegram identities and dispatches callback queries and messages to injected business handlers |
@@ -43,6 +43,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Telegram gem withdrawal handler | `bot/src/features/treasury/telegram-withdrawal.js` | Parses personal and territory treasury withdrawal commands, normalizes territory names, checks manager access and runs idempotent D1 transfers with banker/user notifications; passes unmatched target-first debit syntax to the banker handler for player lookup |
 | Telegram banker handler | `bot/src/features/treasury/telegram-bank.js` | Validates the configured banker, parses transfer commands, resolves player/territory targets, applies balance changes and atomically finalizes the `bank_transactions` ledger; visual-discount commands are delegated to customization |
 | Telegram visual discount handler | `bot/src/features/customization/telegram-discounts.js` | Parses banker discount commands, selects active visuals by name/tag or all, and applies idempotent D1 discount operations with expiry and Telegram receipts |
+| Telegram visual inventory handler | `bot/src/features/customization/telegram-inventory.js` | Resolves inspector grant/removal commands for personal or territory inventories, applies item changes and triggers territory equipment reconciliation, marker setup and achievement checks |
 | Telegram formatting helpers | `bot/src/telegram/formatting.js` | Escapes Telegram HTML and renders Minecraft nicknames as copyable inline code |
 | Purchase notifications | `bot/src/worker.js` | Sends every completed visual purchase notification to the configured banker (`BANKER_TELEGRAM_ID`); territory-funded purchases additionally notify opted-in founders/mayors |
 | Authorization and role checks | `bot/src/auth/permissions.js` | Resolves user/inspector roles and checks authenticated, verified-user, main-inspector and territory-manager permissions using injected runtime dependencies |
