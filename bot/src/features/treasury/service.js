@@ -73,7 +73,7 @@ export function createTreasuryService({
     if(!transfer.replayed){
       const donorNickname=String(donor?.mc_nickname||'').trim()||'Ник не указан';
       const notice=`💎 <b>Пополнение казны</b>\n\n🏙 <b>${escapeHtml(territory.name)}</b>\n👤 Отправитель: ${formatTelegramNickname(donorNickname)}\n💎 Сумма: <b>${amount} сц</b>`;
-      await notifyTerritoryManagers(env,territoryId,notice,userId);
+      await notifyTerritoryManagers(env,territoryId,notice,userId).catch(error=>console.error('Treasury deposit notification failed:',error));
     }
     return json({ok:true,balance:Number(treasury?.balance||0),personal_balance:Number(personal?.balance||0),isManager:await isTerritoryManager(env,territoryId,userId),replayed:Boolean(transfer.replayed)});
   }
@@ -102,7 +102,7 @@ export function createTreasuryService({
     if(!transfer.replayed){
       const donorNickname=String(donor?.mc_nickname||'').trim()||'Ник не указан';
       const notice=`💎 <b>Донат в казну</b>\n\n🏙 <b>${escapeHtml(territory.name)}</b>\n👤 Отправитель: ${formatTelegramNickname(donorNickname)}\n💎 Сумма: <b>${amount} сц</b>`;
-      await notifyTerritoryManagers(env,territoryId,notice,null);
+      await notifyTerritoryManagers(env,territoryId,notice,null).catch(error=>console.error('Treasury donation notification failed:',error));
     }
     return json({ok:true,personal_balance:Number(personal?.balance||0),amount,replayed:Boolean(transfer.replayed)});
   }
