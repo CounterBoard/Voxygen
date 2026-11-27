@@ -226,7 +226,7 @@ test("notification delivery uses ctx.waitUntil when supplied, without blocking t
   assert.equal(h.calls.bankerNotices.length, 1);
 });
 
-test("banker and manager notification failures plus marker/achievement errors do not undo a completed purchase", async () => {
+test("manager notification and marker/achievement failures do not undo a completed territory purchase", async () => {
   const originalError = console.error;
   console.error = () => {};
   try {
@@ -239,6 +239,20 @@ test("banker and manager notification failures plus marker/achievement errors do
     assert.equal(h.calls.batches.length, 1);
     assert.deepEqual(h.calls.markers, ["city-1"]);
     assert.deepEqual(h.calls.achievements, ["city-1"]);
+  } finally {
+    console.error = originalError;
+  }
+});
+
+test("banker notification failure does not undo a completed personal purchase", async () => {
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    const h = createHarness({ bankerError: true });
+    const result = await h.purchaseCustomizationItem(h.request, h.env);
+    assert.deepEqual(result.body, { ok: true, balance: 150, accountScope: "personal" });
+    assert.equal(h.calls.batches.length, 1);
+    assert.equal(h.calls.bankerNotices.length, 1);
   } finally {
     console.error = originalError;
   }
