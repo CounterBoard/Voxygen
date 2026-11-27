@@ -4,9 +4,10 @@ import { readFileSync } from "node:fs";
 
 const workerSource = readFileSync(new URL("../bot/src/worker.js", import.meta.url), "utf8");
 const treasurySource = readFileSync(new URL("../bot/src/features/treasury/service.js", import.meta.url), "utf8");
+const telegramBankSource = readFileSync(new URL("../bot/src/features/treasury/telegram-bank.js", import.meta.url), "utf8");
 function bodyOf(name) {
   const declaration = new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(`);
-  for (const currentSource of [workerSource, treasurySource]) {
+  for (const currentSource of [workerSource, treasurySource, telegramBankSource]) {
     const match = declaration.exec(currentSource);
     if (!match) continue;
     const start = match.index;
