@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 async function readBackendSource() {
-  const [worker, worldMigration, databaseInitialization, telegramWebhook, eventsService, inventorySource, purchaseService] = await Promise.all([
+  const [worker, worldMigration, databaseInitialization, telegramWebhook, eventsService, inventorySource, purchaseService, membershipService] = await Promise.all([
     readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/db/migrations/world-schema.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/db/initialization.js", import.meta.url), "utf8"),
