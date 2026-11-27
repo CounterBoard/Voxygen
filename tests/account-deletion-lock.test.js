@@ -3,13 +3,14 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 async function readBackendSource() {
-  const [worker, worldMigration, databaseInitialization, telegramWebhook] = await Promise.all([
+  const [worker, worldMigration, databaseInitialization, telegramWebhook, eventsService] = await Promise.all([
     readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/db/migrations/world-schema.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/db/initialization.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/telegram/webhook.js", import.meta.url), "utf8"),
+    readFile(new URL("../bot/src/features/events/service.js", import.meta.url), "utf8"),
   ]);
-  return `${worker}\n${worldMigration}\n${databaseInitialization}\n${telegramWebhook}`.replace(/\s+/g, " ");
+  return `${worker}\n${worldMigration}\n${databaseInitialization}\n${telegramWebhook}\n${eventsService}`.replace(/\s+/g, " ");
 }
 
 test("account deletion lock is durable and guards account resurrection writes", async () => {
@@ -167,14 +168,17 @@ test("deletion lock guards active invitations, manager workflows, preferences an
 
 test("event publishing, reminders and manager workflows reject deletion races", async () => {
   const source = await readBackendSource();
-  const createEvent = source.slice(source.indexOf("async function createEvent"), source.indexOf("async function updateEvent"));
+  const eventService = (await readFile(new URL("../bot/src/features/events/service.js", import.meta.url), "utf8")).replace(/\s+/g, " ");
+  const createEvent = eventService.slice(eventService.indexOf("async function createEvent"), eventService.indexOf("async function updateEvent"));
   assert.ok(createEvent.includes("account_deletion_locks WHERE telegram_id=? LIMIT 1"));
   assert.ok(createEvent.includes("await env.DB.batch(["));
   assert.ok(createEvent.includes("Аккаунт находится в процессе удаления"));
-  const reminders = source.slice(source.indexOf("async function saveEventReminder"), source.indexOf("function normalizeVisualCommandText"));
+  const reminders = eventService.slice(eventService.indexOf("async function saveEventReminder"), eventService.indexOf("async function deliverEventReminders"));
   assert.ok(reminders.includes("account_deletion_locks WHERE telegram_id=? LIMIT 1"));
   assert.ok(reminders.includes("NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=r.telegram_id)"));
-  const reminderDelivery = source.slice(source.indexOf("async function deliverEventReminders"), source.indexOf("function normalizeVisualCommandText"));
+  const deliveryStart = eventService.indexOf("async function deliverEventReminders");
+  const deliveryEnd = eventService.indexOf("\n  return {", deliveryStart);
+  const reminderDelivery = eventService.slice(deliveryStart, deliveryEnd);
   const reminderUpdates = [...reminderDelivery.matchAll(/UPDATE event_reminders SET[\s\S]*?\.run\(\)/g)];
   assert.ok(reminderUpdates.length > 0 && reminderUpdates.every(match => match[0].includes("account_deletion_locks")), "every reminder scheduler update must be race-safe for locked accounts");
   const promotion = source.slice(source.indexOf("async function promoteResident"), source.indexOf("async function demoteManager"));
