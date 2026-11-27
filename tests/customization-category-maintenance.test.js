@@ -11,6 +11,25 @@ function createHarness({
   const DB = {
     prepare(sql) {
       return {
+        async all() {
+          const query = { sql: String(sql), values: [] };
+          calls.prepared.push(query);
+          if (failAt === "categories") throw new Error("category read failed");
+          if (query.sql === "SELECT id,name FROM customization_categories") {
+            return { results: categories.map(row => ({ ...row })) };
+          }
+          if (query.sql.includes("SELECT id FROM customization_categories ORDER BY sort_order ASC")) {
+            return {
+              results: categories
+                .slice()
+                .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0)
+                  || Number(a.created_at || 0) - Number(b.created_at || 0)
+                  || String(a.name).localeCompare(String(b.name)))
+                .map(row => ({ id: row.id })),
+            };
+          }
+          throw new Error("Unexpected all() SQL: " + query.sql);
+        },
         bind(...values) {
           const query = { sql: String(sql), values };
           calls.prepared.push(query);
