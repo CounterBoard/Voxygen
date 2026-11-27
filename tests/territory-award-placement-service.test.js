@@ -32,9 +32,7 @@ function createHarness({
               if (query.sql.includes("SELECT id,slot_index FROM territory_awards")) return award;
               if (query.sql.includes("SELECT slot_index FROM territory_awards")) {
                 calls.placementReads += 1;
-                return calls.placementReads === 1
-                  ? { slot_index: placedSlotIndex }
-                  : { slot_index: currentSlotIndex };
+                return { slot_index: updateChanges ? placedSlotIndex : currentSlotIndex };
               }
               throw new Error("Unexpected first() SQL: " + query.sql);
             },
