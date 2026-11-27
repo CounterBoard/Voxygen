@@ -80,6 +80,7 @@ test("a treasury donation uses the requested title, MC nickname and gem suffix",
   assert.doesNotMatch(notice.text, /Новое пожертвование/);
   assert.match(notice.text, /Отправитель: <code>DonorMC<\/code>/);
   assert.match(notice.text, /Сумма: <b>50 сц<\/b>/);
+  assert.equal(notice.excludeId, 1001);
 });
 
 test("a replayed deposit does not send a duplicate territory notification", async () => {
