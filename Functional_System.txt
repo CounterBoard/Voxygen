@@ -5647,3 +5647,23 @@ Backend ownership:
 - Одобренное решение передаётся в manager-change-service.js; если переход роли не подтверждён или аккаунт заблокирован на удаление, голосование завершается как rejected.
 - Уведомление инициатору отправляется только после сохранения конечного статуса; Telegram callback отвечает инициатору голоса сообщением о принятом/учтённом решении.
 
+
+
+34.30 TERRITORY RESIDENT MEMBERSHIP AND INVITATIONS
+
+Backend ownership:
+- bot/src/features/territories/membership-service.js contains createTerritoryMembershipService and owns invitation creation/delivery, pending nickname binding and invite delivery retries, management-data reads, invitation cancellation, resident removal/leave, Telegram invite callbacks and pending-invite notification scans.
+- bot/src/worker.js retains the public HTTP route paths and dispatch, Telegram webhook wiring and scheduled delivery dispatch. It composes the membership service with authentication, world-table initialization, JSON/Telegram helpers, manager lookup, recruitment cleanup, visual-equipment reconciliation, first-marker setup and achievement evaluation.
+- Manager promotion/demotion initiation remains in Worker; applying an approved manager-role transition remains in manager-change-service.js, while vote recording and finalization remain in manager-change-voting-service.js.
+
+Compatibility and invariants:
+- Existing /api/city/invite, /api/city/management, /api/city/invite/cancel, /api/city/remove-resident and /api/city/leave routes keep their request/response contracts and permission checks.
+- Invite creation still replaces pending duplicates for the same territory/target; an invite for an unregistered nickname waits until the nickname is bound to an account.
+- Telegram invite delivery is protected by notification_claimed_at; notification_sent_at is written only after Telegram confirms delivery. A failed delivery retains the short claim lease and can be retried later.
+- Accept/reject callbacks are restricted to the intended Telegram account and pending invite. Acceptance preserves first-marker setup and territory achievement evaluation.
+- Resident removal and voluntary leave notify territory managers and run the existing recruitment-contact, visual-equipment and achievement maintenance. Optional notification/maintenance failures do not undo the already completed membership deletion.
+- Account-deletion locks, manager-only actions, read-only member access and the prohibition on managers leaving their own territory remain enforced.
+- The extraction does not change D1 schema, HTTP routes, Telegram callback payloads, vote thresholds, or manager-role transition policy.
+
+Regression coverage:
+- tests/territory-membership-service.test.js covers authentication boundaries, pending and verified-user invitations, one-time Telegram delivery, invite acceptance side effects, resident removal, manager leave restrictions, membership read permissions and scheduled invite retry.
