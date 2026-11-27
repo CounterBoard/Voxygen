@@ -4,9 +4,7 @@ import { createDatabaseInitialization } from "../bot/src/db/initialization.js";
 
 function worldDependencies(calls = []) {
   return {
-    ensureManagerChangeTables: async () => { calls.push("ensureManagerChangeTables"); },
     cleanupCustomizationCategories: async () => { calls.push("cleanupCustomizationCategories"); },
-    ensureUserDirectoryTable: async () => { calls.push("ensureUserDirectoryTable"); },
   };
 }
 
@@ -14,6 +12,9 @@ function createDb({
   schemaVersion = null,
   worldSchemaVersion = null,
   recruitmentColumns = [],
+  userPreferenceColumns = [],
+  managerChangeColumns = [],
+  userDirectoryColumns = [],
   failRunCount = 0,
   failSql = null,
 } = {}) {
@@ -48,13 +49,29 @@ function createDb({
         if (String(sql).includes("PRAGMA table_info(recruitment)")) {
           return { results: recruitmentColumns.map(name => ({ name })) };
         }
+        if (String(sql).includes("PRAGMA table_info(user_preferences)")) {
+          return { results: userPreferenceColumns.map(name => ({ name })) };
+        }
+        if (String(sql).includes("PRAGMA table_info(manager_change_requests)")) {
+          return { results: managerChangeColumns.map(name => ({ name })) };
+        }
+        if (String(sql).includes("PRAGMA table_info(user_directory)")) {
+          return { results: userDirectoryColumns.map(name => ({ name })) };
+        }
         return { results: [] };
       },
     };
   }
 
   return {
-    DB: { prepare(sql) { return statement(sql); } },
+    DB: {
+      prepare(sql) { return statement(sql); },
+      async batch(statements) {
+        const results = [];
+        for (const statement of statements) results.push(await statement.run());
+        return results;
+      },
+    },
     calls,
   };
 }
@@ -137,11 +154,10 @@ test("world schema migration keeps its dependent cleanup/bootstrap steps and wri
 
   await initialization.ensureWorldTables(env);
 
-  assert.deepEqual(calls, [
-    "ensureManagerChangeTables",
-    "cleanupCustomizationCategories",
-    "ensureUserDirectoryTable",
-  ]);
+  assert.deepEqual(calls, ["cleanupCustomizationCategories"]);
+  const runSql = db.calls.filter(call => call.method === "run").map(call => call.sql);
+  assert.ok(runSql.some(query => query.includes("CREATE TABLE IF NOT EXISTS account_deletion_locks")));
+  assert.ok(runSql.some(query => query.includes("CREATE TABLE IF NOT EXISTS user_directory")));
   const lastRun = db.calls.filter(call => call.method === "run").at(-1);
   assert.match(lastRun.sql, /world_schema_version/);
 });
@@ -195,6 +211,92 @@ test("failed event table initialization clears its cache so a retry can succeed"
 
   const eventsCreates = db.calls.filter(call => call.sql.includes("CREATE TABLE IF NOT EXISTS events"));
   assert.equal(eventsCreates.length, 2);
+});
+
+test("user preference initializer is world-first, cached and migrates missing columns", async () => {
+  const initialization = createDatabaseInitialization(worldDependencies());
+  const db = createDb({
+    worldSchemaVersion: "2026-11-v41",
+    userPreferenceColumns: ["telegram_id", "default_theme", "timezone", "all_notifications", "event_notifications", "map_zoom_percent", "updated_at"],
+  });
+  const env = { DB: db.DB };
+  await Promise.all([
+    initialization.ensureUserPreferenceTables(env),
+    initialization.ensureUserPreferenceTables(env),
+    initialization.ensureUserPreferenceTables(env),
+  ]);
+  const sql = db.calls.filter(call => call.method === "run").map(call => call.sql);
+  assert.equal(sql.filter(query => query.includes("CREATE TABLE IF NOT EXISTS user_preferences")).length, 1);
+  assert.equal(sql.filter(query => query.includes("CREATE TABLE IF NOT EXISTS territory_notification_preferences")).length, 1);
+  assert.ok(sql.some(query => query.includes("ALTER TABLE user_preferences ADD COLUMN map_zoom_global_updated_at")));
+  assert.ok(sql.some(query => query.includes("ALTER TABLE user_preferences ADD COLUMN theme_global_updated_at")));
+  assert.ok(sql.some(query => query.includes("guard_user_preferences_deletion_lock_insert")));
+});
+
+test("failed user preference initialization clears its cache for retry", async () => {
+  const initialization = createDatabaseInitialization(worldDependencies());
+  const db = createDb({
+    worldSchemaVersion: "2026-11-v41",
+    failRunCount: 1,
+    failSql: "CREATE TABLE IF NOT EXISTS user_preferences",
+  });
+  const env = { DB: db.DB };
+  await assert.rejects(initialization.ensureUserPreferenceTables(env), /simulated D1 failure/);
+  await initialization.ensureUserPreferenceTables(env);
+  assert.equal(db.calls.filter(call => call.sql.includes("CREATE TABLE IF NOT EXISTS user_preferences")).length, 2);
+});
+
+test("global settings tables are initialized in one cached D1 batch", async () => {
+  const initialization = createDatabaseInitialization();
+  const db = createDb();
+  const env = { DB: db.DB };
+  await Promise.all([
+    initialization.ensureGlobalSettingsTable(env),
+    initialization.ensureGlobalSettingsTable(env),
+    initialization.ensureGlobalSettingsTable(env),
+  ]);
+  assert.equal(db.calls.filter(call => call.sql.includes("CREATE TABLE IF NOT EXISTS theme_access_settings")).length, 1);
+  assert.equal(db.calls.filter(call => call.sql.includes("CREATE TABLE IF NOT EXISTS global_setting_overrides")).length, 1);
+});
+
+test("failed global settings initialization clears its cache for retry", async () => {
+  const initialization = createDatabaseInitialization();
+  const db = createDb({ failRunCount: 1, failSql: "CREATE TABLE IF NOT EXISTS theme_access_settings" });
+  const env = { DB: db.DB };
+  await assert.rejects(initialization.ensureGlobalSettingsTable(env), /simulated D1 failure/);
+  await initialization.ensureGlobalSettingsTable(env);
+  assert.equal(db.calls.filter(call => call.sql.includes("CREATE TABLE IF NOT EXISTS theme_access_settings")).length, 2);
+});
+
+test("manager change tables remain repeatable and preserve the finalizing_at migration", async () => {
+  const initialization = createDatabaseInitialization();
+  const db = createDb({ managerChangeColumns: ["finalizing_at"] });
+  const env = { DB: db.DB };
+  await initialization.ensureManagerChangeTables(env);
+  await initialization.ensureManagerChangeTables(env);
+  assert.equal(db.calls.filter(call => call.sql.includes("CREATE TABLE IF NOT EXISTS account_deletion_locks")).length, 2);
+  assert.equal(db.calls.filter(call => call.sql.includes("PRAGMA table_info(manager_change_requests)")).length, 2);
+  assert.equal(db.calls.filter(call => call.sql.includes("guard_manager_change_requests_deletion_lock_insert")).length, 2);
+  assert.equal(db.calls.filter(call => call.sql.includes("ALTER TABLE manager_change_requests ADD COLUMN finalizing_at")).length, 0);
+});
+
+test("approval session cleanup deliberately runs for each initializer call", async () => {
+  const initialization = createDatabaseInitialization();
+  const db = createDb();
+  const env = { DB: db.DB };
+  await initialization.ensureApprovalSessionsTable(env);
+  await initialization.ensureApprovalSessionsTable(env);
+  assert.equal(db.calls.filter(call => call.sql.includes("DELETE FROM territory_approval_sessions AS older")).length, 2);
+  assert.equal(db.calls.filter(call => call.sql.includes("idx_territory_approval_sessions_chat")).length, 2);
+});
+
+test("user directory initializer adds the hidden column to legacy installations", async () => {
+  const initialization = createDatabaseInitialization();
+  const db = createDb({ userDirectoryColumns: ["id", "telegram_id", "telegram_username", "mc_nickname", "auto_linked", "created_at", "updated_at"] });
+  await initialization.ensureUserDirectoryTable({ DB: db.DB });
+  assert.ok(db.calls.some(call => call.sql.includes("CREATE TABLE IF NOT EXISTS user_directory")));
+  assert.ok(db.calls.some(call => call.sql.includes("PRAGMA table_info(user_directory)")));
+  assert.ok(db.calls.some(call => call.sql.includes("ALTER TABLE user_directory ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")));
 });
 
 test("app_settings initialization is cached per environment", async () => {
