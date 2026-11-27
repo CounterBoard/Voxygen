@@ -34,7 +34,7 @@ This document is the entry point for understanding the repository. Feature-level
 
 | Area | Location | Responsibility |
 | --- | --- | --- |
-| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, remaining business handlers, authorization wiring and scheduled tasks; composes shared, auth, DB, Telegram and feature modules including treasury operations, customization catalog/admin/purchase/city appearance/visual equipment, territory-award placement, banking and achievement services, and copyable nickname formatting |
+| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, remaining business handlers, authorization wiring and scheduled tasks; composes shared, auth, DB, Telegram and feature modules including treasury operations, customization catalog/admin/purchase/city appearance/image delivery/visual equipment, territory-award placement, banking and achievement services, and copyable nickname formatting |
 | Telegram Web App authentication | `bot/src/auth/telegram.js` | Verifies initData HMAC and freshness, then extracts the signed Telegram user from request body, header or query string |
 | Telegram Bot API client | `bot/src/telegram/api.js` | Shared outbound Telegram Bot API POST client; obtains the configured bot token and returns the raw Response plus parsed JSON payload |
 | Telegram webhook dispatcher | `bot/src/telegram/webhook.js` | Validates the Telegram webhook secret, enforces account-deletion locks, syncs incoming Telegram identities and dispatches callback queries and messages to injected business handlers |
@@ -50,6 +50,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Customization purchase service | `bot/src/features/customization/purchase-service.js` | Executes personal and territory visual purchases with conditional D1 debits, atomic inventory/spend-log writes, banker/manager notifications and achievement side effects |
 | Customization city appearance service | `bot/src/features/customization/city-appearance-service.js` | Reads territory appearance data and validates/persists manager-selected marker, banner color and gradient; Worker retains the HTTP routes |
 | Customization visual equipment service | `bot/src/features/customization/visual-equipment-service.js` | Matches visual tags, initializes a territory's first valid marker, validates equipped-visual eligibility and reconciles stale equipment after membership/inventory changes; composed by Worker for feature handlers |
+| Customization image service | `bot/src/features/customization/image-service.js` | Reads stored visual image data, validates image data URIs, decodes bytes and returns CORS/cache/content-security headers; Worker retains the image route |
 | Telegram formatting helpers | `bot/src/telegram/formatting.js` | Escapes Telegram HTML and renders Minecraft nicknames as copyable inline code |
 | Purchase notifications | `bot/src/worker.js` | Sends every completed visual purchase notification to the configured banker (`BANKER_TELEGRAM_ID`); territory-funded purchases additionally notify opted-in founders/mayors |
 | Authorization and role checks | `bot/src/auth/permissions.js` | Resolves user/inspector roles and checks authenticated, verified-user, main-inspector and territory-manager permissions using injected runtime dependencies |
