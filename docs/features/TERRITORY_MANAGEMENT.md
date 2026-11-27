@@ -4,7 +4,7 @@
 **Updated:** 2026-11-27  
 **UI source:** `src/features/territory-management/CityManagementProfile.jsx`  
 **Related editor:** `RecruitmentManagement` (same module)  
-**API source:** `bot/src/worker.js` — city management, recruitment and customization routes; `manager-change-service.js` applies approved role transitions and `manager-change-voting-service.js` owns vote recording/finalization
+**API source:** `bot/src/worker.js` — HTTP route dispatch and recruitment/customization routes; `bot/src/features/territories/membership-service.js` owns resident and invitation workflows, `manager-change-service.js` applies approved role transitions, and `manager-change-voting-service.js` owns vote recording/finalization
 
 ## Purpose
 
@@ -46,7 +46,7 @@ The module reports successful management changes through `onChanged`, allowing t
 - Award slot changes update the local inventory and success/removal notification immediately. Requests are serialized in click order so rapid clicks are not discarded or applied out of order; the inventory is reconciled from the server after the queue completes.
 - If a save fails, the authoritative inventory is reloaded and the error is shown. A server-side 409 still surfaces the four-award limit.
 - Recruitment description visibility and publish/hide actions keep their original read-only behavior.
-- No Worker routes, authorization, database tables or persistence behavior changed.
+- Public HTTP paths and payloads, authorization rules, database tables and persistence contracts remain unchanged; Worker retains route dispatch.
 
 ## Regression coverage
 
@@ -58,6 +58,7 @@ The module reports successful management changes through `onChanged`, allowing t
 - **demoteManager** and the existing promotion/manager-vote initiation routes stay in bot/src/worker.js. They retain request validation, initiator permissions, eligible-voter counting and creation of pending requests.
 - bot/src/features/territories/manager-change-service.js owns **applyManagerChange(env, { territoryId, targetId, action, initiatorId })**. Worker creates the service with Telegram delivery, HTML escaping, recruitment-contact cleanup, manager notifications and achievement evaluation injected.
 - bot/src/features/territories/manager-change-voting-service.js owns vote eligibility, guarded vote recording, exclusive/stale finalization leases, majority/expiry decisions, application of the approved change, cron expiry sweeps and Telegram vote callbacks. It receives table initialization, **applyManagerChange**, Telegram delivery, territory-manager authorization, formatting and JSON response creation from Worker.
+- bot/src/features/territories/membership-service.js owns invitation creation/delivery, pending nickname binding and retry, management-data reads, invitation cancellation, resident removal/leave and resident invite callbacks. Worker injects authentication, world-table initialization, Telegram/JSON helpers, manager lookup, and recruitment/equipment/achievement side effects; Worker keeps HTTP path dispatch and webhook/scheduled orchestration.
 - Promotion rechecks the approved territory and target membership. The D1 batch inserts the manager only while membership and verified-account/nickname predicates still hold, then removes membership only if the manager relation exists.
 - Ordinary demotion performs the inverse guarded D1 batch: add membership only while the manager relation and verified account still exist, then remove the manager relation only if membership exists.
 - Demoting the owner requires a verified next owner who is already a manager. The owner update, manager-role removals and membership restoration remain in one D1 batch; the resulting owner/manager/member state is read back before the operation reports success.
