@@ -4,7 +4,7 @@
 **Updated:** 2026-11-27  
 **UI source:** `src/features/customization/CustomizationScreen.jsx`  
 **Shared palette:** `src/features/customization/VisualColorPicker.jsx`  
-**API source:** `bot/src/worker.js` composes `bot/src/features/customization/catalog-service.js`, `admin-service.js`, `achievements.js` and the purchase route; Telegram discount and inventory handling live in their respective customization feature modules.
+**API source:** `bot/src/worker.js` composes `bot/src/features/customization/catalog-service.js`, `admin-service.js`, `achievements.js` and `purchase-service.js`; Telegram discount and inventory handling live in their respective customization feature modules.
 
 ## Purpose
 
@@ -20,6 +20,7 @@ The customization screen displays the visual catalog and inventory, allows users
 - `bot/src/features/customization/achievements.js` owns achievement requirement parsing/validation, territory progress evaluation, automatic visual/award persistence and the main-inspector recheck endpoint. It receives score calculation, marker setup, notification, authorization, DB initialization and response helpers from Worker.
 - `bot/src/features/customization/admin-service.js` owns main-inspector visual creation/editing, visibility, soft deletion and visual/tag ordering. Tag normalization/upsert and government-marker synchronization live with these operations; category cleanup, achievement evaluation and equipment reconciliation remain injected Worker dependencies.
 - `bot/src/features/customization/catalog-service.js` owns authenticated full/lite catalog reads, account-scope resolution, role-based item visibility, active discount pricing and personal/territory inventory aggregation. Treasury manager lookup, role resolution, territory manager rows, marker setup, category cleanup and discounted-price calculation are injected from Worker.
+- `bot/src/features/customization/purchase-service.js` owns the authenticated visual purchase endpoint, discounted purchase-price snapshot, personal/territory debit, inventory grant, `gem_spend_log` write, banker/manager receipts and post-purchase marker/achievement checks. All Worker services are injected; the API route and `ctx.waitUntil` contract remain in Worker.
 - The app shell supplies `apiErrorMessage`, `safeCaughtError`, `useAnimatedClose`, `IconButton`, `Field`, `readImageData`, `GemHex` and `MinecraftText` through the `ui` adapter. Root navigation still owns screen selection and supplies `initData`, profile, role, territory list and global toast callback.
 
 ## API and event contracts
@@ -34,7 +35,7 @@ The module retains the existing API operations:
 - `PATCH /api/customization/items/:id` to edit a visual;
 - `POST /api/customization/items/visibility` to change catalog visibility;
 - `POST /api/customization/items/reorder` and `POST /api/customization/tags/reorder` for ordering;
-- `POST /api/customization/purchase` to purchase an item.
+- `POST /api/customization/purchase` to purchase an item. The route delegates to `bot/src/features/customization/purchase-service.js`.
 
 ## Territory visual achievements
 
