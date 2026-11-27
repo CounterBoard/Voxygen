@@ -4,7 +4,7 @@
 **Updated:** 2026-11-27  
 **UI source:** `src/features/customization/CustomizationScreen.jsx`  
 **Shared palette:** `src/features/customization/VisualColorPicker.jsx`  
-**API source:** `bot/src/worker.js` composes `bot/src/features/customization/catalog-service.js`, `admin-service.js`, `achievements.js` and `purchase-service.js`; Telegram discount and inventory handling live in their respective customization feature modules.
+**API source:** `bot/src/worker.js` composes `bot/src/features/customization/catalog-service.js`, `admin-service.js`, `achievements.js`, `purchase-service.js` and `city-appearance-service.js`; Telegram discount and inventory handling live in their respective customization feature modules.
 
 ## Purpose
 
@@ -20,6 +20,7 @@ The customization screen displays the visual catalog and inventory, allows users
 - `bot/src/features/customization/achievements.js` owns achievement requirement parsing/validation, territory progress evaluation, automatic visual/award persistence and the main-inspector recheck endpoint. It receives score calculation, marker setup, notification, authorization, DB initialization and response helpers from Worker.
 - `bot/src/features/customization/admin-service.js` owns main-inspector visual creation/editing, visibility, soft deletion and visual/tag ordering. Tag normalization/upsert and government-marker synchronization live with these operations; category cleanup, achievement evaluation and equipment reconciliation remain injected Worker dependencies.
 - `bot/src/features/customization/catalog-service.js` owns authenticated full/lite catalog reads, account-scope resolution, role-based item visibility, active discount pricing and personal/territory inventory aggregation. Treasury manager lookup, role resolution, territory manager rows, marker setup, category cleanup and discounted-price calculation are injected from Worker.
+- `bot/src/features/customization/city-appearance-service.js` owns the authenticated `GET` and `POST /api/customization/city` handlers. It assembles territory marker/banner data and available marker inventory, and validates manager changes to markers, banner colors and gradients. Authorization, D1 initialization, tag matching, manager rows and JSON responses are injected from Worker.
 - `bot/src/features/customization/purchase-service.js` owns the authenticated visual purchase endpoint, discounted purchase-price snapshot, personal/territory debit, inventory grant, `gem_spend_log` write, banker/manager receipts and post-purchase marker/achievement checks. All Worker services are injected; the API route and `ctx.waitUntil` contract remain in Worker.
 - The app shell supplies `apiErrorMessage`, `safeCaughtError`, `useAnimatedClose`, `IconButton`, `Field`, `readImageData`, `GemHex` and `MinecraftText` through the `ui` adapter. Root navigation still owns screen selection and supplies `initData`, profile, role, territory list and global toast callback.
 
@@ -35,7 +36,16 @@ The module retains the existing API operations:
 - `PATCH /api/customization/items/:id` to edit a visual;
 - `POST /api/customization/items/visibility` to change catalog visibility;
 - `POST /api/customization/items/reorder` and `POST /api/customization/tags/reorder` for ordering;
+- `GET /api/customization/city?territoryId=...` to read a manager's territory appearance, eligible markers, award placements and recruitment contact;
+- `POST /api/customization/city` to update the territory marker, banner color or banner gradient. Both routes delegate to `bot/src/features/customization/city-appearance-service.js`.
 - `POST /api/customization/purchase` to purchase an item. The route delegates to `bot/src/features/customization/purchase-service.js`.
+
+## Territory appearance API
+
+- The read endpoint requires an authenticated manager of an approved territory. It returns the selected marker and banner settings, markers available from territory inventory and manager/member personal inventories, award placements, and the recruitment contact only while recruitment is enabled.
+- The write endpoint keeps the manager-only rule and rejects government territories. Banner colors and gradient presets are restricted to explicit allowlists.
+- A selected marker must be an active, non-government visual tagged `метка` and available through the territory, the requesting manager, a resident, or a territory manager. Sending an empty marker ID clears the selection.
+- Marker and banner fields are written through the existing `city_customization` upsert. Omitted fields retain the previous partial-update behavior; the route request/response contract is unchanged.
 
 ## Territory visual achievements
 
