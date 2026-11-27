@@ -109,9 +109,9 @@ test("a named target can select a visual by category tag", async () => {
   };
   const result = await h.handler(h.env, h.update, h.message, command);
   assert.deepEqual(result.body, { ok: true, handled: "bank_visual_discount_set", count: 1 });
-  const sql = h.calls.batches[0].map(statement => statement.sql).join("\n");
-  assert.match(sql, /INSERT INTO customization_discounts/);
-  assert.ok(!sql.includes("visual-2"));
+  const statement = h.calls.batches[0][2];
+  assert.match(statement.sql, /INSERT INTO customization_discounts/);
+  assert.deepEqual(statement.values.slice(4, 5), ["visual-1"]);
 });
 
 test("decreasing an existing discount updates and removes zero-value rows in the same batch", async () => {
