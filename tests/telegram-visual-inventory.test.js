@@ -167,11 +167,14 @@ test("ambiguous recipients are rejected without changing any inventory", async (
   assert.equal(h.calls.sql.some(call => call.sql.includes("INSERT OR IGNORE INTO user_items")), false);
 });
 
-test("unrelated main-inspector message is left unhandled without database access", async () => {
+test("unrelated main-inspector message remains unhandled after the existing catalog lookup", async () => {
   const h = createHarness();
   const result = await h.handler(h.env, h.message("обычное сообщение"), "обычное сообщение");
 
   assert.equal(result, null);
-  assert.equal(h.calls.ensured, 0);
-  assert.equal(h.calls.sql.length, 0);
+  assert.equal(h.calls.ensured, 1);
+  assert.equal(h.calls.sql.length, 1);
+  assert.match(h.calls.sql[0].sql, /SELECT id,name,active FROM customization_items/);
+  assert.equal(h.calls.telegram.length, 0);
+  assert.equal(h.calls.sql.some(call => call.method === "run"), false);
 });
