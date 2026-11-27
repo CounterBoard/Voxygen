@@ -29,6 +29,13 @@ The module retains the existing API operations:
 - `POST /api/customization/items/reorder` and `POST /api/customization/tags/reorder` for ordering;
 - `POST /api/customization/purchase` to purchase an item.
 
+## Purchase notifications
+
+- Every completed visual purchase (personal balance or territory treasury) sends its purchase receipt to the configured banker via `BANKER_TELEGRAM_ID`; the main inspector is not the purchase-notification recipient.
+- The banker receipt includes the buyer's copyable Minecraft nickname, Telegram contact/ID, purchased visual, price and payment source.
+- If the purchase is charged to a territory treasury, opted-in founders/mayors also receive the separate territory-expense notice, excluding the buyer. Personal-balance purchases do not send territory expense notices.
+- Notification delivery is best-effort and cannot roll back a completed purchase.
+
 Existing Telegram init-data headers, payloads, role-dependent controls, account-scope request version guards, loading/error handling and toast behavior are preserved.
 
 ## Invariants
