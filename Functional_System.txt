@@ -1649,6 +1649,7 @@ GET    /api/customization
 POST   /api/achievements/recheck
 POST   /api/customization/items
 GET    /api/customization/items/{id}/image
+    Source: bot/src/features/customization/image-service.js; Worker retains route dispatch.
 PATCH  /api/customization/items/{id}
 DELETE /api/customization/items/{id}
 POST   /api/customization/items/visibility
