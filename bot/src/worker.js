@@ -1791,7 +1791,14 @@ async function demoteManager(request, env) {
   if(!(await isTerritoryManager(env,territoryId,targetId)))return json({ok:false,error:'Основатель/мэр не найден'},404);
   const managers=await getTerritoryManagerRows(env,territoryId);
   if(managers.length<=1)return json({ok:false,error:'В городе должен быть как минимум ещё один основатель/мэр'},400);
-  const excludedVoters=Number(auth.user.id)===targetId?1:2; const voterCount=Math.max(0,managers.length-excludedVoters); if(voterCount===0){return json({ok:false,error:'Недостаточно участников для голосования (кандидат и инициатор не голосуют)'},400)}
+  const excludedVoters=Number(auth.user.id)===targetId?1:2; const voterCount=Math.max(0,managers.length-excludedVoters);
+  if(voterCount===0){
+    try{
+      const applied=await applyManagerChange(env,{territoryId,targetId,action:'demote',initiatorId:Number(auth.user.id)});
+      if(!applied)return json({ok:false,error:'Не удалось изменить роль. Обновите данные и повторите действие.'},409);
+      return json({ok:true,immediate:true});
+    }catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Один из аккаунтов находится в процессе удаления'},409);throw error;}
+  }
   await ensureManagerChangeTables(env); const pending=await env.DB.prepare(`SELECT id FROM manager_change_requests WHERE territory_id=? AND target_telegram_id=? AND action='demote' AND status IN ('pending','finalizing') AND expires_at>? LIMIT 1`).bind(territoryId,targetId,Date.now()).first(); if(pending)return json({ok:false,error:'Запрос уже находится на голосовании'},409);
   const id=crypto.randomUUID(),now=Date.now(),expires=now+24*60*60*1000,required=Math.floor(managers.length/2); try{await env.DB.prepare(`INSERT INTO manager_change_requests(id,territory_id,target_telegram_id,initiator_telegram_id,action,required_votes,voter_count,status,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(id,territoryId,targetId,Number(auth.user.id),'demote',required,voterCount,'pending',now,expires).run();}catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Один из аккаунтов находится в процессе удаления'},409);throw error;}
   const target=await env.DB.prepare('SELECT mc_nickname FROM users WHERE telegram_id=?').bind(targetId).first();

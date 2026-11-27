@@ -110,3 +110,10 @@ test('award slots and notifications update optimistically; rapid taps are serial
   assert.match(panel, /<FixedToast revision=\{awardLimitToast\}/);
   assert.match(panel, /<FixedToast revision=\{noticeRevision\}/);
 });
+
+
+test('two-manager demotion reports immediate role change while larger groups report a vote', () => {
+  assert.match(panel, /function demoteManager\(id\)\{if\(window\.confirm\([\s\S]*?data=>data\.immediate\?'Основатель\/мэр понижен до жителя':'Голосование за понижение запущено'/);
+  const postHelper = panel.slice(panel.indexOf('async function post('), panel.indexOf('async function changeBannerColor'));
+  assert.match(postHelper, /typeof success==='function'\?success\(d\):success/);
+});
