@@ -84,6 +84,16 @@ test("territory treasury withdrawal is denied to a non-manager before a transfer
   assert.match(h.calls.telegram[0].payload.text, /только основатель или мэр/i);
 });
 
+test("a negative target-first command for a non-territory is passed to the next webhook handler", async () => {
+  for (const command of ["CounterBoard-1", "CounterBoard -1"]) {
+    const h = createHarness({ territories: [] });
+    const result = await h.handler(h.env, { update_id: 330 }, message(command));
+    assert.equal(result, null, command);
+    assert.equal(h.calls.transfers.length, 0, command);
+    assert.equal(h.calls.telegram.length, 0, command);
+  }
+});
+
 test("territory treasury withdrawal uses the territory ID and treasury-specific transfer type", async () => {
   const h = createHarness({ territories: [{ id: "city-1", name: "Северный город" }], manager: true, treasuryBalance: 80 });
   const result = await h.handler(h.env, { update_id: 323 }, message("-25 Северный город"));

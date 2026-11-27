@@ -73,10 +73,13 @@ export function createGemWithdrawalHandler({
     const requested=normalizeTerritoryName(territorial[1]);
     const rows=await env.DB.prepare(`SELECT id,name FROM territories WHERE status='approved'`).all();
     const matches=(rows.results||[]).filter(row=>normalizeTerritoryName(row.name)===requested);
-    if(matches.length!==1){
-      await telegram(env,'sendMessage',{chat_id:message.chat.id,text:matches.length?'Название территории неоднозначно. Уточните его.':'Территория не найдена.',reply_to_message_id:message.message_id});
-      return json({ok:true,handled:'gem_withdraw_territory_not_found'});
+    if(matches.length>1){
+      await telegram(env,'sendMessage',{chat_id:message.chat.id,text:'Название территории неоднозначно. Уточните его.',reply_to_message_id:message.message_id});
+      return json({ok:true,handled:'gem_withdraw_territory_ambiguous'});
     }
+    // A target-first negative amount is also valid banker syntax (player -amount).
+    // If it is not an approved territory, let the next webhook handler resolve it as a player.
+    if(matches.length===0)return null;
     territory=matches[0];
     if(!(await isTerritoryManager(env,territory.id,uid))){
       await telegram(env,'sendMessage',{chat_id:message.chat.id,text:'Снимать самоцветы с казны могут только основатель или мэр территории.',reply_to_message_id:message.message_id});
