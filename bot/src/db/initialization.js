@@ -1,6 +1,29 @@
+import { initializeWorldTables } from './migrations/world-schema.js';
+
 const RECRUITMENT_SCHEMA_VERSION = '2026-10-v25';
 
-export function createDatabaseInitialization() {
+export function createDatabaseInitialization({
+  ensureManagerChangeTables,
+  cleanupCustomizationCategories,
+  ensureUserDirectoryTable,
+} = {}) {
+  const worldTableInitPromises = new WeakMap();
+
+  async function ensureWorldTables(env) {
+    const cached = worldTableInitPromises.get(env);
+    if (cached) return cached;
+    const promise = initializeWorldTables(env, {
+      ensureManagerChangeTables,
+      cleanupCustomizationCategories,
+      ensureUserDirectoryTable,
+    }).catch(error => {
+      worldTableInitPromises.delete(env);
+      throw error;
+    });
+    worldTableInitPromises.set(env, promise);
+    return promise;
+  }
+
   const recruitmentTableInitPromises = new WeakMap();
   const mapSettingsTableInitPromises = new WeakMap();
 
@@ -64,6 +87,7 @@ export function createDatabaseInitialization() {
   }
 
   return {
+    ensureWorldTables,
     ensureRecruitmentTable,
     ensureMapSettingsTable,
   };
