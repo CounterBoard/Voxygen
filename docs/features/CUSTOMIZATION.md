@@ -16,6 +16,7 @@ The customization screen displays the visual catalog and inventory, allows users
 - `VisualEditModal`, `AchievementFields` and `makeVisualForm` own the visual editor form and its fields.
 - `VisualColorPicker` exports the palette and circular color control shared with territory banner editing in `src/features/territory-management/CityManagementProfile.jsx`.
 - `bot/src/features/customization/telegram-discounts.js` owns Telegram banker discount parsing, active visual selection, atomic application, expiry and duplicate-update protection. Worker injects shared normalization, visual-tag matching, DB initialization, Telegram and response helpers.
+- `bot/src/features/customization/telegram-inventory.js` owns main-inspector Telegram commands for granting/removing visuals from personal and territory inventories. It receives DB initialization, identity lookup, formatting, equipment reconciliation, marker initialization, achievement checks and Telegram delivery as explicit dependencies; `worker.js` retains the shared text normalizer and webhook composition.
 - The app shell supplies `apiErrorMessage`, `safeCaughtError`, `useAnimatedClose`, `IconButton`, `Field`, `readImageData`, `GemHex` and `MinecraftText` through the `ui` adapter. Root navigation still owns screen selection and supplies `initData`, profile, role, territory list and global toast callback.
 
 ## API and event contracts
@@ -29,6 +30,13 @@ The module retains the existing API operations:
 - `POST /api/customization/items/visibility` to change catalog visibility;
 - `POST /api/customization/items/reorder` and `POST /api/customization/tags/reorder` for ordering;
 - `POST /api/customization/purchase` to purchase an item.
+
+## Main-inspector Telegram visual inventory commands
+
+- The existing webhook dispatch order is unchanged: visual-inventory commands are considered only after the account-deletion lock check and after personal withdrawal/banker commands; the dispatcher still gates them to the main inspector.
+- Commands support target-first and visual-first forms. A leading minus before a visual name removes it; otherwise the visual is granted. The longest exact visual name wins to avoid shorter-name suffix collisions.
+- Targets resolve against approved territories and the user directory. An exact territory name takes precedence over a same-spelled player nickname; ambiguous recipients are rejected.
+- Territory grants/removals reconcile equipped territory visuals and reevaluate achievements; grants also ensure the first city marker. Personal removals reconcile the affected territories, while personal grants retain the account-deletion-lock guard.
 
 ## Telegram banker visual discounts
 
@@ -57,4 +65,4 @@ Existing Telegram init-data headers, payloads, role-dependent controls, account-
 
 ## Regression coverage
 
-`tests/customization-ui.test.js` checks the module boundary, account-scope and stale-response guards, API routes/payloads, purchase and editor operations, palette sharing and event refresh behavior. Existing theme and award UI contract tests also load the extracted customization/palette modules where they verify the shared styling contracts.
+`tests/customization-ui.test.js` checks the module boundary, account-scope and stale-response guards, API routes/payloads, purchase and editor operations, palette sharing and event refresh behavior. `tests/telegram-visual-inventory.test.js` covers inspector grant/removal dispatch, target resolution, territory-vs-player precedence, deletion-lock behavior and side-effect wiring. Existing theme and award UI contract tests also load the extracted customization/palette modules where they verify the shared styling contracts.
