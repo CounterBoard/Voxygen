@@ -154,16 +154,16 @@ export function createDatabaseInitialization({
         await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_user_preferences_deletion_lock_update BEFORE UPDATE ON user_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
         await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_notification_preferences_deletion_lock_insert BEFORE INSERT ON territory_notification_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
         await env.DB.prepare(`CREATE TRIGGER IF NOT EXISTS guard_territory_notification_preferences_deletion_lock_update BEFORE UPDATE ON territory_notification_preferences WHEN EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=OLD.telegram_id OR telegram_id=NEW.telegram_id) BEGIN SELECT RAISE(ABORT,'account deletion in progress'); END`).run();
-      })().catch(error => { USER_PREFERENCE_TABLES_INIT_CACHE.delete(env); throw error; });
-      USER_PREFERENCE_TABLES_INIT_CACHE.set(env, promise);
+      })().catch(error => { userPreferenceTablesInitCache.delete(env); throw error; });
+      userPreferenceTablesInitCache.set(env, promise);
     }
     return promise;
   }
 
-  const globalSettingsInitCache = new WeakMap();
+
   
   async function ensureGlobalSettingsTable(env) {
-    let promise = GLOBAL_SETTINGS_INIT_CACHE.get(env);
+    let promise = globalSettingsInitCache.get(env);
     if (!promise) {
       promise = env.DB.batch([
         env.DB.prepare(`CREATE TABLE IF NOT EXISTS theme_access_settings (
@@ -181,10 +181,10 @@ export function createDatabaseInitialization({
           updated_by INTEGER NOT NULL
         )`)
       ]).catch(error => {
-        GLOBAL_SETTINGS_INIT_CACHE.delete(env);
+        globalSettingsInitCache.delete(env);
         throw error;
       });
-      GLOBAL_SETTINGS_INIT_CACHE.set(env, promise);
+      globalSettingsInitCache.set(env, promise);
     }
     return promise;
   }
