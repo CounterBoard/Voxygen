@@ -4,7 +4,7 @@
 **Updated:** 2026-11-26  
 **UI source:** `src/features/customization/CustomizationScreen.jsx`  
 **Shared palette:** `src/features/customization/VisualColorPicker.jsx`  
-**API source:** `bot/src/worker.js` — customization, achievement and purchase routes
+**API source:** `bot/src/worker.js` — customization, achievement and purchase routes; Telegram discount handling lives in `bot/src/features/customization/telegram-discounts.js`
 
 ## Purpose
 
@@ -15,6 +15,7 @@ The customization screen displays the visual catalog and inventory, allows users
 - `CustomizationScreen` owns catalog/inventory state, personal-vs-treasury scope, stale-request guards, purchase and reorder operations, filters and account-balance refresh.
 - `VisualEditModal`, `AchievementFields` and `makeVisualForm` own the visual editor form and its fields.
 - `VisualColorPicker` exports the palette and circular color control shared with territory banner editing in `src/features/territory-management/CityManagementProfile.jsx`.
+- `bot/src/features/customization/telegram-discounts.js` owns Telegram banker discount parsing, active visual selection, atomic application, expiry and duplicate-update protection. Worker injects shared normalization, visual-tag matching, DB initialization, Telegram and response helpers.
 - The app shell supplies `apiErrorMessage`, `safeCaughtError`, `useAnimatedClose`, `IconButton`, `Field`, `readImageData`, `GemHex` and `MinecraftText` through the `ui` adapter. Root navigation still owns screen selection and supplies `initData`, profile, role, territory list and global toast callback.
 
 ## API and event contracts
@@ -28,6 +29,13 @@ The module retains the existing API operations:
 - `POST /api/customization/items/visibility` to change catalog visibility;
 - `POST /api/customization/items/reorder` and `POST /api/customization/tags/reorder` for ordering;
 - `POST /api/customization/purchase` to purchase an item.
+
+## Telegram banker visual discounts
+
+- Discount commands are accepted only from the configured banker in a private chat; the treasury Telegram handler validates the sender and delegates the command to the customization feature.
+- The customization handler accepts exact visual names and category/tag names, or `Все` for every active visual. It supports setting a percentage and decreasing an existing percentage by percentage points for a minute/hour duration.
+- `visual_discount_operations` reserves each Telegram `update_id`; the applying transition, discount changes and terminal state are committed through one D1 batch. A replay does not apply the command twice.
+- `customization_discounts` stores the current percentage, expiry and updater. Expired discounts are not reduced, while a decrease that reaches zero removes the row.
 
 ## Purchase notifications
 

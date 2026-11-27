@@ -1,6 +1,6 @@
 # События, скидки на визуалы, баннеры и награды территорий
 
-Эта заметка фиксирует актуальное поведение ограничений ивентов, скидок на визуалы, баннеров и наград территорий. Источники реализации — `src/App.jsx`, `bot/src/worker.js`, миграции D1 и UI-контрактные тесты.
+Эта заметка фиксирует актуальное поведение ограничений ивентов, скидок на визуалы, баннеров и наград территорий. Источники реализации — `src/App.jsx`, `bot/src/features/customization/telegram-discounts.js`, `bot/src/features/treasury/telegram-bank.js`, миграции D1 и UI-контрактные тесты.
 
 ## 1. Ограничение даты ивента
 
@@ -62,7 +62,7 @@
 - Backend заново читает действующую скидку непосредственно при покупке и списывает рассчитанную цену. Это работает для личного баланса и покупки из казны территории.
 - Цена округляется до целого количества самоцветов через `Math.round`; значение не может быть отрицательным. Скидка 100% означает нулевую цену.
 
-Точки кода: `parseVisualDiscountCommand`, `handleVisualDiscountMessage`, `getCustomization`, `purchaseCustomizationItem`, `calculateDiscountedPrice`, каталог визуалов в `src/App.jsx`.
+Точки кода: `parseVisualDiscountCommand` и `handleVisualDiscountMessage` в `bot/src/features/customization/telegram-discounts.js`; маршрутизация из `bot/src/features/treasury/telegram-bank.js`; `getCustomization`, `purchaseCustomizationItem`, `calculateDiscountedPrice` и каталог визуалов в `src/App.jsx`.
 
 ## 4. Баннер территории и отказ от обложек территорий
 
@@ -78,7 +78,7 @@
 
 ## 5. Проверки и ограничения подтверждения
 
-- `tests/bank-visual-discounts.test.js` проверяет разбор положительной и отрицательной команды, выбор «Все»/нескольких целей, некорректные проценты/длительности, границу двух календарных месяцев (включая конец месяца и високосный год) и округление цены.
+- `tests/bank-visual-discounts.test.js` проверяет разбор положительной и отрицательной команды, выбор «Все»/нескольких целей и некорректные проценты/длительности, а `tests/visual-discount-handler.test.js` проверяет D1 batch, применение/уменьшение скидки, отсутствие совпадений и защиту от повторной доставки. Тот же тестовый файл продолжает проверять границу двух календарных месяцев (включая конец месяца и високосный год) и округление цены.
 - CI workflow `.github/workflows/validate.yml` выполняет `npm test`, `npm run build`, `node --check bot/src/worker.js` и dry-run сборки Wrangler.
 - Unit-тесты не заменяют проверку реального Telegram webhook, D1 batch concurrency, интерфейса Telegram Android WebView и production Cloudflare Worker. Эти runtime-сценарии требуют отдельного smoke-тестирования после развёртывания.
 
