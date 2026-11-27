@@ -34,8 +34,9 @@ This document is the entry point for understanding the repository. Feature-level
 
 | Area | Location | Responsibility |
 | --- | --- | --- |
-| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, permission orchestration, Telegram webhook routing, D1 bootstrap and scheduled tasks; imports shared helpers and Telegram authentication |
+| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, authorization wiring, Telegram webhook routing, D1 bootstrap and scheduled tasks; composes shared, auth and feature modules |
 | Telegram Web App authentication | `bot/src/auth/telegram.js` | Verifies initData HMAC and freshness, then extracts the signed Telegram user from request body, header or query string |
+| Authorization and role checks | `bot/src/auth/permissions.js` | Resolves user/inspector roles and checks authenticated, verified-user, main-inspector and territory-manager permissions using injected runtime dependencies |
 | Shared backend request validation | `bot/src/shared/validation.js` | Pure parsing of coordinate input formats; deliberately does not apply territory range, authorization or persistence rules |
 | Shared backend HTTP responses | `bot/src/shared/responses.js` | Common CORS response wrapper and safe JSON response normalization, including stable HTTP error codes |
 | Telegram award sticker delivery | `bot/src/features/territory-awards/sticker-delivery.js` | Telegram sticker file lookup, preview selection, path/format/size validation, TGS decompression and safe response headers; injected Worker infrastructure keeps this service independent of the router |
