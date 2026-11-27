@@ -86,8 +86,8 @@ test("setting a discount creates an idempotency reservation and batches the acti
   assert.match(batch[2].sql, /INSERT INTO customization_discounts/);
   assert.match(batch.at(-1).sql, /status='completed'/);
   assert.equal(batch[2].values[0], 15);
-  assert.equal(batch[2].values[4], 9001);
-  assert.deepEqual(batch[2].values.slice(5, 7), ["visual-1", "visual-2"]);
+  assert.equal(batch[2].values[3], 9001);
+  assert.deepEqual(batch[2].values.slice(4, 6), ["visual-1", "visual-2"]);
   assert.equal(h.calls.telegram.length, 1);
   assert.match(h.calls.telegram[0].payload.text, /Скидка 15% установлена для 2 визуалов на 2ч/);
 });
