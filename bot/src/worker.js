@@ -4556,8 +4556,8 @@ async function handleVisualInventoryCommand(env, message, rawText) {
   }
   const inserted=await env.DB.prepare(`INSERT OR IGNORE INTO user_items(telegram_id,item_id,acquired_at,source) SELECT ?,?,?, 'main_inspector' WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(Number(target.id),item.id,now,Number(target.id)).run();
   const inventoryMessage=inserted.meta?.changes?'выдан':(await env.DB.prepare(`SELECT 1 FROM account_deletion_locks WHERE telegram_id=?`).bind(Number(target.id)).first())?'не выдан: аккаунт находится в процессе удаления':'уже есть';
-  await telegram(env,'sendMessage',{chat_id:Number(message.chat.id),text:`${inserted.meta?.changes?'✅':'ℹ️ц.`,reply_to_message_id:message.message_id});
-  return json({ok:true,handled:targetType==='personal'?'gem_personal_withdraw':'gem_treasury_withdraw'});
+  await telegram(env,'sendMessage',{chat_id:Number(message.chat.id),text:`${inserted.meta?.changes?'✅':'ℹ️'} Визуал «${dbName}» ${inventoryMessage} пользователю «${target.name}».`});
+  return json({ok:true,handled:'visual_inventory_granted',target:'user'});
 }
 
 function parseBankCommand(raw) {
