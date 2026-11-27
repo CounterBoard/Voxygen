@@ -1,39 +1,41 @@
-# Territory screenshot gallery
+# Territory screenshots
 
 **Status:** current implementation  
-**Updated:** 2026-11-26  
+**Updated:** 2026-11-28  
 **UI source:** `src/features/territory-details/TerritoryScreenshotsPanel.jsx`  
-**API source:** `bot/src/worker.js` — `/api/screenshots` routes
+**API source:** `bot/src/features/territories/screenshots-service.js` (composed by `bot/src/worker.js`)
 
 ## Purpose
 
-The territory detail page uses a dedicated panel for approved screenshot thumbnails, opening screenshots in the page lightbox, adding new screenshots and deleting screenshots when permitted.
+The territory detail page lets verified users upload screenshots, displays approved screenshots, and lets authorized managers or the main inspector moderate or delete them. The service owns screenshot upload, persistence, moderation, listing, deletion and image delivery. The Worker retains HTTP route matching and Telegram webhook dispatch.
 
-## Request contracts
+## API contracts
 
-| Action | Request |
+| Action | Route |
 | --- | --- |
-| Upload | `POST /api/screenshots` multipart form data: `territoryId`, compressed `photo`, `initData`; `X-Telegram-Init-Data` header |
-| Delete | `DELETE /api/screenshots/:id`, JSON body `{ initData }` |
+| Upload | `POST /api/screenshots` (multipart: `territoryId`, `photo`, `initData`) |
+| List approved screenshots | `GET /api/screenshots?territoryId=...` |
+| Serve approved image | `GET /api/screenshots/:id` |
+| Delete approved screenshot | `DELETE /api/screenshots/:id` |
+| Moderate screenshot | `POST /api/screenshots/:id` with `{ initData, approve }` |
 
-Before upload, the selected image is scaled so its largest edge is at most 1280px and converted to JPEG at quality 0.70. The upload result message remains different for government territories and regular territories.
+The route paths, methods, multipart fields, response shapes and status codes remain unchanged. Telegram moderation callbacks retain `screenshot_ok:<id>` and `screenshot_no:<id>`.
 
-## Permissions and ownership
+## Workflow and invariants
 
-- Any verified-nickname user can add a screenshot when they are not the territory owner, or when the territory is a government territory.
-- The main inspector can delete any screenshot.
-- The territory owner/manager can delete screenshots only for non-government territories.
-- The app shell still owns the Lightbox component; the panel notifies it when a screenshot is opened and closes it after a successful delete.
+- Upload requires a verified user, an approved territory, a JPEG file and the existing 10 MB source-file limit.
+- The frontend continues to compress images to 1280 px maximum dimension and JPEG quality 0.70 before upload.
+- Government-territory screenshots are stored directly as approved images, without Telegram moderation. The post-compression binary limit remains 900 KB.
+- Ordinary user screenshots are sent to territory managers for Telegram moderation; inspector and main-inspector uploads follow the existing direct-approval path.
+- Telegram file IDs remain the primary image reference. A bounded base64 cache is stored when Telegram file retrieval succeeds; image delivery prefers that cache and otherwise fetches the image from Telegram.
+- Only approved screenshots appear in gallery listing or image delivery. Rejected and pending screenshots remain inaccessible through the public image route.
+- The main inspector can moderate or delete screenshots. Territory managers can moderate pending screenshots and delete approved screenshots on their own non-government territories. Government screenshot deletion remains main-inspector-only.
+- Moderation updates are conditional on `status='pending'`, preventing a second approval/rejection from overwriting the first decision.
+- Approving a screenshot through the HTTP moderation route still triggers territory achievement evaluation. Telegram callback moderation retains its existing callback acknowledgements and button cleanup behavior.
+- Screenshot gallery authors prefer the stored Minecraft nickname, then Telegram username, then `id<telegram_id>`.
 
-The parent screen remains the source of truth for screenshot records. The panel receives the approved list and uses the existing territory state setter to remove a successfully deleted row.
+## Module boundary
 
-## Invariants
-
-- Upload compression dimensions, JPEG quality, filename normalization, form-data names and Telegram header remain unchanged.
-- Upload success/error messages and deletion permissions remain unchanged.
-- The upload flow does not optimistically add a screenshot to the visible list.
-- No API routes, Worker logic, authorization, database schema or persistence behavior changed.
-
-## Regression coverage
-
-`tests/territory-screenshots-ui.test.js` covers the module boundary, request methods/headers/body, image compression settings, upload permissions, delete permissions and parent-owned lightbox/state callbacks.
+- `screenshots-service.js` receives authorization, D1 initialization, role/manager lookup, Telegram API access, achievement evaluation, CORS and JSON helpers through dependency injection.
+- Worker keeps public route dispatch and passes `handleScreenshotCallback` to the Telegram webhook dispatcher.
+- Frontend compression, upload progress, gallery state and lightbox remain in `TerritoryScreenshotsPanel.jsx` and `TerritoryDetail.jsx`.
