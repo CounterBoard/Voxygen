@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { serveTelegramAwardSticker } from "../bot/src/features/territory-awards/sticker-delivery.js";
+import { serveTelegramAwardSticker } from "../bot/src/features/awards/sticker-delivery.js";
 import worker from "../bot/src/worker.js";
 
 function withCors(response) {
@@ -112,7 +112,7 @@ test("TGS preview without a saved thumbnail is rejected without asking Telegram 
 });
 
 test("the extracted handler receives infrastructure dependencies explicitly", () => {
-  const source = readFileSync(new URL("../bot/src/features/territory-awards/sticker-delivery.js", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../bot/src/features/awards/sticker-delivery.js", import.meta.url), "utf8");
   assert.match(source, /serveTelegramAwardSticker\(request, env, \{ TELEGRAM_API, withCors, ensureWorldTables, telegram \}\)/);
 });
 

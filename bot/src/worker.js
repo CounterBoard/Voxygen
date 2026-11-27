@@ -34,14 +34,14 @@ import {
   getTelegramStickerFileExtension,
   isTelegramStickerExtensionAllowed,
   serveTelegramAwardSticker,
-} from './features/territory-awards/sticker-delivery.js';
+} from './features/awards/sticker-delivery.js';
 import {
   getAdminAwards,
   addTelegramAwardPack,
   deleteTelegramAwardPack,
   grantTerritoryAward,
   deleteTerritoryAwardById,
-} from './features/territory-awards/award-management.js';
+} from './features/awards/award-management.js';
 export {
   isSafeTelegramTgsAnimation,
   parseTelegramEmojiSetName,
