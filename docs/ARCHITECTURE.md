@@ -1,6 +1,6 @@
 # Voxygen architecture map
 
-**Updated:** 2026-11-26
+**Updated:** 2026-11-27
 
 This document is the entry point for understanding the repository. Feature-level behavior and invariants belong in the corresponding file under `docs/features/`; this page explains where responsibilities live.
 
@@ -43,7 +43,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Shared backend HTTP responses | `bot/src/shared/responses.js` | Common CORS response wrapper and safe JSON response normalization, including stable HTTP error codes |
 | Telegram award sticker delivery | `bot/src/features/territory-awards/sticker-delivery.js` | Telegram sticker file lookup, preview selection, path/format/size validation, TGS decompression and safe response headers; injected Worker infrastructure keeps this service independent of the router |
 | Territory award management | `bot/src/features/territory-awards/award-management.js` | Main-inspector award catalog, Telegram pack import/removal, metadata snapshot grants, manager notifications and issued-award deletion; authorization and D1 bootstrap are injected by the Worker |
-| D1 diagnostics service | `bot/src/features/admin-tools/d1-diagnostics.js` | Main-inspector-only, read-only database inventory, orphan/FK checks and data-volume report; receives auth and JSON helpers from the Worker and never initializes schema |
+| D1 diagnostics service | `bot/src/features/diagnostics/d1-diagnostics.js` | Main-inspector-only, read-only database inventory, orphan/FK checks and data-volume report; receives auth and JSON helpers from the Worker and never initializes schema |
 | Admin site content service | `bot/src/features/admin-tools/site-content.js` | FAQ and home feature button defaults, normalization, role-aware reads and authenticated writes using existing `app_settings` table helpers |
 | Admin global settings service | `bot/src/features/admin-tools/global-settings.js` | Main-inspector-only theme/map-zoom override reads, writes, clearing and theme-access rules; Worker retains DDL/cache and the shared personal-settings reader |
 | Lazy database initialization | `bot/src/db/initialization.js` | Owns cached world, recruitment, `app_settings`, event, user-preference and global-settings initialization plus intentionally repeatable manager-change, approval-session and user-directory setup |

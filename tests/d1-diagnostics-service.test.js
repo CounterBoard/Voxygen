@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { getD1Diagnostics, sqlIdentifier } from "../bot/src/features/admin-tools/d1-diagnostics.js";
+import { getD1Diagnostics, sqlIdentifier } from "../bot/src/features/diagnostics/d1-diagnostics.js";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -91,7 +91,7 @@ test("D1 diagnostics returns a read-only inventory and issues only SELECT/PRAGMA
 
 test("the diagnostics service stays read-only and never invokes schema bootstrap", () => {
   const source = readFileSync(
-    new URL("../bot/src/features/admin-tools/d1-diagnostics.js", import.meta.url),
+    new URL("../bot/src/features/diagnostics/d1-diagnostics.js", import.meta.url),
     "utf8",
   );
   assert.match(source, /deliberately avoids ensureWorldTables/);
