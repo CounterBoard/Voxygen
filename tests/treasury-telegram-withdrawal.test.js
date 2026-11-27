@@ -124,3 +124,20 @@ test("a matching withdrawal command with an invalid Telegram update ID is ignore
   assert.equal(h.calls.transfers.length, 0);
   assert.equal(h.calls.sql.length, 0);
 });
+
+ 
+test("territory withdrawal lookup normalizes Unicode spaces, invisible characters and Minecraft formatting", async () => {
+  const h = createHarness({
+    territories: [{ id: "city-2", name: "North Harbor" }],
+    manager: true,
+  });
+  const result = await h.handler(
+    h.env,
+    { update_id: 326 },
+    message("§aNorth\u00a0Harbor\u200b§r -25"),
+  );
+
+  assert.deepEqual(result.body, { ok: true, handled: "gem_treasury_withdraw" });
+  assert.equal(h.calls.transfers.length, 1);
+  assert.equal(h.calls.transfers[0].targetId, "city-2");
+});
