@@ -11,7 +11,7 @@ function harness(overrides = {}) {
         bind(...values) { this.values = values; return this; },
         async first() {
           calls.sql.push({ method: "first", sql: this.sql, values: this.values });
-          if (this.sql.includes("FROM screenshots s JOIN territories t") && this.sql.includes("WHERE s.id")) {
+          if (this.sql.includes("FROM screenshots s") && this.sql.includes("WHERE s.id")) {
             return overrides.screenshot ?? {
               id: "shot-1", territory_id: "city-1", telegram_id: 44,
               status: "pending", file_id: "file-1", image_data: null,
