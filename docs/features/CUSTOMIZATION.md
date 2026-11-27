@@ -4,7 +4,7 @@
 **Updated:** 2026-11-27  
 **UI source:** `src/features/customization/CustomizationScreen.jsx`  
 **Shared palette:** `src/features/customization/VisualColorPicker.jsx`  
-**API source:** `bot/src/worker.js` composes `bot/src/features/customization/catalog-service.js`, `admin-service.js`, `achievements.js`, `purchase-service.js`, `city-appearance-service.js`, `image-service.js` and `visual-equipment-service.js`; Telegram discount and inventory handling live in their respective customization feature modules.
+**API source:** `bot/src/worker.js` composes `bot/src/features/customization/catalog-service.js`, `admin-service.js`, `achievements.js`, `purchase-service.js`, `city-appearance-service.js`, `image-service.js`, `visual-equipment-service.js` and the shared `category-maintenance.js` helper; Telegram discount and inventory handling live in their respective customization feature modules.
 
 ## Purpose
 
@@ -18,9 +18,10 @@ The customization screen displays the visual catalog and inventory, allows users
 - `bot/src/features/customization/telegram-discounts.js` owns Telegram banker discount parsing, active visual selection, atomic application, expiry and duplicate-update protection. Worker injects shared normalization, visual-tag matching, DB initialization, Telegram and response helpers.
 - `bot/src/features/customization/telegram-inventory.js` owns main-inspector Telegram commands for granting/removing visuals from personal and territory inventories. It receives DB initialization, identity lookup, formatting, equipment reconciliation and marker initialization from `visual-equipment-service.js` through Worker composition, plus achievement checks and Telegram delivery; `worker.js` retains the shared text normalizer and webhook composition.
 - `bot/src/features/customization/achievements.js` owns achievement requirement parsing/validation, territory progress evaluation, automatic visual/award persistence and the main-inspector recheck endpoint. It receives score calculation, marker setup from `visual-equipment-service.js` through Worker composition, notification, authorization, DB initialization and response helpers.
-- `bot/src/features/customization/admin-service.js` owns main-inspector visual creation/editing, visibility, soft deletion and visual/tag ordering. Tag normalization/upsert and government-marker synchronization live with these operations; category cleanup and achievement evaluation remain injected Worker dependencies, while equipment reconciliation is supplied by `visual-equipment-service.js`.
-- `bot/src/features/customization/catalog-service.js` owns authenticated full/lite catalog reads, account-scope resolution, role-based item visibility, active discount pricing and personal/territory inventory aggregation. Treasury manager lookup, role resolution, territory manager rows, marker setup from `visual-equipment-service.js`, category cleanup and discounted-price calculation are injected through Worker composition.
+- `bot/src/features/customization/admin-service.js` owns main-inspector visual creation/editing, visibility, soft deletion and visual/tag ordering. Tag normalization/upsert and government-marker synchronization live with these operations; category cleanup is supplied by `category-maintenance.js`, achievement evaluation remains an injected Worker dependency, and equipment reconciliation is supplied by `visual-equipment-service.js`.
+- `bot/src/features/customization/catalog-service.js` owns authenticated full/lite catalog reads, account-scope resolution, role-based item visibility, active discount pricing and personal/territory inventory aggregation. Treasury manager lookup, role resolution, territory manager rows, marker setup from `visual-equipment-service.js`, category cleanup from `category-maintenance.js` and discounted-price calculation are injected through Worker composition.
 - `bot/src/features/customization/visual-equipment-service.js` owns `visualHasTag`, `ensureFirstCityMarker`, `territoryCanUseVisual` and `reconcileTerritoryVisualEquipment`. It keeps the territory/government type and inventory-ownership rules in one place, selects a deterministic first marker, and restores an achievement marker when an equipped marker becomes unavailable. Worker composes the service for HTTP handlers, Telegram inventory, purchases, achievements and membership/ownership lifecycle handlers.
+- `bot/src/features/customization/category-maintenance.js` exports `cleanupCustomizationCategories`, the shared D1 maintenance helper used by world-schema initialization, catalog reads and admin writes. It removes tags that no active visual references by comma-separated category tag or `category_id`, then compacts the remaining `sort_order` values while preserving the database-defined order.
 - `bot/src/features/customization/image-service.js` owns the image response handler for `GET /api/customization/items/:id/image`. It reads stored `data:image/...;base64,...` content, returns decoded bytes with the original image MIME type, bounded cache headers, `nosniff`, timing metadata and CORS. It deliberately does not hide an image only because a visual is inactive or hidden from the catalogue: a territory may still be using an already-selected item.
 - `bot/src/features/customization/city-appearance-service.js` owns the authenticated `GET` and `POST /api/customization/city` handlers. It assembles territory marker/banner data and available marker inventory, and validates manager changes to markers, banner colors and gradients. Authorization, D1 initialization, the shared `visualHasTag` helper, manager rows and JSON responses are injected from Worker.
 - `bot/src/features/customization/purchase-service.js` owns the authenticated visual purchase endpoint, discounted purchase-price snapshot, personal/territory debit, inventory grant, `gem_spend_log` write, banker/manager receipts and post-purchase marker/achievement checks. The marker initializer is supplied by `visual-equipment-service.js` through Worker composition; the API route and `ctx.waitUntil` contract remain in Worker.
@@ -28,7 +29,7 @@ The customization screen displays the visual catalog and inventory, allows users
 
 ## API and event contracts
 
-The catalog read is implemented by `bot/src/features/customization/catalog-service.js`; Worker preserves the route and injects authorization, treasury scope, role, cleanup and pricing dependencies.
+The catalog read is implemented by `bot/src/features/customization/catalog-service.js`; Worker preserves the route and injects authorization, treasury scope, role, category maintenance and pricing dependencies.
 
 The module retains the existing API operations:
 - `GET /api/customization?account=...` for the full inventory/catalog view;
@@ -50,6 +51,13 @@ The module retains the existing API operations:
 - Valid content is decoded to bytes and returned with its stored MIME type, `X-Content-Type-Options: nosniff`, a five-minute public cache and `Server-Timing`.
 - Missing items/images return 404, unsupported data-URI formats return 415, and unexpected D1/decoding failures return a generic 500 response. Failure responses use `Cache-Control: no-store` and expose only a bounded diagnostic code in Worker logs.
 - The query intentionally does not filter by `active` or catalogue visibility. Those settings govern whether a visual appears in the catalogue, not whether an already-equipped territory marker or banner can load its image.
+
+## Category maintenance
+
+- `cleanupCustomizationCategories(env)` reads the category rows and checks each against active customization visuals.
+- A category remains when an active visual references its normalized comma-separated `categories_text` tag or its `category_id`. References from inactive visuals do not keep a tag alive.
+- Unused categories are deleted. The remaining categories are then ordered by `sort_order`, `created_at` and name and assigned compact zero-based `sort_order` values in that same order.
+- The helper is shared by world-schema initialization, catalog reads and admin writes. Database errors are allowed to propagate to the existing caller rather than being silently treated as a successful cleanup.
 
 ## Territory appearance API
 

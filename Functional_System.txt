@@ -3226,6 +3226,7 @@ applyBankBalanceChange() и parseBankCommand().
 
 Текущая граница backend-модуля:
 - `bot/src/features/customization/visual-equipment-service.js` содержит `visualHasTag`, `ensureFirstCityMarker`, `territoryCanUseVisual` и `reconcileTerritoryVisualEquipment`.
+- `bot/src/features/customization/category-maintenance.js` содержит `cleanupCustomizationCategories`: удаляет категории, не используемые активными визуалами, и уплотняет их порядок. Worker передаёт этот helper в DB initialization, customization catalog и admin service.
 - `bot/src/worker.js` сохраняет композицию этих функций и передаёт их в каталог, покупку, достижения, административные операции, Telegram-инвентарь и обработчики изменения состава/владения территории.
 
 Правила экипировки:

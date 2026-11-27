@@ -34,7 +34,7 @@ This document is the entry point for understanding the repository. Feature-level
 
 | Area | Location | Responsibility |
 | --- | --- | --- |
-| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, remaining business handlers, authorization wiring and scheduled tasks; composes shared, auth, DB, Telegram and feature modules including treasury operations, customization catalog/admin/purchase/city appearance/image delivery/visual equipment, territory-award placement, banking and achievement services, and copyable nickname formatting |
+| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, remaining business handlers, authorization wiring and scheduled tasks; composes shared, auth, DB, Telegram and feature modules including treasury operations, customization catalog/admin/purchase/city appearance/category maintenance/image delivery/visual equipment, territory-award placement, banking and achievement services, and copyable nickname formatting |
 | Telegram Web App authentication | `bot/src/auth/telegram.js` | Verifies initData HMAC and freshness, then extracts the signed Telegram user from request body, header or query string |
 | Telegram Bot API client | `bot/src/telegram/api.js` | Shared outbound Telegram Bot API POST client; obtains the configured bot token and returns the raw Response plus parsed JSON payload |
 | Telegram webhook dispatcher | `bot/src/telegram/webhook.js` | Validates the Telegram webhook secret, enforces account-deletion locks, syncs incoming Telegram identities and dispatches callback queries and messages to injected business handlers |
@@ -51,6 +51,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Customization city appearance service | `bot/src/features/customization/city-appearance-service.js` | Reads territory appearance data and validates/persists manager-selected marker, banner color and gradient; Worker retains the HTTP routes |
 | Customization visual equipment service | `bot/src/features/customization/visual-equipment-service.js` | Matches visual tags, initializes a territory's first valid marker, validates equipped-visual eligibility and reconciles stale equipment after membership/inventory changes; composed by Worker for feature handlers |
 | Customization image service | `bot/src/features/customization/image-service.js` | Reads stored visual image data, validates image data URIs, decodes bytes and returns CORS/cache/content-security headers; Worker retains the image route |
+| Customization category maintenance | `bot/src/features/customization/category-maintenance.js` | Removes category tags unused by active visuals and compacts remaining category order; shared by Worker DB initialization, customization admin and catalog services |
 | Telegram formatting helpers | `bot/src/telegram/formatting.js` | Escapes Telegram HTML and renders Minecraft nicknames as copyable inline code |
 | Purchase notifications | `bot/src/worker.js` | Sends every completed visual purchase notification to the configured banker (`BANKER_TELEGRAM_ID`); territory-funded purchases additionally notify opted-in founders/mayors |
 | Authorization and role checks | `bot/src/auth/permissions.js` | Resolves user/inspector roles and checks authenticated, verified-user, main-inspector and territory-manager permissions using injected runtime dependencies |
@@ -63,7 +64,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Admin site content service | `bot/src/features/admin-tools/site-content.js` | FAQ and home feature button defaults, normalization, role-aware reads and authenticated writes using existing `app_settings` table helpers |
 | Admin global settings service | `bot/src/features/admin-tools/global-settings.js` | Main-inspector-only theme/map-zoom override reads, writes, clearing and theme-access rules; Worker retains DDL/cache and the shared personal-settings reader |
 | Lazy database initialization | `bot/src/db/initialization.js` | Owns cached world, recruitment, `app_settings`, event, user-preference and global-settings initialization plus intentionally repeatable manager-change, approval-session and user-directory setup |
-| Versioned world schema migration | `bot/src/db/migrations/world-schema.js` | World database schema migration `2026-11-v41`; owns table/column/index/trigger DDL and calls manager-change and user-directory helpers provided by DB initialization plus the injected customization cleanup step |
+| Versioned world schema migration | `bot/src/db/migrations/world-schema.js` | World database schema migration `2026-11-v41`; owns table/column/index/trigger DDL and calls manager-change and user-directory helpers provided by DB initialization plus the injected `category-maintenance.js` cleanup helper |
 | Database schema | `bot/schema.sql` | D1 tables and indexes |
 | Worker configuration | `bot/wrangler.toml` | Cloudflare deployment configuration |
 | Shared world geometry | `shared/world-map-coordinates.js` | Canonical world coordinate bounds and coordinate conversion |
