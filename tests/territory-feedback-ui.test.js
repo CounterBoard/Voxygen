@@ -15,8 +15,8 @@ test('territory detail delegates rating and reviews to the dedicated feedback mo
 });
 
 test('feedback panel imports the shared API base after being extracted from App', () => {
-  assert.match(panel, /import \\{ API_BASE \\} from '\\.\\.\\/\\.\\.\\/config\\/api\\.js'/);
-  assert.match(panel, /fetch\\(\\`\\$\\{API_BASE\\}\\/api\\/ratings/);
+  assert.ok(panel.includes("import { API_BASE } from '../../config/api.js'"));
+  assert.ok(panel.includes("fetch(`${API_BASE}/api/ratings"));
 });
 
 test('ratings keep their criteria, retry-at handling, authenticated payload and cooldown', () => {
