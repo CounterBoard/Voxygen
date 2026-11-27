@@ -26,7 +26,6 @@ export function createVisualInventoryHandler({
   ensureWorldTables,
   ensureUserDirectoryTable,
   normalizeVisualCommandText,
-  stripMinecraftFormatting,
   reconcileTerritoryVisualEquipment,
   evaluateAchievementsForTerritory,
   ensureFirstCityMarker,
@@ -69,7 +68,7 @@ export function createVisualInventoryHandler({
       await ensureWorldTables(env);
       const rows = await env.DB.prepare(`SELECT id,name,active FROM customization_items ORDER BY length(name) DESC,created_at ASC`).all();
       const items = rows.results || [];
-      const parsed = parseVisualInventoryCandidates(text, items);
+      const parsed = parseVisualInventoryCandidates(text, items, normalizeVisualCommandText);
       if (!parsed.length) return null;
       // Longest exact visual name wins; this prevents a shorter visual suffix from
       // capturing commands intended for a longer item name.

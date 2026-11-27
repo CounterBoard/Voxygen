@@ -4580,7 +4580,6 @@ const handleVisualInventoryCommand = createVisualInventoryHandler({
   ensureWorldTables,
   ensureUserDirectoryTable,
   normalizeVisualCommandText,
-  stripMinecraftFormatting,
   reconcileTerritoryVisualEquipment,
   evaluateAchievementsForTerritory,
   ensureFirstCityMarker,
