@@ -46,7 +46,7 @@ export function createGemWithdrawalHandler({
   const territorial = command.territory ? [null, command.territory] : null;
   const amount = command.amount;
   if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1_000_000_000) {
-    await telegram(env,'sendMessage',{chat_id:message.chat.id,text:'Укажите положительное целое количество самоцветов (не более 1 000 000 000).',reply_to_message_id:message.message_id});
+    await telegram(env,'sendMessage',{chat_id:message.chat.id,text:'Укажите положительное целое количество самоцветов',reply_to_message_id:message.message_id});
     return json({ok:true,handled:'gem_withdraw_invalid_amount'});
   }
   const uid=Number(message.from?.id||0), updateId=Number(update.update_id);
@@ -56,9 +56,20 @@ export function createGemWithdrawalHandler({
   await env.DB.prepare(`INSERT OR IGNORE INTO user_currency(telegram_id,balance) SELECT ?,0 WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(uid,uid).run();
   let targetType='personal',targetId=String(uid),territory=null;
   if(territorial){
-    const requested=stripMinecraftFormatting(territorial[1]).trim().replace(/\s+/g,' ').toLocaleLowerCase('ru-RU');
+    const normalizeTerritoryName = value => stripMinecraftFormatting(String(value ?? ''))
+      .normalize('NFKC')
+      .replace(/\u00a0/g, ' ')
+      .replace(/<\/?(?:b|strong|i|em|u|s|code|pre)>/gi, '')
+      .replace(/&x(?:&[0-9a-fA-F]){6}/gi, '')
+      .replace(/&(?:#[0-9a-fA-F]{6}|[0-9a-fK-OrR])/gi, '')
+      .replace(/(^|\s)(\*\*|__|~~|\x60)(.+?)\2(?=\s|$)/g, '$1$3')
+      .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLocaleLowerCase('ru-RU');
+    const requested=normalizeTerritoryName(territorial[1]);
     const rows=await env.DB.prepare(`SELECT id,name FROM territories WHERE status='approved'`).all();
-    const matches=(rows.results||[]).filter(row=>stripMinecraftFormatting(String(row.name||'')).trim().replace(/\s+/g,' ').toLocaleLowerCase('ru-RU')===requested);
+    const matches=(rows.results||[]).filter(row=>normalizeTerritoryName(row.name)===requested);
     if(matches.length!==1){
       await telegram(env,'sendMessage',{chat_id:message.chat.id,text:matches.length?'Название территории неоднозначно. Уточните его.':'Территория не найдена.',reply_to_message_id:message.message_id});
       return json({ok:true,handled:'gem_withdraw_territory_not_found'});

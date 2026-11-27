@@ -15,6 +15,7 @@ import { json, withCors } from './shared/responses.js';
 import { verifyInitData, getCurrentUser } from './auth/telegram.js';
 import { createPermissions } from './auth/permissions.js';
 import { TELEGRAM_API, telegram } from './telegram/api.js';
+import { formatTelegramNickname } from './telegram/formatting.js';
 import { createTelegramWebhookHandler } from './telegram/webhook.js';
 import { createEventsService } from './features/events/service.js';
 import { createTreasuryService } from './features/treasury/service.js';
@@ -235,7 +236,7 @@ async function notifyMainInspectorOfPurchase(env, details) {
   const text = [
     '🛍 <b>Новая покупка в Voxygen</b>',
     '',
-    `👤 Покупатель: <b>${escapeHtml(buyerName)}</b>`,
+    `👤 Покупатель: ${formatTelegramNickname(buyerName)}`,
     `📨 ${escapeHtml(buyerContact)}`,
     `🎨 Визуал: <b>${escapeHtml(details?.itemName || 'Без названия')}</b>`,
     `💎 Стоимость: <b>${Number(details?.price || 0)} сц</b>`,
@@ -1707,7 +1708,7 @@ async function removeResident(request, env) {
   const residentName = String(target?.mc_nickname || target?.telegram_username || `id${targetId}`);
   // Notify current founders/mayors immediately after the membership is removed.
   // Optional follow-up maintenance must not prevent this important notice.
-  await notifyTerritoryManagersDirect(env,territoryId,`🚪 <b>Изменение состава жителей</b>\n\n🏙 ${escapeHtml(territoryName)}\n👤 ${escapeHtml(residentName)} больше не является жителем территории.`).catch(error=>console.error('Resident removal manager notification failed:',territoryId,error));
+  await notifyTerritoryManagersDirect(env,territoryId,`🚪 <b>Изменение состава жителей</b>\n\n🏙 ${escapeHtml(territoryName)}\n👤 ${formatTelegramNickname(residentName)} больше не является жителем территории.`).catch(error=>console.error('Resident removal manager notification failed:',territoryId,error));
   await hideRecruitmentIfContactLost(env,territoryId,targetId).catch(error=>console.error('Recruitment cleanup after resident removal:',territoryId,error));
   await reconcileTerritoryVisualEquipment(env,territoryId).catch(error=>console.error('Equipment reconciliation after resident removal:',error));
   try{await telegram(env,'sendMessage',{chat_id:targetId,text:`🚪 Вы исключены из территории\n\n🏙 ${escapeHtml(territoryName)}`,parse_mode:'HTML'})}catch(error){console.error('Resident removal notice failed:',territoryId,targetId,error)}
@@ -1741,7 +1742,7 @@ async function leaveTerritory(request, env) {
   const deleted = await env.DB.prepare(`DELETE FROM city_memberships WHERE territory_id=? AND telegram_id=?`).bind(territoryId, userId).run();
   if (!deleted.meta?.changes) return json({ ok: false, error: 'Вы не состоите в этой территории' }, 404);
   const residentName = String(departingUser?.mc_nickname || departingUser?.telegram_username || `id${userId}`);
-  await notifyTerritoryManagersDirect(env,territoryId,`🚪 <b>Изменение состава жителей</b>\n\n🏙 ${escapeHtml(territory.name || 'Территория')}\n👤 ${escapeHtml(residentName)} больше не является жителем территории.`).catch(error=>console.error('Resident leave manager notification failed:',territoryId,error));
+  await notifyTerritoryManagersDirect(env,territoryId,`🚪 <b>Изменение состава жителей</b>\n\n🏙 ${escapeHtml(territory.name || 'Территория')}\n👤 ${formatTelegramNickname(residentName)} больше не является жителем территории.`).catch(error=>console.error('Resident leave manager notification failed:',territoryId,error));
   await hideRecruitmentIfContactLost(env, territoryId, userId).catch(error => console.error('Recruitment cleanup after resident leave:', territoryId, error));
   await reconcileTerritoryVisualEquipment(env, territoryId).catch(error => console.error('Equipment reconciliation after resident leave:', error));
   await evaluateAchievementsForTerritory(env, territoryId).catch(error => console.error('Achievement evaluation after resident leave:', error));
@@ -1769,7 +1770,7 @@ async function promoteResident(request, env) {
   const pending=await env.DB.prepare(`SELECT id FROM manager_change_requests WHERE territory_id=? AND target_telegram_id=? AND action='promote' AND status IN ('pending','finalizing') AND expires_at>? LIMIT 1`).bind(territoryId,targetId,Date.now()).first(); if(pending)return json({ok:false,error:'Запрос уже находится на голосовании'},409);
   const id=crypto.randomUUID(),now=Date.now(),expires=now+24*60*60*1000,required=Math.floor(managers.length/2); try{await env.DB.prepare(`INSERT INTO manager_change_requests(id,territory_id,target_telegram_id,initiator_telegram_id,action,required_votes,voter_count,status,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(id,territoryId,targetId,Number(auth.user.id),'promote',required,voterCount,'pending',now,expires).run();}catch(error){if(/account deletion in progress|account_deletion_locks|deletion.?lock/i.test(String(error?.message||error)))return json({ok:false,error:'Один из аккаунтов находится в процессе удаления'},409);throw error;}
   const city=await env.DB.prepare('SELECT name FROM territories WHERE id=?').bind(territoryId).first(); const target=await env.DB.prepare('SELECT mc_nickname FROM users WHERE telegram_id=?').bind(targetId).first();
-  await notifyTerritoryManagers(env,territoryId,`👑 <b>Голосование за нового основателя/мэра</b>\n\n🏙 <b>${escapeHtml(city?.name||'Город')}</b>\n👤 Кандидат: <b>${escapeHtml(target?.mc_nickname||`id${targetId}`)}</b>\n\nИнициатор: <b>${escapeHtml(auth.user.username?`@${normalizeUsername(auth.user.username)}`:`id${auth.user.id}`)}</b>\n\nОдобрить повышение?`,auth.user.id,{reply_markup:{inline_keyboard:[[{text:'✅ Одобрить',callback_data:`manager_vote:yes:${id}`},{text:'❌ Отклонить',callback_data:`manager_vote:no:${id}`}]]}});
+  await notifyTerritoryManagers(env,territoryId,`👑 <b>Голосование за нового основателя/мэра</b>\n\n🏙 <b>${escapeHtml(city?.name||'Город')}</b>\n👤 Кандидат: ${formatTelegramNickname(target?.mc_nickname||`id${targetId}`)}\n\nИнициатор: ${formatTelegramNickname(auth.user.username?normalizeUsername(auth.user.username):`id${auth.user.id}`)}\n\nОдобрить повышение?`,auth.user.id,{reply_markup:{inline_keyboard:[[{text:'✅ Одобрить',callback_data:`manager_vote:yes:${id}`},{text:'❌ Отклонить',callback_data:`manager_vote:no:${id}`}]]}});
   try{await telegram(env,'sendMessage',{chat_id:targetId,text:`⏳ Вам предложено стать основателем/мэром города «${escapeHtml(city?.name||'Город')}». Решение будет принято после голосования действующих основателей/мэров.`,parse_mode:'HTML'})}catch{}
   return json({ok:true,pending:true});
 }
@@ -1790,7 +1791,7 @@ async function demoteManager(request, env) {
   const target=await env.DB.prepare('SELECT mc_nickname FROM users WHERE telegram_id=?').bind(targetId).first();
   const initiator=await env.DB.prepare('SELECT mc_nickname,telegram_username FROM users WHERE telegram_id=?').bind(Number(auth.user.id)).first();
   const initiatorName=String(initiator?.mc_nickname||'').trim() || String(initiator?.telegram_username||'').replace(/^@+/,'').trim() || `id${auth.user.id}`;
-  await notifyTerritoryManagers(env,territoryId,`⚖️ <b>Голосование за понижение основателя/мэра</b>\n\n🏙 <b>${escapeHtml(territory.name)}</b>\n👤 Кандидат на понижение: <b>${escapeHtml(target?.mc_nickname||`id${targetId}`)}</b>\n\nИнициатор: <b>${escapeHtml(initiatorName)}</b>\n\nОдобрить понижение?`,auth.user.id,{reply_markup:{inline_keyboard:[[{text:'✅ Одобрить',callback_data:`manager_vote:yes:${id}`},{text:'❌ Отклонить',callback_data:`manager_vote:no:${id}`}]]}});
+  await notifyTerritoryManagers(env,territoryId,`⚖️ <b>Голосование за понижение основателя/мэра</b>\n\n🏙 <b>${escapeHtml(territory.name)}</b>\n👤 Кандидат на понижение: ${formatTelegramNickname(target?.mc_nickname||`id${targetId}`)}\n\nИнициатор: ${formatTelegramNickname(initiatorName)}\n\nОдобрить понижение?`,auth.user.id,{reply_markup:{inline_keyboard:[[{text:'✅ Одобрить',callback_data:`manager_vote:yes:${id}`},{text:'❌ Отклонить',callback_data:`manager_vote:no:${id}`}]]}});
   try{await telegram(env,'sendMessage',{chat_id:targetId,text:`⏳ В отношении вас запущено голосование о понижении в городе «${escapeHtml(territory.name)}».`,parse_mode:'HTML'})}catch{}
   return json({ok:true,pending:true});
 }
@@ -1967,7 +1968,7 @@ async function finalizeManagerChangeRequest(env,requestId) {
   const target=await env.DB.prepare(`SELECT mc_nickname FROM users WHERE telegram_id=?`).bind(Number(claimedReq.target_telegram_id)).first();
   const city=await env.DB.prepare(`SELECT name FROM territories WHERE id=?`).bind(claimedReq.territory_id).first();
   const resultText=status==='approved'?'✅ Решение одобрено':'❌ Решение отклонено';
-  try{await telegram(env,'sendMessage',{chat_id:Number(claimedReq.initiator_telegram_id),text:`${resultText}\n\n🏙 ${escapeHtml(city?.name||'Город')}\n👤 ${escapeHtml(target?.mc_nickname||`id${claimedReq.target_telegram_id}`)}`,parse_mode:'HTML'})}catch{}
+  try{await telegram(env,'sendMessage',{chat_id:Number(claimedReq.initiator_telegram_id),text:`${resultText}\n\n🏙 ${escapeHtml(city?.name||'Город')}\n👤 ${formatTelegramNickname(target?.mc_nickname||`id${claimedReq.target_telegram_id}`)}`,parse_mode:'HTML'})}catch{}
   return {status,yes,total};
 }
 
@@ -3582,7 +3583,7 @@ async function addComment(request, env) {
   if (Number(insertResult.meta?.changes || 0) === 0) {
     return json({ok:false,error:'Максимальное кол-во отзывов на странице территории для Вас – 5'},429);
   }
-  await notifyTerritoryManagers(env,territoryId,`💬 Новый комментарий\n\n🏙 ${escapeHtml(territory.name)}\n👤 ${escapeHtml(username)}\n\n💬 ${escapeHtml(text)}`,auth.user.id);
+  await notifyTerritoryManagers(env,territoryId,`💬 Новый комментарий\n\n🏙 ${escapeHtml(territory.name)}\n👤 ${formatTelegramNickname(authorNickname||username)}\n\n💬 ${escapeHtml(text)}`,auth.user.id);
   await evaluateAchievementsForTerritory(env, territoryId).catch(error=>console.error('Achievement evaluation after comment:',error));
   return json({ok:true,comment:{id:commentId,telegram_id:Number(auth.user.id),telegram_username:username,text,role,created_at:Date.now()}});
 }
@@ -4551,12 +4552,12 @@ async function handleVisualInventoryCommand(env, message, rawText) {
     `).bind(Number(target.id),Number(target.id),Number(target.id),Number(target.id)).all();
     const changed=await env.DB.prepare(`DELETE FROM user_items WHERE telegram_id=? AND item_id=?`).bind(Number(target.id),item.id).run();
     for(const row of affected.results||[])await reconcileTerritoryVisualEquipment(env,row.territory_id).catch(error=>console.error('Equipment reconciliation after personal visual removal:',error));
-    await telegram(env,'sendMessage',{chat_id:Number(message.chat.id),text:`${changed.meta?.changes?'✅':'ℹ️'} Визуал «${dbName}» ${changed.meta?.changes?'отнят':'не найден в личном инвентаре'} у пользователя «${target.name}».`});
+    await telegram(env,'sendMessage',{chat_id:Number(message.chat.id),text:`${changed.meta?.changes?'✅':'ℹ️'} Визуал «${escapeHtml(dbName)}» ${changed.meta?.changes?'отнят':'не найден в личном инвентаре'} у пользователя ${formatTelegramNickname(target.name)}.`,parse_mode:'HTML'});
     return json({ok:true,handled:'visual_inventory_removed',target:'user'});
   }
   const inserted=await env.DB.prepare(`INSERT OR IGNORE INTO user_items(telegram_id,item_id,acquired_at,source) SELECT ?,?,?, 'main_inspector' WHERE NOT EXISTS(SELECT 1 FROM account_deletion_locks WHERE telegram_id=?)`).bind(Number(target.id),item.id,now,Number(target.id)).run();
   const inventoryMessage=inserted.meta?.changes?'выдан':(await env.DB.prepare(`SELECT 1 FROM account_deletion_locks WHERE telegram_id=?`).bind(Number(target.id)).first())?'не выдан: аккаунт находится в процессе удаления':'уже есть';
-  await telegram(env,'sendMessage',{chat_id:Number(message.chat.id),text:`${inserted.meta?.changes?'✅':'ℹ️'} Визуал «${dbName}» ${inventoryMessage} пользователю «${target.name}».`});
+  await telegram(env,'sendMessage',{chat_id:Number(message.chat.id),text:`${inserted.meta?.changes?'✅':'ℹ️'} Визуал «${escapeHtml(dbName)}» ${inventoryMessage} пользователю ${formatTelegramNickname(target.name)}.`,parse_mode:'HTML'});
   return json({ok:true,handled:'visual_inventory_granted',target:'user'});
 }
 
@@ -4754,7 +4755,7 @@ async function handleBankMessage(env, update, message) {
     // balance changes and the final ledger status are committed together below.
     if (String(existing?.status||'') !== 'processing') return json({ ok: true, handled: 'bank_duplicate' });
   }
-  const reply = async text => { try { await telegram(env,'sendMessage',{chat_id:chatId,text,reply_to_message_id:messageId}); } catch (error) { console.error('Bank receipt reply failed:',error); } };
+  const reply = async text => { try { await telegram(env,'sendMessage',{chat_id:chatId,text,parse_mode:'HTML',reply_to_message_id:messageId}); } catch (error) { console.error('Bank receipt reply failed:',error); } };
   try {
     // Resolve territory commands in both directions before trying to resolve a player.
     // Minecraft formatting codes are normalized by resolveBankTerritoryTarget.
@@ -4778,7 +4779,7 @@ async function handleBankMessage(env, update, message) {
         return json({ok:true,handled:'bank_duplicate'});
       }
       if (transfer.status !== 'success') {
-        await reply(`🏦 Операция не выполнена: в казне территории «${stripMinecraftFormatting(city.name)}» недостаточно средств.`);
+        await reply(`🏦 Операция не выполнена: в казне территории «${escapeHtml(stripMinecraftFormatting(city.name))}» недостаточно средств.`);
         return json({ ok: true, handled: 'bank_treasury_insufficient_funds' });
       }
       const balanceAfter = transfer.balanceAfter;
@@ -4815,7 +4816,8 @@ async function handleBankMessage(env, update, message) {
     }
     const balance = {balance:transfer.balanceAfter};
     const verb = command.direction === 'debit' ? 'списано' : 'зачислено';
-    await reply(`🏦 Готово: ${verb} ${command.amount} сц. Игрок: ${command.target}. Баланс: ${Number(balance?.balance || 0)} сц.`);
+    const bankTargetProfile=await env.DB.prepare(`SELECT mc_nickname FROM users WHERE telegram_id=? LIMIT 1`).bind(targetId).first();
+    await reply(`🏦 Готово: ${verb} ${command.amount} сц. Игрок: ${formatTelegramNickname(bankTargetProfile?.mc_nickname||command.target)}. Баланс: ${Number(balance?.balance || 0)} сц.`);
     try {
       // Keep the established notification sent to the recipient. The `(88)` sentence
       // is a banker command syntax, not the text to deliver to the user.

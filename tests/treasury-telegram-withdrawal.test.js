@@ -112,6 +112,7 @@ test("invalid withdrawal amounts are rejected before database access", async () 
     const h = createHarness();
     const result = await h.handler(h.env, { update_id: 325 }, message(command));
     assert.deepEqual(result.body, { ok: true, handled: "gem_withdraw_invalid_amount" });
+    assert.equal(h.calls.telegram[0].payload.text, "Укажите положительное целое количество самоцветов");
     assert.equal(h.calls.sql.length, 0);
     assert.equal(h.calls.transfers.length, 0);
   }
@@ -123,4 +124,21 @@ test("a matching withdrawal command with an invalid Telegram update ID is ignore
   assert.deepEqual(result.body, { ok: true, ignored: true });
   assert.equal(h.calls.transfers.length, 0);
   assert.equal(h.calls.sql.length, 0);
+});
+
+ 
+test("territory withdrawal lookup normalizes Unicode spaces, invisible characters and Minecraft formatting", async () => {
+  const h = createHarness({
+    territories: [{ id: "city-2", name: "North Harbor" }],
+    manager: true,
+  });
+  const result = await h.handler(
+    h.env,
+    { update_id: 326 },
+    message("§aNorth\u00a0Harbor\u200b§r -25"),
+  );
+
+  assert.deepEqual(result.body, { ok: true, handled: "gem_treasury_withdraw" });
+  assert.equal(h.calls.transfers.length, 1);
+  assert.equal(h.calls.transfers[0].targetId, "city-2");
 });
