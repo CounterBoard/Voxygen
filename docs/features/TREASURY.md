@@ -15,7 +15,7 @@
 
 Personal withdrawals accept a negative amount command, for example `-25` or `- 25`. Territory treasury withdrawals accept either `North City -25` or `-25 North City`. The parser also accepts the Unicode minus sign.
 
-A withdrawal must be a safe positive integer and may not exceed 1,000,000,000 gems. Territory names are resolved against approved territories after Unicode normalization, Minecraft formatting removal, HTML/Markdown wrapper cleanup, invisible-character removal and whitespace/case normalization. A territory withdrawal is permitted only for its founder or manager. The user-facing invalid-amount prompt intentionally does not expose the internal upper bound.
+A withdrawal must be a safe positive integer and may not exceed 1,000,000,000 gems. Territory names are resolved against approved territories after Unicode normalization, Minecraft formatting removal, HTML/Markdown wrapper cleanup, invisible-character removal and whitespace/case normalization. If a target-first negative command does not match an approved territory, the withdrawal handler returns control to the webhook so a banker command for a player nickname (for example, `CounterBoard-1`) can be resolved by the bank handler. A matching territory withdrawal is permitted only for its founder or manager. The user-facing invalid-amount prompt intentionally does not expose the internal upper bound.
 
 ## Banker commands and ledger invariants
 
@@ -41,4 +41,4 @@ A withdrawal must be a safe positive integer and may not exceed 1,000,000,000 ge
 
 ## Validation
 
-The relevant automated coverage is in `tests/security-and-bank.test.js`, `tests/financial-atomicity.test.js`, `tests/telegram-bank-handler.test.js`, `tests/treasury-service.test.js`, `tests/treasury-telegram-withdrawal.test.js`, `tests/treasury-notifications.test.js` and `tests/telegram-formatting.test.js`. Preserve these tests when changing command syntax, permission checks, transfer idempotency, lock predicates or notification behavior.
+The relevant automated coverage is in `tests/security-and-bank.test.js`, `tests/financial-atomicity.test.js`, `tests/telegram-bank-handler.test.js`, `tests/treasury-service.test.js`, `tests/treasury-telegram-withdrawal.test.js` and `tests/telegram-bank-handler.test.js`, `tests/treasury-notifications.test.js` and `tests/telegram-formatting.test.js`. Preserve these tests when changing command syntax, permission checks, transfer idempotency, lock predicates or notification behavior.

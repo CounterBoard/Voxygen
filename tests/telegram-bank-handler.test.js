@@ -112,6 +112,19 @@ test("personal bank transfer resolves one player, updates the ledger and notifie
   assert.match(h.calls.telegram[1].payload.text, /списано 40 сц/);
 });
 
+test("player nicknames ending in -1 resolve as bank targets after territory lookup misses", async () => {
+  for (const command of ["CounterBoard-1", "CounterBoard -1"]) {
+    const h = createHarness({ userIds: [2002] });
+    const result = await h.handler(h.env, h.update, h.message(command));
+    assert.deepEqual(result.body, { ok: true, handled: "bank_success" }, command);
+    const insert = h.calls.sql.find(call => call.sql.includes("INSERT OR IGNORE INTO bank_transactions"));
+    assert.equal(insert.values[5], "CounterBoard", command);
+    assert.equal(insert.values[6], 1, command);
+    assert.equal(insert.values[7], "debit", command);
+    assert.equal(h.calls.telegram[1].payload.chat_id, 2002, command);
+  }
+});
+
 test("a completed bank update is not applied or notified twice", async () => {
   const h = createHarness({ insertChanges: 0, existingStatus: "success" });
   const result = await h.handler(h.env, h.update, h.message("Steve +20"));
