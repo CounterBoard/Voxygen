@@ -34,13 +34,14 @@ This document is the entry point for understanding the repository. Feature-level
 
 | Area | Location | Responsibility |
 | --- | --- | --- |
-| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, remaining business handlers, authorization wiring and scheduled tasks; composes shared, auth, DB, Telegram and feature modules including treasury operations, Telegram withdrawals and copyable nickname formatting |
+| Cloudflare Worker router/runtime | `bot/src/worker.js` | HTTP route dispatch, remaining business handlers, authorization wiring and scheduled tasks; composes shared, auth, DB, Telegram and feature modules including treasury operations, Telegram withdrawals, banker commands and copyable nickname formatting |
 | Telegram Web App authentication | `bot/src/auth/telegram.js` | Verifies initData HMAC and freshness, then extracts the signed Telegram user from request body, header or query string |
 | Telegram Bot API client | `bot/src/telegram/api.js` | Shared outbound Telegram Bot API POST client; obtains the configured bot token and returns the raw Response plus parsed JSON payload |
 | Telegram webhook dispatcher | `bot/src/telegram/webhook.js` | Validates the Telegram webhook secret, enforces account-deletion locks, syncs incoming Telegram identities and dispatches callback queries and messages to injected business handlers |
 | Event backend service | `bot/src/features/events/service.js` | Event creation/edit/deletion, reminder persistence and scheduled delivery, event validation, and expiry cleanup; dependencies on auth, D1 initialization, Telegram and formatting are injected by the Worker |
 | Treasury backend service | `bot/src/features/treasury/service.js` | Personal and territory treasury reads, deposits, donations and API withdrawals; shared financial-operation idempotency, D1 batch logic and treasury transaction notifications stay inside the service |
 | Telegram gem withdrawal handler | `bot/src/features/treasury/telegram-withdrawal.js` | Parses personal and territory treasury withdrawal commands, normalizes territory names, checks manager access and runs idempotent D1 transfers with banker/user notifications |
+| Telegram banker handler | `bot/src/features/treasury/telegram-bank.js` | Parses banker transfer commands, resolves player/territory targets, applies balance changes and atomically finalizes the `bank_transactions` ledger; visual-discount handling is injected from Worker and remains separate |
 | Telegram formatting helpers | `bot/src/telegram/formatting.js` | Escapes Telegram HTML and renders Minecraft nicknames as copyable inline code |
 | Purchase notifications | `bot/src/worker.js` | Sends every completed visual purchase notification to the configured banker (`BANKER_TELEGRAM_ID`); territory-funded purchases additionally notify opted-in founders/mayors |
 | Authorization and role checks | `bot/src/auth/permissions.js` | Resolves user/inspector roles and checks authenticated, verified-user, main-inspector and territory-manager permissions using injected runtime dependencies |
