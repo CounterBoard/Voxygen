@@ -1335,8 +1335,9 @@ async function deliverPendingInviteNotifications(env) {
   `).all();
   let delivered=0;
   for(const invite of rows.results||[]){
-    if(await sendResidentInviteOnce(env,invite,irver-Timing': `customization-image;dur=${Math.max(0, Date.now() - startedAt)}` } }));
+    if(await sendResidentInviteOnce(env,invite,invite.city_name))delivered++;
   }
+  return {scanned:(rows.results||[]).length,delivered};
 }
 
 async function getTerritories(request, env) {
