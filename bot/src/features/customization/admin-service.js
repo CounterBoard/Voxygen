@@ -105,7 +105,7 @@ export function createCustomizationAdminService({
           }
         } catch(error) { console.error('Achievement territory scan after item creation failed:',error); }
       }
-      return json({ok:true,item:{id,category_id:categoryIds[0],categories_text:categories.join(', '),name,price,image_data:imageData,color,sort_order:Number(maxRow?.max_order??-1)+1,achievement_enabled:achievement.enabled?1:0,government_marker:governmentMarker?1:0}});
+      return json({ok:true,item:{id:itemId,category_id:categoryIds[0],categories_text:categories.join(', '),name,price,image_data:imageData,color,sort_order:Number(maxRow?.max_order??-1)+1,achievement_enabled:achievement.enabled?1:0,government_marker:governmentMarker?1:0}});
     }catch(error){
       console.error('Create customization item error:',error);
       return json({ok:false,error:'Не удалось добавить визуал'},500);

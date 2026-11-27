@@ -7,7 +7,7 @@
 - Moved main-inspector visual catalog create/edit, visibility, soft deletion and visual/tag ordering handlers into `bot/src/features/customization/admin-service.js`.
 - Moved tag normalization, category upsert, marker-tag recognition and government-visual marker synchronization with their exclusive CRUD callers.
 - Added `createCustomizationAdminService` with injected authorization, D1 initialization, achievement validation/evaluation, category cleanup, equipment reconciliation, JSON response and ID-generation dependencies.
-- Preserved all existing HTTP routes, payload fields, validation errors, sort-order semantics, government marker rules, category cleanup, equipment reconciliation, achievement evaluation and soft-deletion batch order.
+- Preserved all existing HTTP routes, payload fields, validation errors, sort-order semantics, government marker rules, category cleanup, equipment reconciliation, achievement evaluation and soft-deletion batch order. The creation response now returns the generated `itemId` rather than an undefined local variable, fixing a latent 500 response after a successful insert.
 - Kept `cleanupCustomizationCategories`, purchase transactions, discount calculation and all money/ledger logic in their existing Worker/feature boundaries.
 - Added focused tests for authorization, create validation/persistence, government marker validation, update reconciliation, visibility, soft deletion and item/tag ordering.
 - Updated customization and architecture documentation.
