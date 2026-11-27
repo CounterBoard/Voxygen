@@ -42,6 +42,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Treasury backend service | `bot/src/features/treasury/service.js` | Personal and territory treasury reads, deposits, donations and API withdrawals; shared financial-operation idempotency, D1 batch logic and treasury transaction notifications stay inside the service |
 | Telegram gem withdrawal handler | `bot/src/features/treasury/telegram-withdrawal.js` | Parses personal and territory treasury withdrawal commands, normalizes territory names, checks manager access and runs idempotent D1 transfers with banker/user notifications |
 | Telegram formatting helpers | `bot/src/telegram/formatting.js` | Escapes Telegram HTML and renders Minecraft nicknames as copyable inline code |
+| Purchase notifications | `bot/src/worker.js` | Sends every completed visual purchase notification to the configured banker (`BANKER_TELEGRAM_ID`); territory-funded purchases additionally notify opted-in founders/mayors |
 | Authorization and role checks | `bot/src/auth/permissions.js` | Resolves user/inspector roles and checks authenticated, verified-user, main-inspector and territory-manager permissions using injected runtime dependencies |
 | Shared backend request validation | `bot/src/shared/validation.js` | Pure parsing of coordinate input formats; deliberately does not apply territory range, authorization or persistence rules |
 | Shared backend HTTP responses | `bot/src/shared/responses.js` | Common CORS response wrapper and safe JSON response normalization, including stable HTTP error codes |
