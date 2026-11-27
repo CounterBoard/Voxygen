@@ -82,7 +82,7 @@ export function createCustomizationAdminService({
     try{
       const categoryIds=await upsertTags(env,categories,Number(auth.user.id));
       const maxRow=await env.DB.prepare('SELECT COALESCE(MAX(sort_order),-1) AS max_order FROM customization_items WHERE active=1').first();
-      const itemId=crypto.randomUUID();
+      const itemId=createId();
       await env.DB.prepare(`
         INSERT INTO customization_items
         (id,category_id,name,price,image_data,active,created_by,created_at,categories_text,color,sort_order,
