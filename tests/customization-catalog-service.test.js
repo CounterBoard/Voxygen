@@ -149,7 +149,7 @@ test("full catalog applies role visibility and discounts, then assembles manager
   assert.deepEqual(body.items.map(item => item.id), ["visual-1"]);
   assert.equal(body.items[0].discount_percent, 20);
   assert.equal(body.items[0].discounted_price, 80);
-  assert.deepEqual(body.owned, selectedOwned);
+  assert.deepEqual(body.owned, [{ item_id: "visual-2", source: "purchase", acquired_at: 2 }]);
   assert.equal(body.myItems.length, 1);
   assert.equal(body.myItems[0].item_id, "visual-1");
   assert.equal(body.cityId, "city-1");
