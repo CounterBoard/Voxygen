@@ -6,9 +6,10 @@ const workerSource = readFileSync(new URL("../bot/src/worker.js", import.meta.ur
 const treasurySource = readFileSync(new URL("../bot/src/features/treasury/service.js", import.meta.url), "utf8");
 const telegramBankSource = readFileSync(new URL("../bot/src/features/treasury/telegram-bank.js", import.meta.url), "utf8");
 const customizationCatalogSource = readFileSync(new URL("../bot/src/features/customization/catalog-service.js", import.meta.url), "utf8");
+const customizationPurchaseSource = readFileSync(new URL("../bot/src/features/customization/purchase-service.js", import.meta.url), "utf8");
 function bodyOf(name) {
   const declaration = new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(`);
-  for (const currentSource of [workerSource, treasurySource, telegramBankSource, customizationCatalogSource]) {
+  for (const currentSource of [workerSource, treasurySource, telegramBankSource, customizationCatalogSource, customizationPurchaseSource]) {
     const match = declaration.exec(currentSource);
     if (!match) continue;
     const start = match.index;
