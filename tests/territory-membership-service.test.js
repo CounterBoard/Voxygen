@@ -147,8 +147,7 @@ test("accepting a resident invitation creates membership, seeds the marker and c
   assert.deepEqual(result, { body: { ok: true }, status: 200 });
   assert.ok(h.calls.runs.some(query => query.sql.includes("INSERT OR IGNORE INTO city_memberships")));
   assert.ok(h.calls.runs.some(query => query.sql.includes("SET status='accepted'")));
-  assert.deepEqual(h.calls.firstMarker, []);
-  assert.equal(h.calls.firstMarker.length, 0);
+  assert.deepEqual(h.calls.firstMarker, [[h.env, "city-1"]]);
   assert.equal(h.calls.telegram.filter(([, method]) => method === "answerCallbackQuery").length, 1);
   assert.equal(h.calls.telegram.filter(([, method]) => method === "editMessageReplyMarkup").length, 1);
   assert.deepEqual(h.calls.achievements, [[h.env, "city-1"]]);
@@ -165,7 +164,6 @@ test("removing a resident keeps the successful membership change even when optio
     },
     all: () => ({ results: [] }),
   });
-  h.calls.equipmentReconciliation.push = (...args) => Array.prototype.push.apply(h.calls.equipmentReconciliation, args);
 
   const result = await h.removeResident(h.request({ territoryId: "city-1", telegramId: 99 }), h.env);
 
