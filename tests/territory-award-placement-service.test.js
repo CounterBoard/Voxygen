@@ -27,6 +27,8 @@ function createHarness({
           const query = { sql: String(sql), values };
           calls.prepared.push(query);
           return {
+            sql: query.sql,
+            values: query.values,
             async first() {
               if (query.sql.includes("SELECT id,is_government FROM territories")) return territory;
               if (query.sql.includes("SELECT id,slot_index FROM territory_awards")) return award;
