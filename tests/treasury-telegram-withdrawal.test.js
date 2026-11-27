@@ -112,6 +112,7 @@ test("invalid withdrawal amounts are rejected before database access", async () 
     const h = createHarness();
     const result = await h.handler(h.env, { update_id: 325 }, message(command));
     assert.deepEqual(result.body, { ok: true, handled: "gem_withdraw_invalid_amount" });
+    assert.equal(h.calls.telegram[0].payload.text, "Укажите положительное целое количество самоцветов");
     assert.equal(h.calls.sql.length, 0);
     assert.equal(h.calls.transfers.length, 0);
   }
