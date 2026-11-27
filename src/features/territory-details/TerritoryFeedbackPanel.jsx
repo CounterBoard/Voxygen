@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { API_BASE } from '../../config/api.js';
 import { Check, MessageCircle, Pencil, Send, Trash2 } from 'lucide-react';
 
 const CRITERIA = [
