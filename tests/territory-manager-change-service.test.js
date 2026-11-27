@@ -148,6 +148,7 @@ test("demotion restores membership and performs recruitment and achievement foll
 
 test("demoting the owner atomically hands ownership to a verified manager", async () => {
   const h = createHarness({
+    territory: { id: "t-1", name: "Test City", owner_telegram_id: 42 },
     state: { manager: true, member: false, ownerId: 42 },
     nextOwner: { telegram_id: 7, telegram_username: "next", mc_nickname: "NextOwner" },
     nextOwnerManager: true,
