@@ -14,6 +14,7 @@ import { THEME_CATALOG, isSupportedTheme, normalizeThemeId as normalizeVoxygenTh
 import { json, withCors } from './shared/responses.js';
 import { verifyInitData, getCurrentUser } from './auth/telegram.js';
 import { createPermissions } from './auth/permissions.js';
+import { TELEGRAM_API, telegram } from './telegram/api.js';
 import { createDatabaseInitialization } from './db/initialization.js';
 import { parseRequestCoords, parseTwoCoordinates } from './shared/validation.js';
 import { getD1Diagnostics } from './features/admin-tools/d1-diagnostics.js';
@@ -50,7 +51,6 @@ export {
 };
 
 
-const TELEGRAM_API = "https://api.telegram.org";
 const {
   ensureWorldTables,
   ensureManagerChangeTables,
@@ -92,17 +92,6 @@ function formatTerritoryCoords(raw) {
   return value||'Координаты не указаны';
 }
 
-async function telegram(env, method, payload) {
-  const token = String(env.BOT_TOKEN || "").trim();
-  if (!token) throw new Error("BOT_TOKEN is not configured");
-  const response = await fetch(`${TELEGRAM_API}/bot${token}/${method}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = await response.json();
-  return { response, data };
-}
 
 function normalizeUsername(username) {
   const value = String(username || "").trim().replace(/^@+/, "");
