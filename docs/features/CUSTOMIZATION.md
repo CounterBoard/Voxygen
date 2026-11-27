@@ -4,7 +4,7 @@
 **Updated:** 2026-11-27  
 **UI source:** `src/features/customization/CustomizationScreen.jsx`  
 **Shared palette:** `src/features/customization/VisualColorPicker.jsx`  
-**API source:** `bot/src/worker.js` composes `bot/src/features/customization/catalog-service.js`, `admin-service.js`, `achievements.js`, `purchase-service.js` and `city-appearance-service.js`; Telegram discount and inventory handling live in their respective customization feature modules.
+**API source:** `bot/src/worker.js` composes `bot/src/features/customization/catalog-service.js`, `admin-service.js`, `achievements.js`, `purchase-service.js`, `city-appearance-service.js` and `visual-equipment-service.js`; Telegram discount and inventory handling live in their respective customization feature modules.
 
 ## Purpose
 
@@ -16,12 +16,13 @@ The customization screen displays the visual catalog and inventory, allows users
 - `VisualEditModal`, `AchievementFields` and `makeVisualForm` own the visual editor form and its fields.
 - `VisualColorPicker` exports the palette and circular color control shared with territory banner editing in `src/features/territory-management/CityManagementProfile.jsx`.
 - `bot/src/features/customization/telegram-discounts.js` owns Telegram banker discount parsing, active visual selection, atomic application, expiry and duplicate-update protection. Worker injects shared normalization, visual-tag matching, DB initialization, Telegram and response helpers.
-- `bot/src/features/customization/telegram-inventory.js` owns main-inspector Telegram commands for granting/removing visuals from personal and territory inventories. It receives DB initialization, identity lookup, formatting, equipment reconciliation, marker initialization, achievement checks and Telegram delivery as explicit dependencies; `worker.js` retains the shared text normalizer and webhook composition.
-- `bot/src/features/customization/achievements.js` owns achievement requirement parsing/validation, territory progress evaluation, automatic visual/award persistence and the main-inspector recheck endpoint. It receives score calculation, marker setup, notification, authorization, DB initialization and response helpers from Worker.
-- `bot/src/features/customization/admin-service.js` owns main-inspector visual creation/editing, visibility, soft deletion and visual/tag ordering. Tag normalization/upsert and government-marker synchronization live with these operations; category cleanup, achievement evaluation and equipment reconciliation remain injected Worker dependencies.
-- `bot/src/features/customization/catalog-service.js` owns authenticated full/lite catalog reads, account-scope resolution, role-based item visibility, active discount pricing and personal/territory inventory aggregation. Treasury manager lookup, role resolution, territory manager rows, marker setup, category cleanup and discounted-price calculation are injected from Worker.
-- `bot/src/features/customization/city-appearance-service.js` owns the authenticated `GET` and `POST /api/customization/city` handlers. It assembles territory marker/banner data and available marker inventory, and validates manager changes to markers, banner colors and gradients. Authorization, D1 initialization, tag matching, manager rows and JSON responses are injected from Worker.
-- `bot/src/features/customization/purchase-service.js` owns the authenticated visual purchase endpoint, discounted purchase-price snapshot, personal/territory debit, inventory grant, `gem_spend_log` write, banker/manager receipts and post-purchase marker/achievement checks. All Worker services are injected; the API route and `ctx.waitUntil` contract remain in Worker.
+- `bot/src/features/customization/telegram-inventory.js` owns main-inspector Telegram commands for granting/removing visuals from personal and territory inventories. It receives DB initialization, identity lookup, formatting, equipment reconciliation and marker initialization from `visual-equipment-service.js` through Worker composition, plus achievement checks and Telegram delivery; `worker.js` retains the shared text normalizer and webhook composition.
+- `bot/src/features/customization/achievements.js` owns achievement requirement parsing/validation, territory progress evaluation, automatic visual/award persistence and the main-inspector recheck endpoint. It receives score calculation, marker setup from `visual-equipment-service.js` through Worker composition, notification, authorization, DB initialization and response helpers.
+- `bot/src/features/customization/admin-service.js` owns main-inspector visual creation/editing, visibility, soft deletion and visual/tag ordering. Tag normalization/upsert and government-marker synchronization live with these operations; category cleanup and achievement evaluation remain injected Worker dependencies, while equipment reconciliation is supplied by `visual-equipment-service.js`.
+- `bot/src/features/customization/catalog-service.js` owns authenticated full/lite catalog reads, account-scope resolution, role-based item visibility, active discount pricing and personal/territory inventory aggregation. Treasury manager lookup, role resolution, territory manager rows, marker setup from `visual-equipment-service.js`, category cleanup and discounted-price calculation are injected through Worker composition.
+- `bot/src/features/customization/visual-equipment-service.js` owns `visualHasTag`, `ensureFirstCityMarker`, `territoryCanUseVisual` and `reconcileTerritoryVisualEquipment`. It keeps the territory/government type and inventory-ownership rules in one place, selects a deterministic first marker, and restores an achievement marker when an equipped marker becomes unavailable. Worker composes the service for HTTP handlers, Telegram inventory, purchases, achievements and membership/ownership lifecycle handlers.
+- `bot/src/features/customization/city-appearance-service.js` owns the authenticated `GET` and `POST /api/customization/city` handlers. It assembles territory marker/banner data and available marker inventory, and validates manager changes to markers, banner colors and gradients. Authorization, D1 initialization, the shared `visualHasTag` helper, manager rows and JSON responses are injected from Worker.
+- `bot/src/features/customization/purchase-service.js` owns the authenticated visual purchase endpoint, discounted purchase-price snapshot, personal/territory debit, inventory grant, `gem_spend_log` write, banker/manager receipts and post-purchase marker/achievement checks. The marker initializer is supplied by `visual-equipment-service.js` through Worker composition; the API route and `ctx.waitUntil` contract remain in Worker.
 - The app shell supplies `apiErrorMessage`, `safeCaughtError`, `useAnimatedClose`, `IconButton`, `Field`, `readImageData`, `GemHex` and `MinecraftText` through the `ui` adapter. Root navigation still owns screen selection and supplies `initData`, profile, role, territory list and global toast callback.
 
 ## API and event contracts
@@ -46,6 +47,15 @@ The module retains the existing API operations:
 - The write endpoint keeps the manager-only rule and rejects government territories. Banner colors and gradient presets are restricted to explicit allowlists.
 - A selected marker must be an active, non-government visual tagged `метка` and available through the territory, the requesting manager, a resident, or a territory manager. Sending an empty marker ID clears the selection.
 - Marker and banner fields are written through the existing `city_customization` upsert. Omitted fields retain the previous partial-update behavior; the route request/response contract is unchanged.
+
+## Visual equipment lifecycle
+
+- `visualHasTag` performs the shared category/tag match using the category name and comma-separated tags.
+- `ensureFirstCityMarker` keeps a valid equipped marker when possible. Otherwise it clears an inactive, wrong-type or inaccessible marker and chooses the earliest eligible ordinary marker from city/member/manager inventory, ordered by acquisition time, visual sort order and item ID.
+- Government territories never borrow ordinary inventory; their equipped marker must be an active visual with `government_marker=1`.
+- `territoryCanUseVisual` requires an approved territory, an active visual, a matching government/ordinary type, the requested tag and inventory ownership by the territory or its owner/manager/member.
+- `reconcileTerritoryVisualEquipment` keeps a valid marker or falls back to the earliest territory-owned `метка` tagged `за достижение`. It does not create a `city_customization` row when none exists.
+- Worker invokes reconciliation after membership, ownership and inventory changes and injects marker setup/reconciliation into catalog, purchase, achievement, admin and Telegram-inventory services.
 
 ## Territory visual achievements
 
