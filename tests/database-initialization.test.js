@@ -15,6 +15,7 @@ function createDb({
   worldSchemaVersion = null,
   recruitmentColumns = [],
   failRunCount = 0,
+  failSql = null,
 } = {}) {
   const calls = [];
   let failuresRemaining = failRunCount;
@@ -26,7 +27,7 @@ function createDb({
       },
       async run() {
         calls.push({ method: "run", sql: String(sql), values });
-        if (failuresRemaining > 0) {
+        if (failuresRemaining > 0 && (!failSql || String(sql).includes(failSql))) {
           failuresRemaining -= 1;
           throw new Error("simulated D1 failure");
         }
@@ -156,6 +157,44 @@ test("failed world schema initialization clears its cache so a retry can succeed
 
   const metaCreates = db.calls.filter(call => call.sql.includes("CREATE TABLE IF NOT EXISTS voxygen_schema_meta"));
   assert.equal(metaCreates.length, 2);
+});
+
+test("event tables initialize after world schema and share one cached promise", async () => {
+  const calls = [];
+  const initialization = createDatabaseInitialization(worldDependencies(calls));
+  const db = createDb({ worldSchemaVersion: "2026-11-v41" });
+  const env = { DB: db.DB };
+
+  await Promise.all([
+    initialization.ensureEventsTables(env),
+    initialization.ensureEventsTables(env),
+    initialization.ensureEventsTables(env),
+  ]);
+
+  const sql = db.calls.filter(call => call.method === "run").map(call => call.sql);
+  assert.equal(sql.filter(query => query.includes("CREATE TABLE IF NOT EXISTS events")).length, 1);
+  assert.equal(sql.filter(query => query.includes("CREATE TABLE IF NOT EXISTS event_reminders")).length, 1);
+  assert.equal(sql.filter(query => query.includes("CREATE TABLE IF NOT EXISTS event_create_requests")).length, 1);
+  assert.equal(sql.filter(query => query.includes("CREATE TABLE IF NOT EXISTS bank_transactions")).length, 1);
+  assert.deepEqual(calls, []);
+  assert.ok(db.calls.findIndex(call => call.sql.includes("world_schema_version")) <
+    db.calls.findIndex(call => call.sql.includes("CREATE TABLE IF NOT EXISTS events")));
+});
+
+test("failed event table initialization clears its cache so a retry can succeed", async () => {
+  const initialization = createDatabaseInitialization(worldDependencies());
+  const db = createDb({
+    worldSchemaVersion: "2026-11-v41",
+    failRunCount: 1,
+    failSql: "CREATE TABLE IF NOT EXISTS events",
+  });
+  const env = { DB: db.DB };
+
+  await assert.rejects(initialization.ensureEventsTables(env), /simulated D1 failure/);
+  await initialization.ensureEventsTables(env);
+
+  const eventsCreates = db.calls.filter(call => call.sql.includes("CREATE TABLE IF NOT EXISTS events"));
+  assert.equal(eventsCreates.length, 2);
 });
 
 test("app_settings initialization is cached per environment", async () => {
