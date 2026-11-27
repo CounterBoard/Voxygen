@@ -223,8 +223,8 @@ async function notifyTerritoryManagersDirect(env, territoryId, text) {
   }
 }
 
-async function notifyMainInspectorOfPurchase(env, details) {
-  const chatId = String(env.INSPECTOR_CHAT_ID || '').trim();
+async function notifyBankerOfPurchase(env, details) {
+  const chatId = String(env.BANKER_TELEGRAM_ID || '').trim();
   if (!chatId) return;
   const buyerName = String(details?.buyerNickname || '').trim() || 'Ник не указан';
   const buyerContact = details?.buyerUsername
@@ -245,11 +245,11 @@ async function notifyMainInspectorOfPurchase(env, details) {
   try {
     const result = await telegram(env, 'sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' });
     if (!result.response.ok || !result.data?.ok) {
-      console.error('Main inspector purchase notification failed:', result.data);
+      console.error('Banker purchase notification failed:', result.data);
     }
   } catch (error) {
     // A Telegram notification failure must never roll back a completed purchase.
-    console.error('Main inspector purchase notification error:', error);
+    console.error('Banker purchase notification error:', error);
   }
 }
 
@@ -1479,7 +1479,7 @@ async function purchaseCustomizationItem(request, env, ctx = null) {
   }
   const purchaseNotification = (async () => {
     const buyer = await env.DB.prepare(`SELECT mc_nickname,telegram_username FROM users WHERE telegram_id=? LIMIT 1`).bind(userId).first();
-    await notifyMainInspectorOfPurchase(env,{
+    await notifyBankerOfPurchase(env,{
       buyerNickname:buyer?.mc_nickname,
       buyerUsername:buyer?.telegram_username || auth.user.username,
       buyerTelegramId:userId,
