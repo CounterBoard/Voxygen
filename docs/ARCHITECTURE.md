@@ -1,6 +1,6 @@
 # Voxygen architecture map
 
-**Updated:** 2026-11-27
+**Updated:** 2026-11-28
 
 This document is the entry point for understanding the repository. Feature-level behavior and invariants belong in the corresponding file under `docs/features/`; this page explains where responsibilities live.
 
