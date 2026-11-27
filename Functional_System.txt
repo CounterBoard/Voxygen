@@ -5599,7 +5599,7 @@ Telegram/D1/Cloudflare runtime-проверки требуют отдельно�
   `bot/src/features/territory-awards/sticker-delivery.js` —
   serveTelegramAwardSticker, isSafeTelegramTgsAnimation и проверки Telegram-путей/форматов;
 - `bot/src/worker.js` сохраняет маршрутизацию и общие инфраструктурные
-  зависимости; `bot/src/features/awards/placement-service.js` owns
+  зависимости; `bot/src/features/awards/placement-service.js` отвечает за
   toggleTerritoryAwardPlacement — пользовательское размещение наград,
   проверку менеджера, атомарное снятие/сжатие слотов и лимит в четыре награды;
 - регрессионные тесты: tests/territory-awards-ui.test.js и
