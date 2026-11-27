@@ -5614,4 +5614,18 @@ Telegram/D1/Cloudflare runtime-проверки требуют отдельно�
 - CI проверяет npm test, npm run build, node --check bot/src/worker.js и
   Wrangler deploy --dry-run; это не заменяет реальный smoke-тест Telegram API,
   D1 и Cloudflare runtime с конкретными файлами пользовательского пака.
+34.28 TERRITORY MANAGER ROLE TRANSITIONS
+
+Backend ownership:
+- bot/src/features/territories/manager-change-service.js contains applyManagerChange(env, { territoryId, targetId, action, initiatorId }) — application of an approved manager promotion/demotion.
+- bot/src/worker.js retains HTTP handlers, eligible-voter counting, vote recording, Telegram callbacks, atomic lease claiming and vote finalization; it also exports applyManagerChange for compatibility.
+- The service receives Telegram delivery, HTML escaping, recruitment-contact cleanup, manager notifications and achievement evaluation from Worker.
+
+Invariants:
+- The territory must exist and have approved status; actions are restricted to promote/demote.
+- Promotion uses one D1 batch: manager insertion rechecks membership and the verified-account/nickname predicates, then membership is removed only if the manager relation exists.
+- Ordinary demotion uses one D1 batch: membership is added only while the manager relation and verified-account/nickname predicates still hold; the manager relation is deleted only if membership exists.
+- Demoting the owner requires a verified user with a Minecraft nickname who is already a territory manager. Owner transfer, removal of both manager relations and restoration of membership occur in one batch.
+- After the batch, the service rereads owner/manager/member state and reports success only if the final state is confirmed. An already-applied change can be retried idempotently.
+- Notifications and achievement evaluation run only after successful result verification; failure to send the direct notification does not roll back the role change.
 
