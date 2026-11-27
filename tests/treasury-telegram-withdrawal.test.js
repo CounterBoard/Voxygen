@@ -10,7 +10,7 @@ function createHarness({
   treasuryBalance = 125,
   bankerId = "9001",
 } = {}) {
-  const calls = { sql: [], telegram: [], transfers: [], worldInit: 0, eventsInit: 0, managerChecks: [] };
+  const calls = { sql: [], telegram: [], transfers: [], notifications: [], worldInit: 0, eventsInit: 0, managerChecks: [] };
   const DB = {
     prepare(sql) {
       const statement = {
@@ -47,6 +47,7 @@ function createHarness({
     stripMinecraftFormatting: value => String(value ?? "")
       .replace(/§x(?:§[0-9a-fA-F]){6}/gi, "")
       .replace(/§(?:#[0-9a-fA-F]{6}|[0-9a-fA-Fk-oK-OrR])/g, ""),
+    notifyTerritoryManagers: async (_env, territoryId, text, excludeId, options) => calls.notifications.push({ territoryId, text, excludeId, options }),
   });
   return { handler, calls, env: { DB, BANKER_TELEGRAM_ID: bankerId } };
 }
@@ -98,6 +99,20 @@ test("territory treasury withdrawal uses the territory ID and treasury-specific 
   assert.match(h.calls.telegram.at(-1).payload.text, /Остаток: 80 сц/);
 });
 
+test("a successful territory withdrawal notifies opted-in managers except the spender", async () => {
+  const h = createHarness({ territories: [{ id: "city-1", name: "Северный город" }], manager: true });
+  const result = await h.handler(h.env, { update_id: 327 }, message("Северный город -25"));
+  assert.deepEqual(result.body, { ok: true, handled: "gem_treasury_withdraw" });
+  assert.equal(h.calls.notifications.length, 1);
+  const notice = h.calls.notifications[0];
+  assert.equal(notice.territoryId, "city-1");
+  assert.equal(notice.excludeId, 1001);
+  assert.deepEqual(notice.options, { managersOnly: true });
+  assert.match(notice.text, /Трата из казны/);
+  assert.match(notice.text, /PlayerMC/);
+  assert.match(notice.text, /25 сц/);
+});
+
 test("a replayed completed withdrawal returns without reading balances or sending duplicate notifications", async () => {
   const h = createHarness({ transferResult: { status: "completed", replayed: true } });
   const result = await h.handler(h.env, { update_id: 324 }, message("-25"));
@@ -105,6 +120,7 @@ test("a replayed completed withdrawal returns without reading balances or sendin
   assert.equal(h.calls.transfers.length, 1);
   assert.equal(h.calls.telegram.length, 0);
   assert.equal(h.calls.sql.some(call => call.sql.includes("SELECT balance FROM")), false);
+  assert.equal(h.calls.notifications.length, 0);
 });
 
 test("invalid withdrawal amounts are rejected before database access", async () => {
