@@ -5058,6 +5058,9 @@ async function health(env, request) {
 const {
   purgeExpiredEvents,
   getEvents,
+  eventDateExceedsTwoMonths,
+  addUtcCalendarMonths,
+  calculateDiscountedPrice,
   createEvent,
   updateEvent,
   deleteEvent,

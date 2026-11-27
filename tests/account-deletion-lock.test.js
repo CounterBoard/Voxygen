@@ -175,10 +175,10 @@ test("event publishing, reminders and manager workflows reject deletion races", 
   assert.ok(createEvent.includes("Аккаунт находится в процессе удаления"));
   const reminders = eventService.slice(eventService.indexOf("async function saveEventReminder"), eventService.indexOf("async function deliverEventReminders"));
   assert.ok(reminders.includes("account_deletion_locks WHERE telegram_id=? LIMIT 1"));
-  assert.ok(reminders.includes("NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=r.telegram_id)"));
   const deliveryStart = eventService.indexOf("async function deliverEventReminders");
   const deliveryEnd = eventService.indexOf("\n  return {", deliveryStart);
   const reminderDelivery = eventService.slice(deliveryStart, deliveryEnd);
+  assert.ok(reminderDelivery.includes("NOT EXISTS(SELECT 1 FROM account_deletion_locks l WHERE l.telegram_id=r.telegram_id)"));
   const reminderUpdates = [...reminderDelivery.matchAll(/UPDATE event_reminders SET[\s\S]*?\.run\(\)/g)];
   assert.ok(reminderUpdates.length > 0 && reminderUpdates.every(match => match[0].includes("account_deletion_locks")), "every reminder scheduler update must be race-safe for locked accounts");
   const promotion = source.slice(source.indexOf("async function promoteResident"), source.indexOf("async function demoteManager"));
