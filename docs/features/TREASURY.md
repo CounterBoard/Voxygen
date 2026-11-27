@@ -23,7 +23,8 @@ A withdrawal must be a safe positive integer and may not exceed 1,000,000,000 ge
 - Conditional D1 debits require sufficient funds and are guarded against active account-deletion locks.
 - The idempotency helper keeps the operation record, debit, credit placeholder and terminal status in one D1 batch. A completed replay must not debit again or send duplicate notifications.
 - Failed or rejected transfers retain the existing Telegram response contract; a successful operation reads the resulting balance, attempts the configured banker notification and replies to the originating chat.
-- API donations notify the territory activity audience using the `Донат в казну` template and the donor's Minecraft nickname. API deposits notify eligible managers and residents who enabled that territory's notifications, excluding the depositor. Both messages include the `сц` suffix and are suppressed for replayed operations.
+- API donations and deposits notify eligible managers and residents who enabled that territory's notifications, excluding the donor/depositor. Both messages include the `сц` suffix and are suppressed for replayed operations.
+- Every successful expense from a territory treasury (API withdrawal, Telegram withdrawal command, banker debit, or purchase paid from the territory treasury) notifies only founders/mayors who enabled that territory's notifications, excluding the actor. Failed and replayed operations do not send duplicate expense notices.
 - Minecraft nicknames shown in bot messages use Telegram HTML `<code>` formatting so they can be copied easily.
 - Banker notification failure is intentionally non-fatal after a successful financial transfer.
 - The webhook dispatcher continues to perform its account-deletion lock check before dispatching user messages.

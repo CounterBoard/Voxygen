@@ -183,7 +183,7 @@ async function notifyTerritoryManagers(env, territoryId, text, excludeId = null,
   for (const manager of await getTerritoryManagerRows(env, territoryId)) {
     recipients.set(String(manager.telegram_id), { telegram_id: Number(manager.telegram_id), manager: true });
   }
-  if (!options.reply_markup) {
+  if (!options.reply_markup && !options.managersOnly) {
     const residents = await env.DB.prepare(`SELECT telegram_id FROM city_memberships WHERE territory_id=?`).bind(String(territoryId)).all();
     for (const resident of residents.results || []) {
       if (!recipients.has(String(resident.telegram_id))) recipients.set(String(resident.telegram_id), { telegram_id: Number(resident.telegram_id), manager: false });
@@ -1487,9 +1487,14 @@ async function purchaseCustomizationItem(request, env, ctx = null) {
       price:purchasePrice,
       territoryName:accountCity?.name || null,
     });
+    if(accountCity){
+      const buyerNickname=String(buyer?.mc_nickname||'').trim()||'Ник не указан';
+      const notice=`💸 <b>Трата из казны</b>\n\n🏙 <b>${escapeHtml(accountCity.name)}</b>\n👤 Кто: ${formatTelegramNickname(buyerNickname)}\n🎨 Покупка: <b>${escapeHtml(item.name)}</b>\n💎 Сумма: <b>${purchasePrice} сц</b>`;
+      await notifyTerritoryManagers(env,accountCity.id,notice,userId,{managersOnly:true});
+    }
   })().catch(error => {
     // The item and balance are already committed; notification data is best-effort.
-    console.error('Main inspector purchase notification preparation failed:', error);
+    console.error('Purchase notification preparation failed:', error);
   });
   if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(purchaseNotification);
   else await purchaseNotification;
@@ -4789,7 +4794,9 @@ async function handleBankMessage(env, update, message) {
       const notice = command.direction === 'debit'
         ? `🏦 <b>Уведомление банка</b>\n\nС казны территории «${escapeHtml(stripMinecraftFormatting(city.name))}» снято <b>${command.amount}</b> сц. Новый баланс: <b>${balanceAfter}</b> сц.`
         : `🏦 <b>Уведомление банка</b>\n\nКазна территории «${escapeHtml(stripMinecraftFormatting(city.name))}» пополнена на <b>${command.amount}</b> сц. Новый баланс: <b>${balanceAfter}</b> сц.`;
-      await notifyTerritoryManagers(env, city.id, notice, null).catch(error=>console.error('Treasury banker notification failed:',error));
+      const expenseNoticeOptions=command.direction==='debit'?{managersOnly:true}:{};
+      const excludedActor=command.direction==='debit'?Number(message.from.id):null;
+      await notifyTerritoryManagers(env, city.id, notice, excludedActor, expenseNoticeOptions).catch(error=>console.error('Treasury banker notification failed:',error));
       return json({ ok: true, handled: direction === 'treasury_debit' ? 'bank_treasury_debit' : 'bank_treasury_credit' });
     }
     const resolved = await resolveBankTarget(env,command.target);
@@ -4899,6 +4906,7 @@ const handleUserGemWithdrawal = createGemWithdrawalHandler({
   telegram,
   json,
   stripMinecraftFormatting,
+  notifyTerritoryManagers,
 });
 
 const {

@@ -8,7 +8,7 @@ function makeTreasuryHarness({ userId = 1001, nickname = "DonorMC", replay = fal
   const savedOperation = {
     operation_id: "treasury-op-0001",
     telegram_id: userId,
-    operation_type: action === "deposit" ? "treasury_deposit" : "treasury_donate",
+    operation_type: action === "deposit" ? "treasury_deposit" : action === "withdraw" ? "treasury_withdraw" : "treasury_donate",
     target_id: "city-1",
     amount: 50,
     status: "completed",
@@ -44,10 +44,10 @@ function makeTreasuryHarness({ userId = 1001, nickname = "DonorMC", replay = fal
   const service = createTreasuryService({
     requireUser: async () => ({ user: { id: userId, username: "telegram_user" } }),
     ensureWorldTables: async () => {},
-    isTerritoryManager: async () => false,
+    isTerritoryManager: async () => action === "withdraw",
     json: (body, status = 200) => ({ body, status }),
     getTerritoryManagerRows: async () => [{ telegram_id: 9001 }],
-    notifyTerritoryManagers: async (_env, territoryId, text, excludeId) => calls.notifications.push({ territoryId, text, excludeId }),
+    notifyTerritoryManagers: async (_env, territoryId, text, excludeId, options) => calls.notifications.push({ territoryId, text, excludeId, options }),
     escapeHtml: value => String(value ?? "").replace(/[&<>"']/g, char => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
     }[char])),
@@ -80,6 +80,21 @@ test("a treasury donation uses the requested title, MC nickname and gem suffix",
   assert.doesNotMatch(notice.text, /Новое пожертвование/);
   assert.match(notice.text, /Отправитель: <code>DonorMC<\/code>/);
   assert.match(notice.text, /Сумма: <b>50 сц<\/b>/);
+  assert.equal(notice.excludeId, 1001);
+});
+
+test("a successful API treasury withdrawal notifies only opted-in managers except its actor", async () => {
+  const h = makeTreasuryHarness({ action: "withdraw" });
+  const result = await h.service.treasuryWithdraw(h.request, h.env);
+  assert.equal(result.body.ok, true);
+  assert.equal(h.calls.notifications.length, 1);
+  const notice = h.calls.notifications[0];
+  assert.equal(notice.territoryId, "city-1");
+  assert.equal(notice.excludeId, 1001);
+  assert.deepEqual(notice.options, { managersOnly: true });
+  assert.match(notice.text, /Трата из казны/);
+  assert.match(notice.text, /DonorMC/);
+  assert.match(notice.text, /50 сц/);
 });
 
 test("a replayed deposit does not send a duplicate territory notification", async () => {

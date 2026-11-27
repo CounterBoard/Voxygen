@@ -102,7 +102,7 @@ export function createTreasuryService({
     if(!transfer.replayed){
       const donorNickname=String(donor?.mc_nickname||'').trim()||'Ник не указан';
       const notice=`💎 <b>Донат в казну</b>\n\n🏙 <b>${escapeHtml(territory.name)}</b>\n👤 Отправитель: ${formatTelegramNickname(donorNickname)}\n💎 Сумма: <b>${amount} сц</b>`;
-      await notifyTerritoryManagers(env,territoryId,notice,null).catch(error=>console.error('Treasury donation notification failed:',error));
+      await notifyTerritoryManagers(env,territoryId,notice,userId).catch(error=>console.error('Treasury donation notification failed:',error));
     }
     return json({ok:true,personal_balance:Number(personal?.balance||0),amount,replayed:Boolean(transfer.replayed)});
   }
@@ -119,7 +119,17 @@ export function createTreasuryService({
     });
     if(transfer.error)return json({ok:false,error:transfer.error},transfer.status||500);
     if(transfer.status!=='completed')return json({ok:false,error:transfer.status==='rejected'?'Недостаточно средств в казне':'Операция ещё обрабатывается'},transfer.status==='rejected'?400:409);
-    const [treasury,personal]=await Promise.all([env.DB.prepare(`SELECT balance FROM city_treasury WHERE territory_id=?`).bind(territoryId).first(),env.DB.prepare(`SELECT balance FROM user_currency WHERE telegram_id=?`).bind(userId).first()]); return json({ok:true,balance:Number(treasury?.balance||0),personal_balance:Number(personal?.balance||0),isManager:true,replayed:Boolean(transfer.replayed)});
+    const [treasury,personal,spender]=await Promise.all([
+      env.DB.prepare(`SELECT balance FROM city_treasury WHERE territory_id=?`).bind(territoryId).first(),
+      env.DB.prepare(`SELECT balance FROM user_currency WHERE telegram_id=?`).bind(userId).first(),
+      env.DB.prepare(`SELECT mc_nickname FROM users WHERE telegram_id=? LIMIT 1`).bind(userId).first(),
+    ]);
+    if(!transfer.replayed){
+      const spenderNickname=String(spender?.mc_nickname||'').trim()||'Ник не указан';
+      const notice=`💸 <b>Трата из казны</b>\n\n🏙 <b>${escapeHtml(territory.name)}</b>\n👤 Кто: ${formatTelegramNickname(spenderNickname)}\n💎 Сумма: <b>${amount} сц</b>`;
+      await notifyTerritoryManagers(env,territoryId,notice,userId,{managersOnly:true}).catch(error=>console.error('Treasury withdrawal notification failed:',error));
+    }
+    return json({ok:true,balance:Number(treasury?.balance||0),personal_balance:Number(personal?.balance||0),isManager:true,replayed:Boolean(transfer.replayed)});
   }
 
   return {

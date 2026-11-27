@@ -39,7 +39,7 @@ This document is the entry point for understanding the repository. Feature-level
 | Telegram Bot API client | `bot/src/telegram/api.js` | Shared outbound Telegram Bot API POST client; obtains the configured bot token and returns the raw Response plus parsed JSON payload |
 | Telegram webhook dispatcher | `bot/src/telegram/webhook.js` | Validates the Telegram webhook secret, enforces account-deletion locks, syncs incoming Telegram identities and dispatches callback queries and messages to injected business handlers |
 | Event backend service | `bot/src/features/events/service.js` | Event creation/edit/deletion, reminder persistence and scheduled delivery, event validation, and expiry cleanup; dependencies on auth, D1 initialization, Telegram and formatting are injected by the Worker |
-| Treasury backend service | `bot/src/features/treasury/service.js` | Personal and territory treasury reads, deposits, donations and API withdrawals; shared financial-operation idempotency and D1 batch logic stay inside the service |
+| Treasury backend service | `bot/src/features/treasury/service.js` | Personal and territory treasury reads, deposits, donations and API withdrawals; shared financial-operation idempotency, D1 batch logic and treasury transaction notifications stay inside the service |
 | Telegram gem withdrawal handler | `bot/src/features/treasury/telegram-withdrawal.js` | Parses personal and territory treasury withdrawal commands, normalizes territory names, checks manager access and runs idempotent D1 transfers with banker/user notifications |
 | Telegram formatting helpers | `bot/src/telegram/formatting.js` | Escapes Telegram HTML and renders Minecraft nicknames as copyable inline code |
 | Authorization and role checks | `bot/src/auth/permissions.js` | Resolves user/inspector roles and checks authenticated, verified-user, main-inspector and territory-manager permissions using injected runtime dependencies |
@@ -60,7 +60,7 @@ This document is the entry point for understanding the repository. Feature-level
 
 - `tests/` contains API/business-rule tests and frontend contract tests.
 - `docs/features/` documents feature boundaries, data flow and behavior that must remain stable.
-- `docs/changes/` records implementation changes in chronological order.
+- `docs/changes/` records implementation changes in chronological order; update it alongside feature documentation for behavior changes.
 - `docs/design-system/` contains design tokens, component rules and QA guidance.
 
 ## Safe change workflow
