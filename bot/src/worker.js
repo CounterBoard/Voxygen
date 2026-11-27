@@ -14,6 +14,7 @@ import { THEME_CATALOG, isSupportedTheme, normalizeThemeId as normalizeVoxygenTh
 import { json, withCors } from './shared/responses.js';
 import { verifyInitData, getCurrentUser } from './auth/telegram.js';
 import { createPermissions } from './auth/permissions.js';
+import { createDatabaseInitialization } from './db/initialization.js';
 import { parseRequestCoords, parseTwoCoordinates } from './shared/validation.js';
 import { getD1Diagnostics } from './features/admin-tools/d1-diagnostics.js';
 import { GLOBAL_SETTING_KEYS, getAdminGlobalSettings, saveAdminGlobalSetting } from './features/admin-tools/global-settings.js';
@@ -50,6 +51,10 @@ export {
 
 
 const TELEGRAM_API = "https://api.telegram.org";
+const {
+  ensureRecruitmentTable,
+  ensureMapSettingsTable,
+} = createDatabaseInitialization();
 const EVENT_TABLES_INIT_CACHE = new WeakMap();
 const USER_PREFERENCE_TABLES_INIT_CACHE = new WeakMap();
 const {
@@ -523,42 +528,6 @@ async function getTreasuryManagerCities(env, telegramId) {
   return rows.results||[];
 }
 
-const RECRUITMENT_SCHEMA_VERSION = '2026-10-v25';
-const recruitmentTableInitPromises = new WeakMap();
-async function ensureRecruitmentTable(env) {
-  const cached = recruitmentTableInitPromises.get(env);
-  if (cached) return cached;
-  const promise = initializeRecruitmentTable(env).catch(error => {
-    recruitmentTableInitPromises.delete(env);
-    throw error;
-  });
-  recruitmentTableInitPromises.set(env, promise);
-  return promise;
-}
-async function initializeRecruitmentTable(env) {
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS voxygen_schema_meta (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    updated_at INTEGER NOT NULL
-  )`).run();
-  const versionRow = await env.DB.prepare(`SELECT value FROM voxygen_schema_meta WHERE key='recruitment_schema_version' LIMIT 1`).first();
-  if (versionRow?.value === RECRUITMENT_SCHEMA_VERSION) return;
-
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS recruitment (
-      territory_id TEXT PRIMARY KEY,
-      description TEXT NOT NULL DEFAULT '',
-      enabled INTEGER NOT NULL DEFAULT 0,
-      updated_at INTEGER NOT NULL,
-      FOREIGN KEY (territory_id) REFERENCES territories(id) ON DELETE CASCADE
-    )
-  `).run();
-  const recruitmentCols = await env.DB.prepare(`PRAGMA table_info(recruitment)`).all();
-  const recruitmentNames = new Set((recruitmentCols.results||[]).map(r=>r.name));
-  if(!recruitmentNames.has('contact_username')) { try { await env.DB.prepare(`ALTER TABLE recruitment ADD COLUMN contact_username TEXT`).run(); } catch(e) { if(!String(e).toLowerCase().includes('duplicate column')) throw e; } }
-  await env.DB.prepare(`INSERT INTO voxygen_schema_meta(key,value,updated_at) VALUES('recruitment_schema_version',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at`).bind(RECRUITMENT_SCHEMA_VERSION,Date.now()).run();
-}
-
 async function ensureApprovalSessionsTable(env) {
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS territory_approval_sessions (
@@ -583,24 +552,6 @@ async function ensureApprovalSessionsTable(env) {
     )`).run();
   await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_territory_approval_sessions_chat
     ON territory_approval_sessions(inspector_chat_id)`).run();
-}
-
-const mapSettingsTableInitPromises = new WeakMap();
-async function ensureMapSettingsTable(env) {
-  const cached = mapSettingsTableInitPromises.get(env);
-  if (cached) return cached;
-  const promise = env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS app_settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at INTEGER NOT NULL
-    )
-  `).run().catch(error => {
-    mapSettingsTableInitPromises.delete(env);
-    throw error;
-  });
-  mapSettingsTableInitPromises.set(env, promise);
-  return promise;
 }
 
 const WORLD_SCHEMA_VERSION = '2026-11-v41';
