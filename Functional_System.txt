@@ -5618,7 +5618,8 @@ Telegram/D1/Cloudflare runtime-проверки требуют отдельно�
 
 Backend ownership:
 - bot/src/features/territories/manager-change-service.js contains applyManagerChange(env, { territoryId, targetId, action, initiatorId }) — application of an approved manager promotion/demotion.
-- bot/src/worker.js retains HTTP handlers, eligible-voter counting, vote recording, Telegram callbacks, atomic lease claiming and vote finalization; it also exports applyManagerChange for compatibility.
+- bot/src/worker.js retains HTTP handlers for vote initiation, eligible-voter counting, scheduled/webhook dispatch and exports applyManagerChange plus the three voting helper functions for compatibility.
+- bot/src/features/territories/manager-change-voting-service.js owns vote recording, Telegram vote callbacks, atomic/stale finalization leases, majority/expiry decisions and cron expiry sweeps.
 - The service receives Telegram delivery, HTML escaping, recruitment-contact cleanup, manager notifications and achievement evaluation from Worker.
 
 Invariants:
@@ -5628,4 +5629,21 @@ Invariants:
 - Demoting the owner requires a verified user with a Minecraft nickname who is already a territory manager. Owner transfer, removal of both manager relations and restoration of membership occur in one batch.
 - After the batch, the service rereads owner/manager/member state and reports success only if the final state is confirmed. An already-applied change can be retried idempotently.
 - Notifications and achievement evaluation run only after successful result verification; failure to send the direct notification does not roll back the role change.
+34.29 TERRITORY MANAGER VOTING LIFECYCLE
+
+Backend ownership:
+- bot/src/features/territories/manager-change-voting-service.js содержит createManagerChangeVotingService и управляет голосованием после создания pending-запроса.
+- bot/src/worker.js сохраняет HTTP-маршруты создания голосований, подсчёт доступных голосующих, scheduled-вызов expireManagerChangeRequests и передачу Telegram callback в сервис.
+- Worker продолжает экспортировать claimManagerChangeFinalization, recordManagerChangeVote и isEligibleManagerChangeVoter; их реализация находится в новом модуле.
+- Модуль получает из Worker ensureManagerChangeTables, applyManagerChange, telegram, escapeHtml, formatTelegramNickname, isTerritoryManager и json.
+
+Инварианты:
+- Голос может быть записан только пока запрос имеет status='pending'; запись дополнительно проверяет это условие непосредственно в INSERT/UPSERT.
+- Инициатор и целевой управляющий не могут голосовать; голосовать могут только другие текущие управляющие той же утверждённой территории.
+- Финализация сначала атомарно переводит запрос в finalizing; повторный Worker не может забрать свежий lease, а зависший lease доступен для восстановления через 60 секунд.
+- После получения lease запрос перечитывается; голоса фиксируются состоянием finalizing, после чего применяется прежнее правило большинства и истечения 24-часового срока.
+- При неполном голосовании запрос возвращается в pending с очищенным lease; при окончательном результате decision update защищён текущим lease timestamp.
+- Повторная финализация и cron-истечение остаются идемпотентными; cron обрабатывает не более 100 завершённых/зависших запросов за проход.
+- Одобренное решение передаётся в manager-change-service.js; если переход роли не подтверждён или аккаунт заблокирован на удаление, голосование завершается как rejected.
+- Уведомление инициатору отправляется только после сохранения конечного статуса; Telegram callback отвечает инициатору голоса сообщением о принятом/учтённом решении.
 
