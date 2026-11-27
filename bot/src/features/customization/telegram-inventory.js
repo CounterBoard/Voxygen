@@ -16,7 +16,7 @@ export function parseVisualInventoryCandidates(rawText, items, normalizeVisualCo
       : text.startsWith(`${name} `) ? { remove: false, token: `${name} ` } : null;
     if (beginning && text.length > beginning.token.length) {
       const rawTarget = text.slice(beginning.token.length).trim();
-      if (rawTarget) parsed.push({ item, name, remove: beginning.remove, token: beginning.token, rawTarget });
+      if (rawTarget) parsed.push({ item, name, remove: beginning.remove, rawTarget });
     }
   }
   return parsed;
