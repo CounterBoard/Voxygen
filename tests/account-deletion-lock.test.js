@@ -3,12 +3,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 async function readBackendSource() {
-  const [worker, worldMigration, databaseInitialization] = await Promise.all([
+  const [worker, worldMigration, databaseInitialization, telegramWebhook] = await Promise.all([
     readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/db/migrations/world-schema.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/db/initialization.js", import.meta.url), "utf8"),
+    readFile(new URL("../bot/src/telegram/webhook.js", import.meta.url), "utf8"),
   ]);
-  return `${worker}\n${worldMigration}\n${databaseInitialization}`.replace(/\s+/g, " ");
+  return `${worker}\n${worldMigration}\n${databaseInitialization}\n${telegramWebhook}`.replace(/\s+/g, " ");
 }
 
 test("account deletion lock is durable and guards account resurrection writes", async () => {
@@ -205,9 +206,9 @@ test("Telegram ID rekey transfers personal settings and event state atomically",
 
 test("Telegram webhook ignores locked actors before any message or callback mutation", async () => {
   const source = await readBackendSource();
-  const workerSource = (await readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8")).replace(/\s+/g, " ");
-  const webhookStart = workerSource.indexOf("async function webhook");
-  const webhook = workerSource.slice(webhookStart, workerSource.indexOf("async function saveCityAdditionalInfo", webhookStart));
+  const webhookSource = (await readFile(new URL("../bot/src/telegram/webhook.js", import.meta.url), "utf8")).replace(/\s+/g, " ");
+  const webhookStart = webhookSource.indexOf("async function webhook");
+  const webhook = webhookSource.slice(webhookStart);
   const gate = webhook.indexOf("const deletionLock=await env.DB.prepare");
   assert.ok(gate >= 0);
   assert.ok(gate < webhook.indexOf("INSERT INTO users"), "locked callback/message actors must be rejected before user sync");
