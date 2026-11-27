@@ -2218,10 +2218,7 @@ async function calculateTerritoryScores(env, territoryId) {
     if (!old.length) return recentAvg;
     return recentAvg * 0.5 + avg(old) * 0.5;
   };
-  return { curator: weighted(inspectors.resul return withCors(new Response(response.body, {
-    status: response.status,
-    headers,
-  }));
+  return { curator: weighted(inspectors.results||[], 2), community: weighted(players.results||[], 5), votes: (players.results||[]).length };
 }
 
 async function renameTerritory(request, env) {
