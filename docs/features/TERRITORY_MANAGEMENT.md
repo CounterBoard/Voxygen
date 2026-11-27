@@ -1,7 +1,7 @@
 # Territory management screen
 
 **Status:** current implementation  
-**Updated:** 2026-11-26  
+**Updated:** 2026-11-27  
 **UI source:** `src/features/territory-management/CityManagementProfile.jsx`  
 **Related editor:** `RecruitmentManagement` (same module)  
 **API source:** `bot/src/worker.js` — city management, recruitment and customization routes
@@ -21,6 +21,7 @@ The territory management screen is used by territory owners/managers to manage t
 | Equip marker | `POST /api/customization/city` with `territoryId` and `markerItemId` |
 | Place/remove award | `POST /api/customization/city/award` with `territoryId` and `awardId` |
 | Leave territory | `POST /api/city/leave` with `{ initData, territoryId }` after confirmation |
+| Demote a founder/mayor | `POST /api/city/demote-manager` with `{ initData, territoryId, telegramId }`; after confirmation, a two-manager city applies the demotion immediately; larger eligible groups start a vote |
 | Save recruitment text | `POST /api/recruitment` with territory ID, owner nickname, description, enabled state and selected recruitment username |
 
 The module retains the existing role-specific headers and payloads, including the direct Telegram header on banner, award and leave operations.
@@ -38,6 +39,7 @@ The module reports successful management changes through `onChanged`, allowing t
 ## Invariants
 
 - Editable controls remain hidden/disabled in resident read-only mode; the resident can still use the existing leave-territory action.
+- In a city with exactly two managers, one manager's confirmed demotion of the other is applied immediately; if additional eligible managers can vote, the existing voting flow remains in place. If the demoted manager owns the city, ownership transfers to the initiating manager before the target becomes a resident.
 - Member/manager/invite data still refreshes from the same management endpoint after POST operations.
 - Banner changes remain optimistic and roll back to the previous color/gradient if saving fails.
 - Marker equipment remains scoped to the selected territory inventory and updates optimistically before its save request.
@@ -49,3 +51,8 @@ The module reports successful management changes through `onChanged`, allowing t
 ## Regression coverage
 
 `tests/territory-management-ui.test.js` checks both root mount modes, the initial authenticated reads, mutation payloads, banner rollback, immediate marker/award state changes, serialized background saves, four-slot handling, recruitment saving and resident leave flow. Existing theme UI contracts continue to inspect the extracted editor module.
+
+
+## Demotion behavior
+
+The confirmation dialog is the final confirmation for a two-manager city: the target is moved from `territory_managers` to `city_memberships` immediately, without creating an unreachable vote. The API returns `{ ok: true, immediate: true }`; the screen refreshes its manager/member lists and reports the completed demotion. When more eligible managers are available, the existing 24-hour manager vote is preserved. If the target is the territory owner, the initiating manager receives ownership as part of the same role transition.
