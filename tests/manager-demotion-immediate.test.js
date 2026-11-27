@@ -7,7 +7,7 @@ const panel = await readFile(new URL("../src/features/territory-management/CityM
 
 test("a demotion with no eligible voters is applied immediately instead of creating an impossible vote", () => {
   const start = worker.indexOf("async function demoteManager(");
-  const end = worker.indexOf("\nasync function claimManagerChangeFinalization(", start);
+  const end = worker.indexOf("\nasync function handleResidentInviteCallback(", start);
   assert.ok(start >= 0 && end > start, "demoteManager handler exists");
   const handler = worker.slice(start, end);
   assert.match(handler, /const voterCount=Math\.max\(0,managers\.length-excludedVoters\)/);

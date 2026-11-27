@@ -4,7 +4,7 @@
 **Updated:** 2026-11-27  
 **UI source:** `src/features/territory-management/CityManagementProfile.jsx`  
 **Related editor:** `RecruitmentManagement` (same module)  
-**API source:** `bot/src/worker.js` — city management, recruitment and customization routes; `bot/src/features/territories/manager-change-service.js` — atomic application of an approved manager-role transition
+**API source:** `bot/src/worker.js` — city management, recruitment and customization routes; `manager-change-service.js` applies approved role transitions and `manager-change-voting-service.js` owns vote recording/finalization
 
 ## Purpose
 
@@ -55,13 +55,14 @@ The module reports successful management changes through `onChanged`, allowing t
 
 ## Backend ownership
 
-- **demoteManager** and the existing promotion/manager-vote routes stay in bot/src/worker.js. They retain request validation, initiator permissions, voter counting, vote persistence and callback routing.
+- **demoteManager** and the existing promotion/manager-vote initiation routes stay in bot/src/worker.js. They retain request validation, initiator permissions, eligible-voter counting and creation of pending requests.
 - bot/src/features/territories/manager-change-service.js owns **applyManagerChange(env, { territoryId, targetId, action, initiatorId })**. Worker creates the service with Telegram delivery, HTML escaping, recruitment-contact cleanup, manager notifications and achievement evaluation injected.
+- bot/src/features/territories/manager-change-voting-service.js owns vote eligibility, guarded vote recording, exclusive/stale finalization leases, majority/expiry decisions, application of the approved change, cron expiry sweeps and Telegram vote callbacks. It receives table initialization, **applyManagerChange**, Telegram delivery, territory-manager authorization, formatting and JSON response creation from Worker.
 - Promotion rechecks the approved territory and target membership. The D1 batch inserts the manager only while membership and verified-account/nickname predicates still hold, then removes membership only if the manager relation exists.
 - Ordinary demotion performs the inverse guarded D1 batch: add membership only while the manager relation and verified account still exist, then remove the manager relation only if membership exists.
 - Demoting the owner requires a verified next owner who is already a manager. The owner update, manager-role removals and membership restoration remain in one D1 batch; the resulting owner/manager/member state is read back before the operation reports success.
 - Promotion/demotion retries remain idempotent where the requested state is already applied. Failed post-write verification returns false; notifications and achievement evaluation run only after the resulting role state is confirmed.
-- The Worker continues to export applyManagerChange for existing consumers/tests. Vote claiming, stale-lease recovery, vote recording and finalization remain in Worker and are not part of this extraction.
+- The Worker continues to export applyManagerChange, claimManagerChangeFinalization, recordManagerChangeVote and isEligibleManagerChangeVoter for existing consumers/tests. It keeps vote initiation routes plus scheduled/webhook dispatch; the voting service owns callback processing and finalization.
 
 ## Demotion behavior
 
