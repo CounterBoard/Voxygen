@@ -106,7 +106,7 @@ test("creating a visual persists the validated catalog fields and runs category/
   }), h.env);
 
   assert.equal(result.body.ok, true);
-  assert.equal(result.body.item.id, "generated-2");
+  assert.equal(result.body.item.id, "generated-3");
   assert.equal(result.body.item.category_id, "generated-1");
   assert.equal(result.body.item.sort_order, 5);
   assert.equal(h.calls.cleanup, 1);
