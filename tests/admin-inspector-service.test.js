@@ -88,7 +88,7 @@ test("adding an inspector by username resolves the existing Telegram account and
   assert.deepEqual(body, { ok: true, telegramId: 1234, username: "alice" });
   assert.equal(ensured, 1);
   const insert = calls.find(call => call.statement.includes("INSERT INTO inspectors"));
-  assert.deepEqual(insert.values.slice(0, 4), [1234, "alice", 700, insert.values[3]]);
+  assert.deepEqual(insert.values.slice(0, 3), [1234, "alice", 700]);
   assert.equal(typeof insert.values[3], "number");
   assert.equal(insert.values[4], 1234);
   assert.match(insert.statement, /WHERE NOT EXISTS\(SELECT 1 FROM account_deletion_locks/);
