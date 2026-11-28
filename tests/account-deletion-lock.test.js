@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 async function readBackendSource() {
-  const [worker, worldMigration, databaseInitialization, telegramWebhook, eventsService, inventorySource, purchaseService, membershipService, inspectorsService] = await Promise.all([
+  const [worker, worldMigration, databaseInitialization, telegramWebhook, eventsService, inventorySource, purchaseService, membershipService, inspectorsService, userSettingsService] = await Promise.all([
     readFile(new URL("../bot/src/worker.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/db/migrations/world-schema.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/db/initialization.js", import.meta.url), "utf8"),
@@ -13,8 +13,9 @@ async function readBackendSource() {
     readFile(new URL("../bot/src/features/customization/purchase-service.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/features/territories/membership-service.js", import.meta.url), "utf8"),
     readFile(new URL("../bot/src/features/admin-tools/inspectors-service.js", import.meta.url), "utf8"),
+    readFile(new URL("../bot/src/features/settings/service.js", import.meta.url), "utf8"),
   ]);
-  return `${worker}\n${worldMigration}\n${databaseInitialization}\n${telegramWebhook}\n${eventsService}\n${inventorySource}\n${purchaseService}\n${membershipService}\n${inspectorsService}`.replace(/\s+/g, " ");
+  return `${worker}\n${worldMigration}\n${databaseInitialization}\n${telegramWebhook}\n${eventsService}\n${inventorySource}\n${purchaseService}\n${membershipService}\n${inspectorsService}\n${userSettingsService}`.replace(/\s+/g, " ");
 }
 
 test("account deletion lock is durable and guards account resurrection writes", async () => {
