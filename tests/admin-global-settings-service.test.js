@@ -248,16 +248,19 @@ test("database initializer owns table creation while Worker delegates admin rout
   const worker = readFileSync(new URL("../bot/src/worker.js", import.meta.url), "utf8");
   const databaseInitialization = readFileSync(new URL("../bot/src/db/initialization.js", import.meta.url), "utf8");
   const service = readFileSync(new URL("../bot/src/features/admin-tools/global-settings.js", import.meta.url), "utf8");
+  const userSettingsService = readFileSync(new URL("../bot/src/features/settings/service.js", import.meta.url), "utf8");
   const workerShell = worker.slice(worker.indexOf("export default {"));
 
   assert.match(databaseInitialization, /async function ensureGlobalSettingsTable\(env\)/);
   assert.match(databaseInitialization, /globalSettingsInitCache/);
   assert.match(worker, /ensureGlobalSettingsTable,/);
-  assert.match(worker, /async function readGlobalSettingOverrides\(env/);
+  assert.doesNotMatch(worker, /async function readGlobalSettingOverrides\(env/);
+  assert.match(userSettingsService, /async function readGlobalSettingOverrides\(env/);
   assert.doesNotMatch(worker, /GLOBAL_SETTINGS_INIT_CACHE/);
   assert.match(workerShell, /getAdminGlobalSettings\(request, env, \{ requireMainInspector, ensureGlobalSettingsTable, json \}\)/);
   assert.match(workerShell, /saveAdminGlobalSetting\(request, env, \{ requireMainInspector, ensureGlobalSettingsTable, json \}\)/);
   assert.doesNotMatch(worker, /async function getAdminGlobalSettings\(request/);
   assert.doesNotMatch(worker, /async function saveAdminGlobalSetting\(request/);
   assert.doesNotMatch(service, /CREATE TABLE|ALTER TABLE|DROP TABLE/);
+  assert.doesNotMatch(userSettingsService, /CREATE TABLE|ALTER TABLE|DROP TABLE/);
 });
