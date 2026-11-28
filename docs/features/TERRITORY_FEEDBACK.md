@@ -7,7 +7,7 @@
 
 ## Purpose
 
-The territory detail page embeds a feedback panel for rating territories and managing reviews. The backend service owns rating persistence and score aggregation inputs, review creation/edit/removal, manager replies and review listing. Screenshot upload/moderation remains a separate Worker responsibility for a later extraction.
+The territory detail page embeds a feedback panel for rating territories and managing reviews. The backend service owns rating persistence and score aggregation inputs, review creation/edit/removal, manager replies and review listing. Screenshot upload, moderation, deletion and image delivery are owned by `bot/src/features/territories/screenshots-service.js`.
 
 ## Request contracts
 
@@ -31,7 +31,7 @@ Worker keeps every public route and delegates to `createTerritoryFeedbackService
 - Worker injects authentication, role/manager checks, D1 initialization, score calculation, Telegram notifications, achievement evaluation, formatting and JSON response helpers.
 - `calculateTerritoryScores` remains in Worker for now because the achievement service also consumes it; the feedback service receives the same function through dependency injection.
 - `requestInspectorRating` remains in Worker because it is an inspector-notification workflow, not a user rating write.
-- Screenshot upload, listing, moderation, deletion and image delivery remain in Worker and are intentionally not mixed into this extraction.
+- Screenshot upload, listing, moderation, deletion and image delivery are owned by `bot/src/features/territories/screenshots-service.js` and are intentionally kept separate from ratings and reviews.
 
 ## Invariants
 
