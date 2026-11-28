@@ -1,9 +1,9 @@
 # Inspector management in the main inspector
 
 **Status:** current implementation  
-**Updated:** 2026-11-26  
+**Updated:** 2026-11-28  
 **UI source:** `src/features/admin-tools/ManagedInspectorsPanel.jsx`  
-**API source:** `bot/src/worker.js` — `/api/inspectors` routes
+**API source:** `bot/src/features/admin-tools/inspectors-service.js` (composed by `bot/src/worker.js`)
 
 ## Purpose
 
@@ -29,9 +29,9 @@ Errors and notices are forwarded to the shared `MainInspectorPanel` feedback are
 ## Invariants
 
 - Existing endpoint paths, HTTP methods, headers, JSON body fields and no-store behavior remain unchanged.
-- Authorization and inspector persistence remain in the Worker; this extraction changes only frontend ownership.
+- Main-inspector authorization, inspector lookup and persistence are owned by `inspectors-service.js`; Worker retains only route dispatch.
 - Existing copy, count, username display, Telegram ID display, confirmation text and disabled add-button behavior are retained.
 
 ## Regression coverage
 
-`tests/managed-inspectors-ui.test.js` covers module ownership, component placement, request contracts, numeric-vs-username routing, deletion confirmation and shared error/notice integration.
+`tests/managed-inspectors-ui.test.js` covers module ownership, component placement, request contracts, numeric-vs-username routing, deletion confirmation and shared error/notice integration. `tests/admin-inspector-service.test.js` covers authorization, lookup, account-deletion locks, persistence and removal.

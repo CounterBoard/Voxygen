@@ -15,7 +15,7 @@ This document is the entry point for understanding the repository. Feature-level
 | World map asset loader | `src/features/world-map/useWorldMap.js` | Manifest/preview loading, legacy image fallback, retry and stale-request protection |
 | Event/calendar feature | `src/features/events/` | Event screens and forms, date/time conversion and calendar controls |
 | Territory award rendering and admin manager | `src/features/territory-awards/` | Telegram sticker rendering, award icons, source-pack gallery, award grants and issued-award administration |
-| Admin tools | `src/features/admin-tools/` | Read-only D1 health report and JSON export, inspector assignment/removal, and confirmed-user administration (list/create/edit/delete) |
+| Admin tools | `src/features/admin-tools/` | Read-only D1 health report and JSON export, confirmed-user administration (list/create/edit/delete) |
 | User settings lifecycle | `src/features/settings/useUserSettings.js` | Loads effective theme, timezone and map zoom; manages request cancellation, polling, expiry refresh and readiness/error state |
 | Global settings overlay | `src/features/settings/GlobalSettingsPanel.jsx` | Main-inspector control of global theme/zoom overrides, expiry and per-theme visibility rules |
 | Customization feature | `src/features/customization/` | Visual catalog, account-scope selection, visual creation/editing, purchases, ordering and visibility controls |
@@ -68,6 +68,7 @@ This document is the entry point for understanding the repository. Feature-level
 | D1 diagnostics service | `bot/src/features/diagnostics/d1-diagnostics.js` | Main-inspector-only, read-only database inventory, orphan/FK checks and data-volume report; receives auth and JSON helpers from the Worker and never initializes schema |
 | Admin site content service | `bot/src/features/admin-tools/site-content.js` | FAQ and home feature button defaults, normalization, role-aware reads and authenticated writes using existing `app_settings` table helpers |
 | Admin global settings service | `bot/src/features/admin-tools/global-settings.js` | Main-inspector-only theme/map-zoom override reads, writes, clearing and theme-access rules; Worker retains DDL/cache and the shared personal-settings reader |
+| Inspector management service | `bot/src/features/admin-tools/inspectors-service.js` | Main-inspector-only inspector listing, addition by Telegram ID/username, deletion-lock checks and inspector removal; Worker retains the three HTTP route declarations |
 | Lazy database initialization | `bot/src/db/initialization.js` | Owns cached world, recruitment, `app_settings`, event, user-preference and global-settings initialization plus intentionally repeatable manager-change, approval-session and user-directory setup |
 | Versioned world schema migration | `bot/src/db/migrations/world-schema.js` | World database schema migration `2026-11-v41`; owns table/column/index/trigger DDL and calls manager-change and user-directory helpers provided by DB initialization plus the injected `category-maintenance.js` cleanup helper |
 | Database schema | `bot/schema.sql` | D1 tables and indexes |
