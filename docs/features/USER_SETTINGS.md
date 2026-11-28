@@ -1,9 +1,10 @@
 # User settings lifecycle
 
 **Status:** current implementation  
-**Updated:** 2026-11-26  
+**Updated:** 2026-11-28  
 **UI/state hook:** `src/features/settings/useUserSettings.js`  
-**API source:** `bot/src/worker.js` — `GET /api/user-settings`  
+**API service:** `bot/src/features/settings/service.js` — `GET/POST /api/user-settings`  
+**Route dispatch:** `bot/src/worker.js`  
 **Related UI:** `GlobalSettingsPanel.jsx`, `Events.jsx`
 
 ## Purpose and ownership
@@ -34,6 +35,12 @@ The shared `applyUserSettings` method:
 The next active global map-zoom expiry is read from `globalOverrides.mapZoomPercent.expiresAt`. The hook schedules a refresh just after that expiry, so the app switches back to the current personal preference without requiring a reload.
 
 Profile settings saves call `applyUserSettings` and trigger a retry refresh. `GlobalSettingsPanel` calls the same apply method after a successful change. Event screens receive `timezoneOffset`, readiness/error state and the retry callback.
+
+## Backend service boundary
+
+The backend service owns the authenticated GET/POST handlers and the effective-settings calculation. It receives the existing authentication, table-readiness, role lookup, timezone normalization and JSON response helpers from the Worker. It does not own D1 schema initialization or route dispatch.
+
+The service preserves the legacy response aliases (defaultTheme and theme), retired allNotifications compatibility field, per-territory preference defaults, global theme/map-zoom override precedence and opt-out markers. ensureUserPreferenceTables and ensureGlobalSettingsTable remain in the database initialization module and are injected unchanged.
 
 ## Dependency boundary
 
