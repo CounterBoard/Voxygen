@@ -1,7 +1,7 @@
 # Administrative global settings service
 
 **Status:** current implementation  
-**Updated:** 2026-11-26  
+**Updated:** 2026-11-28  
 **Backend service:** `bot/src/features/admin-tools/global-settings.js`  
 **HTTP routes:** `bot/src/worker.js` — `GET/POST /api/admin/global-settings`  
 **D1 tables:** `global_setting_overrides`, `theme_access_settings`
@@ -32,7 +32,7 @@ Save handlers continue to refresh and return the complete current GET response a
 
 `ensureGlobalSettingsTable` deliberately remains in `bot/src/worker.js`. It owns the existing WeakMap initialization cache and the two `CREATE TABLE IF NOT EXISTS` statements for `global_setting_overrides` and `theme_access_settings`.
 
-`readGlobalSettingOverrides` also remains in the Worker because personal `GET /api/user-settings` uses it. Both the root reader and the extracted admin service share the exported `GLOBAL_SETTING_KEYS` Set, keeping the allowed key list in one place.
+`readGlobalSettingOverrides` is owned by `bot/src/features/settings/service.js`, alongside the personal GET/POST handlers. Both settings services share the exported `GLOBAL_SETTING_KEYS` Set, keeping the allowed key list in one place.
 
 The service contains only request handlers and DML queries. It does not define, create, alter or migrate tables.
 
