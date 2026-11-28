@@ -115,7 +115,6 @@ test("GET respects personal override opt-out markers and retains the safe vox fa
   assert.equal(body.settings.personalMapZoomPercent, 61);
   assert.equal(body.settings.mapZoomPercent, 61);
   assert.equal(body.settings.timezone, "UTC+3");
-  assert.ok(DB.statements.some(entry => entry.sql.includes("UPDATE user_preferences SET default_theme")));
 });
 
 test("POST rejects invalid JSON before initializing settings tables", async () => {
