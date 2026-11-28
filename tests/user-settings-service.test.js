@@ -95,7 +95,7 @@ test("GET preserves effective theme, global zoom, timezone and territory respons
     { id: "city-1", name: "Alpha", role: "manager", enabled: true },
     { id: "city-2", name: "Beta", role: "resident", enabled: false },
   ]);
-  assert.deepEqual(deps.calls, ["world", "preferences", "global"]);
+  assert.deepEqual(deps.calls, ["world", "preferences", "global", "global"]);
 });
 
 test("GET respects personal override opt-out markers and retains the safe vox fallback", async () => {
