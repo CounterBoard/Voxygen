@@ -1,7 +1,7 @@
 # Global settings overlay
 
 **Status:** current implementation  
-**Updated:** 2026-11-26  
+**Updated:** 2026-11-28  
 **UI source:** `src/features/settings/GlobalSettingsPanel.jsx`  
 **API source:** `bot/src/worker.js` — `/api/admin/global-settings` and `/api/user-settings`
 
