@@ -75,10 +75,9 @@ test("Vox grid read grants edit permission to a main inspector role lookup", asy
   const handlers = service({
     getRoleByTelegramId: async (...args) => { roleArgs = args; return "inspector"; },
   });
-  const response = await handlers.getVoxGridResponse(new Request("https://voxygen.test/api/vox-grid"), {
-    DB: { prepare() { return { async all() { return { results: [] }; } }; } },
-  });
-  assert.deepEqual(roleArgs, [undefined, 700, "inspector"]);
+  const env = { DB: { prepare() { return { async all() { return { results: [] }; } }; } } };
+  const response = await handlers.getVoxGridResponse(new Request("https://voxygen.test/api/vox-grid"), env);
+  assert.deepEqual(roleArgs, [env, 700, "inspector"]);
   assert.equal((await response.json()).canEdit, false);
 });
 
